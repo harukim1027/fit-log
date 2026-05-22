@@ -1,0 +1,17 @@
+export const Colors = {
+  primary: '#6C63FF',
+  secondary: '#FF6584',
+  success: '#43D9A2',
+  warning: '#FFB347',
+  danger: '#FF5C5C',
+  background: '#0F0F13',
+  surface: '#1A1A22',
+  surfaceAlt: '#22222E',
+  border: '#2E2E3E',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#9898B0',
+  textMuted: '#55556A',
+  diet: '#43D9A2',
+  workout: '#FF6584',
+  stats: '#FFB347',
+};
