@@ -1,12 +1,15 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useDietStore } from '../../store/dietStore';
 import { useWorkoutStore } from '../../store/workoutStore';
+import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
 
 export default function StatsScreen() {
-    const { dailyDiets, targetCalories } = useDietStore();
+  const { dailyDiets, targetCalories } = useDietStore();
   const { sessions } = useWorkoutStore();
+  const { user, logout } = useAuthStore();
 
   const last7 = [...Array(7)].map((_, i) => {
     const d = new Date();
@@ -26,59 +29,72 @@ export default function StatsScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-    <ScrollView contentContainerStyle={s.content}>
-      <Text style={s.title}>통계</Text>
-      <View style={s.summaryRow}>
-        <StatCard label="7일 평균" value={String(Math.round(avgCalories))} unit="kcal" color={Colors.diet} />
-        <StatCard label="총 운동" value={String(sessions.length)} unit="회" color={Colors.workout} />
-        <StatCard label="총 볼륨" value={String(Math.round(totalVolume / 100) / 10)} unit="ton" color={Colors.stats} />
-      </View>
-      <View style={s.card}>
-        <Text style={s.cardTitle}>주간 칼로리</Text>
-        <View style={s.barChart}>
-          {last7.map(date => {
-            const diet = dailyDiets.find(d => d.date === date);
-            const cal = diet?.meals.reduce((s, m) => s + m.foods.reduce((f, food) => f + food.calories, 0), 0) ?? 0;
-            const h = Math.min((cal / targetCalories) * 80, 80);
-            const day = new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' });
-            return (
-              <View key={date} style={s.barCol}>
-                <Text style={s.barValue}>{cal > 0 ? cal : ''}</Text>
-                <View style={s.barBg}>
-                  <View style={[s.barFill, { height: h, backgroundColor: cal > targetCalories ? Colors.danger : Colors.diet }]} />
-                </View>
-                <Text style={s.barDay}>{day}</Text>
-              </View>
-            );
-          })}
+      <ScrollView contentContainerStyle={s.content}>
+
+        <View style={s.header}>
+          <View>
+            <Text style={s.title}>통계</Text>
+            <Text style={s.subtitle}>{user?.name ?? ''}</Text>
+          </View>
+          <TouchableOpacity style={s.logoutBtn} onPress={logout}>
+            <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+            <Text style={s.logoutText}>로그아웃</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-      <View style={s.card}>
-        <Text style={s.cardTitle}>최근 운동</Text>
-        {sessions.length === 0 ? (
-          <Text style={s.emptyText}>운동 기록이 없어요</Text>
-        ) : (
-          sessions.slice(-5).reverse().map(session => {
-            const vol = session.exercises.reduce((sum, ex) =>
-              sum + ex.sets.reduce((s, st) => s + st.weight * st.reps, 0), 0);
-            return (
-              <View key={session.id} style={s.sessionRow}>
-                <View>
-                  <Text style={s.sessionDate}>{new Date(session.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</Text>
-                  <Text style={s.sessionDetail}>{session.exercises.length}종목 · {vol.toLocaleString()}kg</Text>
+
+        <View style={s.summaryRow}>
+          <StatCard label="7일 평균" value={String(Math.round(avgCalories))} unit="kcal" color={Colors.diet} />
+          <StatCard label="총 운동" value={String(sessions.length)} unit="회" color={Colors.workout} />
+          <StatCard label="총 볼륨" value={String(Math.round(totalVolume / 100) / 10)} unit="ton" color={Colors.stats} />
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.cardTitle}>주간 칼로리</Text>
+          <View style={s.barChart}>
+            {last7.map(date => {
+              const diet = dailyDiets.find(d => d.date === date);
+              const cal = diet?.meals.reduce((s, m) => s + m.foods.reduce((f, food) => f + food.calories, 0), 0) ?? 0;
+              const h = Math.min((cal / targetCalories) * 80, 80);
+              const day = new Date(date).toLocaleDateString('ko-KR', { weekday: 'short' });
+              return (
+                <View key={date} style={s.barCol}>
+                  <Text style={s.barValue}>{cal > 0 ? cal : ''}</Text>
+                  <View style={s.barBg}>
+                    <View style={[s.barFill, { height: h, backgroundColor: cal > targetCalories ? Colors.danger : Colors.diet }]} />
+                  </View>
+                  <Text style={s.barDay}>{day}</Text>
                 </View>
-                <View style={s.exTagRow}>
-                  {session.exercises.slice(0, 2).map(ex => (
-                    <Text key={ex.id} style={s.exTag}>{ex.name}</Text>
-                  ))}
-                  {session.exercises.length > 2 && <Text style={s.exTagMore}>+{session.exercises.length - 2}</Text>}
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.cardTitle}>최근 운동</Text>
+          {sessions.length === 0 ? (
+            <Text style={s.emptyText}>운동 기록이 없어요</Text>
+          ) : (
+            sessions.slice(-5).reverse().map(session => {
+              const vol = session.exercises.reduce((sum, ex) =>
+                sum + ex.sets.reduce((s, st) => s + st.weight * st.reps, 0), 0);
+              return (
+                <View key={session.id} style={s.sessionRow}>
+                  <View>
+                    <Text style={s.sessionDate}>{new Date(session.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</Text>
+                    <Text style={s.sessionDetail}>{session.exercises.length}종목 · {vol.toLocaleString()}kg</Text>
+                  </View>
+                  <View style={s.exTagRow}>
+                    {session.exercises.slice(0, 2).map(ex => (
+                      <Text key={ex.id} style={s.exTag}>{ex.name}</Text>
+                    ))}
+                    {session.exercises.length > 2 && <Text style={s.exTagMore}>+{session.exercises.length - 2}</Text>}
+                  </View>
                 </View>
-              </View>
-            );
-          })
-        )}
-      </View>
-    </ScrollView>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -96,7 +112,11 @@ function StatCard({ label, value, unit, color }: { label: string; value: string;
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary, marginBottom: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  title: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, marginTop: 2 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.danger + '10', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.danger + '30' },
+  logoutText: { fontSize: 14, fontWeight: '600', color: Colors.danger },
   summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
   cardTitle: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary, marginBottom: 16 },
