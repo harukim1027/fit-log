@@ -1,19 +1,31 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { Colors } from '../../constants/colors';
 
 export default function WorkoutScreen() {
-  const router = useRouter();
-  const { activeSession, startSession, endSession, getTotalVolume, removeSet } = useWorkoutStore();
+    const router = useRouter();
+  const { activeSession, startSession, endSession, getTotalVolume, removeSet, fetchSessions, isLoading } = useWorkoutStore();
+
+  useEffect(() => { fetchSessions(); }, []);
 
   const handleEnd = () => {
-    Alert.alert('운동 종료', '오늘 운동을 종료할까요?', [
+    Alert.alert('운동 종료', '오늘 운동을 저장하고 종료할까요?', [
       { text: '취소', style: 'cancel' },
-      { text: '종료', style: 'destructive', onPress: endSession },
+      { text: '저장 및 종료', onPress: async () => { await endSession(); } },
     ]);
   };
+
+  if (isLoading) {
+    return (
+      <View style={s.emptyContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   if (!activeSession) {
     return (
@@ -32,20 +44,23 @@ export default function WorkoutScreen() {
   const volume = getTotalVolume(activeSession);
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <SafeAreaView style={s.container}>
+    <ScrollView contentContainerStyle={s.content}>
       <View style={s.sessionHeader}>
         <View>
           <Text style={s.title}>운동 중 🔥</Text>
           <Text style={s.sessionSub}>{activeSession.exercises.length}종목 · 총 볼륨 {volume.toLocaleString()}kg</Text>
         </View>
         <TouchableOpacity style={s.endBtn} onPress={handleEnd}>
-          <Text style={s.endBtnText}>종료</Text>
+          <Text style={s.endBtnText}>저장 및 종료</Text>
         </TouchableOpacity>
       </View>
+
       <TouchableOpacity style={s.addExBtn} onPress={() => router.push('/modal/add-workout')} activeOpacity={0.8}>
         <Ionicons name="add-circle" size={20} color={Colors.workout} />
         <Text style={s.addExText}>운동 종목 추가</Text>
       </TouchableOpacity>
+
       {activeSession.exercises.length === 0 ? (
         <View style={s.noExercise}>
           <Text style={s.noExerciseText}>운동 종목을 추가해주세요</Text>
@@ -80,6 +95,7 @@ export default function WorkoutScreen() {
         ))
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -94,8 +110,8 @@ const s = StyleSheet.create({
   sessionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   title: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
   sessionSub: { fontSize: 13, color: Colors.textSecondary, marginTop: 4 },
-  endBtn: { backgroundColor: Colors.danger + '20', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: Colors.danger + '40' },
-  endBtnText: { fontSize: 14, fontWeight: '600', color: Colors.danger },
+  endBtn: { backgroundColor: Colors.success + '20', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: Colors.success + '40' },
+  endBtnText: { fontSize: 14, fontWeight: '600', color: Colors.success },
   addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.workout + '40' },
   addExText: { fontSize: 14, fontWeight: '600', color: Colors.workout },
   noExercise: { alignItems: 'center', paddingVertical: 40 },

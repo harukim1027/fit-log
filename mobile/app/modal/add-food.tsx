@@ -1,20 +1,10 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useDietStore } from '../../store/dietStore';
 import { Colors, MEAL_LABELS } from '../../constants';
 import { MealType, FoodItem } from '../../types/diet';
-
-const SAMPLE_FOODS = [
-  { name: '닭가슴살', calories: 165, protein: 31, carbs: 0, fat: 3.6, unit: 'g' },
-  { name: '흰쌀밥', calories: 130, protein: 2.7, carbs: 28, fat: 0.3, unit: 'g' },
-  { name: '고구마', calories: 86, protein: 1.6, carbs: 20, fat: 0.1, unit: 'g' },
-  { name: '달걀', calories: 155, protein: 13, carbs: 1.1, fat: 11, unit: '개' },
-  { name: '아보카도', calories: 160, protein: 2, carbs: 9, fat: 15, unit: 'g' },
-  { name: '바나나', calories: 89, protein: 1.1, carbs: 23, fat: 0.3, unit: '개' },
-  { name: '오트밀', calories: 389, protein: 17, carbs: 66, fat: 7, unit: 'g' },
-  { name: '그릭요거트', calories: 59, protein: 10, carbs: 3.6, fat: 0.4, unit: 'g' },
-];
+import apiClient from '../../lib/apiClient';
 
 export default function AddFoodModal() {
   const router = useRouter();
@@ -23,10 +13,23 @@ export default function AddFoodModal() {
   const { addFood } = useDietStore();
 
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<typeof SAMPLE_FOODS[0] | null>(null);
+  const [results, setResults] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any | null>(null);
   const [amount, setAmount] = useState('100');
+  const [loading, setLoading] = useState(false);
 
-  const filtered = SAMPLE_FOODS.filter(f => f.name.includes(search));
+  const handleSearch = async () => {
+    if (!search.trim()) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/food/search', { params: { q: search } });
+      setResults(res.data);
+    } catch {
+      Alert.alert('검색 실패', '잠시 후 다시 시도해주세요');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAdd = () => {
     if (!selected) return Alert.alert('식품을 선택해주세요');
@@ -41,7 +44,7 @@ export default function AddFoodModal() {
       carbs: Math.round(selected.carbs * ratio * 10) / 10,
       fat: Math.round(selected.fat * ratio * 10) / 10,
       amount: amt,
-      unit: selected.unit,
+      unit: 'g',
     };
     addFood(mealType, food);
     router.back();
@@ -50,32 +53,45 @@ export default function AddFoodModal() {
   return (
     <View style={s.container}>
       <Text style={s.subtitle}>{MEAL_LABELS[mealType]}에 추가</Text>
-      <TextInput
-        style={s.searchInput}
-        placeholder="식품명 검색..."
-        placeholderTextColor={Colors.textMuted}
-        value={search}
-        onChangeText={setSearch}
-      />
+      <View style={s.searchRow}>
+        <TextInput
+          style={s.searchInput}
+          placeholder="식품명 검색..."
+          placeholderTextColor={Colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
+        />
+        <TouchableOpacity style={s.searchBtn} onPress={handleSearch}>
+          {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.searchBtnText}>검색</Text>}
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={s.list} keyboardShouldPersistTaps="handled">
-        {filtered.map(food => (
+        {results.length === 0 && !loading && (
+          <Text style={s.hintText}>식품명을 입력하고 검색해주세요</Text>
+        )}
+        {results.map(food => (
           <TouchableOpacity
-            key={food.name}
-            style={[s.foodItem, selected?.name === food.name && s.foodItemSelected]}
+            key={food.id}
+            style={[s.foodItem, selected?.id === food.id && s.foodItemSelected]}
             onPress={() => setSelected(food)}
             activeOpacity={0.7}
           >
             <View style={s.foodItemLeft}>
               <Text style={s.foodName}>{food.name}</Text>
+              {food.brand ? <Text style={s.foodBrand}>{food.brand}</Text> : null}
               <Text style={s.foodMacro}>단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g</Text>
             </View>
             <Text style={s.foodCal}>{food.calories}kcal</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
+
       {selected && (
         <View style={s.amountSection}>
-          <Text style={s.amountLabel}>{selected.name} 양 입력 ({selected.unit})</Text>
+          <Text style={s.amountLabel}>{selected.name} 양 입력 (g)</Text>
           <TextInput
             style={s.amountInput}
             value={amount}
@@ -88,6 +104,7 @@ export default function AddFoodModal() {
           </Text>
         </View>
       )}
+
       <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.8}>
         <Text style={s.addBtnText}>추가하기</Text>
       </TouchableOpacity>
@@ -98,12 +115,17 @@ export default function AddFoodModal() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
   subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 16 },
-  searchInput: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, color: Colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: Colors.border, marginBottom: 12 },
+  searchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  searchInput: { flex: 1, backgroundColor: Colors.surface, borderRadius: 12, padding: 14, color: Colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: Colors.border },
+  searchBtn: { backgroundColor: Colors.diet, borderRadius: 12, paddingHorizontal: 16, justifyContent: 'center' },
+  searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   list: { flex: 1 },
+  hintText: { textAlign: 'center', color: Colors.textMuted, marginTop: 40, fontSize: 14 },
   foodItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: Colors.border },
   foodItemSelected: { borderColor: Colors.diet, backgroundColor: Colors.diet + '10' },
   foodItemLeft: { flex: 1 },
   foodName: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
+  foodBrand: { fontSize: 11, color: Colors.primary, marginTop: 1 },
   foodMacro: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
   foodCal: { fontSize: 14, fontWeight: '600', color: Colors.diet },
   amountSection: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, marginVertical: 12, borderWidth: 1, borderColor: Colors.border },

@@ -1,10 +1,11 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDietStore } from '../../store/dietStore';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { Colors } from '../../constants/colors';
 
 export default function StatsScreen() {
-  const { dailyDiets, targetCalories } = useDietStore();
+    const { dailyDiets, targetCalories } = useDietStore();
   const { sessions } = useWorkoutStore();
 
   const last7 = [...Array(7)].map((_, i) => {
@@ -24,7 +25,8 @@ export default function StatsScreen() {
       es + ex.sets.reduce((ss, st) => ss + st.weight * st.reps, 0), 0), 0);
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <SafeAreaView style={s.container}>
+    <ScrollView contentContainerStyle={s.content}>
       <Text style={s.title}>통계</Text>
       <View style={s.summaryRow}>
         <StatCard label="7일 평균" value={String(Math.round(avgCalories))} unit="kcal" color={Colors.diet} />
@@ -77,6 +79,7 @@ export default function StatsScreen() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
