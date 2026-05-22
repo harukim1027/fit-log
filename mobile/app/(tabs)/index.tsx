@@ -38,7 +38,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      <ScrollView contentContainerStyle={s.content}>
+      <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
         <View style={s.header}>
           <View>
             <Text style={s.greeting}>{user?.name ?? ''}님 안녕하세요 👋</Text>

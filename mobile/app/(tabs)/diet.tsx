@@ -53,7 +53,7 @@ export default function DietScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      <ScrollView contentContainerStyle={s.content}>
+      <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
 
         <View style={s.dateNav}>
           <TouchableOpacity style={s.navBtn} onPress={goBack}>

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkoutStore } from '../../store/workoutStore';
+import RestTimer from '../../components/RestTimer';
 import { Colors } from '../../constants/colors';
 import { WorkoutSession } from '../../types/workout';
 
@@ -47,7 +48,7 @@ export default function WorkoutScreen() {
       </View>
 
       {tab === 'today' ? (
-        <ScrollView contentContainerStyle={s.content}>
+        <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
           {!activeSession ? (
             <View style={s.emptyContainer}>
               <Ionicons name="barbell-outline" size={64} color={Colors.textMuted} />
@@ -69,6 +70,8 @@ export default function WorkoutScreen() {
                   <Text style={s.endBtnText}>저장 및 종료</Text>
                 </TouchableOpacity>
               </View>
+
+              <RestTimer />
 
               <TouchableOpacity style={s.addExBtn} onPress={() => router.push('/modal/add-workout')} activeOpacity={0.8}>
                 <Ionicons name="add-circle" size={20} color={Colors.workout} />
@@ -122,7 +125,7 @@ export default function WorkoutScreen() {
           )}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={s.content}>
+        <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
           {sessions.length === 0 ? (
             <View style={s.emptyContainer}>
               <Ionicons name="calendar-outline" size={64} color={Colors.textMuted} />
