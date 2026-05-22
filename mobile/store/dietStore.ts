@@ -3,15 +3,26 @@ import { DailyDiet, FoodItem, MealType } from '../types/diet';
 import { DEFAULT_TARGET_CALORIES } from '../constants';
 import apiClient from '../lib/apiClient';
 
+interface NutrientSummary {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  meals: { breakfast: number; lunch: number; dinner: number; snack: number };
+}
+
 interface DietStore {
   dailyDiets: DailyDiet[];
   targetCalories: number;
   isLoading: boolean;
+  summary: NutrientSummary | null;
   getTodayDiet: () => DailyDiet;
   addFood: (mealType: MealType, food: FoodItem, date?: string) => Promise<void>;
   removeFood: (mealType: MealType, foodId: string, date?: string) => Promise<void>;
   getTotalCalories: (date?: string) => number;
   fetchDiet: (date?: string) => Promise<void>;
+  fetchSummary: (date?: string) => Promise<void>;
+  setTargetCalories: (cal: number) => void;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -31,6 +42,9 @@ export const useDietStore = create<DietStore>((set, get) => ({
   dailyDiets: [],
   targetCalories: DEFAULT_TARGET_CALORIES,
   isLoading: false,
+  summary: null,
+
+  setTargetCalories: (cal) => set({ targetCalories: cal }),
 
   getTodayDiet: () => {
     const today = todayStr();
@@ -39,6 +53,16 @@ export const useDietStore = create<DietStore>((set, get) => ({
     const fresh = emptyDiet(today, get().targetCalories);
     set(s => ({ dailyDiets: [...s.dailyDiets, fresh] }));
     return fresh;
+  },
+
+  fetchSummary: async (date) => {
+    const d = date ?? todayStr();
+    try {
+      const res = await apiClient.get('/diet/summary', { params: { date: d } });
+      set({ summary: res.data });
+    } catch (e) {
+      console.error('영양소 요약 불러오기 실패', e);
+    }
   },
 
   fetchDiet: async (date) => {
@@ -67,6 +91,7 @@ export const useDietStore = create<DietStore>((set, get) => ({
         const diets = s.dailyDiets.filter(x => x.date !== d);
         return { dailyDiets: [...diets, diet], isLoading: false };
       });
+      await get().fetchSummary(d);
     } catch (e) {
       console.error('식단 불러오기 실패', e);
       set({ isLoading: false });

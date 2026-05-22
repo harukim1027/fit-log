@@ -13,6 +13,12 @@ export class DietController {
     return this.dietService.getByDate(req.user.id, d);
   }
 
+  @Get('summary')
+  getSummary(@Request() req: any, @Query('date') date: string) {
+    const d = date || new Date().toISOString().split('T')[0];
+    return this.dietService.getSummary(req.user.id, d);
+  }
+
   @Post()
   addFood(@Request() req: any, @Body() body: any) {
     return this.dietService.addFood(req.user.id, body);
@@ -21,11 +27,5 @@ export class DietController {
   @Delete(':id')
   deleteFood(@Request() req: any, @Param('id') id: string) {
     return this.dietService.deleteFood(req.user.id, id);
-  }
-
-  @Get('calories')
-  getTotalCalories(@Request() req: any, @Query('date') date: string) {
-    const d = date || new Date().toISOString().split('T')[0];
-    return this.dietService.getTotalCalories(req.user.id, d);
   }
 }
