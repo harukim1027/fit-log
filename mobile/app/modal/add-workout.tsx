@@ -1,4 +1,5 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Keyboard, KeyboardAvoidingView, Platform, TouchableWithoutFeedback } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useWorkoutStore } from '../../store/workoutStore';
@@ -45,7 +46,7 @@ export default function AddWorkoutModal() {
         id: exId + '-' + i,
         weight: parseFloat(st.weight),
         reps: parseInt(st.reps),
-        completed: true,
+        completed: false,
       };
       addSet(exId, workoutSet);
     });
@@ -53,70 +54,88 @@ export default function AddWorkoutModal() {
   };
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-      <Text style={s.subtitle}>운동 종목 선택</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll}>
-        {EXERCISE_CATEGORIES.map(cat => (
-          <TouchableOpacity
-            key={cat}
-            style={[s.catChip, selectedCategory === cat && s.catChipActive]}
-            onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-          >
-            <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>{cat}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      <View style={s.exerciseList}>
-        {filtered.map(ex => (
-          <TouchableOpacity
-            key={ex.name}
-            style={[s.exItem, selectedExercise?.name === ex.name && s.exItemSelected]}
-            onPress={() => setSelectedExercise(ex)}
-            activeOpacity={0.7}
-          >
-            <Text style={s.exName}>{ex.name}</Text>
-            <Text style={s.exCat}>{ex.category}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {selectedExercise && (
-        <View style={s.setSection}>
-          <Text style={s.setTitle}>{selectedExercise.name} — 세트 기록</Text>
-          <View style={s.setHeaderRow}>
-            <Text style={[s.setHeader, { flex: 0.5 }]}>세트</Text>
-            <Text style={[s.setHeader, { flex: 1 }]}>무게(kg)</Text>
-            <Text style={[s.setHeader, { flex: 1 }]}>횟수</Text>
-          </View>
-          {sets.map((st, i) => (
-            <View key={i} style={s.setRow}>
-              <Text style={[s.setNum, { flex: 0.5 }]}>{i + 1}</Text>
-              <TextInput
-                style={[s.setInput, { flex: 1 }]}
-                value={st.weight}
-                onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weight: v } : s))}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={Colors.textMuted}
-              />
-              <TextInput
-                style={[s.setInput, { flex: 1 }]}
-                value={st.reps}
-                onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s))}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={Colors.textMuted}
-              />
-            </View>
+    <SafeAreaView style={s.container} edges={['bottom']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          <View style={{ flex: 1 }}>
+
+      <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
+        <Text style={s.subtitle}>운동 종목 선택</Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} keyboardShouldPersistTaps="handled">
+          {EXERCISE_CATEGORIES.map(cat => (
+            <TouchableOpacity
+              key={cat}
+              style={[s.catChip, selectedCategory === cat && s.catChipActive]}
+              onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+            >
+              <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>{cat}</Text>
+            </TouchableOpacity>
           ))}
-          <TouchableOpacity style={s.addSetBtn} onPress={() => setSets(s => [...s, { weight: '', reps: '' }])}>
-            <Text style={s.addSetText}>+ 세트 추가</Text>
-          </TouchableOpacity>
+        </ScrollView>
+
+        <View style={s.exerciseList}>
+          {filtered.map(ex => (
+            <TouchableOpacity
+              key={ex.name}
+              style={[s.exItem, selectedExercise?.name === ex.name && s.exItemSelected]}
+              onPress={() => setSelectedExercise(ex)}
+              activeOpacity={0.7}
+            >
+              <Text style={s.exName}>{ex.name}</Text>
+              <Text style={s.exCat}>{ex.category}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
-      <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.8}>
-        <Text style={s.addBtnText}>운동 추가</Text>
-      </TouchableOpacity>
-    </ScrollView>
+
+        {selectedExercise && (
+          <View style={s.setSection}>
+            <Text style={s.setTitle}>{selectedExercise.name} 세트 기록</Text>
+            <View style={s.setHeaderRow}>
+              <Text style={[s.setHeader, { flex: 0.5 }]}>세트</Text>
+              <Text style={[s.setHeader, { flex: 1 }]}>무게(kg)</Text>
+              <Text style={[s.setHeader, { flex: 1 }]}>횟수</Text>
+            </View>
+            {sets.map((st, i) => (
+              <View key={i} style={s.setRow}>
+                <Text style={[s.setNum, { flex: 0.5 }]}>{i + 1}</Text>
+                <TextInput
+                  style={[s.setInput, { flex: 1 }]}
+                  value={st.weight}
+                  onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weight: v } : s))}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={Colors.textMuted}
+                  
+                  returnKeyType="next"
+                />
+                <TextInput
+                  style={[s.setInput, { flex: 1 }]}
+                  value={st.reps}
+                  onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s))}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={Colors.textMuted}
+                  
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                />
+              </View>
+            ))}
+            <TouchableOpacity style={s.addSetBtn} onPress={() => setSets(s => [...s, { weight: '', reps: '' }])}>
+              <Text style={s.addSetText}>+ 세트 추가</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.8}>
+          <Text style={s.addBtnText}>운동 추가</Text>
+        </TouchableOpacity>
+      </ScrollView>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

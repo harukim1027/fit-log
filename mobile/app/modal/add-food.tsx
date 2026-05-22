@@ -139,7 +139,7 @@ export default function AddFoodModal() {
               {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.searchBtnText}>검색</Text>}
             </TouchableOpacity>
           </View>
-          <ScrollView style={s.list} keyboardShouldPersistTaps="handled">
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={s.list} keyboardShouldPersistTaps="handled">
             {results.length === 0 && !loading && (
               <Text style={s.hintText}>식품명을 입력하고 검색해주세요. 한글은 닭가슴살, 영어는 chicken으로 검색해보세요</Text>
             )}
@@ -191,7 +191,7 @@ export default function AddFoodModal() {
 
       {tab === 'favorites' && (
         <>
-          <ScrollView style={s.list}>
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={s.list}>
             {favorites.length === 0 ? (
               <Text style={s.hintText}>즐겨찾기한 식품이 없어요. 검색 후 하트를 눌러 추가해보세요</Text>
             ) : (
