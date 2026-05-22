@@ -1,19 +1,22 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { useDietStore } from '../../store/dietStore';
+import { useFavoriteStore } from '../../store/favoriteStore';
 import { Colors, MEAL_LABELS } from '../../constants';
 import { MealType, FoodItem } from '../../types/diet';
 import apiClient from '../../lib/apiClient';
 
-type Tab = 'search' | 'manual';
+type Tab = 'search' | 'favorites' | 'manual';
 
 export default function AddFoodModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mealType: MealType }>();
   const mealType = params.mealType ?? 'breakfast';
   const { addFood } = useDietStore();
+  const { favorites, fetchFavorites, addFavorite, removeFavorite, isFavorite } = useFavoriteStore();
 
   const [tab, setTab] = useState<Tab>('search');
   const [search, setSearch] = useState('');
@@ -29,6 +32,8 @@ export default function AddFoodModal() {
   const [manualFat, setManualFat] = useState('');
   const [manualAmount, setManualAmount] = useState('100');
 
+  useEffect(() => { fetchFavorites(); }, []);
+
   const handleSearch = async () => {
     if (!search.trim()) return;
     setLoading(true);
@@ -42,23 +47,44 @@ export default function AddFoodModal() {
     }
   };
 
+  const handleAddFood = (food: any, amt: number) => {
+    const ratio = amt / 100;
+    const item: FoodItem = {
+      id: Date.now().toString(),
+      name: food.name || food.foodName,
+      calories: Math.round((food.calories) * ratio),
+      protein: Math.round((food.protein) * ratio * 10) / 10,
+      carbs: Math.round((food.carbs) * ratio * 10) / 10,
+      fat: Math.round((food.fat) * ratio * 10) / 10,
+      amount: amt,
+      unit: 'g',
+    };
+    addFood(mealType, item);
+    router.back();
+  };
+
   const handleAddSearch = () => {
     if (!selected) return Alert.alert('식품을 선택해주세요');
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return Alert.alert('올바른 양을 입력해주세요');
-    const ratio = amt / 100;
-    const food: FoodItem = {
-      id: Date.now().toString(),
-      name: selected.name,
-      calories: Math.round(selected.calories * ratio),
-      protein: Math.round(selected.protein * ratio * 10) / 10,
-      carbs: Math.round(selected.carbs * ratio * 10) / 10,
-      fat: Math.round(selected.fat * ratio * 10) / 10,
-      amount: amt,
-      unit: 'g',
-    };
-    addFood(mealType, food);
-    router.back();
+    handleAddFood(selected, amt);
+  };
+
+  const handleToggleFavorite = async (food: any) => {
+    if (isFavorite(food.name || food.foodName)) {
+      const fav = favorites.find(f => f.foodName === (food.name || food.foodName));
+      if (fav) await removeFavorite(fav.id);
+    } else {
+      await addFavorite({
+        foodName: food.name || food.foodName,
+        calories: food.calories,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        amount: 100,
+        unit: 'g',
+      });
+    }
   };
 
   const handleAddManual = () => {
@@ -79,20 +105,25 @@ export default function AddFoodModal() {
     router.back();
   };
 
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'search', label: '검색' },
+    { key: 'favorites', label: '즐겨찾기' },
+    { key: 'manual', label: '직접 입력' },
+  ];
+
   return (
     <SafeAreaView style={s.container} edges={['bottom']}>
       <Text style={s.subtitle}>{MEAL_LABELS[mealType]}에 추가</Text>
 
       <View style={s.tabRow}>
-        <TouchableOpacity style={[s.tab, tab === 'search' && s.tabActive]} onPress={() => setTab('search')}>
-          <Text style={[s.tabText, tab === 'search' && s.tabTextActive]}>검색</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[s.tab, tab === 'manual' && s.tabActive]} onPress={() => setTab('manual')}>
-          <Text style={[s.tabText, tab === 'manual' && s.tabTextActive]}>직접 입력</Text>
-        </TouchableOpacity>
+        {TABS.map(t => (
+          <TouchableOpacity key={t.key} style={[s.tab, tab === t.key && s.tabActive]} onPress={() => setTab(t.key)}>
+            <Text style={[s.tabText, tab === t.key && s.tabTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {tab === 'search' ? (
+      {tab === 'search' && (
         <>
           <View style={s.searchRow}>
             <TextInput
@@ -108,11 +139,9 @@ export default function AddFoodModal() {
               {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.searchBtnText}>검색</Text>}
             </TouchableOpacity>
           </View>
-
           <ScrollView style={s.list} keyboardShouldPersistTaps="handled">
             {results.length === 0 && !loading && (
-              <Text style={s.hintText}>식품명을 입력하고 검색해주세요{'
-'}한글은 닭가슴살, 영어는 chicken으로 검색해보세요</Text>
+              <Text style={s.hintText}>식품명을 입력하고 검색해주세요. 한글은 닭가슴살, 영어는 chicken으로 검색해보세요</Text>
             )}
             {results.map(food => (
               <TouchableOpacity
@@ -126,11 +155,19 @@ export default function AddFoodModal() {
                   {food.brand ? <Text style={s.foodBrand}>{food.brand}</Text> : null}
                   <Text style={s.foodMacro}>단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g</Text>
                 </View>
-                <Text style={s.foodCal}>{food.calories}kcal</Text>
+                <View style={s.foodRight}>
+                  <Text style={s.foodCal}>{food.calories}kcal</Text>
+                  <TouchableOpacity onPress={() => handleToggleFavorite(food)}>
+                    <Ionicons
+                      name={isFavorite(food.name) ? 'heart' : 'heart-outline'}
+                      size={20}
+                      color={isFavorite(food.name) ? Colors.danger : Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
-
           {selected && (
             <View style={s.amountSection}>
               <Text style={s.amountLabel}>{selected.name} 양 입력 (g)</Text>
@@ -146,12 +183,46 @@ export default function AddFoodModal() {
               </Text>
             </View>
           )}
-
           <TouchableOpacity style={s.addBtn} onPress={handleAddSearch} activeOpacity={0.8}>
             <Text style={s.addBtnText}>추가하기</Text>
           </TouchableOpacity>
         </>
-      ) : (
+      )}
+
+      {tab === 'favorites' && (
+        <>
+          <ScrollView style={s.list}>
+            {favorites.length === 0 ? (
+              <Text style={s.hintText}>즐겨찾기한 식품이 없어요. 검색 후 하트를 눌러 추가해보세요</Text>
+            ) : (
+              favorites.map(food => (
+                <View key={food.id} style={s.foodItem}>
+                  <View style={s.foodItemLeft}>
+                    <Text style={s.foodName}>{food.foodName}</Text>
+                    <Text style={s.foodMacro}>단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g</Text>
+                  </View>
+                  <View style={s.foodRight}>
+                    <Text style={s.foodCal}>{food.calories}kcal</Text>
+                    <View style={s.favBtns}>
+                      <TouchableOpacity
+                        style={s.favAddBtn}
+                        onPress={() => handleAddFood({ name: food.foodName, ...food }, food.amount)}
+                      >
+                        <Text style={s.favAddBtnText}>추가</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => removeFavorite(food.id)}>
+                        <Ionicons name="heart" size={20} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </>
+      )}
+
+      {tab === 'manual' && (
         <ScrollView keyboardShouldPersistTaps="handled">
           <View style={s.manualForm}>
             <ManualInput label="식품명 *" value={manualName} onChangeText={setManualName} placeholder="예: 삶은 계란" />
@@ -201,8 +272,8 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 16 },
   tabRow: { flexDirection: 'row', backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 4, marginBottom: 16 },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: Colors.surface, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: 14, fontWeight: '500', color: Colors.textMuted },
+  tabActive: { backgroundColor: Colors.surface },
+  tabText: { fontSize: 13, fontWeight: '500', color: Colors.textMuted },
   tabTextActive: { color: Colors.textPrimary, fontWeight: '600' },
   searchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   searchInput: { flex: 1, backgroundColor: Colors.surface, borderRadius: 12, padding: 14, color: Colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: Colors.border },
@@ -216,7 +287,11 @@ const s = StyleSheet.create({
   foodName: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
   foodBrand: { fontSize: 11, color: Colors.primary, marginTop: 1 },
   foodMacro: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
+  foodRight: { alignItems: 'flex-end', gap: 6 },
   foodCal: { fontSize: 14, fontWeight: '600', color: Colors.diet },
+  favBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  favAddBtn: { backgroundColor: Colors.diet + '20', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  favAddBtnText: { fontSize: 12, color: Colors.diet, fontWeight: '600' },
   amountSection: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, marginVertical: 12, borderWidth: 1, borderColor: Colors.border },
   amountLabel: { fontSize: 13, color: Colors.textSecondary, marginBottom: 8 },
   amountInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 8, padding: 12, color: Colors.textPrimary, fontSize: 18, fontWeight: '600', textAlign: 'center', borderWidth: 1, borderColor: Colors.border },

@@ -7,6 +7,8 @@ import { FoodModule } from './food/food.module';
 import { WorkoutModule } from './workout/workout.module';
 import { StatsModule } from './stats/stats.module';
 import { DietModule } from './diet/diet.module';
+import { FavoriteModule } from './favorite/favorite.module';
+import { WaterModule } from './water/water.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { DietModule } from './diet/diet.module';
     WorkoutModule,
     StatsModule,
     DietModule,
+    FavoriteModule,
+    WaterModule,
   ],
 })
 export class AppModule {}
