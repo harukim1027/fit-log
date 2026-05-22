@@ -1,5 +1,7 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useDietStore } from '../../store/dietStore';
 import { Colors, MEAL_LABELS } from '../../constants';
@@ -9,14 +11,26 @@ const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_EMOJI: Record<MealType, string> = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍎' };
 
 export default function DietScreen() {
-  const router = useRouter();
-  const { getTodayDiet, getTotalCalories, targetCalories, removeFood } = useDietStore();
+    const router = useRouter();
+  const { getTodayDiet, getTotalCalories, targetCalories, removeFood, fetchDiet, isLoading } = useDietStore();
+
+  useEffect(() => { fetchDiet(); }, []);
+
   const todayDiet = getTodayDiet();
   const total = getTotalCalories();
   const progress = Math.min(total / targetCalories, 1);
 
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <SafeAreaView style={s.container}>
+    <ScrollView contentContainerStyle={s.content}>
       <Text style={s.title}>식단 기록</Text>
       <View style={s.card}>
         <View style={s.progressHeader}>
@@ -62,6 +76,7 @@ export default function DietScreen() {
         );
       })}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

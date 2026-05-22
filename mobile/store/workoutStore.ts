@@ -1,17 +1,20 @@
 import { create } from 'zustand';
 import { Exercise, WorkoutSession, WorkoutSet } from '../types/workout';
+import apiClient from '../lib/apiClient';
 
 interface WorkoutStore {
   sessions: WorkoutSession[];
   activeSession: WorkoutSession | null;
+  isLoading: boolean;
   startSession: () => void;
-  endSession: () => void;
+  endSession: () => Promise<void>;
   addExercise: (exercise: Omit<Exercise, 'sets'>) => void;
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   updateSet: (exerciseId: string, setId: string, data: Partial<WorkoutSet>) => void;
   removeSet: (exerciseId: string, setId: string) => void;
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
+  fetchSessions: () => Promise<void>;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -19,6 +22,7 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   sessions: [],
   activeSession: null,
+  isLoading: false,
 
   startSession: () => {
     const session: WorkoutSession = {
@@ -31,9 +35,28 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     set({ activeSession: session });
   },
 
-  endSession: () => {
+  endSession: async () => {
     const active = get().activeSession;
     if (!active) return;
+    try {
+      await apiClient.post('/workout', {
+        date: active.date,
+        durationMinutes: active.durationMinutes,
+        note: active.note,
+        exercises: active.exercises.map(ex => ({
+          name: ex.name,
+          category: ex.category,
+          sets: ex.sets.map(st => ({
+            weight: st.weight,
+            reps: st.reps,
+            completed: st.completed,
+          })),
+        })),
+      });
+      await get().fetchSessions();
+    } catch (e) {
+      console.error('운동 저장 실패', e);
+    }
     set(s => ({ sessions: [...s.sessions, active], activeSession: null }));
   },
 
@@ -100,4 +123,15 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     session.exercises.reduce((sum, ex) =>
       sum + ex.sets.reduce((s, st) => s + st.weight * st.reps, 0), 0
     ),
+
+  fetchSessions: async () => {
+    set({ isLoading: true });
+    try {
+      const res = await apiClient.get('/workout');
+      set({ sessions: res.data, isLoading: false });
+    } catch (e) {
+      console.error('운동 기록 불러오기 실패', e);
+      set({ isLoading: false });
+    }
+  },
 }));

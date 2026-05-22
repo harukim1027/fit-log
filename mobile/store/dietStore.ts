@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 import { DailyDiet, FoodItem, MealType } from '../types/diet';
 import { DEFAULT_TARGET_CALORIES } from '../constants';
+import apiClient from '../lib/apiClient';
 
 interface DietStore {
   dailyDiets: DailyDiet[];
   targetCalories: number;
+  isLoading: boolean;
   getTodayDiet: () => DailyDiet;
-  addFood: (mealType: MealType, food: FoodItem, date?: string) => void;
-  removeFood: (mealType: MealType, foodId: string, date?: string) => void;
+  addFood: (mealType: MealType, food: FoodItem, date?: string) => Promise<void>;
+  removeFood: (mealType: MealType, foodId: string, date?: string) => Promise<void>;
   getTotalCalories: (date?: string) => number;
-  getMealCalories: (mealType: MealType, date?: string) => number;
+  fetchDiet: (date?: string) => Promise<void>;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -28,6 +30,7 @@ const emptyDiet = (date: string, target: number): DailyDiet => ({
 export const useDietStore = create<DietStore>((set, get) => ({
   dailyDiets: [],
   targetCalories: DEFAULT_TARGET_CALORIES,
+  isLoading: false,
 
   getTodayDiet: () => {
     const today = todayStr();
@@ -38,36 +41,66 @@ export const useDietStore = create<DietStore>((set, get) => ({
     return fresh;
   },
 
-  addFood: (mealType, food, date) => {
+  fetchDiet: async (date) => {
     const d = date ?? todayStr();
-    set(s => {
-      const diets = [...s.dailyDiets];
-      let diet = diets.find(x => x.date === d);
-      if (!diet) {
-        diet = emptyDiet(d, s.targetCalories);
-        diets.push(diet);
-      }
-      diet.meals = diet.meals.map(m =>
-        m.type === mealType ? { ...m, foods: [...m.foods, food] } : m
-      );
-      return { dailyDiets: diets };
-    });
+    set({ isLoading: true });
+    try {
+      const res = await apiClient.get('/diet', { params: { date: d } });
+      const logs = res.data;
+      const diet = emptyDiet(d, get().targetCalories);
+      logs.forEach((log: any) => {
+        const meal = diet.meals.find(m => m.type === log.mealType);
+        if (meal) {
+          meal.foods.push({
+            id: log.id,
+            name: log.foodName,
+            calories: log.calories,
+            protein: log.protein,
+            carbs: log.carbs,
+            fat: log.fat,
+            amount: log.amount,
+            unit: log.unit,
+          });
+        }
+      });
+      set(s => {
+        const diets = s.dailyDiets.filter(x => x.date !== d);
+        return { dailyDiets: [...diets, diet], isLoading: false };
+      });
+    } catch (e) {
+      console.error('식단 불러오기 실패', e);
+      set({ isLoading: false });
+    }
   },
 
-  removeFood: (mealType, foodId, date) => {
+  addFood: async (mealType, food, date) => {
     const d = date ?? todayStr();
-    set(s => ({
-      dailyDiets: s.dailyDiets.map(diet =>
-        diet.date !== d ? diet : {
-          ...diet,
-          meals: diet.meals.map(m =>
-            m.type === mealType
-              ? { ...m, foods: m.foods.filter(f => f.id !== foodId) }
-              : m
-          ),
-        }
-      ),
-    }));
+    try {
+      await apiClient.post('/diet', {
+        date: d,
+        mealType,
+        foodName: food.name,
+        calories: food.calories,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        amount: food.amount,
+        unit: food.unit,
+      });
+      await get().fetchDiet(d);
+    } catch (e) {
+      console.error('식단 추가 실패', e);
+    }
+  },
+
+  removeFood: async (mealType, foodId, date) => {
+    const d = date ?? todayStr();
+    try {
+      await apiClient.delete('/diet/' + foodId);
+      await get().fetchDiet(d);
+    } catch (e) {
+      console.error('식단 삭제 실패', e);
+    }
   },
 
   getTotalCalories: (date) => {
@@ -77,13 +110,5 @@ export const useDietStore = create<DietStore>((set, get) => ({
     return diet.meals.reduce((sum, m) =>
       sum + m.foods.reduce((s, f) => s + f.calories, 0), 0
     );
-  },
-
-  getMealCalories: (mealType, date) => {
-    const d = date ?? todayStr();
-    const diet = get().dailyDiets.find(x => x.date === d);
-    if (!diet) return 0;
-    const meal = diet.meals.find(m => m.type === mealType);
-    return meal?.foods.reduce((s, f) => s + f.calories, 0) ?? 0;
   },
 }));

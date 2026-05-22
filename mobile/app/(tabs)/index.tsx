@@ -1,14 +1,17 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useDietStore } from '../../store/dietStore';
 import { useWorkoutStore } from '../../store/workoutStore';
+import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
 
 export default function HomeScreen() {
-  const router = useRouter();
+    const router = useRouter();
   const { getTotalCalories, targetCalories, getTodayDiet } = useDietStore();
   const { activeSession, getTodaySession, startSession } = useWorkoutStore();
+  const { user } = useAuthStore();
 
   getTodayDiet();
   const consumed = getTotalCalories();
@@ -18,10 +21,13 @@ export default function HomeScreen() {
   const exerciseCount = todaySession?.exercises.length ?? 0;
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <SafeAreaView style={s.container}>
+    <ScrollView contentContainerStyle={s.content}>
       <View style={s.header}>
-        <Text style={s.greeting}>안녕하세요 👋</Text>
-        <Text style={s.date}>{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</Text>
+        <View>
+          <Text style={s.greeting}>{user?.name ?? ''}님 안녕하세요 👋</Text>
+          <Text style={s.date}>{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</Text>
+        </View>
       </View>
       <View style={s.card}>
         <Text style={s.cardTitle}>오늘의 칼로리</Text>
@@ -60,6 +66,7 @@ export default function HomeScreen() {
         <QuickButton label="운동 시작" icon="barbell" color={Colors.workout} onPress={() => { if (!activeSession) startSession(); router.push('/(tabs)/workout'); }} />
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -86,7 +93,7 @@ function QuickButton({ label, icon, color, onPress }: { label: string; icon: any
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
-  header: { marginBottom: 24 },
+  header: { marginBottom: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   greeting: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
   date: { fontSize: 14, color: Colors.textSecondary, marginTop: 4 },
   card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
