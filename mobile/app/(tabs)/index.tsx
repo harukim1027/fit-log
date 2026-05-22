@@ -8,6 +8,8 @@ import { useWorkoutStore } from '../../store/workoutStore';
 import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
 import CalorieRing from '../../components/CalorieRing';
+import WaterTracker from '../../components/WaterTracker';
+import { useWaterStore } from '../../store/waterStore';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -15,9 +17,12 @@ export default function HomeScreen() {
   const { activeSession, getTodaySession, startSession, fetchSessions } = useWorkoutStore();
   const { user } = useAuthStore();
 
+  const { fetchTotal } = useWaterStore();
+
   useEffect(() => {
     fetchDiet();
     fetchSessions();
+    fetchTotal();
   }, []);
 
   getTodayDiet();
@@ -84,6 +89,8 @@ export default function HomeScreen() {
             <Text style={s.emptyText}>오늘 운동 기록이 없어요</Text>
           )}
         </View>
+
+        <WaterTracker />
 
         <Text style={s.sectionTitle}>빠른 기록</Text>
         <View style={s.quickRow}>
