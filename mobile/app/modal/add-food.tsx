@@ -11,6 +11,14 @@ import apiClient from '../../lib/apiClient';
 
 type Tab = 'search' | 'favorites' | 'manual';
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 10,
+  elevation: 3,
+};
+
 export default function AddFoodModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mealType: MealType }>();
@@ -113,7 +121,13 @@ export default function AddFoodModal() {
 
   return (
     <SafeAreaView style={s.container} edges={['bottom']}>
-      <Text style={s.subtitle}>{MEAL_LABELS[mealType]}에 추가</Text>
+      <View style={s.subtitleRow}>
+        <Text style={s.subtitle}>{MEAL_LABELS[mealType]}에 추가</Text>
+        <TouchableOpacity style={s.barcodeBtn} onPress={() => router.push({ pathname: '/modal/barcode-scan', params: { mealType } } as any)}>
+          <Ionicons name="barcode-outline" size={20} color={Colors.primary} />
+          <Text style={s.barcodeBtnText}>바코드</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={s.tabRow}>
         {TABS.map(t => (
@@ -139,9 +153,12 @@ export default function AddFoodModal() {
               {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.searchBtnText}>검색</Text>}
             </TouchableOpacity>
           </View>
-          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={s.list} keyboardShouldPersistTaps="handled">
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={s.list}>
             {results.length === 0 && !loading && (
-              <Text style={s.hintText}>식품명을 입력하고 검색해주세요. 한글은 닭가슴살, 영어는 chicken으로 검색해보세요</Text>
+              <View style={s.hintContainer}>
+                <Text style={s.hintEmoji}>🔍</Text>
+                <Text style={s.hintText}>식품명을 입력하고 검색해주세요{'\n'}한글은 닭가슴살, 영어는 chicken</Text>
+              </View>
             )}
             {results.map(food => (
               <TouchableOpacity
@@ -161,7 +178,7 @@ export default function AddFoodModal() {
                     <Ionicons
                       name={isFavorite(food.name) ? 'heart' : 'heart-outline'}
                       size={20}
-                      color={isFavorite(food.name) ? Colors.danger : Colors.textMuted}
+                      color={isFavorite(food.name) ? Colors.secondary : Colors.textMuted}
                     />
                   </TouchableOpacity>
                 </View>
@@ -193,7 +210,10 @@ export default function AddFoodModal() {
         <>
           <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" style={s.list}>
             {favorites.length === 0 ? (
-              <Text style={s.hintText}>즐겨찾기한 식품이 없어요. 검색 후 하트를 눌러 추가해보세요</Text>
+              <View style={s.hintContainer}>
+                <Text style={s.hintEmoji}>🤍</Text>
+                <Text style={s.hintText}>즐겨찾기한 식품이 없어요{'\n'}검색 후 하트를 눌러 추가해보세요</Text>
+              </View>
             ) : (
               favorites.map(food => (
                 <View key={food.id} style={s.foodItem}>
@@ -211,7 +231,7 @@ export default function AddFoodModal() {
                         <Text style={s.favAddBtnText}>추가</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => removeFavorite(food.id)}>
-                        <Ionicons name="heart" size={20} color={Colors.danger} />
+                        <Ionicons name="heart" size={20} color={Colors.secondary} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -269,40 +289,45 @@ function ManualInput({ label, value, onChangeText, placeholder, keyboardType }: 
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 16 },
-  tabRow: { flexDirection: 'row', backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 4, marginBottom: 16 },
-  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: Colors.surface },
+  subtitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  barcodeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary + '20', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
+  barcodeBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600' },
+  tabRow: { flexDirection: 'row', backgroundColor: Colors.surfaceAlt, borderRadius: 16, padding: 4, marginBottom: 16 },
+  tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 14 },
+  tabActive: { backgroundColor: Colors.surface, ...CARD_SHADOW },
   tabText: { fontSize: 13, fontWeight: '500', color: Colors.textMuted },
-  tabTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  tabTextActive: { color: Colors.textPrimary, fontWeight: '700' },
   searchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  searchInput: { flex: 1, backgroundColor: Colors.surface, borderRadius: 12, padding: 14, color: Colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: Colors.border },
-  searchBtn: { backgroundColor: Colors.diet, borderRadius: 12, paddingHorizontal: 16, justifyContent: 'center' },
+  searchInput: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, padding: 14, color: Colors.textPrimary, fontSize: 15, ...CARD_SHADOW },
+  searchBtn: { backgroundColor: Colors.diet, borderRadius: 16, paddingHorizontal: 18, justifyContent: 'center' },
   searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   list: { flex: 1 },
-  hintText: { textAlign: 'center', color: Colors.textMuted, marginTop: 32, fontSize: 13, lineHeight: 22 },
-  foodItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: Colors.border },
-  foodItemSelected: { borderColor: Colors.diet, backgroundColor: Colors.diet + '10' },
+  hintContainer: { alignItems: 'center', marginTop: 40, gap: 10 },
+  hintEmoji: { fontSize: 48 },
+  hintText: { textAlign: 'center', color: Colors.textMuted, fontSize: 13, lineHeight: 22 },
+  foodItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, padding: 14, marginBottom: 8, ...CARD_SHADOW },
+  foodItemSelected: { backgroundColor: Colors.diet + '18' },
   foodItemLeft: { flex: 1 },
-  foodName: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
+  foodName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   foodBrand: { fontSize: 11, color: Colors.primary, marginTop: 1 },
   foodMacro: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
   foodRight: { alignItems: 'flex-end', gap: 6 },
-  foodCal: { fontSize: 14, fontWeight: '600', color: Colors.diet },
+  foodCal: { fontSize: 14, fontWeight: '700', color: Colors.diet },
   favBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  favAddBtn: { backgroundColor: Colors.diet + '20', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  favAddBtnText: { fontSize: 12, color: Colors.diet, fontWeight: '600' },
-  amountSection: { backgroundColor: Colors.surface, borderRadius: 12, padding: 16, marginVertical: 12, borderWidth: 1, borderColor: Colors.border },
-  amountLabel: { fontSize: 13, color: Colors.textSecondary, marginBottom: 8 },
-  amountInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 8, padding: 12, color: Colors.textPrimary, fontSize: 18, fontWeight: '600', textAlign: 'center', borderWidth: 1, borderColor: Colors.border },
-  preview: { fontSize: 13, color: Colors.diet, textAlign: 'center', marginTop: 8, fontWeight: '600' },
-  addBtn: { backgroundColor: Colors.diet, borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8 },
+  favAddBtn: { backgroundColor: Colors.diet + '28', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 },
+  favAddBtnText: { fontSize: 12, color: Colors.diet, fontWeight: '700' },
+  amountSection: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginVertical: 12, ...CARD_SHADOW },
+  amountLabel: { fontSize: 13, color: Colors.textSecondary, marginBottom: 8, fontWeight: '600' },
+  amountInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 12, color: Colors.textPrimary, fontSize: 18, fontWeight: '600', textAlign: 'center' },
+  preview: { fontSize: 14, color: Colors.diet, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+  addBtn: { backgroundColor: Colors.diet, borderRadius: 24, padding: 16, alignItems: 'center', marginTop: 8 },
   addBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   manualForm: { gap: 12, marginBottom: 16 },
   manualRow: { flexDirection: 'row' },
 });
 const mi = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
-  input: { backgroundColor: Colors.surface, borderRadius: 10, padding: 12, color: Colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: Colors.border },
+  label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  input: { backgroundColor: Colors.surface, borderRadius: 14, padding: 12, color: Colors.textPrimary, fontSize: 15, ...CARD_SHADOW },
 });

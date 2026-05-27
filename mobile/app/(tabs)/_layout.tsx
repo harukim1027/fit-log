@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -21,15 +22,19 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 8,
+          borderTopWidth: 0,
+          height: 72 + insets.bottom,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 10,
+          shadowColor: '#9B8CC8',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+          elevation: 10,
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
       }}
     >
       {TABS.map(tab => (
@@ -39,7 +44,18 @@ export default function TabLayout() {
           options={{
             title: tab.title,
             tabBarIcon: ({ focused, size }) => (
-              <Ionicons name={focused ? tab.activeIcon : tab.icon} size={size} color={focused ? tab.color : Colors.textMuted} />
+              <View style={focused ? {
+                backgroundColor: tab.color + '28',
+                borderRadius: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 5,
+              } : {}}>
+                <Ionicons
+                  name={focused ? tab.activeIcon : tab.icon}
+                  size={size}
+                  color={focused ? tab.color : Colors.textMuted}
+                />
+              </View>
             ),
             tabBarActiveTintColor: tab.color,
           }}

@@ -22,8 +22,8 @@ export default function CalorieRing({ consumed, target, size = 180 }: Props) {
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={Colors.surfaceAlt}
-          strokeWidth={12}
+          stroke="#EDE8F8"
+          strokeWidth={14}
           fill="none"
         />
         <Circle
@@ -31,7 +31,7 @@ export default function CalorieRing({ consumed, target, size = 180 }: Props) {
           cy={size / 2}
           r={radius}
           stroke={color}
-          strokeWidth={12}
+          strokeWidth={14}
           fill="none"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDash}
@@ -52,7 +52,7 @@ export default function CalorieRing({ consumed, target, size = 180 }: Props) {
 const r = StyleSheet.create({
   wrap: { alignItems: 'center', justifyContent: 'center' },
   center: { position: 'absolute', alignItems: 'center' },
-  consumed: { fontSize: 32, fontWeight: '800' },
-  unit: { fontSize: 13, color: Colors.textSecondary, marginTop: -2 },
-  target: { fontSize: 12, color: Colors.textMuted },
+  consumed: { fontSize: 30, fontWeight: '800' },
+  unit: { fontSize: 12, color: Colors.textSecondary, marginTop: -2 },
+  target: { fontSize: 11, color: Colors.textMuted },
 });

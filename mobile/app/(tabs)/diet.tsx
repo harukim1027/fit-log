@@ -14,6 +14,14 @@ const dateStr = (d: Date) => d.toISOString().split('T')[0];
 const formatDate = (d: Date) => d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 const isToday = (d: Date) => dateStr(d) === dateStr(new Date());
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 12,
+  elevation: 3,
+};
+
 export default function DietScreen() {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -82,14 +90,14 @@ export default function DietScreen() {
         <View style={s.card}>
           <Text style={s.cardTitle}>영양소</Text>
           <View style={s.macroBarBg}>
-            <View style={[s.macroBarSegment, { flex: carbs / totalMacro, backgroundColor: '#FFB347' }]} />
-            <View style={[s.macroBarSegment, { flex: protein / totalMacro, backgroundColor: '#6C63FF' }]} />
-            <View style={[s.macroBarSegment, { flex: fat / totalMacro, backgroundColor: '#FF6584' }]} />
+            <View style={[s.macroBarSegment, { flex: carbs / totalMacro, backgroundColor: '#FFCBA4' }]} />
+            <View style={[s.macroBarSegment, { flex: protein / totalMacro, backgroundColor: '#B4A7E8' }]} />
+            <View style={[s.macroBarSegment, { flex: fat / totalMacro, backgroundColor: '#F4B8A8' }]} />
           </View>
           <View style={s.macroRow}>
-            <MacroChip label="탄수화물" value={carbs + 'g'} color="#FFB347" />
-            <MacroChip label="단백질" value={protein + 'g'} color="#6C63FF" />
-            <MacroChip label="지방" value={fat + 'g'} color="#FF6584" />
+            <MacroChip label="탄수화물" value={carbs + 'g'} color="#FFCBA4" />
+            <MacroChip label="단백질" value={protein + 'g'} color="#B4A7E8" />
+            <MacroChip label="지방" value={fat + 'g'} color="#F4B8A8" />
           </View>
         </View>
 
@@ -111,7 +119,10 @@ export default function DietScreen() {
                 )}
               </View>
               {!meal || meal.foods.length === 0 ? (
-                <Text style={s.emptyText}>추가된 식품이 없어요</Text>
+                <View style={s.emptyState}>
+                  <Text style={s.emptyEmoji}>🍽️</Text>
+                  <Text style={s.emptyText}>추가된 식품이 없어요</Text>
+                </View>
               ) : (
                 meal.foods.map(food => (
                   <View key={food.id} style={s.foodRow}>
@@ -137,7 +148,7 @@ export default function DietScreen() {
 
 function MacroChip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={mc.wrap}>
+    <View style={[mc.wrap, { backgroundColor: color + '20' }]}>
       <View style={[mc.dot, { backgroundColor: color }]} />
       <Text style={mc.label}>{label}</Text>
       <Text style={[mc.value, { color }]}>{value}</Text>
@@ -149,38 +160,40 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
   dateNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  navBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  navBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...CARD_SHADOW },
   navBtnDisabled: { opacity: 0.3 },
   dateCenter: { alignItems: 'center', gap: 4 },
-  dateText: { fontSize: 17, fontWeight: '600', color: Colors.textPrimary },
+  dateText: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
   todayDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary },
-  card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary, marginBottom: 14 },
+  card: { backgroundColor: Colors.surface, borderRadius: 22, padding: 20, marginBottom: 16, ...CARD_SHADOW },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.textSecondary, marginBottom: 14 },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   progressText: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   progressSub: { fontSize: 14, color: Colors.textSecondary, alignSelf: 'flex-end' },
-  progressBg: { height: 10, backgroundColor: Colors.surfaceAlt, borderRadius: 5, overflow: 'hidden', marginBottom: 8 },
-  progressFill: { height: '100%', borderRadius: 5 },
+  progressBg: { height: 12, backgroundColor: Colors.surfaceAlt, borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  progressFill: { height: '100%', borderRadius: 6 },
   progressPct: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right' },
-  macroBarBg: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', marginBottom: 14 },
+  macroBarBg: { flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', marginBottom: 14 },
   macroBarSegment: { height: '100%' },
-  macroRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  mealCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  macroRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  mealCard: { backgroundColor: Colors.surface, borderRadius: 22, padding: 16, marginBottom: 12, ...CARD_SHADOW },
   mealHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   mealTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   mealIcon: { fontSize: 20 },
-  mealTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
+  mealTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   mealCal: { fontSize: 13, color: Colors.textSecondary },
-  addBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.diet + '20', alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingVertical: 8 },
-  foodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: Colors.border },
+  addBtn: { width: 34, height: 34, borderRadius: 12, backgroundColor: Colors.diet + '28', alignItems: 'center', justifyContent: 'center' },
+  emptyState: { alignItems: 'center', paddingVertical: 10, gap: 4 },
+  emptyEmoji: { fontSize: 32 },
+  emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
+  foodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, marginTop: 4, backgroundColor: Colors.surfaceAlt, borderRadius: 12, paddingHorizontal: 12, marginBottom: 4 },
   foodInfo: { flex: 1 },
-  foodName: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
+  foodName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   foodDetail: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
 });
 const mc = StyleSheet.create({
-  wrap: { alignItems: 'center', flex: 1 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
-  label: { fontSize: 11, color: Colors.textSecondary, marginBottom: 2 },
-  value: { fontSize: 14, fontWeight: '700' },
+  wrap: { alignItems: 'center', flex: 1, borderRadius: 14, paddingVertical: 10 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginBottom: 5 },
+  label: { fontSize: 10, color: Colors.textSecondary, marginBottom: 3 },
+  value: { fontSize: 13, fontWeight: '700' },
 });

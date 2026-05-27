@@ -5,6 +5,14 @@ import { Colors } from '../constants/colors';
 
 const PRESETS = [30, 60, 90, 120, 180];
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 12,
+  elevation: 3,
+};
+
 export default function RestTimer() {
   const [seconds, setSeconds] = useState(60);
   const [remaining, setRemaining] = useState(0);
@@ -92,19 +100,19 @@ export default function RestTimer() {
 }
 
 const s = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  card: { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, marginBottom: 12, ...CARD_SHADOW },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  title: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   presets: { flexDirection: 'row', gap: 6, marginBottom: 12 },
-  presetBtn: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 8, backgroundColor: Colors.surfaceAlt, borderWidth: 1, borderColor: Colors.border },
-  presetBtnActive: { backgroundColor: Colors.workout + '20', borderColor: Colors.workout },
-  presetText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
+  presetBtn: { flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 20, backgroundColor: Colors.surfaceAlt },
+  presetBtnActive: { backgroundColor: Colors.workout + '28' },
+  presetText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
   presetTextActive: { color: Colors.workout, fontWeight: '700' },
   timerArea: { alignItems: 'center', gap: 8 },
-  progressBg: { width: '100%', height: 6, backgroundColor: Colors.surfaceAlt, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: Colors.workout, borderRadius: 3 },
+  progressBg: { width: '100%', height: 8, backgroundColor: Colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: Colors.workout, borderRadius: 4 },
   timerText: { fontSize: 36, fontWeight: '800', color: Colors.workout },
   timerTextRed: { color: Colors.danger },
-  startBtn: { flexDirection: 'row', backgroundColor: Colors.workout, borderRadius: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  startBtn: { flexDirection: 'row', backgroundColor: Colors.workout, borderRadius: 20, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', gap: 6 },
   startBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
