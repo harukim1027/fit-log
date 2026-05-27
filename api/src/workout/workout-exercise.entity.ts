@@ -13,6 +13,12 @@ export class WorkoutExercise {
   @Column()
   category: string;
 
+  @Column({ type: 'simple-json', nullable: true })
+  settings: { key: string; value: string }[];
+
+  @Column({ nullable: true })
+  tip: string;
+
   @ManyToOne(() => WorkoutSession, session => session.exercises)
   session: WorkoutSession;
 

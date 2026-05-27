@@ -127,6 +127,20 @@ export default function WorkoutScreen() {
                       </TouchableOpacity>
                     ))}
                     {ex.sets.length === 0 && <Text style={s.noSetText}>세트를 추가해주세요</Text>}
+                    {ex.settings && ex.settings.length > 0 && (
+                      <View style={s.settingTagsWrap}>
+                        {ex.settings.map((st, i) => (
+                          <View key={i} style={s.settingTag}>
+                            <Text style={s.settingTagText}>{st.key}: {st.value}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    {!!ex.tip && (
+                      <View style={s.tipBox}>
+                        <Text style={s.tipText}>💡 {ex.tip}</Text>
+                      </View>
+                    )}
                   </View>
                 ))
               )}
@@ -188,6 +202,16 @@ function HistoryCard({ session, getVolume }: { session: WorkoutSession; getVolum
                   {idx + 1}세트 · {st.weight}kg × {st.reps}회 = {st.weight * st.reps}kg
                 </Text>
               ))}
+              {ex.settings && ex.settings.length > 0 && (
+                <View style={h.settingTagsWrap}>
+                  {ex.settings.map((st, i) => (
+                    <View key={i} style={h.settingTag}>
+                      <Text style={h.settingTagText}>{st.key}: {st.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {!!ex.tip && <Text style={h.tipText}>💡 {ex.tip}</Text>}
             </View>
           ))}
         </View>
@@ -233,6 +257,11 @@ const s = StyleSheet.create({
   textDone: { textDecorationLine: 'line-through', color: Colors.textMuted },
   setText: { fontSize: 14, color: Colors.textPrimary, textAlign: 'center' },
   noSetText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', paddingVertical: 8 },
+  settingTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 12 },
+  settingTag: { backgroundColor: Colors.primary + '22', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  settingTagText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
+  tipBox: { backgroundColor: Colors.warning + '22', borderRadius: 12, padding: 10, marginTop: 10 },
+  tipText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
 });
 
 const h = StyleSheet.create({
@@ -250,4 +279,8 @@ const h = StyleSheet.create({
   exName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
   exCat: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   setText: { fontSize: 13, color: Colors.textSecondary },
+  settingTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 },
+  settingTag: { backgroundColor: Colors.primary + '22', borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3 },
+  settingTagText: { fontSize: 10, color: Colors.primary, fontWeight: '600' },
+  tipText: { fontSize: 12, color: Colors.textSecondary, marginTop: 6, lineHeight: 17 },
 });

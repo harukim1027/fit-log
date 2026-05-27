@@ -46,6 +46,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         exercises: active.exercises.map(ex => ({
           name: ex.name,
           category: ex.category,
+          settings: ex.settings ?? [],
+          tip: ex.tip ?? '',
           sets: ex.sets.map(st => ({
             weight: st.weight,
             reps: st.reps,

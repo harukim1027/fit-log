@@ -5,11 +5,18 @@ export interface WorkoutSet {
   completed: boolean;
 }
 
+export interface ExerciseSetting {
+  key: string;
+  value: string;
+}
+
 export interface Exercise {
   id: string;
   name: string;
   category: string;
   sets: WorkoutSet[];
+  settings?: ExerciseSetting[];
+  tip?: string;
 }
 
 export interface WorkoutSession {
