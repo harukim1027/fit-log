@@ -12,31 +12,56 @@ import { useState } from "react";
 import { useDietStore } from "../../store/dietStore";
 import { Colors } from "../../constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "../../store/authStore";
 
 export default function SetTargetModal() {
   const router = useRouter();
   const { targetCalories, setTargetCalories } = useDietStore();
-  const [value, setValue] = useState(String(targetCalories));
+  const { user, updateWeight } = useAuthStore();
 
-  const handleSave = () => {
-    const cal = parseInt(value);
+  const [calValue, setCalValue] = useState(String(targetCalories));
+  const [weightValue, setWeightValue] = useState(
+    user?.weight ? String(user.weight) : ""
+  );
+
+  const handleSave = async () => {
+    const cal = parseInt(calValue);
     if (isNaN(cal) || cal < 500 || cal > 9999) {
       return Alert.alert(
         "올바른 칼로리를 입력해주세요",
         "500 ~ 9999 사이로 입력해주세요"
       );
     }
+
+    const weightNum = parseFloat(weightValue);
+    if (weightValue && (isNaN(weightNum) || weightNum < 20 || weightNum > 300)) {
+      return Alert.alert(
+        "올바른 체중을 입력해주세요",
+        "20 ~ 300 사이로 입력해주세요"
+      );
+    }
+
     setTargetCalories(cal);
+
+    if (weightValue && !isNaN(weightNum)) {
+      try {
+        await updateWeight(weightNum);
+      } catch {
+        Alert.alert("체중 저장 실패", "잠시 후 다시 시도해주세요");
+      }
+    }
+
     router.back();
   };
 
   return (
     <SafeAreaView style={s.container} edges={["top", "bottom"]}>
-      <Text style={s.label}>하루 목표 칼로리</Text>
+      {/* 목표 칼로리 */}
+      <Text style={s.sectionTitle}>하루 목표 칼로리</Text>
       <TextInput
         style={s.input}
-        value={value}
-        onChangeText={setValue}
+        value={calValue}
+        onChangeText={setCalValue}
         keyboardType="numeric"
         selectTextOnFocus
         autoFocus
@@ -47,18 +72,31 @@ export default function SetTargetModal() {
         {[1500, 1800, 2000, 2500].map((cal) => (
           <TouchableOpacity
             key={cal}
-            style={[s.preset, value === String(cal) && s.presetActive]}
-            onPress={() => setValue(String(cal))}>
+            style={[s.preset, calValue === String(cal) && s.presetActive]}
+            onPress={() => setCalValue(String(cal))}>
             <Text
               style={[
                 s.presetText,
-                value === String(cal) && s.presetTextActive,
+                calValue === String(cal) && s.presetTextActive,
               ]}>
               {cal}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* 체중 */}
+      <Text style={[s.sectionTitle, { marginTop: 8 }]}>체중 (kg)</Text>
+      <TextInput
+        style={s.input}
+        value={weightValue}
+        onChangeText={setWeightValue}
+        keyboardType="decimal-pad"
+        placeholder="예: 70"
+        placeholderTextColor={Colors.textMuted}
+        selectTextOnFocus
+      />
+      <Text style={s.hint}>칼로리 소모량 계산에 사용돼요 (미입력 시 70kg 기본값)</Text>
 
       <TouchableOpacity
         style={s.saveBtn}
@@ -72,7 +110,7 @@ export default function SetTargetModal() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background, padding: 24 },
-  label: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: Colors.textSecondary,
@@ -83,7 +121,7 @@ const s = StyleSheet.create({
     borderRadius: 14,
     padding: 18,
     color: Colors.textPrimary,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
     borderWidth: 1,
@@ -94,9 +132,9 @@ const s = StyleSheet.create({
     fontSize: 13,
     color: Colors.textMuted,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  presets: { flexDirection: "row", gap: 10, marginBottom: 32 },
+  presets: { flexDirection: "row", gap: 10, marginBottom: 16 },
   preset: {
     flex: 1,
     backgroundColor: Colors.surface,
@@ -117,6 +155,7 @@ const s = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     alignItems: "center",
+    marginTop: 8,
   },
   saveBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
 });

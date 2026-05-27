@@ -2,12 +2,48 @@ import { create } from 'zustand';
 import { Exercise, WorkoutSession, WorkoutSet } from '../types/workout';
 import apiClient from '../lib/apiClient';
 
+// MET 값 매핑 (운동강도지표)
+const MET_MAP: Record<string, number> = {
+  '벤치프레스': 6.0,
+  '인클라인 벤치프레스': 6.0,
+  '딥스': 8.0,
+  '데드리프트': 6.0,
+  '바벨 로우': 6.0,
+  '오버헤드프레스': 6.0,
+  '풀업': 8.0,
+  '사이드 레터럴 레이즈': 5.0,
+  '바벨 컬': 5.0,
+  '트라이셉스 익스텐션': 5.0,
+  '스쿼트': 6.0,
+  '레그프레스': 5.0,
+  '런지': 5.0,
+  '플랭크': 4.0,
+  '크런치': 4.0,
+};
+
+const getMET = (name: string): number => MET_MAP[name] ?? 5.0;
+
+// MET × 체중(kg) × 운동시간(h)
+export const calculateCaloriesBurned = (
+  session: WorkoutSession,
+  weightKg: number,
+  durationMinutes: number,
+): number => {
+  if (!session.exercises.length || durationMinutes <= 0) return 0;
+  const hours = durationMinutes / 60;
+  const avgMET =
+    session.exercises.reduce((sum, ex) => sum + getMET(ex.name), 0) /
+    session.exercises.length;
+  return Math.round(avgMET * weightKg * hours);
+};
+
 interface WorkoutStore {
   sessions: WorkoutSession[];
   activeSession: WorkoutSession | null;
+  sessionStartTime: number | null;
   isLoading: boolean;
   startSession: () => void;
-  endSession: () => Promise<void>;
+  endSession: (caloriesBurned: number) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, 'sets'>) => void;
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   updateSet: (exerciseId: string, setId: string, data: Partial<WorkoutSet>) => void;
@@ -22,6 +58,7 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   sessions: [],
   activeSession: null,
+  sessionStartTime: null,
   isLoading: false,
 
   startSession: () => {
@@ -32,16 +69,23 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       durationMinutes: 0,
       note: '',
     };
-    set({ activeSession: session });
+    set({ activeSession: session, sessionStartTime: Date.now() });
   },
 
-  endSession: async () => {
+  endSession: async (caloriesBurned: number) => {
     const active = get().activeSession;
+    const startTime = get().sessionStartTime;
     if (!active) return;
+
+    const durationMinutes = startTime
+      ? Math.max(Math.round((Date.now() - startTime) / 60000), 1)
+      : 0;
+
     try {
       await apiClient.post('/workout', {
         date: active.date,
-        durationMinutes: active.durationMinutes,
+        durationMinutes,
+        caloriesBurned,
         note: active.note,
         exercises: active.exercises.map(ex => ({
           name: ex.name,
@@ -59,7 +103,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     } catch (e) {
       console.error('운동 저장 실패', e);
     }
-    set(s => ({ sessions: [...s.sessions, active], activeSession: null }));
+    set({ activeSession: null, sessionStartTime: null });
   },
 
   addExercise: (exercise) => {

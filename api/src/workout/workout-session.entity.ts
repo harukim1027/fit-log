@@ -16,6 +16,9 @@ export class WorkoutSession {
   @Column({ nullable: true })
   note: string;
 
+  @Column({ type: 'float', nullable: true, default: null })
+  caloriesBurned: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

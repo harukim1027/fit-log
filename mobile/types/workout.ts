@@ -25,4 +25,5 @@ export interface WorkoutSession {
   exercises: Exercise[];
   durationMinutes: number;
   note: string;
+  caloriesBurned?: number;
 }
