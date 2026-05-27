@@ -13,7 +13,8 @@ import { useRouter } from "expo-router";
 import { useEffect, useState, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
-import { useWorkoutStore } from "../../store/workoutStore";
+import { useWorkoutStore, calculateCaloriesBurned } from "../../store/workoutStore";
+import { useAuthStore } from "../../store/authStore";
 import RestTimer from "../../components/RestTimer";
 import { Colors } from "../../constants/colors";
 import { WorkoutSession } from "../../types/workout";
@@ -66,6 +67,7 @@ export default function WorkoutScreen() {
   const router = useRouter();
   const {
     activeSession,
+    sessionStartTime,
     startSession,
     endSession,
     getTotalVolume,
@@ -75,6 +77,7 @@ export default function WorkoutScreen() {
     sessions,
     isLoading,
   } = useWorkoutStore();
+  const { user } = useAuthStore();
   const [tab, setTab] = useState<Tab>("today");
 
   // Calendar state
@@ -88,12 +91,21 @@ export default function WorkoutScreen() {
   }, []);
 
   const handleEnd = () => {
+    const weightKg = user?.weight ?? 70;
+    const durationMinutes = sessionStartTime
+      ? Math.max(Math.round((Date.now() - sessionStartTime) / 60000), 1)
+      : 30;
+    const calories = activeSession
+      ? calculateCaloriesBurned(activeSession, weightKg, durationMinutes)
+      : 0;
+
     Alert.alert("운동 종료", "오늘 운동을 저장하고 종료할까요?", [
       { text: "취소", style: "cancel" },
       {
         text: "저장 및 종료",
         onPress: async () => {
-          await endSession();
+          await endSession(calories);
+          Alert.alert("운동 완료 🎉", `🔥 ${calories} kcal 소모`);
         },
       },
     ]);
@@ -124,6 +136,11 @@ export default function WorkoutScreen() {
 
   const monthVolume = useMemo(
     () => monthSessions.reduce((sum, s) => sum + getTotalVolume(s), 0),
+    [monthSessions]
+  );
+
+  const monthCalories = useMemo(
+    () => monthSessions.reduce((sum, s) => sum + (s.caloriesBurned ?? 0), 0),
     [monthSessions]
   );
 
@@ -327,8 +344,8 @@ export default function WorkoutScreen() {
                 {parseInt(visibleMonth.split("-")[1])}월
               </Text>
               <Text style={s.summaryDetail}>
-                {monthSessions.length}회 운동 · 총 볼륨{" "}
-                {monthVolume.toLocaleString()}kg
+                {monthSessions.length}회 운동 · {monthVolume.toLocaleString()}kg
+                {monthCalories > 0 ? ` · 🔥 ${monthCalories.toLocaleString()} kcal` : ""}
               </Text>
             </View>
             <Text style={s.summaryEmoji}>📆</Text>
@@ -407,6 +424,9 @@ function HistoryCard({
         activeOpacity={0.7}>
         <Text style={h.summary}>{session.exercises.length}종목</Text>
         <View style={h.headerRight}>
+          {!!session.caloriesBurned && (
+            <Text style={h.headerCal}>🔥 {session.caloriesBurned} kcal</Text>
+          )}
           <Text style={h.headerVol}>{volume.toLocaleString()}kg</Text>
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
@@ -478,10 +498,18 @@ function HistoryCard({
             );
           })}
 
-          {/* 총 볼륨 푸터 */}
+          {/* 총 볼륨 + 칼로리 푸터 */}
           <View style={h.footer}>
-            <Text style={h.footerLabel}>총 볼륨</Text>
-            <Text style={h.footerVol}>{volume.toLocaleString()}kg</Text>
+            {!!session.caloriesBurned && (
+              <View style={h.footerRow}>
+                <Text style={h.footerLabel}>칼로리 소모</Text>
+                <Text style={h.footerCal}>🔥 {session.caloriesBurned} kcal</Text>
+              </View>
+            )}
+            <View style={h.footerRow}>
+              <Text style={h.footerLabel}>총 볼륨</Text>
+              <Text style={h.footerVol}>{volume.toLocaleString()}kg</Text>
+            </View>
           </View>
         </View>
       )}
@@ -703,6 +731,7 @@ const h = StyleSheet.create({
   summary: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerVol: { fontSize: 13, fontWeight: "700", color: Colors.workout },
+  headerCal: { fontSize: 12, fontWeight: "700", color: Colors.danger },
 
   // 바디
   body: { paddingHorizontal: 18, paddingBottom: 4 },
@@ -781,16 +810,20 @@ const h = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // 총 볼륨 푸터
+  // 총 볼륨 + 칼로리 푸터
   footer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: 8,
+    gap: 6,
     borderTopWidth: 1,
     borderTopColor: Colors.surfaceAlt,
     paddingVertical: 14,
   },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
+  },
   footerLabel: { fontSize: 12, fontWeight: "600", color: Colors.textMuted },
   footerVol: { fontSize: 17, fontWeight: "800", color: Colors.workout },
+  footerCal: { fontSize: 15, fontWeight: "700", color: Colors.danger },
 });

@@ -121,14 +121,26 @@ export default function HomeScreen() {
         <View style={s.card}>
           <Text style={s.cardTitle}>오늘의 운동</Text>
           {todaySession ? (
-            <View style={s.row}>
-              <View style={s.iconBg}>
-                <Ionicons name="checkmark" size={20} color={Colors.success} />
+            <>
+              <View style={s.row}>
+                <View style={s.iconBg}>
+                  <Ionicons name="checkmark" size={20} color={Colors.success} />
+                </View>
+                <Text style={s.workoutText}>
+                  {exerciseCount}가지 운동 완료 🎉
+                </Text>
               </View>
-              <Text style={s.workoutText}>
-                {exerciseCount}가지 운동 완료 🎉
-              </Text>
-            </View>
+              {!!todaySession.caloriesBurned && (
+                <View style={[s.row, { marginTop: 8 }]}>
+                  <View style={[s.iconBg, { backgroundColor: Colors.danger + "20" }]}>
+                    <Ionicons name="flame" size={20} color={Colors.danger} />
+                  </View>
+                  <Text style={[s.workoutText, { color: Colors.danger }]}>
+                    {todaySession.caloriesBurned} kcal 소모
+                  </Text>
+                </View>
+              )}
+            </>
           ) : activeSession ? (
             <View style={s.row}>
               <View
