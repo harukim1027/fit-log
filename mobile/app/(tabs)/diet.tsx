@@ -1,7 +1,8 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
+  PanResponder, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useDietStore } from '../../store/dietStore';
 import { Colors, MEAL_LABELS } from '../../constants';
@@ -9,6 +10,9 @@ import { MealType } from '../../types/diet';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_EMOJI: Record<MealType, string> = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍎' };
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.2;
 
 const dateStr = (d: Date) => d.toISOString().split('T')[0];
 const formatDate = (d: Date) => d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
@@ -27,7 +31,49 @@ export default function DietScreen() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const { getTodayDiet, getTotalCalories, targetCalories, removeFood, fetchDiet, isLoading, summary, dailyDiets } = useDietStore();
 
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const isAnimating = useRef(false);
+  const currentDateRef = useRef(currentDate);
+
+  useEffect(() => { currentDateRef.current = currentDate; }, [currentDate]);
   useEffect(() => { fetchDiet(dateStr(currentDate)); }, [currentDate]);
+
+  const navigate = useCallback((direction: 'prev' | 'next') => {
+    if (isAnimating.current) return;
+    if (direction === 'next' && isToday(currentDateRef.current)) return;
+
+    isAnimating.current = true;
+    const enterFrom = direction === 'next' ? SCREEN_WIDTH : -SCREEN_WIDTH;
+
+    setCurrentDate(prev => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+      return d;
+    });
+
+    slideAnim.setValue(enterFrom);
+
+    setTimeout(() => {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }).start(() => { isAnimating.current = false; });
+    }, 50);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, { dx, dy }) =>
+      !isAnimating.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10,
+    onPanResponderRelease: (_, { dx }) => {
+      if (dx < -SWIPE_THRESHOLD) navigateRef.current('next');
+      else if (dx > SWIPE_THRESHOLD) navigateRef.current('prev');
+    },
+  })).current;
 
   const diet = dailyDiets.find(d => d.date === dateStr(currentDate));
   const total = diet?.meals.reduce((s, m) => s + m.foods.reduce((f, food) => f + food.calories, 0), 0) ?? 0;
@@ -38,18 +84,8 @@ export default function DietScreen() {
   const fat = summary?.fat ?? 0;
   const totalMacro = protein + carbs + fat || 1;
 
-  const goBack = () => {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() - 1);
-    setCurrentDate(d);
-  };
-
-  const goForward = () => {
-    if (isToday(currentDate)) return;
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() + 1);
-    setCurrentDate(d);
-  };
+  const goBack = () => navigate('prev');
+  const goForward = () => navigate('next');
 
   if (isLoading) {
     return (
@@ -61,6 +97,8 @@ export default function DietScreen() {
 
   return (
     <SafeAreaView style={s.container}>
+      <View style={s.swipeWrapper} {...panResponder.panHandlers}>
+      <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
       <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
 
         <View style={s.dateNav}>
@@ -142,6 +180,8 @@ export default function DietScreen() {
           );
         })}
       </ScrollView>
+      </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -158,6 +198,7 @@ function MacroChip({ label, value, color }: { label: string; value: string; colo
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  swipeWrapper: { flex: 1, overflow: 'hidden' },
   content: { padding: 20, paddingBottom: 40 },
   dateNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   navBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...CARD_SHADOW },
