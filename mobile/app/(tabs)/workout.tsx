@@ -10,6 +10,14 @@ import { WorkoutSession } from '../../types/workout';
 
 type Tab = 'today' | 'history';
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 12,
+  elevation: 3,
+};
+
 export default function WorkoutScreen() {
   const router = useRouter();
   const { activeSession, startSession, endSession, getTotalVolume, removeSet, updateSet, fetchSessions, sessions, isLoading } = useWorkoutStore();
@@ -35,7 +43,7 @@ export default function WorkoutScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>운동</Text>
+        <Text style={s.title}>운동 💪</Text>
       </View>
 
       <View style={s.tabRow}>
@@ -51,7 +59,7 @@ export default function WorkoutScreen() {
         <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
           {!activeSession ? (
             <View style={s.emptyContainer}>
-              <Ionicons name="barbell-outline" size={64} color={Colors.textMuted} />
+              <Text style={s.emptyEmoji}>🏋️‍♀️</Text>
               <Text style={s.emptyTitle}>오늘 운동을 시작해볼까요?</Text>
               <Text style={s.emptyDesc}>운동을 기록하고 성장을 확인해보세요</Text>
               <TouchableOpacity style={s.startBtn} onPress={startSession} activeOpacity={0.8}>
@@ -79,8 +87,9 @@ export default function WorkoutScreen() {
               </TouchableOpacity>
 
               {activeSession.exercises.length === 0 ? (
-                <View style={s.noExercise}>
-                  <Text style={s.noExerciseText}>운동 종목을 추가해주세요</Text>
+                <View style={s.emptyContainer}>
+                  <Text style={s.emptyEmoji}>🎯</Text>
+                  <Text style={s.emptyDesc}>운동 종목을 추가해주세요</Text>
                 </View>
               ) : (
                 activeSession.exercises.map(ex => (
@@ -128,7 +137,7 @@ export default function WorkoutScreen() {
         <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
           {sessions.length === 0 ? (
             <View style={s.emptyContainer}>
-              <Ionicons name="calendar-outline" size={64} color={Colors.textMuted} />
+              <Text style={s.emptyEmoji}>📅</Text>
               <Text style={s.emptyTitle}>운동 기록이 없어요</Text>
               <Text style={s.emptyDesc}>운동을 시작하고 기록을 쌓아보세요</Text>
             </View>
@@ -191,35 +200,34 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
   title: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
-  tabRow: { flexDirection: 'row', backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 4, marginHorizontal: 20, marginBottom: 16 },
-  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: Colors.surface },
+  tabRow: { flexDirection: 'row', backgroundColor: Colors.surfaceAlt, borderRadius: 16, padding: 4, marginHorizontal: 20, marginBottom: 16 },
+  tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 14 },
+  tabActive: { backgroundColor: Colors.surface, ...CARD_SHADOW },
   tabText: { fontSize: 14, fontWeight: '500', color: Colors.textMuted },
-  tabTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  tabTextActive: { color: Colors.textPrimary, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 10 },
+  emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
   emptyDesc: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
-  startBtn: { flexDirection: 'row', backgroundColor: Colors.workout, borderRadius: 14, paddingHorizontal: 32, paddingVertical: 14, alignItems: 'center', gap: 8, marginTop: 8 },
+  startBtn: { flexDirection: 'row', backgroundColor: Colors.workout, borderRadius: 24, paddingHorizontal: 36, paddingVertical: 14, alignItems: 'center', gap: 8, marginTop: 8, ...CARD_SHADOW },
   startBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   sessionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   sessionTitle: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   sessionSub: { fontSize: 13, color: Colors.textSecondary, marginTop: 4 },
-  endBtn: { backgroundColor: Colors.success + '20', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: Colors.success + '40' },
-  endBtnText: { fontSize: 14, fontWeight: '600', color: Colors.success },
-  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.workout + '40' },
+  endBtn: { backgroundColor: Colors.success + '28', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 9 },
+  endBtnText: { fontSize: 14, fontWeight: '700', color: Colors.success },
+  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.surface, borderRadius: 16, padding: 14, marginBottom: 16, ...CARD_SHADOW },
   addExText: { fontSize: 14, fontWeight: '600', color: Colors.workout },
-  noExercise: { alignItems: 'center', paddingVertical: 40 },
-  noExerciseText: { fontSize: 14, color: Colors.textMuted },
-  exerciseCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  exerciseCard: { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, marginBottom: 12, ...CARD_SHADOW },
   exHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  exName: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
-  exCategory: { fontSize: 12, color: Colors.workout, backgroundColor: Colors.workout + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  setHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  exName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  exCategory: { fontSize: 12, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  setHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.surfaceAlt },
   setHeaderText: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
   setRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   setRowDone: { opacity: 0.6 },
-  setNumWrap: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginRight: 8, flex: 0.5 },
+  setNumWrap: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginRight: 8, flex: 0.5 },
   setNumWrapDone: { backgroundColor: Colors.success },
   setNumText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   textDone: { textDecorationLine: 'line-through', color: Colors.textMuted },
@@ -228,18 +236,18 @@ const s = StyleSheet.create({
 });
 
 const h = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  card: { backgroundColor: Colors.surface, borderRadius: 20, marginBottom: 12, overflow: 'hidden', ...CARD_SHADOW },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  date: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  date: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   meta: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   right: { alignItems: 'flex-end', gap: 6 },
   tagRow: { flexDirection: 'row', gap: 4 },
-  tag: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '20', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
+  tag: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   tagMore: { fontSize: 11, color: Colors.textMuted },
-  detail: { borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, gap: 12 },
+  detail: { backgroundColor: Colors.surfaceAlt, padding: 16, gap: 12 },
   exRow: { gap: 6 },
   exHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  exCat: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '20', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  exName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  exCat: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   setText: { fontSize: 13, color: Colors.textSecondary },
 });

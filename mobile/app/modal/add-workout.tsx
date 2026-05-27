@@ -24,6 +24,14 @@ const PRESET_EXERCISES = [
   { name: '크런치', category: '복근' },
 ];
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 10,
+  elevation: 3,
+};
+
 export default function AddWorkoutModal() {
   const router = useRouter();
   const { addExercise, addSet, activeSession } = useWorkoutStore();
@@ -90,7 +98,7 @@ export default function AddWorkoutModal() {
 
         {selectedExercise && (
           <View style={s.setSection}>
-            <Text style={s.setTitle}>{selectedExercise.name} 세트 기록</Text>
+            <Text style={s.setTitle}>{selectedExercise.name} 세트 기록 🏋️</Text>
             <View style={s.setHeaderRow}>
               <Text style={[s.setHeader, { flex: 0.5 }]}>세트</Text>
               <Text style={[s.setHeader, { flex: 1 }]}>무게(kg)</Text>
@@ -106,7 +114,6 @@ export default function AddWorkoutModal() {
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}
-                  
                   returnKeyType="next"
                 />
                 <TextInput
@@ -116,7 +123,6 @@ export default function AddWorkoutModal() {
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}
-                  
                   returnKeyType="done"
                   onSubmitEditing={() => Keyboard.dismiss()}
                 />
@@ -142,26 +148,26 @@ export default function AddWorkoutModal() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 16 },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600', marginBottom: 16 },
   catScroll: { marginBottom: 12 },
-  catChip: { backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: Colors.border },
-  catChipActive: { backgroundColor: Colors.workout + '20', borderColor: Colors.workout },
-  catText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
-  catTextActive: { color: Colors.workout },
+  catChip: { backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8, ...CARD_SHADOW },
+  catChipActive: { backgroundColor: Colors.workout + '28' },
+  catText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
+  catTextActive: { color: Colors.workout, fontWeight: '700' },
   exerciseList: { marginBottom: 16 },
-  exItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: Colors.border },
-  exItemSelected: { borderColor: Colors.workout, backgroundColor: Colors.workout + '10' },
-  exName: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
-  exCat: { fontSize: 12, color: Colors.workout, backgroundColor: Colors.workout + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  setSection: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
-  setTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, marginBottom: 12 },
+  exItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, padding: 14, marginBottom: 8, ...CARD_SHADOW },
+  exItemSelected: { backgroundColor: Colors.workout + '18' },
+  exName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  exCat: { fontSize: 12, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  setSection: { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, marginBottom: 16, ...CARD_SHADOW },
+  setTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, marginBottom: 12 },
   setHeaderRow: { flexDirection: 'row', marginBottom: 8 },
   setHeader: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  setNum: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
-  setInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 8, padding: 10, color: Colors.textPrimary, fontSize: 15, fontWeight: '600', textAlign: 'center', borderWidth: 1, borderColor: Colors.border },
-  addSetBtn: { alignItems: 'center', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.workout + '40', marginTop: 4 },
-  addSetText: { fontSize: 13, color: Colors.workout, fontWeight: '600' },
-  addBtn: { backgroundColor: Colors.workout, borderRadius: 14, padding: 16, alignItems: 'center' },
+  setNum: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', fontWeight: '700' },
+  setInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 10, color: Colors.textPrimary, fontSize: 15, fontWeight: '600', textAlign: 'center' },
+  addSetBtn: { alignItems: 'center', padding: 10, borderRadius: 20, backgroundColor: Colors.workout + '18', marginTop: 4 },
+  addSetText: { fontSize: 13, color: Colors.workout, fontWeight: '700' },
+  addBtn: { backgroundColor: Colors.workout, borderRadius: 24, padding: 16, alignItems: 'center' },
   addBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

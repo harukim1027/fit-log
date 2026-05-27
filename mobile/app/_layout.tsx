@@ -44,8 +44,9 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="auth/login" options={{ headerShown: false }} />
           <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-          <Stack.Screen name="modal/add-food" options={{ presentation: 'modal', headerShown: true, title: '식품 추가', headerStyle: { backgroundColor: Colors.surface }, headerTintColor: Colors.textPrimary }} />
-          <Stack.Screen name="modal/add-workout" options={{ presentation: 'modal', headerShown: true, title: '운동 추가', headerStyle: { backgroundColor: Colors.surface }, headerTintColor: Colors.textPrimary }} />
+          <Stack.Screen name="modal/add-food" options={{ presentation: 'modal', headerShown: true, title: '식품 추가', headerStyle: { backgroundColor: Colors.surface }, headerTintColor: Colors.textPrimary, headerShadowVisible: false }} />
+          <Stack.Screen name="modal/barcode-scan" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="modal/add-workout" options={{ presentation: 'modal', headerShown: true, title: '운동 추가', headerStyle: { backgroundColor: Colors.surface }, headerTintColor: Colors.textPrimary, headerShadowVisible: false }} />
         </Stack>
       </AuthGate>
     </SafeAreaProvider>

@@ -1,20 +1,20 @@
 export const Colors = {
-  primary: '#6C63FF',
-  secondary: '#FF6584',
-  success: '#00C896',
-  warning: '#FFB347',
-  danger: '#FF5C5C',
+  primary: '#B4A7E8',      // soft lavender
+  secondary: '#F4ADAD',    // soft coral
+  success: '#A8DCC8',      // mint
+  warning: '#FFCBA4',      // warm peach
+  danger: '#F4ADAD',       // soft coral
 
-  background: '#F5F5F7',
+  background: '#FFF8F2',   // warm cream
   surface: '#FFFFFF',
-  surfaceAlt: '#F0F0F5',
-  border: '#E5E5EA',
+  surfaceAlt: '#FFF3EC',   // light cream
 
-  textPrimary: '#1C1C1E',
-  textSecondary: '#6E6E73',
-  textMuted: '#AEAEB2',
+  textPrimary: '#3D3256',  // deep plum
+  textSecondary: '#8B80A8', // medium purple
+  textMuted: '#C4B8D4',    // light lavender
 
-  diet: '#00C896',
-  workout: '#FF6584',
-  stats: '#FFB347',
+  diet: '#A8DCC8',         // mint
+  workout: '#F4B8A8',      // soft peach coral
+  stats: '#FFCBA4',        // warm peach
+  water: '#A8C8F0',        // soft sky blue
 };

@@ -5,6 +5,14 @@ import { Colors } from '../constants/colors';
 
 const PRESETS = [150, 200, 250, 500];
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.09,
+  shadowRadius: 12,
+  elevation: 3,
+};
+
 export default function WaterTracker() {
   const { total, target, addWater, resetWater } = useWaterStore();
   const progress = Math.min(total / target, 1);
@@ -14,7 +22,9 @@ export default function WaterTracker() {
     <View style={s.card}>
       <View style={s.header}>
         <View style={s.titleRow}>
-          <Text style={s.icon}>💧</Text>
+          <View style={s.iconBg}>
+            <Text style={s.icon}>💧</Text>
+          </View>
           <Text style={s.title}>물 섭취</Text>
         </View>
         <TouchableOpacity onPress={() => resetWater()}>
@@ -33,7 +43,7 @@ export default function WaterTracker() {
 
       <View style={s.cupsRow}>
         {[...Array(8)].map((_, i) => (
-          <View key={i} style={[s.cup, i < cups && s.cupFilled]}>
+          <View key={i} style={s.cup}>
             <Text style={s.cupEmoji}>{i < cups ? '💧' : '🫙'}</Text>
           </View>
         ))}
@@ -51,21 +61,21 @@ export default function WaterTracker() {
 }
 
 const s = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
+  card: { backgroundColor: Colors.surface, borderRadius: 22, padding: 20, marginBottom: 16, ...CARD_SHADOW },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  icon: { fontSize: 18 },
-  title: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
-  progressRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 8 },
-  totalText: { fontSize: 22, fontWeight: '700', color: '#4BA3E3' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBg: { width: 34, height: 34, borderRadius: 12, backgroundColor: Colors.water + '30', alignItems: 'center', justifyContent: 'center' },
+  icon: { fontSize: 16 },
+  title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  progressRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 10 },
+  totalText: { fontSize: 22, fontWeight: '700', color: Colors.water },
   targetText: { fontSize: 14, color: Colors.textSecondary },
-  progressBg: { height: 8, backgroundColor: Colors.surfaceAlt, borderRadius: 4, overflow: 'hidden', marginBottom: 12 },
-  progressFill: { height: '100%', backgroundColor: '#4BA3E3', borderRadius: 4 },
-  cupsRow: { flexDirection: 'row', gap: 6, marginBottom: 14 },
+  progressBg: { height: 12, backgroundColor: Colors.surfaceAlt, borderRadius: 6, overflow: 'hidden', marginBottom: 14 },
+  progressFill: { height: '100%', backgroundColor: Colors.water, borderRadius: 6 },
+  cupsRow: { flexDirection: 'row', gap: 4, marginBottom: 14 },
   cup: { flex: 1, alignItems: 'center' },
-  cupFilled: {},
   cupEmoji: { fontSize: 20 },
   presets: { flexDirection: 'row', gap: 8 },
-  presetBtn: { flex: 1, backgroundColor: '#4BA3E3' + '15', borderRadius: 10, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: '#4BA3E3' + '30' },
-  presetText: { fontSize: 13, fontWeight: '600', color: '#4BA3E3' },
+  presetBtn: { flex: 1, backgroundColor: Colors.water + '22', borderRadius: 20, paddingVertical: 9, alignItems: 'center' },
+  presetText: { fontSize: 12, fontWeight: '700', color: Colors.water },
 });

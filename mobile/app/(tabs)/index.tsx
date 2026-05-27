@@ -11,6 +11,14 @@ import CalorieRing from '../../components/CalorieRing';
 import WaterTracker from '../../components/WaterTracker';
 import { useWaterStore } from '../../store/waterStore';
 
+const CARD_SHADOW = {
+  shadowColor: '#B4A0D8',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.10,
+  shadowRadius: 12,
+  elevation: 3,
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const { getTotalCalories, targetCalories, getTodayDiet, fetchDiet, summary } = useDietStore();
@@ -41,11 +49,11 @@ export default function HomeScreen() {
       <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
         <View style={s.header}>
           <View>
-            <Text style={s.greeting}>{user?.name ?? ''}님 안녕하세요 👋</Text>
+            <Text style={s.greeting}>{user?.name ?? ''}님 안녕하세요 🌸</Text>
             <Text style={s.date}>{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</Text>
           </View>
           <TouchableOpacity style={s.settingBtn} onPress={() => router.push('/modal/set-target' as any)}>
-            <Ionicons name="settings-outline" size={22} color={Colors.textSecondary} />
+            <Ionicons name="settings-outline" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -67,9 +75,9 @@ export default function HomeScreen() {
           </View>
 
           <View style={s.macroRow}>
-            <MacroChip label="탄수화물" value={carbs + 'g'} color="#FFB347" />
-            <MacroChip label="단백질" value={protein + 'g'} color="#6C63FF" />
-            <MacroChip label="지방" value={fat + 'g'} color="#FF6584" />
+            <MacroChip label="탄수화물" value={carbs + 'g'} color="#FFCBA4" />
+            <MacroChip label="단백질" value={protein + 'g'} color="#B4A7E8" />
+            <MacroChip label="지방" value={fat + 'g'} color="#F4B8A8" />
           </View>
         </View>
 
@@ -77,16 +85,23 @@ export default function HomeScreen() {
           <Text style={s.cardTitle}>오늘의 운동</Text>
           {todaySession ? (
             <View style={s.row}>
-              <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
-              <Text style={s.workoutText}>{exerciseCount}가지 운동 완료</Text>
+              <View style={s.iconBg}>
+                <Ionicons name="checkmark" size={20} color={Colors.success} />
+              </View>
+              <Text style={s.workoutText}>{exerciseCount}가지 운동 완료 🎉</Text>
             </View>
           ) : activeSession ? (
             <View style={s.row}>
-              <Ionicons name="timer-outline" size={24} color={Colors.warning} />
-              <Text style={s.workoutText}>운동 중... {activeSession.exercises.length}종목</Text>
+              <View style={[s.iconBg, { backgroundColor: Colors.warning + '30' }]}>
+                <Ionicons name="timer-outline" size={20} color={Colors.warning} />
+              </View>
+              <Text style={s.workoutText}>운동 중... {activeSession.exercises.length}종목 💪</Text>
             </View>
           ) : (
-            <Text style={s.emptyText}>오늘 운동 기록이 없어요</Text>
+            <View style={s.emptyState}>
+              <Text style={s.emptyEmoji}>🏃‍♀️</Text>
+              <Text style={s.emptyText}>오늘 운동 기록이 없어요</Text>
+            </View>
           )}
         </View>
 
@@ -113,7 +128,7 @@ function InfoRow({ label, value, color }: { label: string; value: string; color:
 
 function MacroChip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={mc.chip}>
+    <View style={[mc.chip, { backgroundColor: color + '20' }]}>
       <View style={[mc.dot, { backgroundColor: color }]} />
       <Text style={mc.label}>{label}</Text>
       <Text style={[mc.value, { color }]}>{value}</Text>
@@ -123,8 +138,8 @@ function MacroChip({ label, value, color }: { label: string; value: string; colo
 
 function QuickButton({ label, icon, color, onPress }: { label: string; icon: any; color: string; onPress: () => void }) {
   return (
-    <TouchableOpacity style={[qb.btn, { borderColor: color + '40' }]} onPress={onPress} activeOpacity={0.7}>
-      <View style={[qb.iconWrap, { backgroundColor: color + '20' }]}>
+    <TouchableOpacity style={[qb.btn, CARD_SHADOW]} onPress={onPress} activeOpacity={0.7}>
+      <View style={[qb.iconWrap, { backgroundColor: color + '28' }]}>
         <Ionicons name={icon} size={28} color={color} />
       </View>
       <Text style={qb.label}>{label}</Text>
@@ -136,20 +151,30 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
   header: { marginBottom: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
+  greeting: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary },
   date: { fontSize: 14, color: Colors.textSecondary, marginTop: 4 },
-  settingBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  card: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
+  settingBtn: {
+    width: 42, height: 42, borderRadius: 14, backgroundColor: Colors.surface,
+    alignItems: 'center', justifyContent: 'center',
+    ...CARD_SHADOW,
+  },
+  card: {
+    backgroundColor: Colors.surface, borderRadius: 22, padding: 20, marginBottom: 16,
+    ...CARD_SHADOW,
+  },
   cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: Colors.textSecondary },
-  editText: { fontSize: 13, color: Colors.primary },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.textSecondary },
+  editText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
   ringRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   ringInfo: { flex: 1, paddingLeft: 20, gap: 12 },
-  macroRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  workoutText: { fontSize: 16, color: Colors.textPrimary, fontWeight: '500' },
+  macroRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingTop: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBg: { width: 36, height: 36, borderRadius: 12, backgroundColor: Colors.success + '30', alignItems: 'center', justifyContent: 'center' },
+  workoutText: { fontSize: 15, color: Colors.textPrimary, fontWeight: '600' },
+  emptyState: { alignItems: 'center', paddingVertical: 8, gap: 6 },
+  emptyEmoji: { fontSize: 40 },
   emptyText: { fontSize: 14, color: Colors.textMuted },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: Colors.textSecondary, marginBottom: 12, marginTop: 8 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.textSecondary, marginBottom: 12, marginTop: 8 },
   quickRow: { flexDirection: 'row', gap: 12 },
 });
 const ir = StyleSheet.create({
@@ -158,13 +183,13 @@ const ir = StyleSheet.create({
   value: { fontSize: 14, fontWeight: '700' },
 });
 const mc = StyleSheet.create({
-  chip: { alignItems: 'center', flex: 1 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
-  label: { fontSize: 11, color: Colors.textSecondary, marginBottom: 2 },
-  value: { fontSize: 14, fontWeight: '700' },
+  chip: { alignItems: 'center', flex: 1, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginBottom: 5 },
+  label: { fontSize: 10, color: Colors.textSecondary, marginBottom: 3 },
+  value: { fontSize: 13, fontWeight: '700' },
 });
 const qb = StyleSheet.create({
-  btn: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1 },
-  iconWrap: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  btn: { flex: 1, backgroundColor: Colors.surface, borderRadius: 22, padding: 20, alignItems: 'center' },
+  iconWrap: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   label: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
 });
