@@ -4,11 +4,17 @@ import axios from 'axios';
 import { API_URL } from '../constants/api';
 import apiClient from '../lib/apiClient';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;
   weight?: number;
+  height?: number;
+  age?: number;
+  gender?: string;
+  goal?: string;
+  isOnboardingDone?: boolean;
+  targetCalories?: number;
 }
 
 interface AuthStore {
@@ -21,8 +27,13 @@ interface AuthStore {
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
   fetchMe: () => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<void>;
   updateWeight: (weight: number) => Promise<void>;
 }
+
+const saveUser = async (user: User) => {
+  await AsyncStorage.setItem('user', JSON.stringify(user));
+};
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
@@ -36,7 +47,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const userStr = await AsyncStorage.getItem('user');
       if (token && userStr) {
         set({ token, user: JSON.parse(userStr), isReady: true });
-        // 최신 프로필(weight 포함) 백그라운드 갱신
+        // 최신 프로필 백그라운드 갱신 (isOnboardingDone 등)
         get().fetchMe().catch(() => {});
       } else {
         set({ isReady: true });
@@ -52,9 +63,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const res = await axios.post(API_URL + '/auth/login', { email, password });
       const { access_token, user } = res.data;
       await AsyncStorage.setItem('token', access_token);
-      await AsyncStorage.setItem('user', JSON.stringify(user));
+      await saveUser(user);
       set({ token: access_token, user, isLoading: false });
-      // 로그인 후 최신 프로필(weight 등) 가져오기
+      // 로그인 후 최신 프로필 가져오기
       get().fetchMe().catch(() => {});
     } catch (e: any) {
       set({ isLoading: false });
@@ -68,7 +79,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const res = await axios.post(API_URL + '/auth/register', { email, password, name });
       const { access_token, user } = res.data;
       await AsyncStorage.setItem('token', access_token);
-      await AsyncStorage.setItem('user', JSON.stringify(user));
+      await saveUser(user);
       set({ token: access_token, user, isLoading: false });
     } catch (e: any) {
       set({ isLoading: false });
@@ -87,18 +98,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const res = await apiClient.get<User>('/users/me');
       const updated = res.data;
       set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
-      await AsyncStorage.setItem('user', JSON.stringify(updated));
+      await saveUser(updated);
     } catch {}
   },
 
-  updateWeight: async (weight: number) => {
+  updateProfile: async (data: Partial<User>) => {
     try {
-      const res = await apiClient.patch<User>('/users/me', { weight });
+      const res = await apiClient.patch<User>('/users/me', data);
       const updated = res.data;
       set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
-      await AsyncStorage.setItem('user', JSON.stringify(updated));
+      await saveUser(updated);
     } catch (e: any) {
-      throw new Error(e.response?.data?.message || '체중 업데이트 실패');
+      throw new Error(e.response?.data?.message || '프로필 업데이트 실패');
     }
+  },
+
+  updateWeight: async (weight: number) => {
+    return get().updateProfile({ weight });
   },
 }));

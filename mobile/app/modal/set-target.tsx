@@ -17,7 +17,7 @@ import { useAuthStore } from "../../store/authStore";
 export default function SetTargetModal() {
   const router = useRouter();
   const { targetCalories, setTargetCalories } = useDietStore();
-  const { user, updateWeight } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
 
   const [calValue, setCalValue] = useState(String(targetCalories));
   const [weightValue, setWeightValue] = useState(
@@ -45,7 +45,7 @@ export default function SetTargetModal() {
 
     if (weightValue && !isNaN(weightNum)) {
       try {
-        await updateWeight(weightNum);
+        await updateProfile({ weight: weightNum, targetCalories: cal });
       } catch {
         Alert.alert("체중 저장 실패", "잠시 후 다시 시도해주세요");
       }
