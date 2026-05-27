@@ -11,6 +11,7 @@ import apiClient from '../../lib/apiClient';
 import { useWorkoutStore } from '../../store/workoutStore';
 import { Colors, EXERCISE_CATEGORIES } from '../../constants';
 import { WorkoutSet, ExerciseSetting } from '../../types/workout';
+import MuscleMap, { MUSCLE_MAP } from '../../components/MuscleMap';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -232,18 +233,27 @@ export default function AddWorkoutModal() {
             >
               {/* ── 종목 선택: 접힌 상태 ── */}
               {exerciseListCollapsed && selectedExercise ? (
-                <View style={s.selectedExSummary}>
-                  <View style={s.selectedExInfo}>
-                    <Text style={s.selectedExLabel}>선택된 종목</Text>
-                    <Text style={s.selectedExName}>{selectedExercise.name}</Text>
+                <>
+                  <View style={s.selectedExSummary}>
+                    <View style={s.selectedExInfo}>
+                      <Text style={s.selectedExLabel}>선택된 종목</Text>
+                      <Text style={s.selectedExName}>{selectedExercise.name}</Text>
+                    </View>
+                    <View style={s.selectedExRight}>
+                      <Text style={s.selectedExCat}>{selectedExercise.category}</Text>
+                      <TouchableOpacity style={s.changeExBtn} onPress={handleChangeExercise}>
+                        <Text style={s.changeExText}>변경</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <View style={s.selectedExRight}>
-                    <Text style={s.selectedExCat}>{selectedExercise.category}</Text>
-                    <TouchableOpacity style={s.changeExBtn} onPress={handleChangeExercise}>
-                      <Text style={s.changeExText}>변경</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+
+                  {/* ── 자극 근육 맵 ── */}
+                  {MUSCLE_MAP[selectedExercise.name] && (
+                    <View style={s.muscleCard}>
+                      <MuscleMap muscles={MUSCLE_MAP[selectedExercise.name]} />
+                    </View>
+                  )}
+                </>
               ) : (
                 /* ── 종목 선택: 펼친 상태 ── */
                 <>
@@ -561,6 +571,12 @@ const s = StyleSheet.create({
 
   addBtn: { backgroundColor: Colors.workout, borderRadius: 24, padding: 16, alignItems: 'center', marginTop: 4 },
   addBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  // 자극 근육 카드
+  muscleCard: {
+    backgroundColor: Colors.surface, borderRadius: 20, padding: 14,
+    marginBottom: 14, ...CARD_SHADOW,
+  },
 });
 
 const sh = StyleSheet.create({
