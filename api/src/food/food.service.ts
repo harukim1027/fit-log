@@ -11,50 +11,31 @@ export class FoodService {
 
   async search(query: string, page = 1) {
     const isKorean = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(query);
-    if (isKorean) {
-      return this.searchKorean(query, page);
-    }
+    if (isKorean) return this.searchKorean(query, page);
     return this.searchGlobal(query, page);
   }
 
-  private mapItem(item: any) {
+  private mapKoItem(item: any) {
     return {
-      id: item.foodCd || String(Math.random()),
-      name: item.foodNm || '알 수 없음',
-      brand: item.mfrNm || item.restNm || '',
-      calories: Math.round(parseFloat(item.enerc) || 0),
-      protein: Math.round((parseFloat(item.prot) || 0) * 10) / 10,
-      carbs: Math.round((parseFloat(item.chocdf) || 0) * 10) / 10,
-      fat: Math.round((parseFloat(item.fatce) || 0) * 10) / 10,
-      servingSize: item.nutConSrtrQua || '100g',
+      id: item.FOOD_CD || String(Math.random()),
+      name: item.FOOD_NM_KR || '알 수 없음',
+      brand: item.MAKER_NM || '',
+      calories: Math.round(parseFloat(item.AMT_NUM1) || 0),
+      protein: Math.round((parseFloat(item.AMT_NUM3) || 0) * 10) / 10,
+      carbs: Math.round((parseFloat(item.AMT_NUM6) || 0) * 10) / 10,
+      fat: Math.round((parseFloat(item.AMT_NUM4) || 0) * 10) / 10,
+      servingSize: item.SERVING_SIZE || '100g',
     };
   }
 
   private async searchKorean(query: string, page: number) {
     try {
-      const [processRes, foodRes] = await Promise.all([
-        fetch(`https://api.data.go.kr/openapi/tn_pubr_public_nutri_process_info_api?serviceKey=${this.koApiKey}&pageNo=${page}&numOfRows=10&type=json&foodNm=${encodeURIComponent(query)}`),
-        fetch(`https://api.data.go.kr/openapi/tn_pubr_public_nutri_food_info_api?serviceKey=${this.koApiKey}&pageNo=${page}&numOfRows=10&type=json&foodNm=${encodeURIComponent(query)}`),
-      ]);
-
-      const [processData, foodData] = await Promise.all([
-        processRes.json(),
-        foodRes.json(),
-      ]);
-
-      const processItems = processData?.response?.body?.items || [];
-      const foodItems = foodData?.response?.body?.items || [];
-
-      const combined = [...processItems, ...foodItems];
-
-      const seen = new Set<string>();
-      const unique = combined.filter(item => {
-        if (seen.has(item.foodCd)) return false;
-        seen.add(item.foodCd);
-        return true;
-      });
-
-      return unique.map(item => this.mapItem(item));
+      const url = `https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02?serviceKey=${this.koApiKey}&pageNo=${page}&numOfRows=20&type=json&FOOD_NM_KR=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const items = data?.body?.items || [];
+      if (!Array.isArray(items)) return [];
+      return items.map((item: any) => this.mapKoItem(item));
     } catch (e) {
       console.error('한국 식품 검색 오류:', e);
       throw new HttpException('한국 식품 검색 중 오류가 발생했어요', HttpStatus.INTERNAL_SERVER_ERROR);
@@ -71,10 +52,8 @@ export class FoodService {
       url.searchParams.set('page', String(page));
       url.searchParams.set('page_size', '20');
       url.searchParams.set('fields', 'id,product_name,nutriments,serving_size,brands');
-
       const res = await fetch(url.toString());
       const data = await res.json();
-
       return (data.products || []).map((p: any) => ({
         id: p.id,
         name: p.product_name || '알 수 없음',
