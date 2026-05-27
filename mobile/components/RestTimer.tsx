@@ -83,7 +83,7 @@ export default function RestTimer() {
       {running || remaining > 0 ? (
         <View style={s.timerArea}>
           <View style={s.progressBg}>
-            <View style={[s.progressFill, { width: progressPct + '%' }]} />
+            <View style={[s.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
           </View>
           <Text style={[s.timerText, remaining <= 10 && s.timerTextRed]}>
             {formatTime(remaining)}

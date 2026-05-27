@@ -38,7 +38,7 @@ export default function WaterTracker() {
       </View>
 
       <View style={s.progressBg}>
-        <View style={[s.progressFill, { width: (progress * 100) + '%' }]} />
+        <View style={[s.progressFill, { width: `${progress * 100}%` as `${number}%` }]} />
       </View>
 
       <View style={s.cupsRow}>

@@ -1,44 +1,66 @@
+import React from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  Alert, Keyboard, KeyboardAvoidingView, Platform, TouchableWithoutFeedback,
-  Modal, LayoutAnimation, UIManager,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import apiClient from '../../lib/apiClient';
-import { useWorkoutStore } from '../../store/workoutStore';
-import { Colors, EXERCISE_CATEGORIES } from '../../constants';
-import { WorkoutSet, ExerciseSetting } from '../../types/workout';
-import MuscleMap, { MUSCLE_MAP } from '../../components/MuscleMap';
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+  LayoutAnimation,
+  UIManager,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useState, useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import apiClient from "../../lib/apiClient";
+import { useWorkoutStore } from "../../store/workoutStore";
+import { Colors, EXERCISE_CATEGORIES } from "../../constants";
+import { WorkoutSet, ExerciseSetting } from "../../types/workout";
+import MuscleMap, { MUSCLE_MAP } from "../../components/MuscleMap";
 
-if (Platform.OS === 'android') {
+if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
 const PRESET_EXERCISES = [
-  { name: '벤치프레스', category: '가슴' },
-  { name: '인클라인 벤치프레스', category: '가슴' },
-  { name: '딥스', category: '가슴' },
-  { name: '데드리프트', category: '등' },
-  { name: '바벨 로우', category: '등' },
-  { name: '풀업', category: '등' },
-  { name: '오버헤드프레스', category: '어깨' },
-  { name: '사이드 레터럴 레이즈', category: '어깨' },
-  { name: '바벨 컬', category: '팔' },
-  { name: '트라이셉스 익스텐션', category: '팔' },
-  { name: '스쿼트', category: '하체' },
-  { name: '레그프레스', category: '하체' },
-  { name: '런지', category: '하체' },
-  { name: '플랭크', category: '복근' },
-  { name: '크런치', category: '복근' },
+  { name: "벤치프레스", category: "가슴" },
+  { name: "인클라인 벤치프레스", category: "가슴" },
+  { name: "딥스", category: "가슴" },
+  { name: "데드리프트", category: "등" },
+  { name: "바벨 로우", category: "등" },
+  { name: "풀업", category: "등" },
+  { name: "오버헤드프레스", category: "어깨" },
+  { name: "사이드 레터럴 레이즈", category: "어깨" },
+  { name: "바벨 컬", category: "팔" },
+  { name: "트라이셉스 익스텐션", category: "팔" },
+  { name: "스쿼트", category: "하체" },
+  { name: "레그프레스", category: "하체" },
+  { name: "런지", category: "하체" },
+  { name: "플랭크", category: "복근" },
+  { name: "크런치", category: "복근" },
 ];
 
-const PRESET_SETTING_KEYS = ['시트높이', '등받이각도', '그립종류', '발판위치', '바높이', '인클라인각도', '기타'];
+const PRESET_SETTING_KEYS = [
+  "시트높이",
+  "등받이각도",
+  "그립종류",
+  "발판위치",
+  "바높이",
+  "인클라인각도",
+  "기타",
+];
 
 const CARD_SHADOW = {
-  shadowColor: '#B4A0D8',
+  shadowColor: "#B4A0D8",
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.09,
   shadowRadius: 10,
@@ -50,62 +72,54 @@ type CustomKey = { id: string; name: string };
 
 export default function AddWorkoutModal() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { addExercise, addSet, activeSession } = useWorkoutStore();
 
-  // ── Refs ──────────────────────────────────────────────
   const scrollRef = useRef<ScrollView>(null);
   const setsSectionY = useRef(0);
   const setWeightRefs = useRef<(TextInput | null)[]>([]);
   const customKeyInputRef = useRef<TextInput>(null);
 
-  // ── Exercise selection ─────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedExercise, setSelectedExercise] = useState<PresetExercise | null>(null);
+  const [selectedExercise, setSelectedExercise] =
+    useState<PresetExercise | null>(null);
   const [exerciseListCollapsed, setExerciseListCollapsed] = useState(false);
   const [customExercises, setCustomExercises] = useState<PresetExercise[]>([]);
-
-  // Direct add form
   const [showCustomForm, setShowCustomForm] = useState(false);
-  const [customName, setCustomName] = useState('');
-  const [customCat, setCustomCat] = useState('');
+  const [customName, setCustomName] = useState("");
+  const [customCat, setCustomCat] = useState("");
 
-  // ── Sets ───────────────────────────────────────────────
-  const [sets, setSets] = useState([{ weight: '', reps: '' }]);
+  const [sets, setSets] = useState([{ weight: "", reps: "" }]);
 
-  // ── Settings ───────────────────────────────────────────
   const [settings, setSettings] = useState<ExerciseSetting[]>([]);
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [settingKey, setSettingKey] = useState(PRESET_SETTING_KEYS[0]);
-  const [settingValue, setSettingValue] = useState('');
-
-  // Custom setting keys from server
+  const [settingValue, setSettingValue] = useState("");
   const [customSettingKeys, setCustomSettingKeys] = useState<CustomKey[]>([]);
   const [isCustomKeyMode, setIsCustomKeyMode] = useState(false);
-  const [customKeyName, setCustomKeyName] = useState('');
+  const [customKeyName, setCustomKeyName] = useState("");
 
-  // ── Tip ────────────────────────────────────────────────
-  const [tip, setTip] = useState('');
+  const [tip, setTip] = useState("");
 
   useEffect(() => {
-    apiClient.get<CustomKey[]>('/workout-settings')
-      .then(res => setCustomSettingKeys(res.data))
+    apiClient
+      .get<CustomKey[]>("/workout-settings")
+      .then((res) => setCustomSettingKeys(res.data))
       .catch(() => {});
   }, []);
 
   const allExercises = [...customExercises, ...PRESET_EXERCISES];
-  const filtered = allExercises.filter(e => !selectedCategory || e.category === selectedCategory);
-
-  // ── Exercise selection handlers ────────────────────────
+  const filtered = allExercises.filter(
+    (e) => !selectedCategory || e.category === selectedCategory
+  );
 
   const handleSelectExercise = (ex: PresetExercise) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedExercise(ex);
     setExerciseListCollapsed(true);
-    // 세트 섹션으로 스크롤 (애니메이션 완료 후)
     setTimeout(() => {
       scrollRef.current?.scrollTo({ y: setsSectionY.current, animated: true });
     }, 320);
-    // 첫 번째 무게 입력칸 포커스
     setTimeout(() => {
       setWeightRefs.current[0]?.focus();
     }, 520);
@@ -115,88 +129,92 @@ export default function AddWorkoutModal() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedExercise(null);
     setExerciseListCollapsed(false);
-    setSets([{ weight: '', reps: '' }]);
+    setSets([{ weight: "", reps: "" }]);
     setSettings([]);
-    setTip('');
+    setTip("");
     setWeightRefs.current = [];
     setShowCustomForm(false);
   };
 
   const handleAddCustomExercise = () => {
-    if (!customName.trim()) return Alert.alert('종목명을 입력해주세요');
-    if (!customCat) return Alert.alert('카테고리를 선택해주세요');
-    const newEx: PresetExercise = { name: customName.trim(), category: customCat };
-    setCustomExercises(prev => [...prev, newEx]);
-    setCustomName('');
-    setCustomCat('');
+    if (!customName.trim()) return Alert.alert("종목명을 입력해주세요");
+    if (!customCat) return Alert.alert("카테고리를 선택해주세요");
+    const newEx: PresetExercise = {
+      name: customName.trim(),
+      category: customCat,
+    };
+    setCustomExercises((prev) => [...prev, newEx]);
+    setCustomName("");
+    setCustomCat("");
     setShowCustomForm(false);
     handleSelectExercise(newEx);
   };
 
-  // ── Set handlers ───────────────────────────────────────
-
   const handleAddSet = () => {
     const newIndex = sets.length;
-    setSets(prev => [...prev, { weight: '', reps: '' }]);
+    setSets((prev) => [...prev, { weight: "", reps: "" }]);
     setTimeout(() => {
       setWeightRefs.current[newIndex]?.focus();
     }, 100);
   };
 
-  // ── Settings handlers ──────────────────────────────────
-
   const openSettingsSheet = () => {
     setIsCustomKeyMode(false);
-    setCustomKeyName('');
+    setCustomKeyName("");
     setSettingKey(PRESET_SETTING_KEYS[0]);
-    setSettingValue('');
+    setSettingValue("");
     setShowSettingsSheet(true);
   };
 
   const closeSettingsSheet = () => {
     setShowSettingsSheet(false);
     setIsCustomKeyMode(false);
-    setCustomKeyName('');
-    setSettingValue('');
+    setCustomKeyName("");
+    setSettingValue("");
   };
 
   const handleAddSetting = async () => {
     const key = isCustomKeyMode ? customKeyName.trim() : settingKey;
-    if (!key) return Alert.alert('항목명을 입력해주세요');
-    if (!settingValue.trim()) return Alert.alert('값을 입력해주세요');
+    if (!key) return Alert.alert("항목명을 입력해주세요");
+    if (!settingValue.trim()) return Alert.alert("값을 입력해주세요");
 
-    if (isCustomKeyMode && key && !customSettingKeys.some(k => k.name === key)) {
+    if (
+      isCustomKeyMode &&
+      key &&
+      !customSettingKeys.some((k) => k.name === key)
+    ) {
       try {
-        const res = await apiClient.post<CustomKey>('/workout-settings', { name: key });
-        setCustomSettingKeys(prev => [...prev, res.data]);
+        const res = await apiClient.post<CustomKey>("/workout-settings", {
+          name: key,
+        });
+        setCustomSettingKeys((prev) => [...prev, res.data]);
       } catch {}
     }
 
-    setSettings(prev => [...prev, { key, value: settingValue.trim() }]);
+    setSettings((prev) => [...prev, { key, value: settingValue.trim() }]);
     closeSettingsSheet();
   };
 
   const deleteCustomKey = async (id: string) => {
     try {
       await apiClient.delete(`/workout-settings/${id}`);
-      setCustomSettingKeys(prev => prev.filter(k => k.id !== id));
-      if (customSettingKeys.find(k => k.id === id)?.name === settingKey) {
+      setCustomSettingKeys((prev) => prev.filter((k) => k.id !== id));
+      if (customSettingKeys.find((k) => k.id === id)?.name === settingKey) {
         setSettingKey(PRESET_SETTING_KEYS[0]);
       }
     } catch {
-      Alert.alert('삭제 실패', '잠시 후 다시 시도해주세요');
+      Alert.alert("삭제 실패", "잠시 후 다시 시도해주세요");
     }
   };
 
-  const removeSetting = (idx: number) => setSettings(prev => prev.filter((_, i) => i !== idx));
-
-  // ── Submit ─────────────────────────────────────────────
+  const removeSetting = (idx: number) =>
+    setSettings((prev) => prev.filter((_, i) => i !== idx));
 
   const handleAdd = () => {
-    if (!activeSession) return Alert.alert('운동 세션을 먼저 시작해주세요');
-    if (!selectedExercise) return Alert.alert('운동 종목을 선택해주세요');
-    const validSets = sets.filter(s => s.weight && s.reps);
-    if (validSets.length === 0) return Alert.alert('최소 1세트를 입력해주세요');
+    if (!activeSession) return Alert.alert("운동 세션을 먼저 시작해주세요");
+    if (!selectedExercise) return Alert.alert("운동 종목을 선택해주세요");
+    const validSets = sets.filter((s) => s.weight && s.reps);
+    if (validSets.length === 0) return Alert.alert("최소 1세트를 입력해주세요");
     const exId = Date.now().toString();
     addExercise({
       id: exId,
@@ -207,7 +225,7 @@ export default function AddWorkoutModal() {
     });
     validSets.forEach((st, i) => {
       const workoutSet: WorkoutSet = {
-        id: exId + '-' + i,
+        id: exId + "-" + i,
         weight: parseFloat(st.weight),
         reps: parseInt(st.reps),
         completed: false,
@@ -217,285 +235,430 @@ export default function AddWorkoutModal() {
     router.back();
   };
 
-  // ── Render ─────────────────────────────────────────────
-
   return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={{ flex: 1 }}>
+    <SafeAreaView style={s.container} edges={["top"]}>
+      {/* ── 고정 헤더 ── */}
+      <View style={s.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={s.closeBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="close" size={24} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>운동 추가</Text>
+        <View style={s.headerRight} />
+      </View>
 
-            <ScrollView
-              ref={scrollRef}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={s.content}
-            >
-              {/* ── 종목 선택: 접힌 상태 ── */}
-              {exerciseListCollapsed && selectedExercise ? (
-                <>
-                  <View style={s.selectedExSummary}>
-                    <View style={s.selectedExInfo}>
-                      <Text style={s.selectedExLabel}>선택된 종목</Text>
-                      <Text style={s.selectedExName}>{selectedExercise.name}</Text>
-                    </View>
-                    <View style={s.selectedExRight}>
-                      <Text style={s.selectedExCat}>{selectedExercise.category}</Text>
-                      <TouchableOpacity style={s.changeExBtn} onPress={handleChangeExercise}>
-                        <Text style={s.changeExText}>변경</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+      {/* ── 스크롤 + 고정 푸터 ── */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}>
+        <ScrollView
+          ref={scrollRef}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={s.content}>
+          {/* ── 종목 선택: 접힌 상태 ── */}
+          {exerciseListCollapsed && selectedExercise ? (
+            <>
+              <View style={s.selectedExSummary}>
+                <View style={s.selectedExInfo}>
+                  <Text style={s.selectedExLabel}>선택된 종목</Text>
+                  <Text style={s.selectedExName}>{selectedExercise.name}</Text>
+                </View>
+                <View style={s.selectedExRight}>
+                  <Text style={s.selectedExCat}>
+                    {selectedExercise.category}
+                  </Text>
+                  <TouchableOpacity
+                    style={s.changeExBtn}
+                    onPress={handleChangeExercise}>
+                    <Text style={s.changeExText}>변경</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-                  {/* ── 자극 근육 맵 ── */}
-                  {MUSCLE_MAP[selectedExercise.name] && (
-                    <View style={s.muscleCard}>
-                      <MuscleMap muscles={MUSCLE_MAP[selectedExercise.name]} />
-                    </View>
-                  )}
-                </>
+              {MUSCLE_MAP[selectedExercise.name] && (
+                <View style={s.muscleCard}>
+                  <MuscleMap muscles={MUSCLE_MAP[selectedExercise.name]} />
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={s.sectionLabel}>운동 종목 선택</Text>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={s.catScroll}
+                keyboardShouldPersistTaps="handled">
+                {EXERCISE_CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      s.catChip,
+                      selectedCategory === cat && s.catChipActive,
+                    ]}
+                    onPress={() =>
+                      setSelectedCategory(selectedCategory === cat ? null : cat)
+                    }>
+                    <Text
+                      style={[
+                        s.catText,
+                        selectedCategory === cat && s.catTextActive,
+                      ]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View style={s.exerciseList}>
+                {filtered.map((ex) => (
+                  <TouchableOpacity
+                    key={ex.name}
+                    style={s.exItem}
+                    onPress={() => handleSelectExercise(ex)}
+                    activeOpacity={0.7}>
+                    <Text style={s.exName}>{ex.name}</Text>
+                    <Text style={s.exCat}>{ex.category}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {!showCustomForm ? (
+                <TouchableOpacity
+                  style={s.directAddBtn}
+                  onPress={() => setShowCustomForm(true)}>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={18}
+                    color={Colors.primary}
+                  />
+                  <Text style={s.directAddText}>직접 추가</Text>
+                </TouchableOpacity>
               ) : (
-                /* ── 종목 선택: 펼친 상태 ── */
-                <>
-                  <Text style={s.sectionLabel}>운동 종목 선택</Text>
-
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} keyboardShouldPersistTaps="handled">
-                    {EXERCISE_CATEGORIES.map(cat => (
+                <View style={s.customForm}>
+                  <View style={s.customFormHeader}>
+                    <Text style={s.customFormTitle}>직접 추가</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowCustomForm(false);
+                        setCustomName("");
+                        setCustomCat("");
+                      }}>
+                      <Ionicons
+                        name="close"
+                        size={20}
+                        color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    style={s.customNameInput}
+                    placeholder="종목명 입력 (예: 케이블 플라이)"
+                    value={customName}
+                    onChangeText={setCustomName}
+                    placeholderTextColor={Colors.textMuted}
+                    returnKeyType="done"
+                  />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={s.catScroll}
+                    keyboardShouldPersistTaps="handled">
+                    {EXERCISE_CATEGORIES.map((cat) => (
                       <TouchableOpacity
                         key={cat}
-                        style={[s.catChip, selectedCategory === cat && s.catChipActive]}
-                        onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                      >
-                        <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>{cat}</Text>
+                        style={[
+                          s.catChip,
+                          customCat === cat && s.catChipActive,
+                        ]}
+                        onPress={() => setCustomCat(cat)}>
+                        <Text
+                          style={[
+                            s.catText,
+                            customCat === cat && s.catTextActive,
+                          ]}>
+                          {cat}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
-
-                  <View style={s.exerciseList}>
-                    {filtered.map(ex => (
-                      <TouchableOpacity
-                        key={ex.name}
-                        style={s.exItem}
-                        onPress={() => handleSelectExercise(ex)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={s.exName}>{ex.name}</Text>
-                        <Text style={s.exCat}>{ex.category}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {/* 종목 직접 추가 */}
-                  {!showCustomForm ? (
-                    <TouchableOpacity style={s.directAddBtn} onPress={() => setShowCustomForm(true)}>
-                      <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-                      <Text style={s.directAddText}>직접 추가</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={s.customForm}>
-                      <View style={s.customFormHeader}>
-                        <Text style={s.customFormTitle}>직접 추가</Text>
-                        <TouchableOpacity onPress={() => { setShowCustomForm(false); setCustomName(''); setCustomCat(''); }}>
-                          <Ionicons name="close" size={20} color={Colors.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                      <TextInput
-                        style={s.customNameInput}
-                        placeholder="종목명 입력 (예: 케이블 플라이)"
-                        value={customName}
-                        onChangeText={setCustomName}
-                        placeholderTextColor={Colors.textMuted}
-                        returnKeyType="done"
-                      />
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} keyboardShouldPersistTaps="handled">
-                        {EXERCISE_CATEGORIES.map(cat => (
-                          <TouchableOpacity
-                            key={cat}
-                            style={[s.catChip, customCat === cat && s.catChipActive]}
-                            onPress={() => setCustomCat(cat)}
-                          >
-                            <Text style={[s.catText, customCat === cat && s.catTextActive]}>{cat}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                      <TouchableOpacity style={s.customAddBtn} onPress={handleAddCustomExercise} activeOpacity={0.8}>
-                        <Text style={s.customAddBtnText}>목록에 추가하기</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </>
-              )}
-
-              {/* ── 세트 기록 ── */}
-              {selectedExercise && (
-                <View
-                  style={s.setSection}
-                  onLayout={e => { setsSectionY.current = e.nativeEvent.layout.y; }}
-                >
-                  <Text style={s.setSectionTitle}>{selectedExercise.name} 세트 기록 🏋️</Text>
-                  <View style={s.setHeaderRow}>
-                    <Text style={[s.setHeader, { flex: 0.5 }]}>세트</Text>
-                    <Text style={[s.setHeader, { flex: 1 }]}>무게(kg)</Text>
-                    <Text style={[s.setHeader, { flex: 1 }]}>횟수</Text>
-                  </View>
-                  {sets.map((st, i) => (
-                    <View key={i} style={s.setRow}>
-                      <Text style={[s.setNum, { flex: 0.5 }]}>{i + 1}</Text>
-                      <TextInput
-                        ref={el => { setWeightRefs.current[i] = el; }}
-                        style={[s.setInput, { flex: 1 }]}
-                        value={st.weight}
-                        onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weight: v } : s))}
-                        keyboardType="numeric"
-                        placeholder="0"
-                        placeholderTextColor={Colors.textMuted}
-                        returnKeyType="next"
-                      />
-                      <TextInput
-                        style={[s.setInput, { flex: 1 }]}
-                        value={st.reps}
-                        onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s))}
-                        keyboardType="numeric"
-                        placeholder="0"
-                        placeholderTextColor={Colors.textMuted}
-                        returnKeyType={i === sets.length - 1 ? 'done' : 'next'}
-                        onSubmitEditing={i === sets.length - 1 ? Keyboard.dismiss : undefined}
-                      />
-                    </View>
-                  ))}
-                  <TouchableOpacity style={s.addSetBtn} onPress={handleAddSet}>
-                    <Text style={s.addSetText}>+ 세트 추가</Text>
+                  <TouchableOpacity
+                    style={s.customAddBtn}
+                    onPress={handleAddCustomExercise}
+                    activeOpacity={0.8}>
+                    <Text style={s.customAddBtnText}>목록에 추가하기</Text>
                   </TouchableOpacity>
-
-                  {/* ── 설정 ── */}
-                  <View style={s.divider} />
-                  <View style={s.settingsHeader}>
-                    <Text style={s.settingsTitle}>⚙️ 기구 설정</Text>
-                    <TouchableOpacity style={s.addSettingBtn} onPress={openSettingsSheet}>
-                      <Ionicons name="add" size={16} color={Colors.primary} />
-                      <Text style={s.addSettingText}>설정 추가</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {settings.length > 0 ? (
-                    <View style={s.tagsWrap}>
-                      {settings.map((st, i) => (
-                        <TouchableOpacity key={i} style={s.tag} onPress={() => removeSetting(i)} activeOpacity={0.7}>
-                          <Text style={s.tagText}>{st.key}: {st.value}</Text>
-                          <Ionicons name="close" size={12} color={Colors.primary} />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={s.settingsEmpty}>시트높이, 각도 등 기구 설정을 기록하세요</Text>
-                  )}
-
-                  {/* ── 팁 ── */}
-                  <View style={s.divider} />
-                  <Text style={s.settingsTitle}>💡 운동 팁</Text>
-                  <TextInput
-                    style={s.tipInput}
-                    placeholder="자유롭게 팁이나 메모를 남겨보세요"
-                    value={tip}
-                    onChangeText={setTip}
-                    placeholderTextColor={Colors.textMuted}
-                    multiline
-                    numberOfLines={3}
-                    textAlignVertical="top"
-                  />
                 </View>
               )}
+            </>
+          )}
 
-              <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.8}>
-                <Text style={s.addBtnText}>운동 추가</Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-          </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-
-      {/* ── 설정 바텀시트 ── */}
-      <Modal visible={showSettingsSheet} transparent animationType="slide" onRequestClose={closeSettingsSheet}>
-        <TouchableOpacity style={sh.overlay} activeOpacity={1} onPress={closeSettingsSheet}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
-            <TouchableWithoutFeedback>
-              <View style={sh.sheet}>
-                <View style={sh.handle} />
-                <Text style={sh.title}>기구 설정 추가</Text>
-
-                <Text style={sh.label}>항목 선택</Text>
-                <View style={sh.keyGrid}>
-                  {PRESET_SETTING_KEYS.map(k => (
-                    <TouchableOpacity
-                      key={k}
-                      style={[sh.keyChip, !isCustomKeyMode && settingKey === k && sh.keyChipActive]}
-                      onPress={() => { setSettingKey(k); setIsCustomKeyMode(false); setCustomKeyName(''); }}
-                    >
-                      <Text style={[sh.keyText, !isCustomKeyMode && settingKey === k && sh.keyTextActive]}>{k}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  {customSettingKeys.map(k => (
-                    <View key={k.id} style={sh.savedKeyWrap}>
-                      <TouchableOpacity
-                        style={[sh.keyChip, sh.keyChipSaved, !isCustomKeyMode && settingKey === k.name && sh.keyChipActive]}
-                        onPress={() => { setSettingKey(k.name); setIsCustomKeyMode(false); setCustomKeyName(''); }}
-                      >
-                        <Text style={[sh.keyText, !isCustomKeyMode && settingKey === k.name && sh.keyTextActive]}>{k.name}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={sh.savedKeyDelete}
-                        onPress={() => deleteCustomKey(k.id)}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      >
-                        <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={sh.directDivider}>
-                  <View style={sh.directLine} />
-                </View>
-                <TouchableOpacity
-                  style={[sh.directKeyBtn, isCustomKeyMode && sh.directKeyBtnActive]}
-                  onPress={() => {
-                    setIsCustomKeyMode(true);
-                    setSettingKey('');
-                    setTimeout(() => customKeyInputRef.current?.focus(), 100);
-                  }}
-                >
-                  <Ionicons name="add-circle-outline" size={15} color={isCustomKeyMode ? Colors.primary : Colors.textSecondary} />
-                  <Text style={[sh.directKeyText, isCustomKeyMode && sh.directKeyTextActive]}>직접 입력</Text>
-                </TouchableOpacity>
-
-                {isCustomKeyMode && (
+          {/* ── 세트 기록 ── */}
+          {selectedExercise && (
+            <View
+              style={s.setSection}
+              onLayout={(e) => {
+                setsSectionY.current = e.nativeEvent.layout.y;
+              }}>
+              <Text style={s.setSectionTitle}>
+                {selectedExercise.name} 세트 기록 🏋️
+              </Text>
+              <View style={s.setHeaderRow}>
+                <Text style={[s.setHeader, { flex: 0.5 }]}>세트</Text>
+                <Text style={[s.setHeader, { flex: 1 }]}>무게(kg)</Text>
+                <Text style={[s.setHeader, { flex: 1 }]}>횟수</Text>
+              </View>
+              {sets.map((st, i) => (
+                <View key={i} style={s.setRow}>
+                  <Text style={[s.setNum, { flex: 0.5 }]}>{i + 1}</Text>
                   <TextInput
-                    ref={customKeyInputRef}
-                    style={sh.customKeyInput}
-                    placeholder="항목명 입력 (예: 케이블각도, 풀리높이)"
-                    value={customKeyName}
-                    onChangeText={setCustomKeyName}
+                    ref={(el) => {
+                      setWeightRefs.current[i] = el;
+                    }}
+                    style={[s.setInput, { flex: 1 }]}
+                    value={st.weight}
+                    onChangeText={(v) =>
+                      setSets((prev) =>
+                        prev.map((s, idx) =>
+                          idx === i ? { ...s, weight: v } : s
+                        )
+                      )
+                    }
+                    keyboardType="numeric"
+                    placeholder="0"
                     placeholderTextColor={Colors.textMuted}
                     returnKeyType="next"
                   />
-                )}
+                  <TextInput
+                    style={[s.setInput, { flex: 1 }]}
+                    value={st.reps}
+                    onChangeText={(v) =>
+                      setSets((prev) =>
+                        prev.map((s, idx) =>
+                          idx === i ? { ...s, reps: v } : s
+                        )
+                      )
+                    }
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                    returnKeyType={i === sets.length - 1 ? "done" : "next"}
+                    onSubmitEditing={
+                      i === sets.length - 1 ? Keyboard.dismiss : undefined
+                    }
+                  />
+                </View>
+              ))}
+              <TouchableOpacity style={s.addSetBtn} onPress={handleAddSet}>
+                <Text style={s.addSetText}>+ 세트 추가</Text>
+              </TouchableOpacity>
 
-                <Text style={[sh.label, { marginTop: 16 }]}>값 입력</Text>
-                <TextInput
-                  style={sh.valueInput}
-                  placeholder="예: 3단계, 45도, 오버핸드"
-                  value={settingValue}
-                  onChangeText={setSettingValue}
-                  placeholderTextColor={Colors.textMuted}
-                  returnKeyType="done"
-                  onSubmitEditing={handleAddSetting}
-                />
-
-                <TouchableOpacity style={sh.addBtn} onPress={handleAddSetting} activeOpacity={0.8}>
-                  <Text style={sh.addBtnText}>추가하기</Text>
+              {/* ── 설정 ── */}
+              <View style={s.divider} />
+              <View style={s.settingsHeader}>
+                <Text style={s.settingsTitle}>⚙️ 기구 설정</Text>
+                <TouchableOpacity
+                  style={s.addSettingBtn}
+                  onPress={openSettingsSheet}>
+                  <Ionicons name="add" size={16} color={Colors.primary} />
+                  <Text style={s.addSettingText}>설정 추가</Text>
                 </TouchableOpacity>
               </View>
-            </TouchableWithoutFeedback>
+              {settings.length > 0 ? (
+                <View style={s.tagsWrap}>
+                  {settings.map((st, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      style={s.tag}
+                      onPress={() => removeSetting(i)}
+                      activeOpacity={0.7}>
+                      <Text style={s.tagText}>
+                        {st.key}: {st.value}
+                      </Text>
+                      <Ionicons name="close" size={12} color={Colors.primary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Text style={s.settingsEmpty}>
+                  시트높이, 각도 등 기구 설정을 기록하세요
+                </Text>
+              )}
+
+              {/* ── 팁 ── */}
+              <View style={s.divider} />
+              <Text style={s.settingsTitle}>💡 운동 팁</Text>
+              <TextInput
+                style={s.tipInput}
+                placeholder="자유롭게 팁이나 메모를 남겨보세요"
+                value={tip}
+                onChangeText={setTip}
+                placeholderTextColor={Colors.textMuted}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+          )}
+        </ScrollView>
+
+        {/* ── 고정 푸터 ── */}
+        <View
+          style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <TouchableOpacity
+            style={s.addBtn}
+            onPress={handleAdd}
+            activeOpacity={0.8}>
+            <Text style={s.addBtnText}>운동 추가</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* ── 기구 설정 시트 ── */}
+      <Modal
+        visible={showSettingsSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={closeSettingsSheet}>
+        <TouchableOpacity
+          style={sh.overlay}
+          activeOpacity={1}
+          onPress={closeSettingsSheet}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ width: "100%" }}>
+            <View style={sh.sheet}>
+              <View style={sh.handle} />
+              <Text style={sh.title}>기구 설정 추가</Text>
+
+              <Text style={sh.label}>항목 선택</Text>
+              <View style={sh.keyGrid}>
+                {PRESET_SETTING_KEYS.map((k) => (
+                  <TouchableOpacity
+                    key={k}
+                    style={[
+                      sh.keyChip,
+                      !isCustomKeyMode && settingKey === k && sh.keyChipActive,
+                    ]}
+                    onPress={() => {
+                      setSettingKey(k);
+                      setIsCustomKeyMode(false);
+                      setCustomKeyName("");
+                    }}>
+                    <Text
+                      style={[
+                        sh.keyText,
+                        !isCustomKeyMode &&
+                          settingKey === k &&
+                          sh.keyTextActive,
+                      ]}>
+                      {k}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                {customSettingKeys.map((k) => (
+                  <View key={k.id} style={sh.savedKeyWrap}>
+                    <TouchableOpacity
+                      style={[
+                        sh.keyChip,
+                        sh.keyChipSaved,
+                        !isCustomKeyMode &&
+                          settingKey === k.name &&
+                          sh.keyChipActive,
+                      ]}
+                      onPress={() => {
+                        setSettingKey(k.name);
+                        setIsCustomKeyMode(false);
+                        setCustomKeyName("");
+                      }}>
+                      <Text
+                        style={[
+                          sh.keyText,
+                          !isCustomKeyMode &&
+                            settingKey === k.name &&
+                            sh.keyTextActive,
+                        ]}>
+                        {k.name}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={sh.savedKeyDelete}
+                      onPress={() => deleteCustomKey(k.id)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                      <Ionicons
+                        name="close-circle"
+                        size={15}
+                        color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+
+              <View style={sh.directDivider}>
+                <View style={sh.directLine} />
+              </View>
+              <TouchableOpacity
+                style={[
+                  sh.directKeyBtn,
+                  isCustomKeyMode && sh.directKeyBtnActive,
+                ]}
+                onPress={() => {
+                  setIsCustomKeyMode(true);
+                  setSettingKey("");
+                  setTimeout(() => customKeyInputRef.current?.focus(), 100);
+                }}>
+                <Ionicons
+                  name="add-circle-outline"
+                  size={15}
+                  color={
+                    isCustomKeyMode ? Colors.primary : Colors.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    sh.directKeyText,
+                    isCustomKeyMode && sh.directKeyTextActive,
+                  ]}>
+                  직접 입력
+                </Text>
+              </TouchableOpacity>
+
+              {isCustomKeyMode && (
+                <TextInput
+                  ref={customKeyInputRef}
+                  style={sh.customKeyInput}
+                  placeholder="항목명 입력 (예: 케이블각도, 풀리높이)"
+                  value={customKeyName}
+                  onChangeText={setCustomKeyName}
+                  placeholderTextColor={Colors.textMuted}
+                  returnKeyType="next"
+                />
+              )}
+
+              <Text style={[sh.label, { marginTop: 16 }]}>값 입력</Text>
+              <TextInput
+                style={sh.valueInput}
+                placeholder="예: 3단계, 45도, 오버핸드"
+                value={settingValue}
+                onChangeText={setSettingValue}
+                placeholderTextColor={Colors.textMuted}
+                returnKeyType="done"
+                onSubmitEditing={handleAddSetting}
+              />
+
+              <TouchableOpacity
+                style={sh.addBtn}
+                onPress={handleAddSetting}
+                activeOpacity={0.8}>
+                <Text style={sh.addBtnText}>추가하기</Text>
+              </TouchableOpacity>
+            </View>
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
@@ -505,102 +668,371 @@ export default function AddWorkoutModal() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 20, paddingBottom: 40 },
 
-  // 선택된 종목 요약 (접힌 상태)
+  // 고정 헤더
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.surfaceAlt,
+    backgroundColor: Colors.background,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
+  headerRight: { width: 36 },
+
+  // 스크롤 콘텐츠
+  content: { padding: 20, paddingBottom: 16 },
+
+  // 고정 푸터
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.surfaceAlt,
+    backgroundColor: Colors.background,
+  },
+  addBtn: {
+    backgroundColor: Colors.workout,
+    borderRadius: 24,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  addBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+
+  // 선택된 종목 요약
   selectedExSummary: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: Colors.surface, borderRadius: 18, padding: 16,
-    marginBottom: 14, ...CARD_SHADOW,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    ...CARD_SHADOW,
   },
   selectedExInfo: { flex: 1 },
-  selectedExLabel: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', marginBottom: 3 },
-  selectedExName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  selectedExRight: { alignItems: 'flex-end', gap: 6 },
-  selectedExCat: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  changeExBtn: { backgroundColor: Colors.primary + '18', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
-  changeExText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
+  selectedExLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: "600",
+    marginBottom: 3,
+  },
+  selectedExName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
+  selectedExRight: { alignItems: "flex-end", gap: 6 },
+  selectedExCat: {
+    fontSize: 11,
+    color: Colors.workout,
+    backgroundColor: Colors.workout + "28",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  changeExBtn: {
+    backgroundColor: Colors.primary + "18",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  changeExText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
 
-  // 종목 목록 (펼친 상태)
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary, marginBottom: 12 },
+  // 종목 목록
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.textSecondary,
+    marginBottom: 12,
+  },
   catScroll: { marginBottom: 12 },
-  catChip: { backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8, ...CARD_SHADOW },
-  catChipActive: { backgroundColor: Colors.workout + '28' },
-  catText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  catTextActive: { color: Colors.workout, fontWeight: '700' },
+  catChip: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    ...CARD_SHADOW,
+  },
+  catChipActive: { backgroundColor: Colors.workout + "28" },
+  catText: { fontSize: 13, color: Colors.textSecondary, fontWeight: "600" },
+  catTextActive: { color: Colors.workout, fontWeight: "700" },
   exerciseList: { marginBottom: 8 },
   exItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: Colors.surface, borderRadius: 16, padding: 14, marginBottom: 8, ...CARD_SHADOW,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 8,
+    ...CARD_SHADOW,
   },
-  exName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  exCat: { fontSize: 12, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  exName: { fontSize: 15, fontWeight: "600", color: Colors.textPrimary },
+  exCat: {
+    fontSize: 12,
+    color: Colors.workout,
+    backgroundColor: Colors.workout + "28",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
 
   // 직접 추가
-  directAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 4, marginBottom: 16 },
-  directAddText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  customForm: { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, marginBottom: 16, ...CARD_SHADOW },
-  customFormHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  customFormTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  customNameInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 12, fontSize: 15, color: Colors.textPrimary, marginBottom: 12 },
-  customAddBtn: { backgroundColor: Colors.primary, borderRadius: 20, padding: 12, alignItems: 'center', marginTop: 4 },
-  customAddBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  directAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 16,
+  },
+  directAddText: { fontSize: 14, fontWeight: "600", color: Colors.primary },
+  customForm: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    ...CARD_SHADOW,
+  },
+  customFormHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  customFormTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
+  customNameInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    marginBottom: 12,
+  },
+  customAddBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    padding: 12,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  customAddBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
 
   // 세트 섹션
-  setSection: { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, marginBottom: 16, ...CARD_SHADOW },
-  setSectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, marginBottom: 14 },
-  setHeaderRow: { flexDirection: 'row', marginBottom: 8 },
-  setHeader: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  setNum: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', fontWeight: '700' },
-  setInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 10, color: Colors.textPrimary, fontSize: 15, fontWeight: '600', textAlign: 'center' },
-  addSetBtn: { alignItems: 'center', padding: 10, borderRadius: 20, backgroundColor: Colors.workout + '18', marginTop: 4 },
-  addSetText: { fontSize: 13, color: Colors.workout, fontWeight: '700' },
+  setSection: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    ...CARD_SHADOW,
+  },
+  setSectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+    marginBottom: 14,
+  },
+  setHeaderRow: { flexDirection: "row", marginBottom: 8 },
+  setHeader: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  setRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  setNum: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    fontWeight: "700",
+  },
+  setInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 12,
+    padding: 10,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  addSetBtn: {
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.workout + "18",
+    marginTop: 4,
+  },
+  addSetText: { fontSize: 13, color: Colors.workout, fontWeight: "700" },
 
   // 설정
-  divider: { height: 1, backgroundColor: Colors.surfaceAlt, marginVertical: 14 },
-  settingsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  settingsTitle: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  addSettingBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary + '18', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  addSettingText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.primary + '18', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  tagText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
-  settingsEmpty: { fontSize: 12, color: Colors.textMuted, fontStyle: 'italic' },
-  tipInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 12, padding: 12, color: Colors.textPrimary, fontSize: 14, minHeight: 80, lineHeight: 20, marginTop: 10 },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.surfaceAlt,
+    marginVertical: 14,
+  },
+  settingsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  settingsTitle: { fontSize: 14, fontWeight: "700", color: Colors.textPrimary },
+  addSettingBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.primary + "18",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addSettingText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
+  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.primary + "18",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  tagText: { fontSize: 12, color: Colors.primary, fontWeight: "600" },
+  settingsEmpty: { fontSize: 12, color: Colors.textMuted, fontStyle: "italic" },
+  tipInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 12,
+    padding: 12,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    minHeight: 80,
+    lineHeight: 20,
+    marginTop: 10,
+  },
 
-  addBtn: { backgroundColor: Colors.workout, borderRadius: 24, padding: 16, alignItems: 'center', marginTop: 4 },
-  addBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-
-  // 자극 근육 카드
   muscleCard: {
-    backgroundColor: Colors.surface, borderRadius: 20, padding: 14,
-    marginBottom: 14, ...CARD_SHADOW,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 14,
+    ...CARD_SHADOW,
   },
 });
 
 const sh = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(61, 50, 86, 0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 },
-  handle: { width: 40, height: 4, backgroundColor: Colors.textMuted, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  title: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, marginBottom: 20 },
-  label: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 10 },
-  keyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  keyChip: { backgroundColor: Colors.surfaceAlt, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  keyChipSaved: { borderWidth: 1, borderColor: Colors.primary + '50' },
-  keyChipActive: { backgroundColor: Colors.primary + '28' },
-  keyText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  keyTextActive: { color: Colors.primary, fontWeight: '700' },
-  savedKeyWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(61, 50, 86, 0.4)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 36,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.textMuted,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.textSecondary,
+    marginBottom: 10,
+  },
+  keyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
+  keyChip: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  keyChipSaved: { borderWidth: 1, borderColor: Colors.primary + "50" },
+  keyChipActive: { backgroundColor: Colors.primary + "28" },
+  keyText: { fontSize: 13, color: Colors.textSecondary, fontWeight: "600" },
+  keyTextActive: { color: Colors.primary, fontWeight: "700" },
+  savedKeyWrap: { flexDirection: "row", alignItems: "center", gap: 2 },
   savedKeyDelete: { marginLeft: -6, marginTop: -8 },
-  directDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
+  directDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 12,
+  },
   directLine: { flex: 1, height: 1, backgroundColor: Colors.surfaceAlt },
-  directKeyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: Colors.surfaceAlt, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  directKeyBtnActive: { backgroundColor: Colors.primary + '18' },
-  directKeyText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  directKeyTextActive: { color: Colors.primary, fontWeight: '700' },
-  customKeyInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 14, padding: 13, fontSize: 15, color: Colors.textPrimary, marginTop: 10, borderWidth: 1.5, borderColor: Colors.primary + '60' },
-  valueInput: { backgroundColor: Colors.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, color: Colors.textPrimary, marginBottom: 16 },
-  addBtn: { backgroundColor: Colors.primary, borderRadius: 24, padding: 15, alignItems: 'center' },
-  addBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  directKeyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  directKeyBtnActive: { backgroundColor: Colors.primary + "18" },
+  directKeyText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: "600",
+  },
+  directKeyTextActive: { color: Colors.primary, fontWeight: "700" },
+  customKeyInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 14,
+    padding: 13,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    marginTop: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.primary + "60",
+  },
+  valueInput: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    marginBottom: 16,
+  },
+  addBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 24,
+    padding: 15,
+    alignItems: "center",
+  },
+  addBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
 });

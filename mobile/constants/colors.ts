@@ -17,4 +17,5 @@ export const Colors = {
   workout: '#F4B8A8',      // soft peach coral
   stats: '#FFCBA4',        // warm peach
   water: '#A8C8F0',        // soft sky blue
+  border: '#E8E0F5',       // light lavender border
 };
