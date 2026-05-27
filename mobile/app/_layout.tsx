@@ -9,7 +9,7 @@ import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { token, isReady, loadToken } = useAuthStore();
+  const { token, isReady, loadToken, user } = useAuthStore();
   const router = useRouter();
   const segments = useSegments();
 
@@ -19,13 +19,24 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isReady) return;
+
     const inAuth = segments[0] === "auth";
-    if (!token && !inAuth) {
-      router.replace("/auth/login" as any);
-    } else if (token && inAuth) {
-      router.replace("/(tabs)" as any);
+    const inOnboarding = segments[0] === "onboarding";
+
+    if (!token) {
+      if (!inAuth) router.replace("/auth/login" as any);
+      return;
     }
-  }, [token, isReady, segments]);
+
+    // 토큰 있음 + 온보딩 미완료
+    if (!user?.isOnboardingDone) {
+      if (!inOnboarding) router.replace("/onboarding" as any);
+      return;
+    }
+
+    // 토큰 있음 + 온보딩 완료
+    if (inAuth || inOnboarding) router.replace("/(tabs)" as any);
+  }, [token, isReady, segments, user?.isOnboardingDone]);
 
   if (!isReady) {
     return (
@@ -57,6 +68,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="auth/login" options={{ headerShown: false }} />
           <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen
             name="modal/add-food"
             options={{

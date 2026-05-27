@@ -24,6 +24,18 @@ export class User {
   @Column({ nullable: true })
   height: number;
 
+  @Column({ nullable: true })
+  age: number;
+
+  @Column({ nullable: true })
+  gender: string;
+
+  @Column({ nullable: true })
+  goal: string;
+
+  @Column({ default: false })
+  isOnboardingDone: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
