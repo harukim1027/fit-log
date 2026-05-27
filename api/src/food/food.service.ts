@@ -15,10 +15,17 @@ export class FoodService {
     return this.searchGlobal(query, page);
   }
 
+  private cleanFoodName(name: string): string {
+    return name
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   private mapKoItem(item: any) {
     return {
       id: item.FOOD_CD || String(Math.random()),
-      name: item.FOOD_NM_KR || '알 수 없음',
+      name: this.cleanFoodName(item.FOOD_NM_KR || '알 수 없음'),
       brand: item.MAKER_NM || '',
       calories: Math.round(parseFloat(item.AMT_NUM1) || 0),
       protein: Math.round((parseFloat(item.AMT_NUM3) || 0) * 10) / 10,
