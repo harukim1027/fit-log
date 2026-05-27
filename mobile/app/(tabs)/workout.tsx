@@ -1,8 +1,9 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { Calendar } from 'react-native-calendars';
 import { useWorkoutStore } from '../../store/workoutStore';
 import RestTimer from '../../components/RestTimer';
 import { Colors } from '../../constants/colors';
@@ -18,10 +19,44 @@ const CARD_SHADOW = {
   elevation: 3,
 };
 
+const SESSION_DATE_KEY = (s: WorkoutSession) =>
+  new Date(s.date).toISOString().split('T')[0];
+
+const formatSelectedDate = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+};
+
+const CAL_THEME = {
+  backgroundColor: Colors.background,
+  calendarBackground: Colors.surface,
+  textSectionTitleColor: Colors.textSecondary,
+  selectedDayBackgroundColor: Colors.primary,
+  selectedDayTextColor: '#fff',
+  todayTextColor: Colors.primary,
+  todayBackgroundColor: Colors.primary + '18',
+  dayTextColor: Colors.textPrimary,
+  textDisabledColor: Colors.textMuted,
+  dotColor: Colors.workout,
+  selectedDotColor: '#fff',
+  arrowColor: Colors.primary,
+  monthTextColor: Colors.textPrimary,
+  textDayFontWeight: '600' as const,
+  textMonthFontWeight: '800' as const,
+  textDayHeaderFontWeight: '600' as const,
+  textDayFontSize: 14,
+  textMonthFontSize: 16,
+  textDayHeaderFontSize: 12,
+};
+
 export default function WorkoutScreen() {
   const router = useRouter();
   const { activeSession, startSession, endSession, getTotalVolume, removeSet, updateSet, fetchSessions, sessions, isLoading } = useWorkoutStore();
   const [tab, setTab] = useState<Tab>('today');
+
+  // Calendar state
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date().toISOString().substring(0, 7));
 
   useEffect(() => { fetchSessions(); }, []);
 
@@ -31,6 +66,39 @@ export default function WorkoutScreen() {
       { text: '저장 및 종료', onPress: async () => { await endSession(); } },
     ]);
   };
+
+  // ── Calendar computations ───────────────────────────────
+  const markedDates = useMemo(() => {
+    const result: Record<string, any> = {};
+    sessions.forEach(s => {
+      const key = SESSION_DATE_KEY(s);
+      result[key] = { marked: true, dotColor: Colors.workout };
+    });
+    if (selectedDate) {
+      result[selectedDate] = {
+        ...(result[selectedDate] ?? {}),
+        selected: true,
+        selectedColor: Colors.primary,
+        dotColor: result[selectedDate]?.marked ? '#fff' : Colors.workout,
+      };
+    }
+    return result;
+  }, [sessions, selectedDate]);
+
+  const monthSessions = useMemo(
+    () => sessions.filter(s => SESSION_DATE_KEY(s).startsWith(visibleMonth)),
+    [sessions, visibleMonth],
+  );
+
+  const monthVolume = useMemo(
+    () => monthSessions.reduce((sum, s) => sum + getTotalVolume(s), 0),
+    [monthSessions],
+  );
+
+  const selectedSessions = useMemo(
+    () => (selectedDate ? sessions.filter(s => SESSION_DATE_KEY(s) === selectedDate) : []),
+    [sessions, selectedDate],
+  );
 
   if (isLoading) {
     return (
@@ -148,17 +216,60 @@ export default function WorkoutScreen() {
           )}
         </ScrollView>
       ) : (
-        <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
-          {sessions.length === 0 ? (
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
+
+          {/* 이번 달 요약 */}
+          <View style={s.summaryCard}>
+            <View style={s.summaryLeft}>
+              <Text style={s.summaryMonth}>
+                {visibleMonth.split('-')[0]}년 {parseInt(visibleMonth.split('-')[1])}월
+              </Text>
+              <Text style={s.summaryDetail}>
+                {monthSessions.length}회 운동 · 총 볼륨 {monthVolume.toLocaleString()}kg
+              </Text>
+            </View>
+            <Text style={s.summaryEmoji}>📆</Text>
+          </View>
+
+          {/* 달력 */}
+          <View style={s.calendarCard}>
+            <Calendar
+              markedDates={markedDates}
+              onDayPress={day => {
+                setSelectedDate(prev => prev === day.dateString ? null : day.dateString);
+              }}
+              onMonthChange={month => {
+                setVisibleMonth(month.dateString.substring(0, 7));
+                setSelectedDate(null);
+              }}
+              theme={CAL_THEME}
+            />
+          </View>
+
+          {/* 선택한 날짜 상세 */}
+          {selectedDate && (
+            <>
+              <Text style={s.selectedLabel}>{formatSelectedDate(selectedDate)}</Text>
+              {selectedSessions.length === 0 ? (
+                <View style={s.noWorkoutCard}>
+                  <Text style={s.noWorkoutEmoji}>🙈</Text>
+                  <Text style={s.noWorkoutText}>운동 기록이 없어요</Text>
+                </View>
+              ) : (
+                selectedSessions.map(session => (
+                  <HistoryCard key={session.id} session={session} getVolume={getTotalVolume} />
+                ))
+              )}
+            </>
+          )}
+
+          {/* 전체 비어있을 때 */}
+          {sessions.length === 0 && (
             <View style={s.emptyContainer}>
               <Text style={s.emptyEmoji}>📅</Text>
               <Text style={s.emptyTitle}>운동 기록이 없어요</Text>
               <Text style={s.emptyDesc}>운동을 시작하고 기록을 쌓아보세요</Text>
             </View>
-          ) : (
-            sessions.slice().reverse().map(session => (
-              <HistoryCard key={session.id} session={session} getVolume={getTotalVolume} />
-            ))
           )}
         </ScrollView>
       )}
@@ -167,53 +278,72 @@ export default function WorkoutScreen() {
 }
 
 function HistoryCard({ session, getVolume }: { session: WorkoutSession; getVolume: (s: WorkoutSession) => number }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const volume = getVolume(session);
-  const date = new Date(session.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 
   return (
     <View style={h.card}>
-      <TouchableOpacity style={h.header} onPress={() => setExpanded(!expanded)} activeOpacity={0.7}>
-        <View>
-          <Text style={h.date}>{date}</Text>
-          <Text style={h.meta}>{session.exercises.length}종목 · {volume.toLocaleString()}kg</Text>
-        </View>
-        <View style={h.right}>
-          <View style={h.tagRow}>
-            {session.exercises.slice(0, 2).map(ex => (
-              <Text key={ex.id} style={h.tag}>{ex.name}</Text>
-            ))}
-            {session.exercises.length > 2 && <Text style={h.tagMore}>+{session.exercises.length - 2}</Text>}
-          </View>
+      {/* 헤더: 종목 수 + 토글 */}
+      <TouchableOpacity style={h.header} onPress={() => setExpanded(v => !v)} activeOpacity={0.7}>
+        <Text style={h.summary}>{session.exercises.length}종목</Text>
+        <View style={h.headerRight}>
+          <Text style={h.headerVol}>{volume.toLocaleString()}kg</Text>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
         </View>
       </TouchableOpacity>
 
       {expanded && (
-        <View style={h.detail}>
-          {session.exercises.map(ex => (
-            <View key={ex.id} style={h.exRow}>
-              <View style={h.exHeader}>
-                <Text style={h.exName}>{ex.name}</Text>
-                <Text style={h.exCat}>{ex.category}</Text>
-              </View>
-              {ex.sets.map((st, idx) => (
-                <Text key={st.id} style={h.setText}>
-                  {idx + 1}세트 · {st.weight}kg × {st.reps}회 = {st.weight * st.reps}kg
-                </Text>
-              ))}
-              {ex.settings && ex.settings.length > 0 && (
-                <View style={h.settingTagsWrap}>
-                  {ex.settings.map((st, i) => (
-                    <View key={i} style={h.settingTag}>
-                      <Text style={h.settingTagText}>{st.key}: {st.value}</Text>
+        <View style={h.body}>
+          {session.exercises.map((ex, idx) => {
+            const exVol = ex.sets.reduce((sum, st) => sum + st.weight * st.reps, 0);
+            return (
+              <View key={ex.id} style={[h.exBlock, idx > 0 && h.exBlockDivider]}>
+                {/* 종목명 + 카테고리 */}
+                <View style={h.exHeader}>
+                  <Text style={h.exName}>{ex.name}</Text>
+                  <View style={h.catTag}>
+                    <Text style={h.catTagText}>{ex.category}</Text>
+                  </View>
+                </View>
+
+                {/* 세트 테이블 */}
+                <View style={h.setsTable}>
+                  {ex.sets.map((st, i) => (
+                    <View key={st.id} style={h.setRow}>
+                      <Text style={h.setLabel}>{i + 1}세트</Text>
+                      <Text style={h.setVal}>{st.weight}kg × {st.reps}회</Text>
+                      <Text style={h.setResult}>= {(st.weight * st.reps).toLocaleString()}kg</Text>
                     </View>
                   ))}
                 </View>
-              )}
-              {!!ex.tip && <Text style={h.tipText}>💡 {ex.tip}</Text>}
-            </View>
-          ))}
+
+                {/* 기구 설정 태그 */}
+                {ex.settings && ex.settings.length > 0 && (
+                  <View style={h.settingTagsWrap}>
+                    {ex.settings.map((st, i) => (
+                      <View key={i} style={h.settingTag}>
+                        <Text style={h.settingTagText}>{st.key}: {st.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* 팁 */}
+                {!!ex.tip && (
+                  <View style={h.tipRow}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.textSecondary} />
+                    <Text style={h.tipText}>{ex.tip}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          {/* 총 볼륨 푸터 */}
+          <View style={h.footer}>
+            <Text style={h.footerLabel}>총 볼륨</Text>
+            <Text style={h.footerVol}>{volume.toLocaleString()}kg</Text>
+          </View>
         </View>
       )}
     </View>
@@ -262,25 +392,60 @@ const s = StyleSheet.create({
   settingTagText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
   tipBox: { backgroundColor: Colors.warning + '22', borderRadius: 12, padding: 10, marginTop: 10 },
   tipText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
+
+  // Calendar tab
+  summaryCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 22, padding: 18, marginBottom: 14, ...CARD_SHADOW },
+  summaryLeft: { gap: 4 },
+  summaryMonth: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  summaryDetail: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  summaryEmoji: { fontSize: 36 },
+  calendarCard: { backgroundColor: Colors.surface, borderRadius: 22, overflow: 'hidden', marginBottom: 20, ...CARD_SHADOW },
+  selectedLabel: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, marginBottom: 12 },
+  noWorkoutCard: { backgroundColor: Colors.surface, borderRadius: 18, padding: 24, alignItems: 'center', gap: 8, ...CARD_SHADOW },
+  noWorkoutEmoji: { fontSize: 36 },
+  noWorkoutText: { fontSize: 14, color: Colors.textMuted },
 });
 
 const h = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: 20, marginBottom: 12, overflow: 'hidden', ...CARD_SHADOW },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  date: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  meta: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  right: { alignItems: 'flex-end', gap: 6 },
-  tagRow: { flexDirection: 'row', gap: 4 },
-  tag: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  tagMore: { fontSize: 11, color: Colors.textMuted },
-  detail: { backgroundColor: Colors.surfaceAlt, padding: 16, gap: 12 },
-  exRow: { gap: 6 },
-  exHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  exCat: { fontSize: 11, color: Colors.workout, backgroundColor: Colors.workout + '28', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  setText: { fontSize: 13, color: Colors.textSecondary },
-  settingTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 },
+  card: { backgroundColor: Colors.surface, borderRadius: 22, marginBottom: 12, overflow: 'hidden', ...CARD_SHADOW },
+
+  // 헤더
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: Colors.surfaceAlt },
+  summary: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerVol: { fontSize: 13, fontWeight: '700', color: Colors.workout },
+
+  // 바디
+  body: { paddingHorizontal: 18, paddingBottom: 4 },
+
+  // 종목 블록
+  exBlock: { paddingVertical: 16 },
+  exBlockDivider: { borderTopWidth: 1, borderTopColor: Colors.surfaceAlt },
+
+  // 종목명 + 카테고리
+  exHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  exName: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, flexShrink: 1 },
+  catTag: { backgroundColor: Colors.workout + '28', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  catTagText: { fontSize: 11, fontWeight: '700', color: Colors.workout },
+
+  // 세트 테이블
+  setsTable: { gap: 6, marginBottom: 10 },
+  setRow: { flexDirection: 'row', alignItems: 'center' },
+  setLabel: { fontSize: 12, fontWeight: '600', color: Colors.textMuted, width: 40 },
+  setVal: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, flex: 1 },
+  setResult: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+
+  // 기구 설정 태그
+  settingTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 },
   settingTag: { backgroundColor: Colors.primary + '22', borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3 },
-  settingTagText: { fontSize: 10, color: Colors.primary, fontWeight: '600' },
-  tipText: { fontSize: 12, color: Colors.textSecondary, marginTop: 6, lineHeight: 17 },
+  settingTagText: { fontSize: 10, fontWeight: '600', color: Colors.primary },
+
+  // 팁
+  tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: Colors.warning + '28', borderRadius: 12, padding: 10, marginBottom: 4 },
+  tipText: { fontSize: 12, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
+
+  // 총 볼륨 푸터
+  footer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: Colors.surfaceAlt, paddingVertical: 14 },
+  footerLabel: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
+  footerVol: { fontSize: 17, fontWeight: '800', color: Colors.workout },
 });
