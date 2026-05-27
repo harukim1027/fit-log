@@ -4,11 +4,9 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class FoodService {
   private koApiKey: string;
-  private offBaseUrl: string;
 
   constructor(private config: ConfigService) {
-    this.koApiKey = config.get('FOOD_SAFETY_API_KEY') || '';
-    this.offBaseUrl = 'https://world.openfoodfacts.org';
+    this.koApiKey = config.get('FOOD_KO_API_KEY') || '';
   }
 
   async search(query: string, page = 1) {
@@ -19,30 +17,46 @@ export class FoodService {
     return this.searchGlobal(query, page);
   }
 
+  private mapItem(item: any) {
+    return {
+      id: item.foodCd || String(Math.random()),
+      name: item.foodNm || '알 수 없음',
+      brand: item.mfrNm || item.restNm || '',
+      calories: Math.round(parseFloat(item.enerc) || 0),
+      protein: Math.round((parseFloat(item.prot) || 0) * 10) / 10,
+      carbs: Math.round((parseFloat(item.chocdf) || 0) * 10) / 10,
+      fat: Math.round((parseFloat(item.fatce) || 0) * 10) / 10,
+      servingSize: item.nutConSrtrQua || '100g',
+    };
+  }
+
   private async searchKorean(query: string, page: number) {
     try {
-      const url = new URL('https://apis.data.go.kr/1471000/FoodNtrIrdntInfoService1/getFoodNtrItdntList1');
-      url.searchParams.set('serviceKey', this.koApiKey);
-      url.searchParams.set('desc_kor', query);
-      url.searchParams.set('pageNo', String(page));
-      url.searchParams.set('numOfRows', '20');
-      url.searchParams.set('type', 'json');
+      const [processRes, foodRes] = await Promise.all([
+        fetch(`https://api.data.go.kr/openapi/tn_pubr_public_nutri_process_info_api?serviceKey=${this.koApiKey}&pageNo=${page}&numOfRows=10&type=json&foodNm=${encodeURIComponent(query)}`),
+        fetch(`https://api.data.go.kr/openapi/tn_pubr_public_nutri_food_info_api?serviceKey=${this.koApiKey}&pageNo=${page}&numOfRows=10&type=json&foodNm=${encodeURIComponent(query)}`),
+      ]);
 
-      const res = await fetch(url.toString());
-      const data = await res.json();
-      const items = data?.body?.items || [];
+      const [processData, foodData] = await Promise.all([
+        processRes.json(),
+        foodRes.json(),
+      ]);
 
-      return items.map((item: any) => ({
-        id: item.food_cd || String(Math.random()),
-        name: item.desc_kor || '알 수 없음',
-        brand: item.maker_name || '',
-        calories: Math.round(parseFloat(item.enerc_kcal) || 0),
-        protein: Math.round((parseFloat(item.prot) || 0) * 10) / 10,
-        carbs: Math.round((parseFloat(item.chocdf) || 0) * 10) / 10,
-        fat: Math.round((parseFloat(item.fatce) || 0) * 10) / 10,
-        servingSize: item.serving_size || '100g',
-      }));
-    } catch {
+      const processItems = processData?.response?.body?.items || [];
+      const foodItems = foodData?.response?.body?.items || [];
+
+      const combined = [...processItems, ...foodItems];
+
+      const seen = new Set<string>();
+      const unique = combined.filter(item => {
+        if (seen.has(item.foodCd)) return false;
+        seen.add(item.foodCd);
+        return true;
+      });
+
+      return unique.map(item => this.mapItem(item));
+    } catch (e) {
+      console.error('한국 식품 검색 오류:', e);
       throw new HttpException('한국 식품 검색 중 오류가 발생했어요', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -78,7 +92,7 @@ export class FoodService {
 
   async getByBarcode(barcode: string) {
     try {
-      const res = await fetch(this.offBaseUrl + '/api/v2/product/' + barcode + '.json');
+      const res = await fetch('https://world.openfoodfacts.org/api/v2/product/' + barcode + '.json');
       const data = await res.json();
       if (data.status !== 1) throw new HttpException('제품을 찾을 수 없어요', HttpStatus.NOT_FOUND);
       const p = data.product;
