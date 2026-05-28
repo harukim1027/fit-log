@@ -621,18 +621,20 @@ export const TARGET_KO: Record<string, string> = {
   'upper back': '상부 등',
 };
 
-// ─── 단어 단위 번역 (직접 매핑에 없는 운동 fallback) ──────────────────────
+// ─── 단어 단위 번역 ─────────────────────────────────────────────────────────
+// 개별 단어 매핑 (복합어 처리는 wordByWordTranslate에서 별도 처리)
 const WORD_MAP: Record<string, string> = {
+  // 기구
   barbell: '바벨',
   dumbbell: '덤벨',
   cable: '케이블',
   kettlebell: '케틀벨',
   smith: '스미스',
   lever: '머신',
-  'ez barbell': 'EZ바',
   weighted: '웨이티드',
   assisted: '어시스티드',
   suspended: '서스펜드',
+  // 자세·위치
   bench: '벤치',
   incline: '인클라인',
   decline: '디클라인',
@@ -657,6 +659,17 @@ const WORD_MAP: Record<string, string> = {
   grip: '그립',
   overhand: '오버핸드',
   underhand: '언더핸드',
+  behind: '비하인드',
+  over: '오버',
+  under: '언더',
+  bent: '벤트',
+  stiff: '스티프',
+  straight: '스트레이트',
+  inverted: '인버티드',
+  hanging: '행잉',
+  side: '사이드',
+  cross: '크로스',
+  // 동작
   press: '프레스',
   pull: '풀',
   push: '푸시',
@@ -668,40 +681,50 @@ const WORD_MAP: Record<string, string> = {
   pullup: '풀업',
   pushup: '푸시업',
   pushdown: '푸시다운',
+  pullover: '풀오버',
   fly: '플라이',
   flye: '플라이',
-  lunge: '런지',
-  squat: '스쿼트',
-  deadlift: '데드리프트',
-  plank: '플랭크',
-  crunch: '크런치',
-  'sit-up': '싯업',
-  'push-up': '푸시업',
-  'pull-up': '풀업',
-  'chin-up': '친업',
-  dip: '딥',
-  dips: '딥스',
   shrug: '슈러그',
   kickback: '킥백',
   swing: '스윙',
   clean: '클린',
   jerk: '저크',
   snatch: '스내치',
+  thrust: '쓰러스트',
   thruster: '스러스터',
   windmill: '윈드밀',
-  goblet: '고블렛',
-  pistol: '피스톨',
+  rollout: '롤아웃',
+  rollerout: '롤러아웃',
+  drag: '드래그',
+  rocking: '로킹',
+  abduction: '어브덕션',
+  adduction: '어덕션',
+  // 운동 종류
+  squat: '스쿼트',
+  deadlift: '데드리프트',
+  lunge: '런지',
+  plank: '플랭크',
+  crunch: '크런치',
+  bridge: '브릿지',
+  dip: '딥',
+  dips: '딥스',
+  chin: '친',
+  muscle: '머슬',
+  hyperextension: '하이퍼익스텐션',
+  // 수식어·변형명
   sumo: '스모',
-  hack: '핵',
   romanian: '루마니안',
   bulgarian: '불가리안',
+  hack: '핵',
+  goblet: '고블릿',
+  pistol: '피스톨',
   jefferson: '제퍼슨',
   zercher: '저처',
+  nordic: '노르딕',
   preacher: '프리처',
   concentration: '컨센트레이션',
   hammer: '해머',
   spider: '스파이더',
-  drag: '드래그',
   zottman: '조트만',
   tate: '테이트',
   arnold: '아놀드',
@@ -712,38 +735,37 @@ const WORD_MAP: Record<string, string> = {
   front: '프론트',
   rear: '리어',
   step: '스텝',
-  'step-up': '스텝업',
   jump: '점프',
-  hyperextension: '하이퍼익스텐션',
+  box: '박스',
   mountain: '마운틴',
   climber: '클라이머',
   russian: '러시안',
   twist: '트위스트',
   flutter: '플러터',
   kicks: '킥',
-  hanging: '행잉',
-  straight: '스트레이트',
-  inverted: '인버티드',
-  muscle: '머슬',
-  'pull-in': '풀인',
+  kick: '킥',
   calf: '카프',
   donkey: '동키',
   sissy: '시시',
-  abduction: '어브덕션',
-  adduction: '어덕션',
+  // 신체부위
   hip: '힙',
   leg: '레그',
   arm: '암',
   shoulder: '숄더',
   chest: '체스트',
   back: '백',
+  glute: '글루트',
   biceps: '바이셉스',
   triceps: '트라이셉스',
-  glute: '글루트',
   quad: '쿼드',
   hamstring: '햄스트링',
   forearm: '포암',
   neck: '넥',
+  knee: '무릎',
+  ab: '복근',
+  abdominal: '복근',
+  trap: '트랩',
+  // 기타
   good: '굿',
   morning: '모닝',
   run: '러닝',
@@ -766,60 +788,142 @@ const WORD_MAP: Record<string, string> = {
   stability: '짐볼',
   bosu: '보수볼',
   sled: '슬레드',
-  trap: '트랩',
   wheel: '휠',
-  rollout: '롤아웃',
-  rollerout: '롤러아웃',
-  pullover: '풀오버',
-  bent: '벤트',
-  cross: '크로스',
-  over: '오버',
-  under: '언더',
-  behind: '비하인드',
-  knee: '무릎',
-  stiff: '스티프',
-  side: '사이드',
-  rocking: '로킹',
-  ab: '복근',
-  abdominal: '복근',
   'v.': 'v.',
   'v.2': 'v.2',
 };
 
-// ─── 번역 함수 ───────────────────────────────────────────────────────────────
+// 복합 수식어 (2개 이상 단어가 합쳐지는 한국어 관용 표현)
+const PHRASE_MAP: [RegExp, string][] = [
+  [/wide[\s-]grip/g, '와이드그립'],
+  [/close[\s-]grip/g, '클로즈그립'],
+  [/neutral[\s-]grip/g, '뉴트럴그립'],
+  [/reverse[\s-]grip/g, '리버스그립'],
+  [/parallel[\s-]grip/g, '패럴렐그립'],
+  [/overhand[\s-]grip/g, '오버핸드그립'],
+  [/underhand[\s-]grip/g, '언더핸드그립'],
+  [/one[\s-]arm/g, '원암'],
+  [/two[\s-]arm/g, '투암'],
+  [/single[\s-]leg/g, '싱글레그'],
+  [/chin[\s-]up/g, '친업'],
+  [/pull[\s-]up/g, '풀업'],
+  [/push[\s-]up/g, '푸시업'],
+  [/sit[\s-]up/g, '싯업'],
+  [/step[\s-]up/g, '스텝업'],
+  [/pull[\s-]in/g, '풀인'],
+  [/good[\s-]morning/g, '굿모닝'],
+  [/hip[\s-]thrust/g, '힙쓰러스트'],
+  [/lat[\s-]pulldown/g, '랫풀다운'],
+  [/skull[\s-]crusher/g, '스컬크러셔'],
+  [/ez[\s-]barbell/gi, 'EZ바'],
+];
 
-/** 운동명 번역: 직접 매핑 → 단어별 번역 */
-export function translateExerciseName(englishName: string): string {
-  if (!englishName) return englishName;
-  const key = englishName.toLowerCase().trim();
+// ─── 정규화 ─────────────────────────────────────────────────────────────────
 
-  if (EXERCISE_NAME_KO[key]) return EXERCISE_NAME_KO[key];
+/** 대소문자·공백·특수문자 통일 */
+function normalize(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[-_]+/g, ' ')          // 하이픈·밑줄 → 공백
+    .replace(/[^a-z0-9\s°.]/g, ' ') // 특수문자 → 공백 (°와 . 유지)
+    .replace(/\s+/g, ' ')            // 연속 공백 → 단일
+    .trim();
+}
 
-  // 단어별 번역 fallback
-  const words = englishName.split(/\s+/);
-  const translated = words
+// 정규화된 역방향 조회 Map (최초 호출 시 1회 생성)
+let _normalizedLookup: Map<string, string> | null = null;
+
+function getNormalizedLookup(): Map<string, string> {
+  if (_normalizedLookup) return _normalizedLookup;
+  _normalizedLookup = new Map();
+  for (const [key, val] of Object.entries(EXERCISE_NAME_KO)) {
+    _normalizedLookup.set(normalize(key), val);
+  }
+  return _normalizedLookup;
+}
+
+// ─── 단어별 번역 ─────────────────────────────────────────────────────────────
+
+/** 복합 수식어 치환 → 개별 단어 매핑 → 재조합 */
+function wordByWordTranslate(normalizedName: string): string {
+  // 1) 복합 수식어 먼저 치환 (순서 중요: 긴 패턴 우선)
+  let s = normalizedName;
+  for (const [pattern, replacement] of PHRASE_MAP) {
+    s = s.replace(pattern, replacement);
+  }
+
+  // 2) 남은 단어들 개별 치환
+  return s
+    .split(/\s+/)
     .map((w) => {
-      const lower = w.toLowerCase().replace(/[()]/g, '');
-      return WORD_MAP[lower] || w;
+      const clean = w.replace(/[()]/g, '');
+      return WORD_MAP[clean] || w;
     })
     .join(' ');
+}
 
-  // 원문과 같으면 그대로 반환 (변환된 게 없으면 영어 유지)
-  return translated === englishName ? englishName : translated;
+// ─── 정규화 Map 조회 헬퍼 ────────────────────────────────────────────────────
+
+function lookupNormalized(
+  map: Record<string, string>,
+  input: string,
+): string | null {
+  if (!input) return null;
+  // 1) 소문자 직접 조회
+  const lower = input.toLowerCase().trim();
+  if (map[lower]) return map[lower];
+  // 2) 정규화 후 조회
+  const norm = normalize(input);
+  if (map[norm]) return map[norm];
+  // 3) map 전체 키를 정규화해서 비교
+  for (const [key, val] of Object.entries(map)) {
+    if (normalize(key) === norm) return val;
+  }
+  return null;
+}
+
+// ─── 번역 함수 (공개 API) ────────────────────────────────────────────────────
+
+/**
+ * 운동명 영→한 번역
+ * 1순위: 완전 일치
+ * 2순위: 정규화 후 일치
+ * 3순위: 복합어·단어별 부분 매핑 조합
+ * 4순위: 영어 원문 유지
+ */
+export function translateExerciseName(englishName: string): string {
+  if (!englishName) return englishName;
+
+  // 1순위: 완전 일치 (소문자)
+  const lower = englishName.toLowerCase().trim();
+  if (EXERCISE_NAME_KO[lower]) return EXERCISE_NAME_KO[lower];
+
+  // 2순위: 정규화 후 일치
+  const normKey = normalize(englishName);
+  const lookup = getNormalizedLookup();
+  const normMatch = lookup.get(normKey);
+  if (normMatch) return normMatch;
+
+  // 3순위: 복합어·단어별 부분 매핑
+  const wordMapped = wordByWordTranslate(normKey);
+  if (wordMapped !== normKey) return wordMapped;
+
+  // 4순위: 원문 유지
+  return englishName;
 }
 
 export function translateBodyPart(bodyPart: string): string {
-  return BODY_PART_KO[bodyPart.toLowerCase()] || bodyPart;
+  return lookupNormalized(BODY_PART_KO, bodyPart) ?? bodyPart;
 }
 
 export function translateEquipment(equipment: string): string {
-  return EQUIPMENT_KO[equipment.toLowerCase()] || equipment;
+  return lookupNormalized(EQUIPMENT_KO, equipment) ?? equipment;
 }
 
 export function translateDifficulty(difficulty: string): string {
-  return DIFFICULTY_KO[difficulty.toLowerCase()] || difficulty;
+  return lookupNormalized(DIFFICULTY_KO, difficulty) ?? difficulty;
 }
 
 export function translateTarget(target: string): string {
-  return TARGET_KO[target.toLowerCase()] || target;
+  return lookupNormalized(TARGET_KO, target) ?? target;
 }
