@@ -2,6 +2,22 @@ import { create } from 'zustand';
 import { Exercise, WorkoutSession, WorkoutSet } from '../types/workout';
 import apiClient from '../lib/apiClient';
 
+export type CompareMode = 'recent' | 'pr' | 'week' | 'month';
+
+export interface ExerciseHistoryEntry {
+  date: string;
+  maxWeight: number;
+  maxVolume: number;
+  totalSets: number;
+  sets: { weight: number; reps: number }[];
+}
+
+export interface ExerciseHistory {
+  history: ExerciseHistoryEntry[];
+  pr: { weight: number; volume: number; date: string } | null;
+  comparisonSession: ExerciseHistoryEntry | null;
+}
+
 // MET 값 매핑 (운동강도지표)
 const MET_MAP: Record<string, number> = {
   '벤치프레스': 6.0,
@@ -42,6 +58,7 @@ interface WorkoutStore {
   activeSession: WorkoutSession | null;
   sessionStartTime: number | null;
   isLoading: boolean;
+  exerciseHistoryCache: Map<string, ExerciseHistory>;
   startSession: () => void;
   endSession: (caloriesBurned: number) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, 'sets'>) => void;
@@ -51,6 +68,7 @@ interface WorkoutStore {
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
   fetchSessions: () => Promise<void>;
+  fetchExerciseHistory: (exerciseName: string, mode?: CompareMode) => Promise<ExerciseHistory | null>;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -60,6 +78,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   activeSession: null,
   sessionStartTime: null,
   isLoading: false,
+  exerciseHistoryCache: new Map(),
 
   startSession: () => {
     const session: WorkoutSession = {
@@ -112,6 +131,9 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       const newEx: Exercise = { ...exercise, sets: [] };
       return { activeSession: { ...s.activeSession, exercises: [...s.activeSession.exercises, newEx] } };
     });
+    // Fire-and-forget: prime cache for all modes so UI is ready
+    get().fetchExerciseHistory(exercise.name, 'recent');
+    get().fetchExerciseHistory(exercise.name, 'pr');
   },
 
   addSet: (exerciseId, workoutSet) => {
@@ -178,6 +200,28 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     } catch (e) {
       console.error('운동 기록 불러오기 실패', e);
       set({ isLoading: false });
+    }
+  },
+
+  fetchExerciseHistory: async (exerciseName: string, mode: CompareMode = 'recent') => {
+    const cacheKey = `${exerciseName}:${mode}`;
+    const cached = get().exerciseHistoryCache.get(cacheKey);
+    if (cached) return cached;
+    try {
+      const res = await apiClient.get<ExerciseHistory>('/workout/exercise-history', {
+        params: { name: exerciseName, mode },
+      });
+      const data = res.data;
+      // New Map to trigger Zustand re-render
+      set(state => {
+        const next = new Map(state.exerciseHistoryCache);
+        next.set(cacheKey, data);
+        return { exerciseHistoryCache: next };
+      });
+      return data;
+    } catch (e) {
+      console.error('운동 히스토리 불러오기 실패', e);
+      return null;
     }
   },
 }));
