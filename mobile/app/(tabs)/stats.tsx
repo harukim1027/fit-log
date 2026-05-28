@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
@@ -37,6 +38,7 @@ const chartConfig = {
 };
 
 export default function StatsScreen() {
+  const router = useRouter();
   const { dailyDiets, targetCalories } = useDietStore();
   const { sessions } = useWorkoutStore();
   const { user, logout } = useAuthStore();
@@ -85,6 +87,14 @@ export default function StatsScreen() {
     0
   );
 
+  const last7BurnData = last7.map((date) =>
+    sessions
+      .filter((s) => s.date === date)
+      .reduce((sum, s) => sum + (s.caloriesBurned ?? 0), 0)
+  );
+
+  const totalBurnWeek = last7BurnData.reduce((a, b) => a + b, 0);
+
   const prMap: Record<string, number> = {};
   sessions.forEach((s) => {
     s.exercises.forEach((ex) => {
@@ -110,10 +120,26 @@ export default function StatsScreen() {
             <Text style={s.title}>통계 📊</Text>
             <Text style={s.subtitle}>{user?.name ?? ""}</Text>
           </View>
-          <TouchableOpacity style={s.logoutBtn} onPress={logout}>
-            <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
-            <Text style={s.logoutText}>로그아웃</Text>
-          </TouchableOpacity>
+          <View style={s.headerActions}>
+            <TouchableOpacity
+              style={s.editBtn}
+              onPress={() => router.push("/modal/edit-profile" as any)}>
+              <Ionicons
+                name="person-circle-outline"
+                size={18}
+                color={Colors.primary}
+              />
+              <Text style={s.editBtnText}>편집</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.logoutBtn} onPress={logout}>
+              <Ionicons
+                name="log-out-outline"
+                size={18}
+                color={Colors.danger}
+              />
+              <Text style={s.logoutText}>로그아웃</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={s.summaryRow}>
@@ -124,10 +150,18 @@ export default function StatsScreen() {
             color={Colors.diet}
           />
           <StatCard
+            label="주간 소모"
+            value={String(totalBurnWeek)}
+            unit="kcal"
+            color={Colors.workout}
+          />
+        </View>
+        <View style={s.summaryRow}>
+          <StatCard
             label="총 운동"
             value={String(sessions.length)}
             unit="회"
-            color={Colors.workout}
+            color={Colors.primary}
           />
           <StatCard
             label="총 볼륨"
@@ -184,6 +218,31 @@ export default function StatsScreen() {
           ) : (
             <View style={s.emptyState}>
               <Text style={s.emptyEmoji}>🏋️</Text>
+              <Text style={s.emptyText}>운동 기록이 없어요</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.cardTitle}>주간 운동 칼로리 소모 🔥</Text>
+          {last7BurnData.some((v) => v > 0) ? (
+            <BarChart
+              data={{ labels: dayLabels, datasets: [{ data: last7BurnData }] }}
+              width={W}
+              height={160}
+              chartConfig={{
+                ...chartConfig,
+                color: (opacity = 1) => `rgba(244, 184, 168, ${opacity})`,
+              }}
+              style={s.chart}
+              withInnerLines={false}
+              showValuesOnTopOfBars={false}
+              yAxisLabel=""
+              yAxisSuffix="kcal"
+            />
+          ) : (
+            <View style={s.emptyState}>
+              <Text style={s.emptyEmoji}>🔥</Text>
               <Text style={s.emptyText}>운동 기록이 없어요</Text>
             </View>
           )}
@@ -252,16 +311,27 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 26, fontWeight: "700", color: Colors.textPrimary },
   subtitle: { fontSize: 14, color: Colors.textSecondary, marginTop: 2 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.primary + "18",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  editBtnText: { fontSize: 13, fontWeight: "600", color: Colors.primary },
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     backgroundColor: Colors.danger + "18",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 20,
   },
-  logoutText: { fontSize: 14, fontWeight: "600", color: Colors.danger },
+  logoutText: { fontSize: 13, fontWeight: "600", color: Colors.danger },
   summaryRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   card: {
     backgroundColor: Colors.surface,
