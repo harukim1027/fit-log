@@ -13,6 +13,8 @@ import {
   Modal,
   LayoutAnimation,
   UIManager,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import {
   SafeAreaView,
@@ -23,6 +25,7 @@ import { useState, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../lib/apiClient";
 import { useWorkoutStore } from "../../store/workoutStore";
+import { useExerciseStore } from "../../store/exerciseStore";
 import { Colors, EXERCISE_CATEGORIES } from "../../constants";
 import { WorkoutSet, ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../../components/MuscleMap";
@@ -31,23 +34,25 @@ if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-const PRESET_EXERCISES = [
-  { name: "벤치프레스", category: "가슴" },
-  { name: "인클라인 벤치프레스", category: "가슴" },
-  { name: "딥스", category: "가슴" },
-  { name: "데드리프트", category: "등" },
-  { name: "바벨 로우", category: "등" },
-  { name: "풀업", category: "등" },
-  { name: "오버헤드프레스", category: "어깨" },
-  { name: "사이드 레터럴 레이즈", category: "어깨" },
-  { name: "바벨 컬", category: "팔" },
-  { name: "트라이셉스 익스텐션", category: "팔" },
-  { name: "스쿼트", category: "하체" },
-  { name: "레그프레스", category: "하체" },
-  { name: "런지", category: "하체" },
-  { name: "플랭크", category: "복근" },
-  { name: "크런치", category: "복근" },
-];
+const CATEGORY_TO_BODYPART: Record<string, string> = {
+  가슴: "chest",
+  등: "back",
+  어깨: "shoulders",
+  팔: "upper arms",
+  하체: "upper legs",
+  복근: "waist",
+};
+
+const BODYPART_TO_CATEGORY: Record<string, string> = {
+  chest: "가슴",
+  back: "등",
+  shoulders: "어깨",
+  "upper arms": "팔",
+  "lower arms": "팔",
+  "upper legs": "하체",
+  "lower legs": "하체",
+  waist: "복근",
+};
 
 const PRESET_SETTING_KEYS = [
   "시트높이",
@@ -67,24 +72,36 @@ const CARD_SHADOW = {
   elevation: 3,
 };
 
-type PresetExercise = { name: string; category: string };
+type SelectedExercise = {
+  name: string;
+  category: string;
+  gifUrl?: string;
+  caloriesPerMinute?: number;
+};
+
 type CustomKey = { id: string; name: string };
 
 export default function AddWorkoutModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addExercise, addSet, activeSession } = useWorkoutStore();
+  const { results, isSearching, searchExercises, getByBodyPart, getList } =
+    useExerciseStore();
 
   const scrollRef = useRef<ScrollView>(null);
   const setsSectionY = useRef(0);
   const setWeightRefs = useRef<(TextInput | null)[]>([]);
   const customKeyInputRef = useRef<TextInput>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] =
-    useState<PresetExercise | null>(null);
+    useState<SelectedExercise | null>(null);
   const [exerciseListCollapsed, setExerciseListCollapsed] = useState(false);
-  const [customExercises, setCustomExercises] = useState<PresetExercise[]>([]);
+  const [customExercises, setCustomExercises] = useState<SelectedExercise[]>(
+    []
+  );
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customCat, setCustomCat] = useState("");
@@ -106,14 +123,32 @@ export default function AddWorkoutModal() {
       .get<CustomKey[]>("/workout-settings")
       .then((res) => setCustomSettingKeys(res.data))
       .catch(() => {});
+    getList();
   }, []);
 
-  const allExercises = [...customExercises, ...PRESET_EXERCISES];
-  const filtered = allExercises.filter(
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (searchQuery.trim()) {
+      searchTimer.current = setTimeout(() => {
+        searchExercises(searchQuery);
+      }, 400);
+    } else if (selectedCategory) {
+      const bodyPart = CATEGORY_TO_BODYPART[selectedCategory];
+      if (bodyPart) getByBodyPart(bodyPart);
+      else getList();
+    } else {
+      getList();
+    }
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [searchQuery, selectedCategory]);
+
+  const filteredCustom = customExercises.filter(
     (e) => !selectedCategory || e.category === selectedCategory
   );
 
-  const handleSelectExercise = (ex: PresetExercise) => {
+  const handleSelectExercise = (ex: SelectedExercise) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedExercise(ex);
     setExerciseListCollapsed(true);
@@ -139,7 +174,7 @@ export default function AddWorkoutModal() {
   const handleAddCustomExercise = () => {
     if (!customName.trim()) return Alert.alert("종목명을 입력해주세요");
     if (!customCat) return Alert.alert("카테고리를 선택해주세요");
-    const newEx: PresetExercise = {
+    const newEx: SelectedExercise = {
       name: customName.trim(),
       category: customCat,
     };
@@ -263,9 +298,23 @@ export default function AddWorkoutModal() {
           {exerciseListCollapsed && selectedExercise ? (
             <>
               <View style={s.selectedExSummary}>
+                {selectedExercise.gifUrl ? (
+                  <Image
+                    source={{ uri: selectedExercise.gifUrl }}
+                    style={s.selectedGif}
+                    resizeMode="cover"
+                  />
+                ) : null}
                 <View style={s.selectedExInfo}>
                   <Text style={s.selectedExLabel}>선택된 종목</Text>
                   <Text style={s.selectedExName}>{selectedExercise.name}</Text>
+                  {selectedExercise.caloriesPerMinute ? (
+                    <Text style={s.calEstimate}>
+                      🔥 약{" "}
+                      {Math.round(selectedExercise.caloriesPerMinute * 30)} kcal
+                      (30분 기준)
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={s.selectedExRight}>
                   <Text style={s.selectedExCat}>
@@ -289,6 +338,29 @@ export default function AddWorkoutModal() {
             <>
               <Text style={s.sectionLabel}>운동 종목 선택</Text>
 
+              {/* ── 검색창 ── */}
+              <View style={s.searchBar}>
+                <Ionicons name="search" size={16} color={Colors.textMuted} />
+                <TextInput
+                  style={s.searchInput}
+                  placeholder="운동 검색..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor={Colors.textMuted}
+                  returnKeyType="search"
+                  autoCorrect={false}
+                />
+                {searchQuery ? (
+                  <TouchableOpacity onPress={() => setSearchQuery("")}>
+                    <Ionicons
+                      name="close-circle"
+                      size={16}
+                      color={Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -301,9 +373,10 @@ export default function AddWorkoutModal() {
                       s.catChip,
                       selectedCategory === cat && s.catChipActive,
                     ]}
-                    onPress={() =>
-                      setSelectedCategory(selectedCategory === cat ? null : cat)
-                    }>
+                    onPress={() => {
+                      setSearchQuery("");
+                      setSelectedCategory(selectedCategory === cat ? null : cat);
+                    }}>
                     <Text
                       style={[
                         s.catText,
@@ -315,18 +388,60 @@ export default function AddWorkoutModal() {
                 ))}
               </ScrollView>
 
-              <View style={s.exerciseList}>
-                {filtered.map((ex) => (
-                  <TouchableOpacity
-                    key={ex.name}
-                    style={s.exItem}
-                    onPress={() => handleSelectExercise(ex)}
-                    activeOpacity={0.7}>
-                    <Text style={s.exName}>{ex.name}</Text>
-                    <Text style={s.exCat}>{ex.category}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              {isSearching ? (
+                <ActivityIndicator
+                  style={{ marginVertical: 24 }}
+                  color={Colors.workout}
+                />
+              ) : (
+                <View style={s.exerciseList}>
+                  {filteredCustom.map((ex) => (
+                    <TouchableOpacity
+                      key={ex.name}
+                      style={s.exItem}
+                      onPress={() => handleSelectExercise(ex)}
+                      activeOpacity={0.7}>
+                      <View style={s.exInfo}>
+                        <Text style={s.exName}>{ex.name}</Text>
+                      </View>
+                      <Text style={s.exCat}>{ex.category}</Text>
+                    </TouchableOpacity>
+                  ))}
+
+                  {results.map((ex) => (
+                    <TouchableOpacity
+                      key={ex.id}
+                      style={s.exItem}
+                      onPress={() =>
+                        handleSelectExercise({
+                          name: ex.name,
+                          category:
+                            BODYPART_TO_CATEGORY[ex.bodyPart] || ex.bodyPart,
+                          gifUrl: ex.gifUrl,
+                          caloriesPerMinute: ex.caloriesPerMinute,
+                        })
+                      }
+                      activeOpacity={0.7}>
+                      {ex.gifUrl ? (
+                        <Image
+                          source={{ uri: ex.gifUrl }}
+                          style={s.exGif}
+                          resizeMode="cover"
+                        />
+                      ) : null}
+                      <View style={s.exInfo}>
+                        <Text style={s.exName}>{ex.name}</Text>
+                        <Text style={s.exCalHint}>
+                          🔥 {ex.caloriesPerMinute} kcal/분
+                        </Text>
+                      </View>
+                      <Text style={s.exCat}>
+                        {BODYPART_TO_CATEGORY[ex.bodyPart] || ex.bodyPart}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
               {!showCustomForm ? (
                 <TouchableOpacity
@@ -669,7 +784,6 @@ export default function AddWorkoutModal() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
 
-  // 고정 헤더
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -691,10 +805,8 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
   headerRight: { width: 36 },
 
-  // 스크롤 콘텐츠
   content: { padding: 20, paddingBottom: 16 },
 
-  // 고정 푸터
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -713,13 +825,19 @@ const s = StyleSheet.create({
   // 선택된 종목 요약
   selectedExSummary: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: Colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 14,
+    gap: 12,
     ...CARD_SHADOW,
+  },
+  selectedGif: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceAlt,
   },
   selectedExInfo: { flex: 1 },
   selectedExLabel: {
@@ -732,6 +850,12 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  calEstimate: {
+    fontSize: 12,
+    color: Colors.workout,
+    fontWeight: "600",
   },
   selectedExRight: { alignItems: "flex-end", gap: 6 },
   selectedExCat: {
@@ -749,6 +873,25 @@ const s = StyleSheet.create({
     paddingVertical: 7,
   },
   changeExText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
+
+  // 검색창
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    gap: 8,
+    ...CARD_SHADOW,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    padding: 0,
+  },
 
   // 종목 목록
   sectionLabel: {
@@ -772,15 +915,23 @@ const s = StyleSheet.create({
   exerciseList: { marginBottom: 8 },
   exItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     marginBottom: 8,
+    gap: 10,
     ...CARD_SHADOW,
   },
+  exGif: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  exInfo: { flex: 1 },
   exName: { fontSize: 15, fontWeight: "600", color: Colors.textPrimary },
+  exCalHint: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   exCat: {
     fontSize: 12,
     color: Colors.workout,
