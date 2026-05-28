@@ -13,7 +13,7 @@ import { Header } from "../../components/ui";
 import { useEffect, useState, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
-import { useWorkoutStore, calculateCaloriesBurned } from "../../store/workoutStore";
+import { useWorkoutStore, calculateCaloriesBurned, CompareMode } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import RestTimer from "../../components/RestTimer";
 import { Colors } from "../../constants/colors";
@@ -63,6 +63,17 @@ const CAL_THEME = {
   textDayHeaderFontSize: 12,
 };
 
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+const COMPARE_MODES: { mode: CompareMode; label: string }[] = [
+  { mode: 'recent', label: '최근 1회' },
+  { mode: 'pr',     label: '최고기록' },
+  { mode: 'week',   label: '1주전' },
+  { mode: 'month',  label: '1달전' },
+];
+
+const fmtDate = (iso: string) => iso.replace(/-/g, '.');
+
 export default function WorkoutScreen() {
   const router = useRouter();
   const {
@@ -74,11 +85,14 @@ export default function WorkoutScreen() {
     removeSet,
     updateSet,
     fetchSessions,
+    fetchExerciseHistory,
     sessions,
     isLoading,
+    exerciseHistoryCache,
   } = useWorkoutStore();
   const { user } = useAuthStore();
   const [tab, setTab] = useState<Tab>("today");
+  const [compareModes, setCompareModes] = useState<Record<string, CompareMode>>({});
 
   // Calendar state
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -89,6 +103,22 @@ export default function WorkoutScreen() {
   useEffect(() => {
     fetchSessions();
   }, []);
+
+  // 디버그: exerciseHistory 캐시 변경 시 콘솔 출력
+  useEffect(() => {
+    if (!activeSession?.exercises.length) return;
+    activeSession.exercises.forEach(ex => {
+      const mode = compareModes[ex.name] ?? 'recent';
+      const key = `${ex.name}:${mode}`;
+      const data = exerciseHistoryCache.get(key);
+      console.log(
+        `[ExHistory] ${key}:`,
+        data
+          ? `comparisonSession=${JSON.stringify(data.comparisonSession)}`
+          : '캐시없음 (로딩중)'
+      );
+    });
+  }, [exerciseHistoryCache, activeSession?.exercises?.length]);
 
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
@@ -232,22 +262,92 @@ export default function WorkoutScreen() {
                   <Text style={s.emptyDesc}>운동 종목을 추가해주세요</Text>
                 </View>
               ) : (
-                activeSession.exercises.map((ex) => (
+                activeSession.exercises.map((ex) => {
+                  const mode = compareModes[ex.name] ?? 'recent';
+                  const cacheKey = `${ex.name}:${mode}`;
+                  const cachedHistory = exerciseHistoryCache.get(cacheKey);
+                  const comparisonSession = cachedHistory?.comparisonSession ?? null;
+                  const prevSets = comparisonSession?.sets ?? [];
+
+                  const allTimePRWeight = cachedHistory?.pr?.weight ??
+                    sessions.reduce((max, s) => {
+                      const match = s.exercises.find((e) => e.name === ex.name);
+                      if (!match) return max;
+                      return Math.max(max, ...match.sets.map((st) => st.weight));
+                    }, 0);
+                  const currentMax = ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
+                  const isPR = currentMax > 0 && currentMax > allTimePRWeight;
+
+                  const getDateLabel = () => {
+                    if (!comparisonSession) return null;
+                    const d = fmtDate(comparisonSession.date);
+                    return mode === 'pr' ? `${d} ${comparisonSession.maxWeight}kg` : d;
+                  };
+                  const dateLabel = getDateLabel();
+
+                  return (
                   <View key={ex.id} style={s.exerciseCard}>
+                    {/* 종목명 + 카테고리 */}
                     <View style={s.exHeader}>
-                      <Text style={s.exName}>{ex.name}</Text>
+                      <View style={s.exNameRow}>
+                        <Text style={s.exName}>{ex.name}</Text>
+                        {isPR && (
+                          <View style={s.prBadge}>
+                            <Text style={s.prBadgeText}>🏆 PR</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={s.exCategory}>{ex.category}</Text>
                     </View>
+
+                    {/* 비교 기준 선택 */}
+                    <View style={s.modeRow}>
+                      {COMPARE_MODES.map(({ mode: m, label }) => {
+                        const isSelected = mode === m;
+                        return (
+                          <TouchableOpacity
+                            key={m}
+                            style={[s.modeChip, isSelected && s.modeChipActive]}
+                            onPress={() => {
+                              setCompareModes(prev => ({ ...prev, [ex.name]: m }));
+                              fetchExerciseHistory(ex.name, m);
+                            }}
+                            activeOpacity={0.7}>
+                            <Text style={[s.modeChipLabel, isSelected && s.modeChipLabelActive]}>
+                              {label}
+                            </Text>
+                            {isSelected && dateLabel != null && (
+                              <Text style={s.modeChipDate}>{dateLabel}</Text>
+                            )}
+                            {isSelected && cachedHistory && !comparisonSession && (
+                              <Text style={s.modeChipNoData}>기록없음</Text>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    {/* 기록 없음 안내 */}
+                    {cachedHistory && !comparisonSession && (
+                      <View style={s.noCompareRow}>
+                        <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
+                        <Text style={s.noCompareText}>이 기준의 기록이 없어요</Text>
+                      </View>
+                    )}
+
                     <View style={s.setHeaderRow}>
                       <Text style={[s.setHeaderText, { flex: 0.5 }]}>세트</Text>
-                      <Text style={[s.setHeaderText, { flex: 1 }]}>
-                        무게(kg)
-                      </Text>
+                      <Text style={[s.setHeaderText, { flex: 1 }]}>무게(kg)</Text>
                       <Text style={[s.setHeaderText, { flex: 1 }]}>횟수</Text>
                       <Text style={[s.setHeaderText, { flex: 0.5 }]}>볼륨</Text>
                       <View style={{ width: 24 }} />
                     </View>
-                    {ex.sets.map((st, idx) => (
+                    {ex.sets.map((st, idx) => {
+                      const prev = prevSets[idx];
+                      const curVol = st.weight * st.reps;
+                      const prevVol = prev != null ? prev.weight * prev.reps : undefined;
+                      const isSetPR = allTimePRWeight > 0 && st.weight > allTimePRWeight;
+                      return (
                       <TouchableOpacity
                         key={st.id}
                         style={[s.setRow, st.completed && s.setRowDone]}
@@ -255,51 +355,36 @@ export default function WorkoutScreen() {
                           updateSet(ex.id, st.id, { completed: !st.completed })
                         }
                         activeOpacity={0.7}>
-                        <View
-                          style={[
-                            s.setNumWrap,
-                            st.completed && s.setNumWrapDone,
-                          ]}>
+                        <View style={[s.setNumWrap, st.completed && s.setNumWrapDone]}>
                           {st.completed ? (
                             <Ionicons name="checkmark" size={14} color="#fff" />
                           ) : (
                             <Text style={s.setNumText}>{idx + 1}</Text>
                           )}
                         </View>
-                        <Text
-                          style={[
-                            s.setText,
-                            { flex: 1 },
-                            st.completed && s.textDone,
-                          ]}>
-                          {st.weight}
-                        </Text>
-                        <Text
-                          style={[
-                            s.setText,
-                            { flex: 1 },
-                            st.completed && s.textDone,
-                          ]}>
-                          {st.reps}
-                        </Text>
-                        <Text
-                          style={[
-                            s.setText,
-                            { flex: 0.5 },
-                            st.completed && s.textDone,
-                          ]}>
-                          {st.weight * st.reps}
-                        </Text>
+                        <View style={[s.setCell, { flex: 1 }]}>
+                          <View style={s.setCellMain}>
+                            <Text style={[s.setText, st.completed && s.textDone]}>{st.weight}</Text>
+                            {isSetPR && <Text style={s.prSetIcon}>🏆</Text>}
+                          </View>
+                          <DiffBadge value={st.weight} prevValue={prev?.weight} unit="kg" />
+                        </View>
+                        <View style={[s.setCell, { flex: 1 }]}>
+                          <Text style={[s.setText, st.completed && s.textDone]}>{st.reps}</Text>
+                          <DiffBadge value={st.reps} prevValue={prev?.reps} unit="회" />
+                        </View>
+                        <View style={[s.setCell, { flex: 0.5 }]}>
+                          <Text style={[s.setText, st.completed && s.textDone]}>{curVol}</Text>
+                          <DiffBadge value={curVol} prevValue={prevVol} unit="kg" />
+                        </View>
                         <TouchableOpacity
+                          style={{ marginTop: 3 }}
                           onPress={() => removeSet(ex.id, st.id)}>
-                          <Ionicons
-                            name="close-circle-outline"
-                            size={18}
-                            color={Colors.textMuted}
-                          />
+                          <Ionicons name="close-circle-outline" size={18} color={Colors.textMuted} />
                         </TouchableOpacity>
                       </TouchableOpacity>
-                    ))}
+                      );
+                    })}
                     {ex.sets.length === 0 && (
                       <Text style={s.noSetText}>세트를 추가해주세요</Text>
                     )}
@@ -320,7 +405,8 @@ export default function WorkoutScreen() {
                       </View>
                     )}
                   </View>
-                ))
+                  );
+                })
               )}
             </>
           )}
@@ -378,6 +464,7 @@ export default function WorkoutScreen() {
                     key={session.id}
                     session={session}
                     getVolume={getTotalVolume}
+                    allSessions={sessions}
                   />
                 ))
               )}
@@ -398,15 +485,53 @@ export default function WorkoutScreen() {
   );
 }
 
+function DiffBadge({
+  value,
+  prevValue,
+  unit,
+}: {
+  value: number;
+  prevValue: number | undefined;
+  unit: string;
+}) {
+  if (prevValue == null || value === prevValue) return null;
+  const diff = value - prevValue;
+  const up = diff > 0;
+  return (
+    <Text
+      style={{
+        fontSize: 10,
+        fontWeight: '700',
+        lineHeight: 14,
+        color: up ? '#E05555' : '#4A90D9',
+      }}>
+      {up ? `↑+${diff}` : `↓${diff}`}{unit}
+    </Text>
+  );
+}
+
 function HistoryCard({
   session,
   getVolume,
+  allSessions,
 }: {
   session: WorkoutSession;
   getVolume: (s: WorkoutSession) => number;
+  allSessions: WorkoutSession[];
 }) {
   const [expanded, setExpanded] = useState(true);
   const volume = getVolume(session);
+
+  const getPrevMaxWeight = (exName: string) => {
+    for (const s of allSessions) {
+      if (s.date >= session.date) continue;
+      const match = s.exercises.find((e) => e.name === exName);
+      if (match && match.sets.length > 0) {
+        return Math.max(...match.sets.map((st) => st.weight));
+      }
+    }
+    return null;
+  };
 
   return (
     <View style={h.card}>
@@ -432,19 +557,28 @@ function HistoryCard({
       {expanded && (
         <View style={h.body}>
           {session.exercises.map((ex, idx) => {
-            const exVol = ex.sets.reduce(
-              (sum, st) => sum + st.weight * st.reps,
-              0
-            );
+            const prevMaxWeight = getPrevMaxWeight(ex.name);
+            const curMaxWeight = ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
+            const delta = prevMaxWeight != null ? curMaxWeight - prevMaxWeight : null;
+            const changeIcon = delta == null ? null : delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+            const changeColor = delta == null ? Colors.textMuted : delta > 0 ? Colors.success : delta < 0 ? Colors.danger : Colors.textMuted;
+
             return (
               <View
                 key={ex.id}
                 style={[h.exBlock, idx > 0 && h.exBlockDivider]}>
-                {/* 종목명 + 카테고리 */}
+                {/* 종목명 + 카테고리 + 변화 지표 */}
                 <View style={h.exHeader}>
                   <Text style={h.exName}>{ex.name}</Text>
-                  <View style={h.catTag}>
-                    <Text style={h.catTagText}>{ex.category}</Text>
+                  <View style={h.exHeaderRight}>
+                    {changeIcon && (
+                      <Text style={[h.changeIndicator, { color: changeColor }]}>
+                        {changeIcon} {Math.abs(delta!)}kg
+                      </Text>
+                    )}
+                    <View style={h.catTag}>
+                      <Text style={h.catTagText}>{ex.category}</Text>
+                    </View>
                   </View>
                 </View>
 
@@ -590,6 +724,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  exNameRow: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
   exName: { fontSize: 16, fontWeight: "700", color: Colors.textPrimary },
   exCategory: {
     fontSize: 12,
@@ -599,6 +734,60 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 10,
   },
+  prBadge: {
+    backgroundColor: "#FFCBA4",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  prBadgeText: { fontSize: 11, fontWeight: "700", color: "#B86A00" },
+  prevRecordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 10,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  prevRecordText: { fontSize: 12, color: Colors.textMuted, fontWeight: "500" },
+  modeRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 10,
+  },
+  modeChip: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceAlt,
+    minHeight: 36,
+    justifyContent: "center",
+  },
+  modeChipActive: { backgroundColor: Colors.primary },
+  modeChipLabel: { fontSize: 11, fontWeight: "600", color: Colors.textMuted },
+  modeChipLabelActive: { color: "#fff" },
+  modeChipDate: { fontSize: 9, color: "rgba(255,255,255,0.8)", marginTop: 1 },
+  modeChipNoData: { fontSize: 9, color: "rgba(255,255,255,0.7)", marginTop: 1 },
+  noCompareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 8,
+  },
+  noCompareText: { fontSize: 12, color: Colors.textMuted },
+  setCell: {
+    alignItems: "center",
+    paddingVertical: 3,
+  },
+  setCellMain: { flexDirection: "row", alignItems: "center", gap: 3 },
+  prSetIcon: { fontSize: 10 },
   setHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -613,7 +802,7 @@ const s = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  setRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
+  setRow: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 8 },
   setRowDone: { opacity: 0.6 },
   setNumWrap: {
     width: 26,
@@ -624,6 +813,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginRight: 8,
     flex: 0.5,
+    marginTop: 3,
   },
   setNumWrapDone: { backgroundColor: Colors.success },
   setNumText: { fontSize: 12, fontWeight: "600", color: Colors.textSecondary },
@@ -735,9 +925,10 @@ const h = StyleSheet.create({
   exHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "space-between",
     marginBottom: 12,
   },
+  exHeaderRight: { flexDirection: "row", alignItems: "center", gap: 6 },
   exName: {
     fontSize: 18,
     fontWeight: "800",
@@ -751,6 +942,10 @@ const h = StyleSheet.create({
     paddingVertical: 4,
   },
   catTagText: { fontSize: 11, fontWeight: "700", color: Colors.workout },
+  changeIndicator: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
 
   // 세트 테이블
   setsTable: { gap: 6, marginBottom: 10 },
