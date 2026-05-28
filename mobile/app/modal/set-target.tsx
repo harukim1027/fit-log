@@ -13,6 +13,7 @@ import { useDietStore } from "../../store/dietStore";
 import { Colors } from "../../constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
+import { Header } from "../../components/ui";
 
 export default function SetTargetModal() {
   const router = useRouter();
@@ -55,7 +56,9 @@ export default function SetTargetModal() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={s.container} edges={["bottom"]}>
+      <Header title="목표 설정" showClose />
+      <View style={s.content}>
       {/* 목표 칼로리 */}
       <Text style={s.sectionTitle}>하루 목표 칼로리</Text>
       <TextInput
@@ -104,12 +107,14 @@ export default function SetTargetModal() {
         activeOpacity={0.8}>
         <Text style={s.saveBtnText}>저장</Text>
       </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 24 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { flex: 1, padding: 24 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",

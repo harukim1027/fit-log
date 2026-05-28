@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Header } from "../../components/ui";
 import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useDietStore } from "../../store/dietStore";
@@ -54,32 +54,26 @@ export default function HomeScreen() {
   const fat = summary?.fat ?? 0;
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
+    <View style={s.container}>
+      <Header
+        title={user?.name ? `${user.name}님 안녕하세요 🌸` : "홈"}
+        subtitle={new Date().toLocaleDateString("ko-KR", {
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+        })}
+        rightElement={
+          <TouchableOpacity
+            style={s.settingBtn}
+            onPress={() => router.push("/modal/set-target" as any)}>
+            <Ionicons name="settings-outline" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        }
+      />
       <ScrollView
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={s.content}>
-        <View style={s.header}>
-          <View>
-            <Text style={s.greeting}>{user?.name ?? ""}님 안녕하세요 🌸</Text>
-            <Text style={s.date}>
-              {new Date().toLocaleDateString("ko-KR", {
-                month: "long",
-                day: "numeric",
-                weekday: "short",
-              })}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={s.settingBtn}
-            onPress={() => router.push("/modal/set-target" as any)}>
-            <Ionicons
-              name="settings-outline"
-              size={20}
-              color={Colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
 
         <View style={s.card}>
           <View style={s.cardTitleRow}>
@@ -184,7 +178,7 @@ export default function HomeScreen() {
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -250,14 +244,6 @@ function QuickButton({
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
-  header: {
-    marginBottom: 24,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  greeting: { fontSize: 24, fontWeight: "700", color: Colors.textPrimary },
-  date: { fontSize: 14, color: Colors.textSecondary, marginTop: 4 },
   settingBtn: {
     width: 42,
     height: 42,

@@ -4,15 +4,20 @@ import apiClient from '../lib/apiClient';
 export interface ExerciseResult {
   id: string;
   name: string;
+  nameKo: string;
   bodyPart: string;
+  bodyPartKo: string;
   target: string;
+  targetKo: string;
   equipment: string;
+  equipmentKo: string | null;
   secondaryMuscles: string[];
   instructions: string[];
   gifUrl: string;
   met: number;
   caloriesPerMinute: number;
   difficulty: string;
+  difficultyKo: string | null;
 }
 
 interface ExerciseStore {

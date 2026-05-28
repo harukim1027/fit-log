@@ -1,4 +1,5 @@
 export * from './colors';
+export * from './exerciseMapping';
 
 export const MEAL_LABELS: Record<string, string> = {
   breakfast: '아침',

@@ -174,8 +174,7 @@ export default function EditProfileModal() {
                 style={[s.goalBtn, goal === g.key && s.goalBtnActive]}
                 onPress={() => setGoal(g.key)}>
                 <Text style={s.goalEmoji}>{g.emoji}</Text>
-                <Text
-                  style={[s.goalText, goal === g.key && s.goalTextActive]}>
+                <Text style={[s.goalText, goal === g.key && s.goalTextActive]}>
                   {g.key}
                 </Text>
               </TouchableOpacity>
@@ -197,7 +196,8 @@ export default function EditProfileModal() {
           </View>
         </ScrollView>
 
-        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View
+          style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TouchableOpacity
             style={[s.saveBtn, isSaving && { opacity: 0.6 }]}
             onPress={handleSave}

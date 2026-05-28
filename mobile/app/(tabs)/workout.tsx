@@ -8,8 +8,8 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Header } from "../../components/ui";
 import { useEffect, useState, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
@@ -154,22 +154,15 @@ export default function WorkoutScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[
-          s.container,
-          { alignItems: "center", justifyContent: "center" },
-        ]}
-        edges={["top"]}>
+      <View style={[s.container, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
-      <View style={s.header}>
-        <Text style={s.title}>운동 💪</Text>
-      </View>
+    <View style={s.container}>
+      <Header title="운동 💪" />
 
       <View style={s.tabRow}>
         <TouchableOpacity
@@ -401,7 +394,7 @@ export default function WorkoutScreen() {
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -519,8 +512,6 @@ function HistoryCard({
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
-  title: { fontSize: 26, fontWeight: "700", color: Colors.textPrimary },
   tabRow: {
     flexDirection: "row",
     backgroundColor: Colors.surfaceAlt,

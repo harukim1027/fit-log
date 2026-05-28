@@ -7,6 +7,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/colors";
 import { useDietStore } from "../../store/dietStore";
+import { Header } from "../../components/ui";
 import { useLocalSearchParams } from "expo-router";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
@@ -57,12 +58,15 @@ export default function BarcodeScanModal() {
 
   if (!permission?.granted) {
     return (
-      <SafeAreaView style={s.container} edges={["top", "bottom"]}>
-        <Text style={s.permText}>카메라 권한이 필요해요</Text>
-        <TouchableOpacity style={s.permBtn} onPress={requestPermission}>
-          <Text style={s.permBtnText}>권한 허용</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      <View style={[s.container, { backgroundColor: Colors.background }]}>
+        <Header title="바코드 스캔" showClose />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={s.permText}>카메라 권한이 필요해요</Text>
+          <TouchableOpacity style={s.permBtn} onPress={requestPermission}>
+            <Text style={s.permBtnText}>권한 허용</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 

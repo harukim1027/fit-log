@@ -16,17 +16,15 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Header } from "../../components/ui";
 import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../lib/apiClient";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useExerciseStore } from "../../store/exerciseStore";
-import { Colors, EXERCISE_CATEGORIES } from "../../constants";
+import { Colors, EXERCISE_CATEGORIES, lookupEnglish } from "../../constants";
 import { WorkoutSet, ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../../components/MuscleMap";
 
@@ -41,6 +39,7 @@ const CATEGORY_TO_BODYPART: Record<string, string> = {
   팔: "upper arms",
   하체: "upper legs",
   복근: "waist",
+  유산소: "cardio",
 };
 
 const BODYPART_TO_CATEGORY: Record<string, string> = {
@@ -52,7 +51,45 @@ const BODYPART_TO_CATEGORY: Record<string, string> = {
   "upper legs": "하체",
   "lower legs": "하체",
   waist: "복근",
+  cardio: "유산소",
 };
+
+type PresetExercise = { name: string; category: string };
+
+const PRESET_EXERCISES: PresetExercise[] = [
+  { name: "벤치프레스", category: "가슴" },
+  { name: "인클라인 벤치프레스", category: "가슴" },
+  { name: "딥스", category: "가슴" },
+  { name: "케이블 플라이", category: "가슴" },
+  { name: "데드리프트", category: "등" },
+  { name: "바벨 로우", category: "등" },
+  { name: "풀업", category: "등" },
+  { name: "시티드 로우", category: "등" },
+  { name: "랫풀다운", category: "등" },
+  { name: "오버헤드프레스", category: "어깨" },
+  { name: "사이드 레터럴 레이즈", category: "어깨" },
+  { name: "프론트 레이즈", category: "어깨" },
+  { name: "바벨 컬", category: "팔" },
+  { name: "해머 컬", category: "팔" },
+  { name: "트라이셉스 익스텐션", category: "팔" },
+  { name: "케이블 푸시다운", category: "팔" },
+  { name: "스쿼트", category: "하체" },
+  { name: "레그프레스", category: "하체" },
+  { name: "런지", category: "하체" },
+  { name: "레그 컬", category: "하체" },
+  { name: "레그 익스텐션", category: "하체" },
+  { name: "플랭크", category: "복근" },
+  { name: "크런치", category: "복근" },
+  { name: "레그 레이즈", category: "복근" },
+  { name: "러닝머신", category: "유산소" },
+  { name: "자전거", category: "유산소" },
+  { name: "로잉머신", category: "유산소" },
+  { name: "일립티컬", category: "유산소" },
+  { name: "줄넘기", category: "유산소" },
+];
+
+const isKorean = (text: string) => /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(text);
+
 
 const PRESET_SETTING_KEYS = [
   "시트높이",
@@ -85,7 +122,7 @@ export default function AddWorkoutModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addExercise, addSet, activeSession } = useWorkoutStore();
-  const { results, isSearching, searchExercises, getByBodyPart, getList } =
+  const { results, isSearching, searchExercises, clearResults } =
     useExerciseStore();
 
   const scrollRef = useRef<ScrollView>(null);
@@ -93,6 +130,7 @@ export default function AddWorkoutModal() {
   const setWeightRefs = useRef<(TextInput | null)[]>([]);
   const customKeyInputRef = useRef<TextInput>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchIdRef = useRef(0);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -123,26 +161,58 @@ export default function AddWorkoutModal() {
       .get<CustomKey[]>("/workout-settings")
       .then((res) => setCustomSettingKeys(res.data))
       .catch(() => {});
-    getList();
   }, []);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (searchQuery.trim()) {
-      searchTimer.current = setTimeout(() => {
-        searchExercises(searchQuery);
-      }, 400);
-    } else if (selectedCategory) {
-      const bodyPart = CATEGORY_TO_BODYPART[selectedCategory];
-      if (bodyPart) getByBodyPart(bodyPart);
-      else getList();
-    } else {
-      getList();
+    const searchId = ++searchIdRef.current;
+    const q = searchQuery.trim();
+
+    if (!q) {
+      clearResults();
+      return;
     }
+
+    clearResults();
+
+    if (isKorean(q)) {
+      // 한글 → 매핑 테이블로 영어 변환 후 API 검색
+      const english = lookupEnglish(q);
+      if (english) {
+        searchTimer.current = setTimeout(() => {
+          if (searchIdRef.current !== searchId) return;
+          searchExercises(english);
+        }, 400);
+      }
+      // 매핑 없으면 preset 필터링 결과가 fallback으로 표시됨
+    } else {
+      // 영어 → 직접 API 검색
+      searchTimer.current = setTimeout(() => {
+        if (searchIdRef.current !== searchId) return;
+        searchExercises(q);
+      }, 400);
+    }
+
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery]);
+
+  // 카테고리 탭 변경 시 검색창 초기화
+  useEffect(() => {
+    if (selectedCategory) setSearchQuery("");
+  }, [selectedCategory]);
+
+  const isEnglishSearch = Boolean(searchQuery.trim() && !isKorean(searchQuery));
+
+  // 영어 검색이 아닐 때 preset 표시 (한글 검색 중에는 번역 대기 중 fallback으로 표시)
+  const filteredPresets: SelectedExercise[] = isEnglishSearch
+    ? []
+    : PRESET_EXERCISES.filter((ex) => {
+        const matchesCat = !selectedCategory || ex.category === selectedCategory;
+        const matchesQuery = !searchQuery.trim() || ex.name.includes(searchQuery.trim());
+        return matchesCat && matchesQuery;
+      });
 
   const filteredCustom = customExercises.filter(
     (e) => !selectedCategory || e.category === selectedCategory
@@ -271,18 +341,8 @@ export default function AddWorkoutModal() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
-      {/* ── 고정 헤더 ── */}
-      <View style={s.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={s.closeBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close" size={24} color={Colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>운동 추가</Text>
-        <View style={s.headerRight} />
-      </View>
+    <View style={s.container}>
+      <Header title="운동 추가" showClose />
 
       {/* ── 스크롤 + 고정 푸터 ── */}
       <KeyboardAvoidingView
@@ -343,7 +403,7 @@ export default function AddWorkoutModal() {
                 <Ionicons name="search" size={16} color={Colors.textMuted} />
                 <TextInput
                   style={s.searchInput}
-                  placeholder="운동 검색..."
+                  placeholder="한글 검색 또는 영어로 API 검색..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholderTextColor={Colors.textMuted}
@@ -361,62 +421,88 @@ export default function AddWorkoutModal() {
                 ) : null}
               </View>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={s.catScroll}
-                keyboardShouldPersistTaps="handled">
-                {EXERCISE_CATEGORIES.map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      s.catChip,
-                      selectedCategory === cat && s.catChipActive,
-                    ]}
-                    onPress={() => {
-                      setSearchQuery("");
-                      setSelectedCategory(selectedCategory === cat ? null : cat);
-                    }}>
-                    <Text
-                      style={[
-                        s.catText,
-                        selectedCategory === cat && s.catTextActive,
-                      ]}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {isSearching ? (
-                <ActivityIndicator
-                  style={{ marginVertical: 24 }}
-                  color={Colors.workout}
-                />
-              ) : (
-                <View style={s.exerciseList}>
-                  {filteredCustom.map((ex) => (
+              {/* 카테고리 탭 (영어 검색 중엔 숨김) */}
+              {!isEnglishSearch && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={s.catScroll}
+                  keyboardShouldPersistTaps="handled">
+                  {EXERCISE_CATEGORIES.map((cat) => (
                     <TouchableOpacity
-                      key={ex.name}
-                      style={s.exItem}
-                      onPress={() => handleSelectExercise(ex)}
-                      activeOpacity={0.7}>
-                      <View style={s.exInfo}>
-                        <Text style={s.exName}>{ex.name}</Text>
-                      </View>
-                      <Text style={s.exCat}>{ex.category}</Text>
+                      key={cat}
+                      style={[
+                        s.catChip,
+                        selectedCategory === cat && s.catChipActive,
+                      ]}
+                      onPress={() =>
+                        setSelectedCategory(selectedCategory === cat ? null : cat)
+                      }>
+                      <Text
+                        style={[
+                          s.catText,
+                          selectedCategory === cat && s.catTextActive,
+                        ]}>
+                        {cat}
+                      </Text>
                     </TouchableOpacity>
                   ))}
+                </ScrollView>
+              )}
 
-                  {results.map((ex) => (
+              {/* API 검색 중 인라인 표시 */}
+              {isSearching && (
+                <View style={s.loadingRow}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={s.loadingText}>검색 중...</Text>
+                </View>
+              )}
+
+              <View style={s.exerciseList}>
+                {/* 사용자가 직접 추가한 운동 */}
+                {filteredCustom.map((ex) => (
+                  <TouchableOpacity
+                    key={"custom-" + ex.name}
+                    style={s.exItem}
+                    onPress={() => handleSelectExercise(ex)}
+                    activeOpacity={0.7}>
+                    <View style={s.exInfo}>
+                      <Text style={s.exName}>{ex.name}</Text>
+                      <Text style={s.exCalHint}>직접 추가</Text>
+                    </View>
+                    <Text style={s.exCat}>{ex.category}</Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* Preset 목록: API 결과가 없을 때만 표시 (번역 대기 중 fallback 포함) */}
+                {results.length === 0 && filteredPresets.map((ex) => (
+                  <TouchableOpacity
+                    key={"preset-" + ex.name}
+                    style={s.exItem}
+                    onPress={() => handleSelectExercise(ex)}
+                    activeOpacity={0.7}>
+                    <View style={s.exInfo}>
+                      <Text style={s.exName}>{ex.name}</Text>
+                    </View>
+                    <Text style={s.exCat}>{ex.category}</Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* API 결과: 영어 직접 검색 또는 한글 매핑 후 검색 */}
+                {results.map((ex) => {
+                  const displayName = ex.nameKo || ex.name;
+                  const displayCat =
+                    ex.bodyPartKo ||
+                    BODYPART_TO_CATEGORY[ex.bodyPart] ||
+                    ex.bodyPart;
+                  return (
                     <TouchableOpacity
                       key={ex.id}
                       style={s.exItem}
                       onPress={() =>
                         handleSelectExercise({
-                          name: ex.name,
-                          category:
-                            BODYPART_TO_CATEGORY[ex.bodyPart] || ex.bodyPart,
+                          name: displayName,
+                          category: displayCat,
                           gifUrl: ex.gifUrl,
                           caloriesPerMinute: ex.caloriesPerMinute,
                         })
@@ -430,18 +516,29 @@ export default function AddWorkoutModal() {
                         />
                       ) : null}
                       <View style={s.exInfo}>
-                        <Text style={s.exName}>{ex.name}</Text>
+                        <Text style={s.exName}>{displayName}</Text>
                         <Text style={s.exCalHint}>
-                          🔥 {ex.caloriesPerMinute} kcal/분
+                          {displayCat}
+                          {ex.equipmentKo ? ` · ${ex.equipmentKo}` : ""}
+                          {ex.caloriesPerMinute
+                            ? ` · 🔥 ${ex.caloriesPerMinute} kcal/분`
+                            : ""}
                         </Text>
                       </View>
-                      <Text style={s.exCat}>
-                        {BODYPART_TO_CATEGORY[ex.bodyPart] || ex.bodyPart}
-                      </Text>
+                      <Text style={s.exCat}>{displayCat}</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+                  );
+                })}
+
+                {/* 검색 결과 없음 (로딩 완료 후 아무것도 없을 때) */}
+                {!isSearching && results.length === 0 &&
+                  filteredPresets.length === 0 && filteredCustom.length === 0 &&
+                  searchQuery.trim() && (
+                  <View style={s.emptySearch}>
+                    <Text style={s.emptySearchText}>검색 결과가 없어요</Text>
+                  </View>
+                )}
+              </View>
 
               {!showCustomForm ? (
                 <TouchableOpacity
@@ -777,33 +874,12 @@ export default function AddWorkoutModal() {
           </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceAlt,
-    backgroundColor: Colors.background,
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-    backgroundColor: Colors.surfaceAlt,
-  },
-  headerTitle: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
-  headerRight: { width: 36 },
 
   content: { padding: 20, paddingBottom: 16 },
 
@@ -1090,6 +1166,16 @@ const s = StyleSheet.create({
     marginBottom: 14,
     ...CARD_SHADOW,
   },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  loadingText: { fontSize: 13, color: Colors.textMuted },
+  emptySearch: { alignItems: "center", paddingVertical: 24 },
+  emptySearchText: { fontSize: 14, color: Colors.textMuted },
 });
 
 const sh = StyleSheet.create({

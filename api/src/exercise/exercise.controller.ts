@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @Controller('exercise')
 @UseGuards(JwtAuthGuard)
 export class ExerciseController {
-  constructor(private exerciseService: ExerciseService) {}
+  constructor(private readonly exerciseService: ExerciseService) {}
 
   @Get('search')
   search(@Query('q') q: string, @Query('limit') limit: string) {
@@ -14,11 +14,17 @@ export class ExerciseController {
 
   @Get('bodypart')
   getByBodyPart(@Query('part') part: string, @Query('limit') limit: string) {
-    return this.exerciseService.getByBodyPart(part || '', parseInt(limit) || 20);
+    return this.exerciseService.findByBodyPart(
+      part || '',
+      parseInt(limit) || 20,
+    );
   }
 
   @Get('list')
   getList(@Query('page') page: string, @Query('limit') limit: string) {
-    return this.exerciseService.getList(parseInt(page) || 1, parseInt(limit) || 20);
+    return this.exerciseService.findAll(
+      parseInt(page) || 1,
+      parseInt(limit) || 20,
+    );
   }
 }
