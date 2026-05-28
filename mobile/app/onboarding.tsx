@@ -9,12 +9,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
+import { useHealthStore } from "../store/healthStore";
 import { Colors } from "../constants/colors";
 
 const GOALS = [
@@ -72,6 +74,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
+  const { fetchHealthData, isLoading: healthLoading } = useHealthStore();
 
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -215,6 +218,37 @@ export default function OnboardingScreen() {
             <View style={s.stepWrap}>
               <Text style={s.stepTitle}>신체 정보를 입력해주세요</Text>
               <Text style={s.stepDesc}>기초대사량 계산에 사용돼요</Text>
+
+              {/* Apple Health 자동 입력 (iOS만) */}
+              {Platform.OS === "ios" && (
+                <TouchableOpacity
+                  style={s.healthConnectBtn}
+                  onPress={async () => {
+                    const { data } = await (async () => {
+                      await fetchHealthData();
+                      return useHealthStore.getState();
+                    })();
+                    if (data.height) setHeight(String(data.height));
+                    if (data.weight) setWeight(String(data.weight));
+                    if (data.height || data.weight) {
+                      Alert.alert("연동 완료", "Apple Health에서 키/몸무게를 가져왔어요.");
+                    } else {
+                      Alert.alert("데이터 없음", "Apple Health에 신체 정보가 없거나 권한이 필요해요.");
+                    }
+                  }}
+                  disabled={healthLoading}
+                  activeOpacity={0.8}>
+                  {healthLoading ? (
+                    <ActivityIndicator size="small" color="#FF3B30" />
+                  ) : (
+                    <Ionicons name="heart" size={18} color="#FF3B30" />
+                  )}
+                  <Text style={s.healthConnectText}>
+                    {healthLoading ? "가져오는 중..." : "Apple Health 연동하기"}
+                  </Text>
+                  <Text style={s.healthConnectHint}>키·몸무게 자동 입력</Text>
+                </TouchableOpacity>
+              )}
 
               {/* 성별 */}
               <Text style={s.fieldLabel}>성별</Text>
@@ -449,6 +483,29 @@ const s = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 10,
     marginTop: 4,
+  },
+  healthConnectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#FF3B3012",
+    borderWidth: 1.5,
+    borderColor: "#FF3B3030",
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginBottom: 24,
+  },
+  healthConnectText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FF3B30",
+    flex: 1,
+  },
+  healthConnectHint: {
+    fontSize: 11,
+    color: "#FF3B3080",
+    fontWeight: "600",
   },
   genderRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   genderBtn: {

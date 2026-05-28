@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
+        "NSHealthUpdateUsageDescription": "운동 및 신체 데이터를 Apple Health에 저장합니다."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +31,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "react-native-health/app.plugin.js",
+        {
+          "healthSharePermission": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
+          "healthUpdatePermission": "운동 및 신체 데이터를 Apple Health에 저장합니다."
+        }
+      ]
     ],
     "scheme": "fitlog"
   }
