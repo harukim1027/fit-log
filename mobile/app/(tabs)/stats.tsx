@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -13,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
+import { useHealthStore } from "../../store/healthStore";
 import { Colors } from "../../constants/colors";
 import { LineChart, BarChart } from "react-native-chart-kit";
 
@@ -42,6 +45,8 @@ export default function StatsScreen() {
   const { dailyDiets, targetCalories } = useDietStore();
   const { sessions } = useWorkoutStore();
   const { user, logout } = useAuthStore();
+  const { data: healthData, isLoading: healthLoading, fetchHealthData } =
+    useHealthStore();
 
   const last7 = [...Array(7)].map((_, i) => {
     const d = new Date();
@@ -248,6 +253,97 @@ export default function StatsScreen() {
           )}
         </View>
 
+        {/* ── Apple Health 인바디 ── */}
+        {Platform.OS === "ios" && (
+          <View style={s.card}>
+            <View style={s.inbodyHeader}>
+              <Text style={s.cardTitle}>인바디 (Apple Health)</Text>
+              <TouchableOpacity
+                style={s.healthBtn}
+                onPress={fetchHealthData}
+                disabled={healthLoading}>
+                {healthLoading ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="heart" size={14} color="#FF3B30" />
+                    <Text style={s.healthBtnText}>가져오기</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {healthData.weight || healthData.bodyFat || healthData.leanBodyMass ? (
+              <>
+                <View style={s.inbodyRow}>
+                  <InbodyCard
+                    label="체중"
+                    value={healthData.weight != null ? `${healthData.weight}` : "-"}
+                    unit="kg"
+                    color={Colors.primary}
+                  />
+                  <InbodyCard
+                    label="체지방률"
+                    value={healthData.bodyFat != null ? `${healthData.bodyFat}` : "-"}
+                    unit="%"
+                    color="#FF6B6B"
+                  />
+                  <InbodyCard
+                    label="근육량"
+                    value={healthData.leanBodyMass != null ? `${healthData.leanBodyMass}` : "-"}
+                    unit="kg"
+                    color={Colors.workout}
+                  />
+                </View>
+
+                {healthData.weightHistory.length > 1 && (
+                  <>
+                    <Text style={[s.cardTitle, { marginTop: 16, marginBottom: 8 }]}>
+                      체중 추이 (30일)
+                    </Text>
+                    <LineChart
+                      data={{
+                        labels: healthData.weightHistory
+                          .filter((_, i) =>
+                            i % Math.ceil(healthData.weightHistory.length / 6) === 0
+                          )
+                          .map((d) => d.date.slice(5)),
+                        datasets: [{ data: healthData.weightHistory.map((d) => d.value) }],
+                      }}
+                      width={W}
+                      height={160}
+                      chartConfig={{
+                        ...chartConfig,
+                        decimalPlaces: 1,
+                        color: (opacity = 1) => `rgba(122, 200, 200, ${opacity})`,
+                        propsForDots: { r: "4", strokeWidth: "2", stroke: "#7AC8C8" },
+                      }}
+                      bezier
+                      style={s.chart}
+                      withInnerLines={false}
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              <View style={s.healthEmpty}>
+                <Ionicons name="heart-outline" size={36} color={Colors.textMuted} />
+                <Text style={s.emptyText}>
+                  Apple Health에서 신체 데이터를 가져오세요
+                </Text>
+                <TouchableOpacity
+                  style={s.healthFetchBtn}
+                  onPress={fetchHealthData}
+                  disabled={healthLoading}>
+                  <Text style={s.healthFetchBtnText}>
+                    {healthLoading ? "불러오는 중..." : "Apple Health 연동하기"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         {prs.length > 0 && (
           <View style={s.card}>
             <Text style={s.cardTitle}>종목별 최고 기록 PR 🏆</Text>
@@ -277,6 +373,26 @@ export default function StatsScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function InbodyCard({
+  label,
+  value,
+  unit,
+  color,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  color: string;
+}) {
+  return (
+    <View style={[ic.card, { backgroundColor: color + "14" }]}>
+      <Text style={ic.label}>{label}</Text>
+      <Text style={[ic.value, { color }]}>{value}</Text>
+      <Text style={[ic.unit, { color: color + "AA" }]}>{unit}</Text>
+    </View>
   );
 }
 
@@ -350,6 +466,34 @@ const s = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 20, gap: 6 },
   emptyEmoji: { fontSize: 40 },
   emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: "center" },
+  inbodyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  healthBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#FF3B3018",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    minWidth: 80,
+    justifyContent: "center",
+  },
+  healthBtnText: { fontSize: 13, fontWeight: "600", color: "#FF3B30" },
+  inbodyRow: { flexDirection: "row", gap: 8 },
+  healthEmpty: { alignItems: "center", paddingVertical: 20, gap: 10 },
+  healthFetchBtn: {
+    backgroundColor: "#FF3B3018",
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  healthFetchBtnText: { fontSize: 14, fontWeight: "700", color: "#FF3B30" },
   prRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -373,6 +517,13 @@ const s = StyleSheet.create({
   prName: { fontSize: 14, fontWeight: "600", color: Colors.textPrimary },
   prVol: { fontSize: 14, fontWeight: "700", color: Colors.workout },
 });
+const ic = StyleSheet.create({
+  card: { flex: 1, borderRadius: 14, padding: 12, alignItems: "center" },
+  label: { fontSize: 11, color: Colors.textSecondary, fontWeight: "600", marginBottom: 4 },
+  value: { fontSize: 20, fontWeight: "800" },
+  unit: { fontSize: 11, marginTop: 2, fontWeight: "600" },
+});
+
 const sc = StyleSheet.create({
   card: { flex: 1, borderRadius: 18, padding: 14, alignItems: "center" },
   label: {
