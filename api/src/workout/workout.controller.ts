@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { WorkoutService } from './workout.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -10,6 +10,19 @@ export class WorkoutController {
   @Get()
   findAll(@Request() req: any) {
     return this.workoutService.findAll(req.user.id);
+  }
+
+  @Get('exercise-history')
+  getExerciseHistory(
+    @Request() req: any,
+    @Query('name') name: string,
+    @Query('mode') mode: string,
+  ) {
+    const validModes = ['recent', 'pr', 'week', 'month'] as const;
+    const safeMode = validModes.includes(mode as any)
+      ? (mode as 'recent' | 'pr' | 'week' | 'month')
+      : 'recent';
+    return this.workoutService.getExerciseHistory(req.user.id, name ?? '', safeMode);
   }
 
   @Get(':date')
