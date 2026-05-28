@@ -91,6 +91,10 @@ export default function RootLayout() {
             name="modal/barcode-scan"
             options={{ presentation: "fullScreenModal", headerShown: false }}
           />
+          <Stack.Screen
+            name="modal/edit-profile"
+            options={{ presentation: "fullScreenModal", headerShown: false }}
+          />
         </Stack>
       </AuthGate>
     </SafeAreaProvider>
