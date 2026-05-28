@@ -43,10 +43,16 @@ const chartConfig = {
 export default function StatsScreen() {
   const router = useRouter();
   const { dailyDiets, targetCalories } = useDietStore();
-  const { sessions } = useWorkoutStore();
+  const { sessions, fetchSessions } = useWorkoutStore();
   const { user, logout } = useAuthStore();
   const { data: healthData, isLoading: healthLoading, isAvailable: healthAvailable, fetchHealthData } =
     useHealthStore();
+
+  const [selectedExercise, setSelectedExercise] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (sessions.length === 0) fetchSessions();
+  }, []);
 
   const last7 = [...Array(7)].map((_, i) => {
     const d = new Date();
@@ -112,6 +118,30 @@ export default function StatsScreen() {
   const prs = Object.entries(prMap)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
+
+  // Exercise growth data
+  const exerciseNames = React.useMemo(() => {
+    const freq: Record<string, number> = {};
+    sessions.forEach((s) => s.exercises.forEach((ex) => { freq[ex.name] = (freq[ex.name] ?? 0) + 1; }));
+    return Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([name]) => name).slice(0, 10);
+  }, [sessions]);
+
+  const activeExercise = selectedExercise ?? exerciseNames[0] ?? null;
+
+  const exerciseGrowthData = React.useMemo(() => {
+    if (!activeExercise) return null;
+    const points = sessions
+      .slice()
+      .reverse()
+      .filter((s) => s.exercises.some((ex) => ex.name === activeExercise))
+      .slice(-8)
+      .map((s) => {
+        const ex = s.exercises.find((e) => e.name === activeExercise)!;
+        const maxWeight = ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
+        return { date: s.date.slice(5), maxWeight };
+      });
+    return points.length >= 2 ? points : null;
+  }, [sessions, activeExercise]);
 
   const dayLabels = last7.map((d) =>
     new Date(d).toLocaleDateString("ko-KR", { weekday: "short" })
@@ -342,6 +372,63 @@ export default function StatsScreen() {
           </View>
         )}
 
+        {exerciseNames.length > 0 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>종목별 성장 그래프 📈</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={s.exerciseChipScroll}
+              contentContainerStyle={s.exerciseChipRow}>
+              {exerciseNames.map((name) => (
+                <TouchableOpacity
+                  key={name}
+                  style={[
+                    s.exerciseChip,
+                    activeExercise === name && s.exerciseChipActive,
+                  ]}
+                  onPress={() => setSelectedExercise(name)}
+                  activeOpacity={0.7}>
+                  <Text
+                    style={[
+                      s.exerciseChipText,
+                      activeExercise === name && s.exerciseChipTextActive,
+                    ]}>
+                    {name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {exerciseGrowthData ? (
+              <LineChart
+                data={{
+                  labels: exerciseGrowthData.map((d) => d.date),
+                  datasets: [{ data: exerciseGrowthData.map((d) => d.maxWeight) }],
+                }}
+                width={W}
+                height={160}
+                chartConfig={{
+                  ...chartConfig,
+                  decimalPlaces: 1,
+                  color: (opacity = 1) => `rgba(180, 167, 232, ${opacity})`,
+                  propsForDots: { r: "5", strokeWidth: "2", stroke: "#B4A7E8" },
+                }}
+                bezier
+                style={s.chart}
+                withInnerLines={false}
+                yAxisSuffix="kg"
+              />
+            ) : (
+              <View style={s.emptyState}>
+                <Text style={s.emptyEmoji}>📊</Text>
+                <Text style={s.emptyText}>
+                  {activeExercise ? "2회 이상 기록이 있어야 그래프가 표시돼요" : "운동 기록이 없어요"}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {prs.length > 0 && (
           <View style={s.card}>
             <Text style={s.cardTitle}>종목별 최고 기록 PR 🏆</Text>
@@ -471,6 +558,17 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   healthFetchBtnText: { fontSize: 14, fontWeight: "700", color: "#FF3B30" },
+  exerciseChipScroll: { marginBottom: 14, marginHorizontal: -4 },
+  exerciseChipRow: { paddingHorizontal: 4, gap: 8, flexDirection: "row" },
+  exerciseChip: {
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  exerciseChipActive: { backgroundColor: Colors.primary },
+  exerciseChipText: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
+  exerciseChipTextActive: { color: "#fff" },
   prRow: {
     flexDirection: "row",
     justifyContent: "space-between",
