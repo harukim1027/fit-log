@@ -10,8 +10,8 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Header } from "../../components/ui";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useDietStore } from "../../store/dietStore";
@@ -132,19 +132,15 @@ export default function DietScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[
-          s.container,
-          { alignItems: "center", justifyContent: "center" },
-        ]}
-        edges={["top"]}>
+      <View style={[s.container, { alignItems: "center", justifyContent: "center" }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
+    <View style={s.container}>
+      <Header title="식단 🥗" />
       <View style={s.swipeWrapper} {...panResponder.panHandlers}>
         <Animated.View
           style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
@@ -300,7 +296,7 @@ export default function DietScreen() {
           </ScrollView>
         </Animated.View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

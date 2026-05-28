@@ -72,14 +72,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen
             name="modal/add-food"
-            options={{
-              presentation: "modal",
-              headerShown: true,
-              title: "식품 추가",
-              headerStyle: { backgroundColor: Colors.surface },
-              headerTintColor: Colors.textPrimary,
-              headerShadowVisible: false,
-            }}
+            options={{ presentation: "fullScreenModal", headerShown: false }}
           />
           <Stack.Screen
             name="modal/add-workout"
@@ -90,6 +83,10 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="modal/barcode-scan"
+            options={{ presentation: "fullScreenModal", headerShown: false }}
+          />
+          <Stack.Screen
+            name="modal/set-target"
             options={{ presentation: "fullScreenModal", headerShown: false }}
           />
           <Stack.Screen

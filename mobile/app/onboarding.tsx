@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Header } from "../components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
@@ -74,7 +75,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
-  const { fetchHealthData, isLoading: healthLoading } = useHealthStore();
+  const { fetchHealthData, isLoading: healthLoading, isAvailable: healthAvailable } = useHealthStore();
 
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -167,23 +168,16 @@ export default function OnboardingScreen() {
 
   // ── Render ──────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={s.container} edges={["bottom"]}>
+      <Header
+        title=""
+        showBack={step > 0}
+        onBack={goBack}
+        rightElement={<StepIndicator current={step} total={3} />}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {/* 상단 인디케이터 */}
-        <View style={s.topBar}>
-          {step > 0 ? (
-            <TouchableOpacity style={s.backBtn} onPress={goBack}>
-              <Ionicons name="chevron-back" size={22} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          ) : (
-            <View style={s.backBtn} />
-          )}
-          <StepIndicator current={step} total={3} />
-          <View style={s.backBtn} />
-        </View>
-
         <ScrollView
           contentContainerStyle={s.scroll}
           keyboardDismissMode="on-drag"
@@ -219,8 +213,8 @@ export default function OnboardingScreen() {
               <Text style={s.stepTitle}>신체 정보를 입력해주세요</Text>
               <Text style={s.stepDesc}>기초대사량 계산에 사용돼요</Text>
 
-              {/* Apple Health 자동 입력 (iOS만) */}
-              {Platform.OS === "ios" && (
+              {/* Apple Health 자동 입력 (실제 기기 빌드에서만) */}
+              {Platform.OS === "ios" && healthAvailable && (
                 <TouchableOpacity
                   style={s.healthConnectBtn}
                   onPress={async () => {
@@ -405,20 +399,6 @@ const si = StyleSheet.create({
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
   scroll: { paddingHorizontal: 24, paddingBottom: 24 },
 

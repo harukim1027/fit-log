@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { Header } from "../../components/ui";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useDietStore } from "../../store/dietStore";
@@ -139,20 +140,24 @@ export default function AddFoodModal() {
 
   return (
     <SafeAreaView style={s.container} edges={["bottom"]}>
-      <View style={s.subtitleRow}>
-        <Text style={s.subtitle}>{MEAL_LABELS[mealType]}에 추가</Text>
-        <TouchableOpacity
-          style={s.barcodeBtn}
-          onPress={() =>
-            router.push({
-              pathname: "/modal/barcode-scan",
-              params: { mealType },
-            } as any)
-          }>
-          <Ionicons name="barcode-outline" size={20} color={Colors.primary} />
-          <Text style={s.barcodeBtnText}>바코드</Text>
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="식품 추가"
+        subtitle={MEAL_LABELS[mealType] + "에 추가"}
+        showClose
+        rightElement={
+          <TouchableOpacity
+            style={s.barcodeBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/modal/barcode-scan",
+                params: { mealType },
+              } as any)
+            }>
+            <Ionicons name="barcode-outline" size={20} color={Colors.primary} />
+            <Text style={s.barcodeBtnText}>바코드</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <View style={s.tabRow}>
         {TABS.map((t) => (
@@ -405,13 +410,7 @@ function ManualInput({
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
-  subtitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
+  container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 20 },
   barcodeBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -422,7 +421,6 @@ const s = StyleSheet.create({
     borderRadius: 20,
   },
   barcodeBtnText: { fontSize: 13, fontWeight: "700", color: Colors.primary },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, fontWeight: "600" },
   tabRow: {
     flexDirection: "row",
     backgroundColor: Colors.surfaceAlt,

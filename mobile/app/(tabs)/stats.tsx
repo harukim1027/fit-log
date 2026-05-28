@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Header } from "../../components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
@@ -45,7 +45,7 @@ export default function StatsScreen() {
   const { dailyDiets, targetCalories } = useDietStore();
   const { sessions } = useWorkoutStore();
   const { user, logout } = useAuthStore();
-  const { data: healthData, isLoading: healthLoading, fetchHealthData } =
+  const { data: healthData, isLoading: healthLoading, isAvailable: healthAvailable, fetchHealthData } =
     useHealthStore();
 
   const last7 = [...Array(7)].map((_, i) => {
@@ -118,35 +118,24 @@ export default function StatsScreen() {
   );
 
   return (
-    <SafeAreaView style={s.container} edges={["top"]}>
-      <ScrollView contentContainerStyle={s.content}>
-        <View style={s.header}>
-          <View>
-            <Text style={s.title}>통계 📊</Text>
-            <Text style={s.subtitle}>{user?.name ?? ""}</Text>
-          </View>
+    <View style={s.container}>
+      <Header
+        title="통계 📊"
+        subtitle={user?.name ?? undefined}
+        rightElement={
           <View style={s.headerActions}>
             <TouchableOpacity
-              style={s.editBtn}
+              style={s.iconAction}
               onPress={() => router.push("/modal/edit-profile" as any)}>
-              <Ionicons
-                name="person-circle-outline"
-                size={18}
-                color={Colors.primary}
-              />
-              <Text style={s.editBtnText}>편집</Text>
+              <Ionicons name="person-circle-outline" size={22} color={Colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={s.logoutBtn} onPress={logout}>
-              <Ionicons
-                name="log-out-outline"
-                size={18}
-                color={Colors.danger}
-              />
-              <Text style={s.logoutText}>로그아웃</Text>
+            <TouchableOpacity style={s.iconAction} onPress={logout}>
+              <Ionicons name="log-out-outline" size={22} color={Colors.danger} />
             </TouchableOpacity>
           </View>
-        </View>
-
+        }
+      />
+      <ScrollView contentContainerStyle={s.content}>
         <View style={s.summaryRow}>
           <StatCard
             label="7일 평균"
@@ -258,22 +247,31 @@ export default function StatsScreen() {
           <View style={s.card}>
             <View style={s.inbodyHeader}>
               <Text style={s.cardTitle}>인바디 (Apple Health)</Text>
-              <TouchableOpacity
-                style={s.healthBtn}
-                onPress={fetchHealthData}
-                disabled={healthLoading}>
-                {healthLoading ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <>
-                    <Ionicons name="heart" size={14} color="#FF3B30" />
-                    <Text style={s.healthBtnText}>가져오기</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              {healthAvailable && (
+                <TouchableOpacity
+                  style={s.healthBtn}
+                  onPress={fetchHealthData}
+                  disabled={healthLoading}>
+                  {healthLoading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="heart" size={14} color="#FF3B30" />
+                      <Text style={s.healthBtnText}>가져오기</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
-            {healthData.weight || healthData.bodyFat || healthData.leanBodyMass ? (
+            {!healthAvailable ? (
+              <View style={s.healthEmpty}>
+                <Ionicons name="phone-portrait-outline" size={32} color={Colors.textMuted} />
+                <Text style={s.emptyText}>
+                  Apple Health는 실제 기기 빌드에서 사용 가능해요
+                </Text>
+              </View>
+            ) : healthData.weight || healthData.bodyFat || healthData.leanBodyMass ? (
               <>
                 <View style={s.inbodyRow}>
                   <InbodyCard
@@ -372,7 +370,7 @@ export default function StatsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -419,35 +417,14 @@ function StatCard({
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 40 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  iconAction: {
+    width: 36,
+    height: 36,
     alignItems: "center",
-    marginBottom: 20,
+    justifyContent: "center",
+    borderRadius: 12,
   },
-  title: { fontSize: 26, fontWeight: "700", color: Colors.textPrimary },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, marginTop: 2 },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  editBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: Colors.primary + "18",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  editBtnText: { fontSize: 13, fontWeight: "600", color: Colors.primary },
-  logoutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.danger + "18",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  logoutText: { fontSize: 13, fontWeight: "600", color: Colors.danger },
   summaryRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   card: {
     backgroundColor: Colors.surface,

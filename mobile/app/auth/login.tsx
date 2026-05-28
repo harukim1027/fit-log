@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { Colors } from "../../constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Header } from "../../components/ui";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,8 +33,9 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["top", "bottom"]}>
-      <Text style={s.title}>FitLog</Text>
+    <SafeAreaView style={s.container} edges={["bottom"]}>
+      <Header title="FitLog" />
+      <View style={s.formWrapper}>
       <Text style={s.subtitle}>식단과 운동을 한 번에</Text>
       <View style={s.form}>
         <TextInput
@@ -70,6 +72,7 @@ export default function LoginScreen() {
           <Text style={s.linkText}>계정이 없으신가요? 회원가입</Text>
         </TouchableOpacity>
       </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -78,15 +81,11 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  formWrapper: {
+    flex: 1,
     justifyContent: "center",
     padding: 32,
-  },
-  title: {
-    fontSize: 40,
-    fontWeight: "800",
-    color: Colors.primary,
-    textAlign: "center",
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
