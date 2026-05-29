@@ -93,7 +93,7 @@ export default function BarcodeScanModal() {
           <TouchableOpacity
             className="self-end mr-5 bg-black/50 rounded-[20px] p-2"
             onPress={() => router.back()}>
-            <Text style={{ fontSize: 22, color: '#fff', fontWeight: '700' }}>✕</Text>
+            <Icon name="close" size={28} color="#fff" />
           </TouchableOpacity>
 
           <View style={{ width: 260, height: 160, position: 'relative' }}>

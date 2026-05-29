@@ -1,11 +1,13 @@
 import React from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useDietStore } from "../../store/dietStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
 import { Header, Button } from "../../components/ui";
+import { Stepper } from "../../components/ui/Stepper";
+import { Icon } from "../../components/AppIcons";
 
 export default function SetTargetModal() {
   const router = useRouter();
@@ -51,37 +53,37 @@ export default function SetTargetModal() {
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Header title="목표 설정" showClose />
       <View className="flex-1 p-6">
+        {/* 타겟 아이콘 */}
+        <View className="items-center mb-4">
+          <View className="w-16 h-16 rounded-3xl bg-primary/15 items-center justify-center">
+            <Icon name="target" size={32} color="#0E8E8A" />
+          </View>
+        </View>
         {/* 목표 칼로리 */}
         <Text className="text-base font-semibold text-text-secondary mb-3">
           하루 목표 칼로리
         </Text>
-        <TextInput
-          style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 18, fontSize: 30, fontWeight: '900', textAlign: 'center', color: '#2E9E83', borderWidth: 2, borderColor: '#6FD3B6', marginBottom: 8 }}
-          value={calValue}
-          onChangeText={setCalValue}
-          keyboardType="numeric"
-          selectTextOnFocus
-          autoFocus
-          placeholderTextColor="#B4CFC5"
-        />
-        <Text className="text-xs text-text-muted text-center mb-5">
+        <Stepper value={calValue} onChange={setCalValue} step={50} min={500} max={9999} suffix="kcal" />
+        <Text className="text-xs text-text-muted text-center mt-2 mb-4">
           일반적으로 성인 기준 1800 ~ 2500 kcal예요
         </Text>
 
-        <View className="flex-row gap-2 mb-6">
+        <View className="flex-row gap-2 mb-4">
           {[1500, 1800, 2000, 2500].map((cal) => {
             const isActive = calValue === String(cal);
             return (
               <TouchableOpacity
                 key={cal}
-                style={{
-                  flex: 1, borderRadius: 999, paddingVertical: 10, alignItems: 'center',
-                  backgroundColor: isActive ? '#6FD3B620' : '#E7F7F0',
-                  borderWidth: isActive ? 1.5 : 0,
-                  borderColor: isActive ? '#6FD3B6' : 'transparent',
-                }}
+                className={[
+                  "flex-1 rounded-2xl py-3 items-center border",
+                  isActive ? "bg-primary/10 border-primary" : "bg-surface border-border",
+                ].join(" ")}
                 onPress={() => setCalValue(String(cal))}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: isActive ? '#2E9E83' : '#7E9A90' }}>
+                <Text
+                  className={[
+                    "text-base font-semibold",
+                    isActive ? "text-primary" : "text-text-secondary",
+                  ].join(" ")}>
                   {cal}
                 </Text>
               </TouchableOpacity>
@@ -93,16 +95,8 @@ export default function SetTargetModal() {
         <Text className="text-base font-semibold text-text-secondary mb-3 mt-2">
           체중 (kg)
         </Text>
-        <TextInput
-          style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 18, fontSize: 28, fontWeight: '900', textAlign: 'center', color: '#34514A', borderWidth: 1.5, borderColor: '#D6F0E6', marginBottom: 8 }}
-          value={weightValue}
-          onChangeText={setWeightValue}
-          keyboardType="decimal-pad"
-          placeholder="예: 70"
-          placeholderTextColor="#B4CFC5"
-          selectTextOnFocus
-        />
-        <Text className="text-xs text-text-muted text-center mb-5">
+        <Stepper value={weightValue || "70"} onChange={setWeightValue} step={1} min={20} max={300} suffix="kg" decimal />
+        <Text className="text-xs text-text-muted text-center mt-2 mb-5">
           칼로리 소모량 계산에 사용돼요 (미입력 시 70kg 기본값)
         </Text>
 

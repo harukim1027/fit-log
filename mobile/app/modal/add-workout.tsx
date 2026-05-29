@@ -24,6 +24,7 @@ import { Icon, FlameIcon } from "../../components/AppIcons";
 import apiClient from "../../lib/apiClient";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useExerciseStore } from "../../store/exerciseStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { EXERCISE_CATEGORIES, lookupEnglish } from "../../constants";
 import { WorkoutSet, ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../../components/MuscleMap";
@@ -143,7 +144,12 @@ export default function AddWorkoutModal() {
   const [customName, setCustomName] = useState("");
   const [customCat, setCustomCat] = useState("");
 
-  const [sets, setSets] = useState([{ weight: "", reps: "" }]);
+  const { weightUnit, showBodypartSelector, loadSettings } = useSettingsStore();
+  const [unit, setUnit] = useState<'kg' | 'lbs'>(weightUnit);
+  const [isSingleArm, setIsSingleArm] = useState(false);
+  const [differentSides, setDifferentSides] = useState(false);
+
+  const [sets, setSets] = useState([{ weight: "", weightR: "", reps: "" }]);
 
   const [settings, setSettings] = useState<ExerciseSetting[]>([]);
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
@@ -159,6 +165,7 @@ export default function AddWorkoutModal() {
   const successScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    loadSettings().then(() => setUnit(useSettingsStore.getState().weightUnit));
     apiClient
       .get<CustomKey[]>("/workout-settings")
       .then((res) => setCustomSettingKeys(res.data))
@@ -231,9 +238,11 @@ export default function AddWorkoutModal() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedExercise(null);
     setExerciseListCollapsed(false);
-    setSets([{ weight: "", reps: "" }]);
+    setSets([{ weight: "", weightR: "", reps: "" }]);
     setSettings([]);
     setTip("");
+    setIsSingleArm(false);
+    setDifferentSides(false);
     setWeightRefs.current = [];
     setShowCustomForm(false);
   };
@@ -254,7 +263,7 @@ export default function AddWorkoutModal() {
 
   const handleAddSet = () => {
     const newIndex = sets.length;
-    setSets((prev) => [...prev, { weight: "", reps: "" }]);
+    setSets((prev) => [...prev, { weight: "", weightR: "", reps: "" }]);
     setTimeout(() => {
       setWeightRefs.current[newIndex]?.focus();
     }, 100);
@@ -312,6 +321,12 @@ export default function AddWorkoutModal() {
   const removeSetting = (idx: number) =>
     setSettings((prev) => prev.filter((_, i) => i !== idx));
 
+  const toKg = (val: string) => {
+    const n = parseFloat(val);
+    if (isNaN(n)) return 0;
+    return unit === 'lbs' ? Math.round(n * 0.453592 * 10) / 10 : n;
+  };
+
   const handleAdd = () => {
     if (!activeSession) return Alert.alert("운동 세션을 먼저 시작해주세요");
     if (!selectedExercise) return Alert.alert("운동 종목을 선택해주세요");
@@ -324,11 +339,18 @@ export default function AddWorkoutModal() {
       category: selectedExercise.category,
       settings: settings.length > 0 ? settings : undefined,
       tip: tip.trim() || undefined,
+      isSingleArm,
+      differentSides: isSingleArm ? differentSides : false,
     });
     validSets.forEach((st, i) => {
+      const weightKg = toKg(st.weight);
+      const weightRKg = (isSingleArm && differentSides && st.weightR)
+        ? toKg(st.weightR)
+        : undefined;
       const workoutSet: WorkoutSet = {
         id: exId + "-" + i,
-        weight: parseFloat(st.weight),
+        weight: weightKg,
+        weightR: weightRKg,
         reps: parseInt(st.reps),
         completed: false,
       };
@@ -426,8 +448,8 @@ export default function AddWorkoutModal() {
                 ) : null}
               </View>
 
-              {/* 카테고리 탭 */}
-              {!isEnglishSearch && (
+              {/* 카테고리 탭 (설정에서 표시 ON일 때만) */}
+              {!isEnglishSearch && showBodypartSelector && (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -624,14 +646,77 @@ export default function AddWorkoutModal() {
               onLayout={(e) => {
                 setsSectionY.current = e.nativeEvent.layout.y;
               }}>
-              <Text className="text-[15px] font-bold text-text-primary mb-[14px]">
-                {selectedExercise.name} 세트 기록
-              </Text>
+              {/* 헤더: 종목명 + 단위 토글 */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text className="text-[15px] font-bold text-text-primary">
+                  {selectedExercise.name} 세트 기록
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  {(['kg', 'lbs'] as const).map(u => (
+                    <TouchableOpacity
+                      key={u}
+                      style={{
+                        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+                        backgroundColor: unit === u ? '#6FD3B6' : '#E7F7F0',
+                      }}
+                      onPress={() => setUnit(u)}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: unit === u ? '#fff' : '#7E9A90' }}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* 한팔 기준 토글 */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#7E9A90' }}>한팔 기준</Text>
+                <TouchableOpacity
+                  style={{
+                    width: 44, height: 24, borderRadius: 12,
+                    backgroundColor: isSingleArm ? '#6FD3B6' : '#E7F7F0',
+                    justifyContent: 'center', paddingHorizontal: 2,
+                  }}
+                  onPress={() => { setIsSingleArm(v => !v); setDifferentSides(false); }}
+                  activeOpacity={0.8}>
+                  <View style={{
+                    width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff',
+                    transform: [{ translateX: isSingleArm ? 20 : 0 }],
+                    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2,
+                  }} />
+                </TouchableOpacity>
+              </View>
+
+              {isSingleArm && (
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', marginBottom: 10 }}
+                  onPress={() => setDifferentSides(v => !v)}>
+                  <View style={{
+                    width: 16, height: 16, borderRadius: 4,
+                    borderWidth: 1.5, borderColor: differentSides ? '#6FD3B6' : '#D6F0E6',
+                    backgroundColor: differentSides ? '#6FD3B6' : 'transparent',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {differentSides && <Icon name="check" size={10} color="#fff" />}
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#7E9A90', fontWeight: '600' }}>좌우 다른 무게</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* 컬럼 헤더 */}
               <View className="flex-row mb-2">
                 <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 0.5 }}>세트</Text>
-                <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 1 }}>무게(kg)</Text>
+                {isSingleArm && differentSides ? (
+                  <>
+                    <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 1 }}>L ({unit})</Text>
+                    <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 1 }}>R ({unit})</Text>
+                  </>
+                ) : (
+                  <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: isSingleArm ? 2 : 1 }}>
+                    무게({unit}){isSingleArm ? ' · 한팔' : ''}
+                  </Text>
+                )}
                 <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 1 }}>횟수</Text>
               </View>
+
               {sets.map((st, i) => (
                 <View key={i} className="flex-row items-center gap-2 mb-2">
                   <Text className="text-[14px] text-text-secondary text-center font-bold" style={{ flex: 0.5 }}>{i + 1}</Text>
@@ -652,6 +737,24 @@ export default function AddWorkoutModal() {
                     placeholderTextColor="#B4CFC5"
                     returnKeyType="next"
                   />
+                  {isSingleArm && differentSides && (
+                    <TextInput
+                      className="bg-surface-alt rounded-[12px] p-[10px] text-text-primary text-[15px] font-semibold text-center"
+                      style={{ flex: 1, borderWidth: 1.5, borderColor: '#FFD36E40' }}
+                      value={st.weightR}
+                      onChangeText={(v) =>
+                        setSets((prev) =>
+                          prev.map((s, idx) =>
+                            idx === i ? { ...s, weightR: v } : s
+                          )
+                        )
+                      }
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#B4CFC5"
+                      returnKeyType="next"
+                    />
+                  )}
                   <TextInput
                     className="bg-surface-alt rounded-[12px] p-[10px] text-text-primary text-[15px] font-semibold text-center"
                     style={{ flex: 1 }}

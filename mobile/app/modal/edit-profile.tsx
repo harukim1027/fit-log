@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -17,8 +17,9 @@ import {
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
 import { useDietStore } from "../../store/dietStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { Colors } from "../../constants/colors";
-import { GoalIcon } from "../../components/AppIcons";
+import { GoalIcon, Icon } from "../../components/AppIcons";
 
 const GOALS = [
   { key: "체중감량" },
@@ -40,6 +41,9 @@ export default function EditProfileModal() {
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
+  const { weightUnit, showBodypartSelector, loadSettings, setWeightUnit, setShowBodypartSelector } = useSettingsStore();
+
+  useEffect(() => { loadSettings(); }, []);
 
   const [name, setName] = useState(user?.name ?? "");
   const [weight, setWeight] = useState(String(user?.weight ?? ""));
@@ -195,6 +199,54 @@ export default function EditProfileModal() {
               placeholderTextColor={Colors.textMuted}
             />
             <Text style={s.calUnit}>kcal / 일</Text>
+          </View>
+
+          {/* 앱 설정 */}
+          <Text style={s.sectionLabel}>앱 설정</Text>
+
+          {/* 무게 단위 */}
+          <View style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="dumbbell" size={16} color={Colors.textSecondary} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>무게 단위</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {(['kg', 'lbs'] as const).map(u => (
+                <TouchableOpacity
+                  key={u}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+                    backgroundColor: weightUnit === u ? Colors.primary : Colors.surfaceAlt,
+                  }}
+                  onPress={() => setWeightUnit(u)}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: weightUnit === u ? '#fff' : Colors.textSecondary }}>
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* 운동 부위 선택 표시 */}
+          <View style={[s.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 12 }}>
+              <Icon name="target" size={16} color={Colors.textSecondary} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>운동 추가 시 부위 선택 표시</Text>
+            </View>
+            <TouchableOpacity
+              style={{
+                width: 46, height: 26, borderRadius: 13,
+                backgroundColor: showBodypartSelector ? Colors.primary : Colors.surfaceAlt,
+                justifyContent: 'center', paddingHorizontal: 2,
+              }}
+              onPress={() => setShowBodypartSelector(!showBodypartSelector)}
+              activeOpacity={0.8}>
+              <View style={{
+                width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff',
+                transform: [{ translateX: showBodypartSelector ? 20 : 0 }],
+                shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2,
+              }} />
+            </TouchableOpacity>
           </View>
         </ScrollView>
 
