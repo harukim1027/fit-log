@@ -19,7 +19,7 @@ export default function WaterTracker() {
           </View>
           <Text className="text-base font-bold text-text-primary">물 섭취</Text>
         </View>
-        <TouchableOpacity onPress={resetWater}>
+        <TouchableOpacity onPress={() => resetWater()}>
           <Ionicons name="refresh-outline" size={18} color="#C4B8D4" />
         </TouchableOpacity>
       </View>
