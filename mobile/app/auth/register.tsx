@@ -1,19 +1,10 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
-import { Colors } from "../../constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header } from "../../components/ui";
+import { Header, Input, Button } from "../../components/ui";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -34,89 +25,39 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Header title="회원가입" showBack />
-      <View style={s.formWrapper}>
-      <Text style={s.subtitle}>FitLog와 함께 시작해요</Text>
-      <View style={s.form}>
-        <TextInput
-          style={s.input}
-          placeholder="이름"
-          placeholderTextColor={Colors.textMuted}
-          value={name}
-          onChangeText={setName}
-        />
-        <TextInput
-          style={s.input}
+      <View className="flex-1 justify-center px-8">
+        <Text className="text-base text-text-secondary text-center mb-12">
+          FitLog와 함께 시작해요
+        </Text>
+        <Input placeholder="이름" value={name} onChangeText={setName} />
+        <Input
           placeholder="이메일"
-          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <TextInput
-          style={s.input}
+        <Input
           placeholder="비밀번호"
-          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
-        <TouchableOpacity
-          style={s.btn}
+        <Button
+          title="회원가입"
           onPress={handleRegister}
-          activeOpacity={0.8}
-          disabled={isLoading}>
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={s.btnText}>회원가입</Text>
-          )}
+          loading={isLoading}
+          fullWidth
+          className="mt-2"
+        />
+        <TouchableOpacity className="items-center mt-3" onPress={() => router.back()}>
+          <Text className="text-sm text-text-secondary">
+            이미 계정이 있으신가요? 로그인
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.linkBtn} onPress={() => router.back()}>
-          <Text style={s.linkText}>이미 계정이 있으신가요? 로그인</Text>
-        </TouchableOpacity>
-      </View>
       </View>
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  formWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 32,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 48,
-  },
-  form: { gap: 12 },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  linkBtn: { alignItems: "center", marginTop: 8 },
-  linkText: { fontSize: 14, color: Colors.textSecondary },
-});

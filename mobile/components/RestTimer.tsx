@@ -1,24 +1,15 @@
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
+import { Card } from './ui';
 
 const PRESETS = [30, 60, 90, 120, 180];
-
-const CARD_SHADOW = {
-  shadowColor: '#B4A0D8',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.09,
-  shadowRadius: 12,
-  elevation: 3,
-};
 
 export default function RestTimer() {
   const [seconds, setSeconds] = useState(60);
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef<any>(null);
-  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (running && remaining > 0) {
@@ -56,63 +47,64 @@ export default function RestTimer() {
   const progressPct = remaining > 0 ? ((seconds - remaining) / seconds) * 100 : 0;
 
   return (
-    <View style={s.card}>
-      <View style={s.header}>
-        <Text style={s.title}>⏱ 휴식 타이머</Text>
+    <Card className="mb-3">
+      <View className="flex-row justify-between items-center mb-3">
+        <Text className="text-[15px] font-bold text-text-primary">⏱ 휴식 타이머</Text>
         {running && (
           <TouchableOpacity onPress={stop}>
-            <Ionicons name="stop-circle-outline" size={22} color={Colors.danger} />
+            <Ionicons name="stop-circle-outline" size={22} color="#F4ADAD" />
           </TouchableOpacity>
         )}
       </View>
 
-      <View style={s.presets}>
-        {PRESETS.map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[s.presetBtn, seconds === p && s.presetBtnActive]}
-            onPress={() => { setSeconds(p); if (!running) setRemaining(0); }}
-          >
-            <Text style={[s.presetText, seconds === p && s.presetTextActive]}>
-              {p >= 60 ? p/60 + '분' : p + '초'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View className="flex-row gap-1 mb-3">
+        {PRESETS.map(p => {
+          const isActive = seconds === p;
+          return (
+            <TouchableOpacity
+              key={p}
+              className={[
+                "flex-1 py-[7px] items-center rounded-[20px]",
+                isActive ? "bg-workout/30" : "bg-surface-alt",
+              ].join(" ")}
+              onPress={() => { setSeconds(p); if (!running) setRemaining(0); }}>
+              <Text
+                className={[
+                  "text-xs font-semibold",
+                  isActive ? "text-workout font-bold" : "text-text-secondary",
+                ].join(" ")}>
+                {p >= 60 ? p / 60 + '분' : p + '초'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {running || remaining > 0 ? (
-        <View style={s.timerArea}>
-          <View style={s.progressBg}>
-            <View style={[s.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
+        <View className="items-center gap-2">
+          <View className="w-full h-2 bg-surface-alt rounded-full overflow-hidden">
+            <View
+              className="h-full bg-workout rounded-full"
+              style={{ width: `${progressPct}%` as `${number}%` }}
+            />
           </View>
-          <Text style={[s.timerText, remaining <= 10 && s.timerTextRed]}>
+          <Text
+            className={[
+              "text-[36px] font-extrabold",
+              remaining <= 10 ? "text-danger" : "text-workout",
+            ].join(" ")}>
             {formatTime(remaining)}
           </Text>
         </View>
       ) : (
-        <TouchableOpacity style={s.startBtn} onPress={start} activeOpacity={0.8}>
+        <TouchableOpacity
+          className="flex-row bg-workout rounded-[20px] py-[11px] items-center justify-center gap-1"
+          onPress={start}
+          activeOpacity={0.8}>
           <Ionicons name="play" size={18} color="#fff" />
-          <Text style={s.startBtnText}>시작</Text>
+          <Text className="text-[15px] font-bold text-white">시작</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </Card>
   );
 }
-
-const s = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: 20, padding: 16, marginBottom: 12, ...CARD_SHADOW },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  presets: { flexDirection: 'row', gap: 6, marginBottom: 12 },
-  presetBtn: { flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 20, backgroundColor: Colors.surfaceAlt },
-  presetBtnActive: { backgroundColor: Colors.workout + '28' },
-  presetText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
-  presetTextActive: { color: Colors.workout, fontWeight: '700' },
-  timerArea: { alignItems: 'center', gap: 8 },
-  progressBg: { width: '100%', height: 8, backgroundColor: Colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: Colors.workout, borderRadius: 4 },
-  timerText: { fontSize: 36, fontWeight: '800', color: Colors.workout },
-  timerTextRed: { color: Colors.danger },
-  startBtn: { flexDirection: 'row', backgroundColor: Colors.workout, borderRadius: 20, paddingVertical: 11, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  startBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-});

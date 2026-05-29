@@ -1,19 +1,11 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useDietStore } from "../../store/dietStore";
-import { Colors } from "../../constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
-import { Header } from "../../components/ui";
+import { Header, Button } from "../../components/ui";
 
 export default function SetTargetModal() {
   const router = useRouter();
@@ -56,111 +48,70 @@ export default function SetTargetModal() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Header title="목표 설정" showClose />
-      <View style={s.content}>
-      {/* 목표 칼로리 */}
-      <Text style={s.sectionTitle}>하루 목표 칼로리</Text>
-      <TextInput
-        style={s.input}
-        value={calValue}
-        onChangeText={setCalValue}
-        keyboardType="numeric"
-        selectTextOnFocus
-        autoFocus
-      />
-      <Text style={s.hint}>일반적으로 성인 기준 1800 ~ 2500 kcal예요</Text>
+      <View className="flex-1 p-6">
+        {/* 목표 칼로리 */}
+        <Text className="text-base font-semibold text-text-secondary mb-3">
+          하루 목표 칼로리
+        </Text>
+        <TextInput
+          className="bg-surface rounded-2xl text-text-primary font-bold text-center border border-border mb-2"
+          style={{ paddingVertical: 18, fontSize: 28 }}
+          value={calValue}
+          onChangeText={setCalValue}
+          keyboardType="numeric"
+          selectTextOnFocus
+          autoFocus
+          placeholderTextColor="#C4B8D4"
+        />
+        <Text className="text-xs text-text-muted text-center mb-5">
+          일반적으로 성인 기준 1800 ~ 2500 kcal예요
+        </Text>
 
-      <View style={s.presets}>
-        {[1500, 1800, 2000, 2500].map((cal) => (
-          <TouchableOpacity
-            key={cal}
-            style={[s.preset, calValue === String(cal) && s.presetActive]}
-            onPress={() => setCalValue(String(cal))}>
-            <Text
-              style={[
-                s.presetText,
-                calValue === String(cal) && s.presetTextActive,
-              ]}>
-              {cal}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+        <View className="flex-row gap-2 mb-4">
+          {[1500, 1800, 2000, 2500].map((cal) => {
+            const isActive = calValue === String(cal);
+            return (
+              <TouchableOpacity
+                key={cal}
+                className={[
+                  "flex-1 rounded-xl py-3 items-center border",
+                  isActive ? "bg-primary/10 border-primary" : "bg-surface border-border",
+                ].join(" ")}
+                onPress={() => setCalValue(String(cal))}>
+                <Text
+                  className={[
+                    "text-base font-semibold",
+                    isActive ? "text-primary" : "text-text-secondary",
+                  ].join(" ")}>
+                  {cal}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      {/* 체중 */}
-      <Text style={[s.sectionTitle, { marginTop: 8 }]}>체중 (kg)</Text>
-      <TextInput
-        style={s.input}
-        value={weightValue}
-        onChangeText={setWeightValue}
-        keyboardType="decimal-pad"
-        placeholder="예: 70"
-        placeholderTextColor={Colors.textMuted}
-        selectTextOnFocus
-      />
-      <Text style={s.hint}>칼로리 소모량 계산에 사용돼요 (미입력 시 70kg 기본값)</Text>
+        {/* 체중 */}
+        <Text className="text-base font-semibold text-text-secondary mb-3 mt-2">
+          체중 (kg)
+        </Text>
+        <TextInput
+          className="bg-surface rounded-2xl text-text-primary font-bold text-center border border-border mb-2"
+          style={{ paddingVertical: 18, fontSize: 28 }}
+          value={weightValue}
+          onChangeText={setWeightValue}
+          keyboardType="decimal-pad"
+          placeholder="예: 70"
+          placeholderTextColor="#C4B8D4"
+          selectTextOnFocus
+        />
+        <Text className="text-xs text-text-muted text-center mb-5">
+          칼로리 소모량 계산에 사용돼요 (미입력 시 70kg 기본값)
+        </Text>
 
-      <TouchableOpacity
-        style={s.saveBtn}
-        onPress={handleSave}
-        activeOpacity={0.8}>
-        <Text style={s.saveBtnText}>저장</Text>
-      </TouchableOpacity>
+        <Button title="저장" onPress={handleSave} fullWidth className="mt-2" />
       </View>
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { flex: 1, padding: 24 },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.textSecondary,
-    marginBottom: 12,
-  },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 18,
-    color: Colors.textPrimary,
-    fontSize: 28,
-    fontWeight: "700",
-    textAlign: "center",
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 8,
-  },
-  hint: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  presets: { flexDirection: "row", gap: 10, marginBottom: 16 },
-  preset: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors?.border,
-  },
-  presetActive: {
-    backgroundColor: Colors.primary + "15",
-    borderColor: Colors.primary,
-  },
-  presetText: { fontSize: 15, fontWeight: "600", color: Colors.textSecondary },
-  presetTextActive: { color: Colors.primary },
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  saveBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-});
