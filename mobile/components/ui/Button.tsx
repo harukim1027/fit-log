@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
   TouchableOpacityProps,
   View,
+  Animated,
 } from "react-native";
 
 export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
@@ -48,9 +49,9 @@ const fontSize: Record<ButtonSize, string> = {
 
 const spinnerColor: Record<ButtonVariant, string> = {
   primary: "#FFFFFF",
-  secondary: "#B4A7E8",
-  danger: "#F4ADAD",
-  ghost: "#B4A7E8",
+  secondary: "#6FD3B6",
+  danger: "#FF9DB0",
+  ghost: "#6FD3B6",
 };
 
 export function Button({
@@ -63,35 +64,58 @@ export function Button({
   fullWidth = false,
   disabled,
   className,
+  onPressIn: externalPressIn,
+  onPressOut: externalPressOut,
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = (e: any) => {
+    if (!isDisabled) {
+      Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
+    }
+    externalPressIn?.(e);
+  };
+
+  const handlePressOut = (e: any) => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
+    externalPressOut?.(e);
+  };
 
   return (
-    <TouchableOpacity
-      className={[
-        container[variant],
-        padding[size],
-        fullWidth ? "self-stretch" : "self-start",
-        isDisabled ? "opacity-50" : "opacity-100",
-        className ?? "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      activeOpacity={0.8}
-      disabled={isDisabled}
-      {...props}>
-      {loading ? (
-        <ActivityIndicator color={spinnerColor[variant]} size="small" />
-      ) : (
-        <>
-          {leftIcon && <View className="mr-2">{leftIcon}</View>}
-          <Text className={[label[variant], fontSize[size]].join(" ")}>
-            {title}
-          </Text>
-          {rightIcon && <View className="ml-2">{rightIcon}</View>}
-        </>
-      )}
-    </TouchableOpacity>
+    <Animated.View
+      style={[
+        { transform: [{ scale }] },
+        fullWidth ? { alignSelf: 'stretch' as const } : { alignSelf: 'flex-start' as const },
+      ]}>
+      <TouchableOpacity
+        className={[
+          container[variant],
+          padding[size],
+          fullWidth ? "self-stretch" : "",
+          isDisabled ? "opacity-50" : "opacity-100",
+          className ?? "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        activeOpacity={0.9}
+        disabled={isDisabled}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        {...props}>
+        {loading ? (
+          <ActivityIndicator color={spinnerColor[variant]} size="small" />
+        ) : (
+          <>
+            {leftIcon && <View className="mr-2">{leftIcon}</View>}
+            <Text className={[label[variant], fontSize[size]].join(" ")}>
+              {title}
+            </Text>
+            {rightIcon && <View className="ml-2">{rightIcon}</View>}
+          </>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }

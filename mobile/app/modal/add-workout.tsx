@@ -15,11 +15,12 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
+import { Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Header } from "../../components/ui";
 import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../components/AppIcons";
 import apiClient from "../../lib/apiClient";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useExerciseStore } from "../../store/exerciseStore";
@@ -100,7 +101,7 @@ const PRESET_SETTING_KEYS = [
 ];
 
 const SHADOW = {
-  shadowColor: "#B4A0D8",
+  shadowColor: "#4EBFA0",
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.09,
   shadowRadius: 10,
@@ -153,6 +154,9 @@ export default function AddWorkoutModal() {
   const [customKeyName, setCustomKeyName] = useState("");
 
   const [tip, setTip] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const successScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     apiClient
@@ -330,7 +334,9 @@ export default function AddWorkoutModal() {
       };
       addSet(exId, workoutSet);
     });
-    router.back();
+    setIsSuccess(true);
+    Animated.spring(successScale, { toValue: 1, damping: 8, stiffness: 200, useNativeDriver: true }).start();
+    setTimeout(() => router.back(), 650);
   };
 
   return (
@@ -356,7 +362,7 @@ export default function AddWorkoutModal() {
                 {selectedExercise.gifUrl ? (
                   <Image
                     source={{ uri: selectedExercise.gifUrl }}
-                    style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: '#FFF3EC' }}
+                    style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: '\#E7F7F0' }}
                     resizeMode="cover"
                   />
                 ) : null}
@@ -364,7 +370,7 @@ export default function AddWorkoutModal() {
                   <Text className="text-[11px] text-text-muted font-semibold mb-[3px]">선택된 종목</Text>
                   <Text className="text-base font-bold text-text-primary mb-1">{selectedExercise.name}</Text>
                   {selectedExercise.caloriesPerMinute ? (
-                    <Text className="text-xs font-semibold" style={{ color: '#F4B8A8' }}>
+                    <Text className="text-xs font-semibold" style={{ color: '\#FF9DB0' }}>
                       🔥 약 {Math.round(selectedExercise.caloriesPerMinute * 30)} kcal (30분 기준)
                     </Text>
                   ) : null}
@@ -372,14 +378,14 @@ export default function AddWorkoutModal() {
                 <View className="items-end gap-[6px]">
                   <Text
                     className="text-[11px] px-[10px] py-[3px] rounded-[10px]"
-                    style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                    style={{ color: '\#FF9DB0', backgroundColor: '#FF9DB028' }}>
                     {selectedExercise.category}
                   </Text>
                   <TouchableOpacity
                     className="rounded-[20px] px-[14px] py-[7px]"
-                    style={{ backgroundColor: '#B4A7E818' }}
+                    style={{ backgroundColor: '#6FD3B618' }}
                     onPress={handleChangeExercise}>
-                    <Text className="text-[13px] font-bold" style={{ color: '#B4A7E8' }}>변경</Text>
+                    <Text className="text-[13px] font-bold" style={{ color: '\#6FD3B6' }}>변경</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -400,19 +406,19 @@ export default function AddWorkoutModal() {
               <View
                 className="flex-row items-center bg-surface rounded-[14px] px-3 py-[10px] mb-3 gap-2"
                 style={SHADOW}>
-                <Ionicons name="search" size={16} color="#C4B8D4" />
+                <Text style={{ fontSize: 14, color: '#B4CFC5' }}>🔍</Text>
                 <TextInput
                   className="flex-1 text-[15px] text-text-primary p-0"
                   placeholder="한글 검색 또는 영어로 API 검색..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  placeholderTextColor="#C4B8D4"
+                  placeholderTextColor="#B4CFC5"
                   returnKeyType="search"
                   autoCorrect={false}
                 />
                 {searchQuery ? (
                   <TouchableOpacity onPress={() => setSearchQuery("")}>
-                    <Ionicons name="close-circle" size={16} color="#C4B8D4" />
+                    <Text style={{ fontSize: 16, color: '#B4CFC5', fontWeight: '600' }}>✕</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -430,11 +436,11 @@ export default function AddWorkoutModal() {
                       <TouchableOpacity
                         key={cat}
                         className="rounded-[20px] px-4 py-2 mr-2"
-                        style={[SHADOW, { backgroundColor: isActive ? '#F4B8A828' : '#FFFFFF' }]}
+                        style={[SHADOW, { backgroundColor: isActive ? '#FF9DB028' : '#FFFFFF' }]}
                         onPress={() => setSelectedCategory(isActive ? null : cat)}>
                         <Text
                           className="text-[13px]"
-                          style={{ color: isActive ? '#F4B8A8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                          style={{ color: isActive ? '\#FF9DB0' : '\#7E9A90', fontWeight: isActive ? '700' : '600' }}>
                           {cat}
                         </Text>
                       </TouchableOpacity>
@@ -446,7 +452,7 @@ export default function AddWorkoutModal() {
               {/* 검색 중 */}
               {isSearching && (
                 <View className="flex-row items-center gap-2 py-[10px] px-1">
-                  <ActivityIndicator size="small" color="#B4A7E8" />
+                  <ActivityIndicator size="small" color="#6FD3B6" />
                   <Text className="text-[13px] text-text-muted">검색 중...</Text>
                 </View>
               )}
@@ -466,7 +472,7 @@ export default function AddWorkoutModal() {
                     </View>
                     <Text
                       className="text-[12px] px-[10px] py-1 rounded-[10px]"
-                      style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                      style={{ color: '\#FF9DB0', backgroundColor: '#FF9DB028' }}>
                       {ex.category}
                     </Text>
                   </TouchableOpacity>
@@ -485,7 +491,7 @@ export default function AddWorkoutModal() {
                     </View>
                     <Text
                       className="text-[12px] px-[10px] py-1 rounded-[10px]"
-                      style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                      style={{ color: '\#FF9DB0', backgroundColor: '#FF9DB028' }}>
                       {ex.category}
                     </Text>
                   </TouchableOpacity>
@@ -515,7 +521,7 @@ export default function AddWorkoutModal() {
                       {ex.gifUrl ? (
                         <Image
                           source={{ uri: ex.gifUrl }}
-                          style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: '#FFF3EC' }}
+                          style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: '\#E7F7F0' }}
                           resizeMode="cover"
                         />
                       ) : null}
@@ -529,7 +535,7 @@ export default function AddWorkoutModal() {
                       </View>
                       <Text
                         className="text-[12px] px-[10px] py-1 rounded-[10px]"
-                        style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                        style={{ color: '\#FF9DB0', backgroundColor: '#FF9DB028' }}>
                         {displayCat}
                       </Text>
                     </TouchableOpacity>
@@ -550,8 +556,8 @@ export default function AddWorkoutModal() {
                 <TouchableOpacity
                   className="flex-row items-center gap-[6px] py-3 px-1 mb-4"
                   onPress={() => setShowCustomForm(true)}>
-                  <Ionicons name="add-circle-outline" size={18} color="#B4A7E8" />
-                  <Text className="text-[14px] font-semibold" style={{ color: '#B4A7E8' }}>직접 추가</Text>
+                  <Icon name="plus" size={18} color="#6FD3B6" />
+                  <Text className="text-[14px] font-semibold" style={{ color: '\#6FD3B6' }}>직접 추가</Text>
                 </TouchableOpacity>
               ) : (
                 <View className="bg-surface rounded-[20px] p-4 mb-4" style={SHADOW}>
@@ -563,7 +569,7 @@ export default function AddWorkoutModal() {
                         setCustomName("");
                         setCustomCat("");
                       }}>
-                      <Ionicons name="close" size={20} color="#C4B8D4" />
+                      <Text style={{ fontSize: 16, color: '#B4CFC5', fontWeight: '600' }}>✕</Text>
                     </TouchableOpacity>
                   </View>
                   <TextInput
@@ -571,7 +577,7 @@ export default function AddWorkoutModal() {
                     placeholder="종목명 입력 (예: 케이블 플라이)"
                     value={customName}
                     onChangeText={setCustomName}
-                    placeholderTextColor="#C4B8D4"
+                    placeholderTextColor="#B4CFC5"
                     returnKeyType="done"
                   />
                   <ScrollView
@@ -585,11 +591,11 @@ export default function AddWorkoutModal() {
                         <TouchableOpacity
                           key={cat}
                           className="rounded-[20px] px-4 py-2 mr-2"
-                          style={[SHADOW, { backgroundColor: isActive ? '#F4B8A828' : '#FFFFFF' }]}
+                          style={[SHADOW, { backgroundColor: isActive ? '#FF9DB028' : '#FFFFFF' }]}
                           onPress={() => setCustomCat(cat)}>
                           <Text
                             className="text-[13px]"
-                            style={{ color: isActive ? '#F4B8A8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                            style={{ color: isActive ? '\#FF9DB0' : '\#7E9A90', fontWeight: isActive ? '700' : '600' }}>
                             {cat}
                           </Text>
                         </TouchableOpacity>
@@ -640,7 +646,7 @@ export default function AddWorkoutModal() {
                     }
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#C4B8D4"
+                    placeholderTextColor="#B4CFC5"
                     returnKeyType="next"
                   />
                   <TextInput
@@ -656,7 +662,7 @@ export default function AddWorkoutModal() {
                     }
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#C4B8D4"
+                    placeholderTextColor="#B4CFC5"
                     returnKeyType={i === sets.length - 1 ? "done" : "next"}
                     onSubmitEditing={
                       i === sets.length - 1 ? Keyboard.dismiss : undefined
@@ -666,9 +672,9 @@ export default function AddWorkoutModal() {
               ))}
               <TouchableOpacity
                 className="items-center p-[10px] rounded-[20px] mt-1"
-                style={{ backgroundColor: '#F4B8A818' }}
+                style={{ backgroundColor: '#FF9DB018' }}
                 onPress={handleAddSet}>
-                <Text className="text-[13px] font-bold" style={{ color: '#F4B8A8' }}>+ 세트 추가</Text>
+                <Text className="text-[13px] font-bold" style={{ color: '\#FF9DB0' }}>+ 세트 추가</Text>
               </TouchableOpacity>
 
               {/* 설정 */}
@@ -677,10 +683,10 @@ export default function AddWorkoutModal() {
                 <Text className="text-[14px] font-bold text-text-primary">⚙️ 기구 설정</Text>
                 <TouchableOpacity
                   className="flex-row items-center gap-1 rounded-[20px] px-3 py-[6px]"
-                  style={{ backgroundColor: '#B4A7E818' }}
+                  style={{ backgroundColor: '#6FD3B618' }}
                   onPress={openSettingsSheet}>
-                  <Ionicons name="add" size={16} color="#B4A7E8" />
-                  <Text className="text-[13px] font-bold" style={{ color: '#B4A7E8' }}>설정 추가</Text>
+                  <Icon name="plus" size={16} color="#6FD3B6" />
+                  <Text className="text-[13px] font-bold" style={{ color: '\#6FD3B6' }}>설정 추가</Text>
                 </TouchableOpacity>
               </View>
               {settings.length > 0 ? (
@@ -689,13 +695,13 @@ export default function AddWorkoutModal() {
                     <TouchableOpacity
                       key={i}
                       className="flex-row items-center gap-[5px] rounded-[20px] px-3 py-[6px]"
-                      style={{ backgroundColor: '#B4A7E818' }}
+                      style={{ backgroundColor: '#6FD3B618' }}
                       onPress={() => removeSetting(i)}
                       activeOpacity={0.7}>
-                      <Text className="text-xs font-semibold" style={{ color: '#B4A7E8' }}>
+                      <Text className="text-xs font-semibold" style={{ color: '\#6FD3B6' }}>
                         {st.key}: {st.value}
                       </Text>
-                      <Ionicons name="close" size={12} color="#B4A7E8" />
+                      <Text style={{ fontSize: 11, color: '#6FD3B6', fontWeight: '700' }}>✕</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -712,7 +718,7 @@ export default function AddWorkoutModal() {
                 placeholder="자유롭게 팁이나 메모를 남겨보세요"
                 value={tip}
                 onChangeText={setTip}
-                placeholderTextColor="#C4B8D4"
+                placeholderTextColor="#B4CFC5"
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -728,8 +734,16 @@ export default function AddWorkoutModal() {
           <TouchableOpacity
             className="bg-workout rounded-[24px] py-4 items-center"
             onPress={handleAdd}
+            disabled={isSuccess}
             activeOpacity={0.8}>
-            <Text className="text-base font-bold text-white">운동 추가</Text>
+            {isSuccess ? (
+              <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, transform: [{ scale: successScale }] }}>
+                <Icon name="check" size={20} color="#fff" />
+                <Text className="text-base font-bold text-white">추가 완료!</Text>
+              </Animated.View>
+            ) : (
+              <Text className="text-base font-bold text-white">운동 추가</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -742,7 +756,7 @@ export default function AddWorkoutModal() {
         onRequestClose={closeSettingsSheet}>
         <TouchableOpacity
           className="flex-1 justify-end"
-          style={{ backgroundColor: 'rgba(61, 50, 86, 0.4)' }}
+          style={{ backgroundColor: 'rgba(30, 80, 65, 0.4)' }}
           activeOpacity={1}
           onPress={closeSettingsSheet}>
           <KeyboardAvoidingView
@@ -760,7 +774,7 @@ export default function AddWorkoutModal() {
                     <TouchableOpacity
                       key={k}
                       className="rounded-[20px] px-[14px] py-2"
-                      style={{ backgroundColor: isActive ? '#B4A7E828' : '#FFF3EC' }}
+                      style={{ backgroundColor: isActive ? '#6FD3B628' : '\#E7F7F0' }}
                       onPress={() => {
                         setSettingKey(k);
                         setIsCustomKeyMode(false);
@@ -768,7 +782,7 @@ export default function AddWorkoutModal() {
                       }}>
                       <Text
                         className="text-[13px]"
-                        style={{ color: isActive ? '#B4A7E8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                        style={{ color: isActive ? '\#6FD3B6' : '\#7E9A90', fontWeight: isActive ? '700' : '600' }}>
                         {k}
                       </Text>
                     </TouchableOpacity>
@@ -780,7 +794,7 @@ export default function AddWorkoutModal() {
                     <View key={k.id} className="flex-row items-center gap-[2px]">
                       <TouchableOpacity
                         className="rounded-[20px] px-[14px] py-2 border"
-                        style={{ backgroundColor: isActive ? '#B4A7E828' : '#FFF3EC', borderColor: '#B4A7E850' }}
+                        style={{ backgroundColor: isActive ? '#6FD3B628' : '\#E7F7F0', borderColor: '#6FD3B650' }}
                         onPress={() => {
                           setSettingKey(k.name);
                           setIsCustomKeyMode(false);
@@ -788,7 +802,7 @@ export default function AddWorkoutModal() {
                         }}>
                         <Text
                           className="text-[13px]"
-                          style={{ color: isActive ? '#B4A7E8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                          style={{ color: isActive ? '\#6FD3B6' : '\#7E9A90', fontWeight: isActive ? '700' : '600' }}>
                           {k.name}
                         </Text>
                       </TouchableOpacity>
@@ -796,7 +810,7 @@ export default function AddWorkoutModal() {
                         style={{ marginLeft: -6, marginTop: -8 }}
                         onPress={() => deleteCustomKey(k.id)}
                         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                        <Ionicons name="close-circle" size={15} color="#C4B8D4" />
+                        <Text style={{ fontSize: 13, color: '#B4CFC5', fontWeight: '600' }}>✕</Text>
                       </TouchableOpacity>
                     </View>
                   );
@@ -808,20 +822,16 @@ export default function AddWorkoutModal() {
               </View>
               <TouchableOpacity
                 className="flex-row items-center gap-[6px] self-start rounded-[20px] px-[14px] py-2"
-                style={{ backgroundColor: isCustomKeyMode ? '#B4A7E818' : '#FFF3EC' }}
+                style={{ backgroundColor: isCustomKeyMode ? '#6FD3B618' : '\#E7F7F0' }}
                 onPress={() => {
                   setIsCustomKeyMode(true);
                   setSettingKey("");
                   setTimeout(() => customKeyInputRef.current?.focus(), 100);
                 }}>
-                <Ionicons
-                  name="add-circle-outline"
-                  size={15}
-                  color={isCustomKeyMode ? '#B4A7E8' : '#8B80A8'}
-                />
+                <Icon name="plus" size={15} color={isCustomKeyMode ? '#6FD3B6' : '#7E9A90'} />
                 <Text
                   className="text-[13px]"
-                  style={{ color: isCustomKeyMode ? '#B4A7E8' : '#8B80A8', fontWeight: isCustomKeyMode ? '700' : '600' }}>
+                  style={{ color: isCustomKeyMode ? '\#6FD3B6' : '\#7E9A90', fontWeight: isCustomKeyMode ? '700' : '600' }}>
                   직접 입력
                 </Text>
               </TouchableOpacity>
@@ -830,11 +840,11 @@ export default function AddWorkoutModal() {
                 <TextInput
                   ref={customKeyInputRef}
                   className="bg-surface-alt rounded-[14px] p-[13px] text-[15px] text-text-primary mt-[10px] border-[1.5px]"
-                  style={{ borderColor: '#B4A7E860' }}
+                  style={{ borderColor: '#6FD3B660' }}
                   placeholder="항목명 입력 (예: 케이블각도, 풀리높이)"
                   value={customKeyName}
                   onChangeText={setCustomKeyName}
-                  placeholderTextColor="#C4B8D4"
+                  placeholderTextColor="#B4CFC5"
                   returnKeyType="next"
                 />
               )}
@@ -845,7 +855,7 @@ export default function AddWorkoutModal() {
                 placeholder="예: 3단계, 45도, 오버핸드"
                 value={settingValue}
                 onChangeText={setSettingValue}
-                placeholderTextColor="#C4B8D4"
+                placeholderTextColor="#B4CFC5"
                 returnKeyType="done"
                 onSubmitEditing={handleAddSetting}
               />

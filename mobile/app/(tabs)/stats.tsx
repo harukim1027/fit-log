@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Header, Card } from "../../components/ui";
 import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
@@ -24,10 +25,10 @@ const chartConfig = {
   backgroundGradientFrom: "#fff",
   backgroundGradientTo: "#fff",
   decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(180, 167, 232, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(139, 128, 168, ${opacity})`,
+  color: (opacity = 1) => `rgba(111, 211, 182, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(126, 154, 144, ${opacity})`,
   style: { borderRadius: 16 },
-  propsForDots: { r: "5", strokeWidth: "2", stroke: "#B4A7E8" },
+  propsForDots: { r: "5", strokeWidth: "2", stroke: "#6FD3B6" },
 };
 
 export default function StatsScreen() {
@@ -136,25 +137,25 @@ export default function StatsScreen() {
             <TouchableOpacity
               className="w-9 h-9 items-center justify-center rounded-xl"
               onPress={() => router.push("/modal/edit-profile" as any)}>
-              <Ionicons name="person-circle-outline" size={22} color="#B4A7E8" />
+              <Icon name="person" size={22} color="#2E9E83" />
             </TouchableOpacity>
             <TouchableOpacity
               className="w-9 h-9 items-center justify-center rounded-xl"
               onPress={logout}>
-              <Ionicons name="log-out-outline" size={22} color="#F4ADAD" />
+              <Icon name="logout" size={22} color="#E76C86" />
             </TouchableOpacity>
           </View>
         }
       />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        {/* 요약 */}
-        <View className="flex-row gap-2 mb-4">
-          <StatCard label="7일 평균" value={String(avgCalories)} unit="kcal" color="#A8DCC8" />
-          <StatCard label="주간 소모" value={String(totalBurnWeek)} unit="kcal" color="#F4B8A8" />
+        {/* 요약 2×2 */}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+          <StatCard label="7일 평균" value={String(avgCalories)} unit="kcal" color="#2E9E83" bg="#6FD3B611" />
+          <StatCard label="주간 소모" value={String(totalBurnWeek)} unit="kcal" color="#E76C86" bg="#FF9DB011" />
         </View>
-        <View className="flex-row gap-2 mb-4">
-          <StatCard label="총 운동" value={String(sessions.length)} unit="회" color="#B4A7E8" />
-          <StatCard label="총 볼륨" value={String(Math.round(totalVolume / 100) / 10)} unit="ton" color="#FFCBA4" />
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          <StatCard label="총 운동" value={String(sessions.length)} unit="회" color="#3F8DD6" bg="#8FC7F511" />
+          <StatCard label="총 볼륨" value={String(Math.round(totalVolume / 100) / 10)} unit="ton" color="#E6932F" bg="#FFC07811" />
         </View>
 
         {/* 주간 칼로리 */}
@@ -167,8 +168,8 @@ export default function StatsScreen() {
               height={160}
               chartConfig={{
                 ...chartConfig,
-                color: (opacity = 1) => `rgba(168, 220, 200, ${opacity})`,
-                propsForDots: { r: "5", strokeWidth: "2", stroke: "#A8DCC8" },
+                color: (opacity = 1) => `rgba(46, 158, 131, ${opacity})`,
+                propsForDots: { r: "5", strokeWidth: "2", stroke: "#2E9E83" },
               }}
               bezier
               style={{ borderRadius: 16, marginLeft: -10 }}
@@ -192,7 +193,7 @@ export default function StatsScreen() {
               height={160}
               chartConfig={{
                 ...chartConfig,
-                color: (opacity = 1) => `rgba(244, 184, 168, ${opacity})`,
+                color: (opacity = 1) => `rgba(231, 108, 134, ${opacity})`,
               }}
               style={{ borderRadius: 16, marginLeft: -10 }}
               withInnerLines={false}
@@ -218,7 +219,7 @@ export default function StatsScreen() {
               height={160}
               chartConfig={{
                 ...chartConfig,
-                color: (opacity = 1) => `rgba(244, 184, 168, ${opacity})`,
+                color: (opacity = 1) => `rgba(255, 192, 120, ${opacity})`,
               }}
               style={{ borderRadius: 16, marginLeft: -10 }}
               withInnerLines={false}
@@ -259,7 +260,7 @@ export default function StatsScreen() {
 
             {!healthAvailable ? (
               <View className="items-center py-5 gap-2">
-                <Ionicons name="phone-portrait-outline" size={32} color="#C4B8D4" />
+                <Ionicons name="phone-portrait-outline" size={32} color="#B4CFC5" />
                 <Text className="text-sm text-text-muted text-center">
                   Apple Health는 실제 기기 빌드에서 사용 가능해요
                 </Text>
@@ -267,9 +268,9 @@ export default function StatsScreen() {
             ) : healthData.weight || healthData.bodyFat || healthData.leanBodyMass ? (
               <>
                 <View className="flex-row gap-2">
-                  <InbodyCard label="체중" value={healthData.weight != null ? `${healthData.weight}` : "-"} unit="kg" color="#B4A7E8" />
-                  <InbodyCard label="체지방률" value={healthData.bodyFat != null ? `${healthData.bodyFat}` : "-"} unit="%" color="#FF6B6B" />
-                  <InbodyCard label="근육량" value={healthData.leanBodyMass != null ? `${healthData.leanBodyMass}` : "-"} unit="kg" color="#F4B8A8" />
+                  <InbodyCard label="체중" value={healthData.weight != null ? `${healthData.weight}` : "-"} unit="kg" color="#2E9E83" />
+                  <InbodyCard label="체지방률" value={healthData.bodyFat != null ? `${healthData.bodyFat}` : "-"} unit="%" color="#E76C86" />
+                  <InbodyCard label="근육량" value={healthData.leanBodyMass != null ? `${healthData.leanBodyMass}` : "-"} unit="kg" color="#3F8DD6" />
                 </View>
                 {healthData.weightHistory.length > 1 && (
                   <>
@@ -286,8 +287,8 @@ export default function StatsScreen() {
                       chartConfig={{
                         ...chartConfig,
                         decimalPlaces: 1,
-                        color: (opacity = 1) => `rgba(122, 200, 200, ${opacity})`,
-                        propsForDots: { r: "4", strokeWidth: "2", stroke: "#7AC8C8" },
+                        color: (opacity = 1) => `rgba(63, 141, 214, ${opacity})`,
+                        propsForDots: { r: "4", strokeWidth: "2", stroke: "#3F8DD6" },
                       }}
                       bezier
                       style={{ borderRadius: 16, marginLeft: -10 }}
@@ -298,7 +299,7 @@ export default function StatsScreen() {
               </>
             ) : (
               <View className="items-center py-5 gap-2">
-                <Ionicons name="heart-outline" size={36} color="#C4B8D4" />
+                <Ionicons name="heart-outline" size={36} color="#B4CFC5" />
                 <Text className="text-sm text-text-muted text-center">
                   Apple Health에서 신체 데이터를 가져오세요
                 </Text>
@@ -358,8 +359,8 @@ export default function StatsScreen() {
                 chartConfig={{
                   ...chartConfig,
                   decimalPlaces: 1,
-                  color: (opacity = 1) => `rgba(180, 167, 232, ${opacity})`,
-                  propsForDots: { r: "5", strokeWidth: "2", stroke: "#B4A7E8" },
+                  color: (opacity = 1) => `rgba(46, 158, 131, ${opacity})`,
+                  propsForDots: { r: "5", strokeWidth: "2", stroke: "#2E9E83" },
                 }}
                 bezier
                 style={{ borderRadius: 16, marginLeft: -10 }}
@@ -379,27 +380,22 @@ export default function StatsScreen() {
 
         {/* PR 기록 */}
         {prs.length > 0 && (
-          <Card className="mb-4">
-            <Text className="text-[15px] font-bold text-text-secondary mb-4">종목별 최고 기록 PR 🏆</Text>
+          <View className="bg-surface rounded-[30px] p-[18px] mb-4" style={{ shadowColor: "#4EBFA0", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.20, shadowRadius: 24, elevation: 4 }}>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>종목별 최고 기록 PR 🏆</Text>
             {prs.map(([name, vol], idx) => (
               <View
                 key={name}
-                className="flex-row justify-between items-center py-2 mt-1 bg-surface-alt rounded-xl px-3 mb-1">
-                <View className="flex-row items-center gap-3">
-                  <View
-                    className="w-[26px] h-[26px] rounded-full items-center justify-center"
-                    style={{
-                      backgroundColor:
-                        idx === 0 ? "#FFCBA4" : idx === 1 ? "#C4B8D4" : "#F4B8A8",
-                    }}>
-                    <Text className="text-sm font-extrabold text-text-primary">{idx + 1}</Text>
+                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#E7F7F0', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 11, marginTop: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: idx === 0 ? '#FFD36E' : idx === 1 ? '#B4CFC5' : '#FFAE96' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '900', color: '#fff' }}>{idx + 1}</Text>
                   </View>
-                  <Text className="text-sm font-semibold text-text-primary">{name}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#34514A' }}>{name}</Text>
                 </View>
-                <Text className="text-sm font-bold text-workout">{vol.toLocaleString()}kg</Text>
+                <Text style={{ fontSize: 14, fontWeight: '900', color: '#2E9E83' }}>{vol.toLocaleString()}kg</Text>
               </View>
             ))}
-          </Card>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -416,12 +412,12 @@ function InbodyCard({ label, value, unit, color }: { label: string; value: strin
   );
 }
 
-function StatCard({ label, value, unit, color }: { label: string; value: string; unit: string; color: string }) {
+function StatCard({ label, value, unit, color, bg }: { label: string; value: string; unit: string; color: string; bg: string }) {
   return (
-    <View className="flex-1 rounded-[18px] p-3.5 items-center" style={{ backgroundColor: color + "18" }}>
-      <Text className="text-[11px] text-text-secondary mb-1 font-semibold">{label}</Text>
-      <Text className="text-[22px] font-extrabold" style={{ color }}>{value}</Text>
-      <Text className="text-[11px] font-semibold mt-0.5" style={{ color: color + "BB" }}>{unit}</Text>
+    <View style={{ flex: 1, borderRadius: 22, padding: 14, alignItems: 'center', gap: 3, backgroundColor: bg }}>
+      <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>{label}</Text>
+      <Text style={{ fontSize: 22, fontWeight: '900', color }}>{value}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '800', color: color + 'BB' }}>{unit}</Text>
     </View>
   );
 }

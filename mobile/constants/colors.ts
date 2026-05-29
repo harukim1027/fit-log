@@ -1,21 +1,33 @@
 export const Colors = {
-  primary: '#B4A7E8',      // soft lavender
-  secondary: '#F4ADAD',    // soft coral
-  success: '#A8DCC8',      // mint
-  warning: '#FFCBA4',      // warm peach
-  danger: '#F4ADAD',       // soft coral
+  // ── Brand ──────────────────────────────────────
+  primary:   '#6FD3B6', // mint
+  secondary: '#FF9DB0', // pink
+  success:   '#9BE3CE', // mint2
+  warning:   '#FFC078', // peach
+  danger:    '#FF8FA0', // pink-red
 
-  background: '#FFF8F2',   // warm cream
-  surface: '#FFFFFF',
-  surfaceAlt: '#FFF3EC',   // light cream
+  // ── Mint accent ────────────────────────────────
+  mintInk:   '#2E9E83',
+  mintDeep:  '#46B493',
+  peachInk:  '#E6932F',
+  pinkInk:   '#E76C86',
+  skyInk:    '#3F8DD6',
+  yellowInk: '#D9A100',
 
-  textPrimary: '#3D3256',  // deep plum
-  textSecondary: '#8B80A8', // medium purple
-  textMuted: '#C4B8D4',    // light lavender
+  // ── Surfaces ───────────────────────────────────
+  background: '#EFFAF4',
+  surface:    '#FFFFFF',
+  surfaceAlt: '#E7F7F0',
 
-  diet: '#A8DCC8',         // mint
-  workout: '#F4B8A8',      // soft peach coral
-  stats: '#FFCBA4',        // warm peach
-  water: '#A8C8F0',        // soft sky blue
-  border: '#E8E0F5',       // light lavender border
+  // ── Text ───────────────────────────────────────
+  textPrimary:   '#34514A',
+  textSecondary: '#7E9A90',
+  textMuted:     '#B4CFC5',
+
+  // ── Feature ────────────────────────────────────
+  diet:    '#6FD3B6', // mint (식단 = 민트)
+  workout: '#FFAE96', // warm peach
+  stats:   '#FFD36E', // yellow
+  water:   '#8FC7F5', // sky blue
+  border:  '#D6F0E6',
 };

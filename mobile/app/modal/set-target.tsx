@@ -56,35 +56,32 @@ export default function SetTargetModal() {
           하루 목표 칼로리
         </Text>
         <TextInput
-          className="bg-surface rounded-2xl text-text-primary font-bold text-center border border-border mb-2"
-          style={{ paddingVertical: 18, fontSize: 28 }}
+          style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 18, fontSize: 30, fontWeight: '900', textAlign: 'center', color: '#2E9E83', borderWidth: 2, borderColor: '#6FD3B6', marginBottom: 8 }}
           value={calValue}
           onChangeText={setCalValue}
           keyboardType="numeric"
           selectTextOnFocus
           autoFocus
-          placeholderTextColor="#C4B8D4"
+          placeholderTextColor="#B4CFC5"
         />
         <Text className="text-xs text-text-muted text-center mb-5">
           일반적으로 성인 기준 1800 ~ 2500 kcal예요
         </Text>
 
-        <View className="flex-row gap-2 mb-4">
+        <View className="flex-row gap-2 mb-6">
           {[1500, 1800, 2000, 2500].map((cal) => {
             const isActive = calValue === String(cal);
             return (
               <TouchableOpacity
                 key={cal}
-                className={[
-                  "flex-1 rounded-xl py-3 items-center border",
-                  isActive ? "bg-primary/10 border-primary" : "bg-surface border-border",
-                ].join(" ")}
+                style={{
+                  flex: 1, borderRadius: 999, paddingVertical: 10, alignItems: 'center',
+                  backgroundColor: isActive ? '#6FD3B620' : '#E7F7F0',
+                  borderWidth: isActive ? 1.5 : 0,
+                  borderColor: isActive ? '#6FD3B6' : 'transparent',
+                }}
                 onPress={() => setCalValue(String(cal))}>
-                <Text
-                  className={[
-                    "text-base font-semibold",
-                    isActive ? "text-primary" : "text-text-secondary",
-                  ].join(" ")}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: isActive ? '#2E9E83' : '#7E9A90' }}>
                   {cal}
                 </Text>
               </TouchableOpacity>
@@ -97,13 +94,12 @@ export default function SetTargetModal() {
           체중 (kg)
         </Text>
         <TextInput
-          className="bg-surface rounded-2xl text-text-primary font-bold text-center border border-border mb-2"
-          style={{ paddingVertical: 18, fontSize: 28 }}
+          style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 18, fontSize: 28, fontWeight: '900', textAlign: 'center', color: '#34514A', borderWidth: 1.5, borderColor: '#D6F0E6', marginBottom: 8 }}
           value={weightValue}
           onChangeText={setWeightValue}
           keyboardType="decimal-pad"
           placeholder="예: 70"
-          placeholderTextColor="#C4B8D4"
+          placeholderTextColor="#B4CFC5"
           selectTextOnFocus
         />
         <Text className="text-xs text-text-muted text-center mb-5">

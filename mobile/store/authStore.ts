@@ -46,15 +46,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const token = await AsyncStorage.getItem('token');
       const userStr = await AsyncStorage.getItem('user');
       if (token && userStr) {
-        set({ token, user: JSON.parse(userStr), isReady: true });
-        // 최신 프로필 백그라운드 갱신 (isOnboardingDone 등)
-        get().fetchMe().catch(() => {});
-      } else {
-        set({ isReady: true });
+        set({ token, user: JSON.parse(userStr) });
+        try {
+          const res = await apiClient.get<User>('/users/me');
+          const updated = res.data;
+          set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
+          await saveUser(updated);
+        } catch (e: any) {
+          if (e.response?.status === 401) {
+            await AsyncStorage.multiRemove(['token', 'user']);
+            set({ token: null, user: null });
+          }
+          // 네트워크 오류 등은 캐시된 유저/토큰 유지
+        }
       }
-    } catch {
-      set({ isReady: true });
-    }
+    } catch {}
+    set({ isReady: true });
   },
 
   login: async (email, password) => {
@@ -94,12 +101,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   fetchMe: async () => {
-    try {
-      const res = await apiClient.get<User>('/users/me');
-      const updated = res.data;
-      set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
-      await saveUser(updated);
-    } catch {}
+    const res = await apiClient.get<User>('/users/me');
+    const updated = res.data;
+    set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
+    await saveUser(updated);
   },
 
   updateProfile: async (data: Partial<User>) => {

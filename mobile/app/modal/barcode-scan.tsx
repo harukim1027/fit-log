@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { Header, Button } from "../../components/ui";
 import { useLocalSearchParams } from "expo-router";
@@ -93,7 +93,7 @@ export default function BarcodeScanModal() {
           <TouchableOpacity
             className="self-end mr-5 bg-black/50 rounded-[20px] p-2"
             onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <Text style={{ fontSize: 22, color: '#fff', fontWeight: '700' }}>✕</Text>
           </TouchableOpacity>
 
           <View style={{ width: 260, height: 160, position: 'relative' }}>
