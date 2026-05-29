@@ -65,6 +65,7 @@ interface WorkoutStore {
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   updateSet: (exerciseId: string, setId: string, data: Partial<WorkoutSet>) => void;
   removeSet: (exerciseId: string, setId: string) => void;
+  updateExercise: (exerciseId: string, data: Partial<Pick<Exercise, 'isSingleArm' | 'differentSides'>>) => void;
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
   fetchSessions: () => Promise<void>;
@@ -182,6 +183,20 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     });
   },
 
+  updateExercise: (exerciseId, data) => {
+    set(s => {
+      if (!s.activeSession) return s;
+      return {
+        activeSession: {
+          ...s.activeSession,
+          exercises: s.activeSession.exercises.map(ex =>
+            ex.id === exerciseId ? { ...ex, ...data } : ex
+          ),
+        },
+      };
+    });
+  },
+
   getTodaySession: () => {
     const today = todayStr();
     return get().sessions.find(s => s.date === today) ?? get().activeSession;
@@ -189,7 +204,15 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
 
   getTotalVolume: (session) =>
     session.exercises.reduce((sum, ex) =>
-      sum + ex.sets.reduce((s, st) => s + st.weight * st.reps, 0), 0
+      sum + ex.sets.reduce((s, st) => {
+        if (ex.isSingleArm) {
+          if (ex.differentSides && st.weightR != null) {
+            return s + (st.weight + st.weightR) * st.reps;
+          }
+          return s + st.weight * st.reps * 2;
+        }
+        return s + st.weight * st.reps;
+      }, 0), 0
     ),
 
   fetchSessions: async () => {

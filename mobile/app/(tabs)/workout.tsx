@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Header, Card } from "../../components/ui";
@@ -97,6 +98,7 @@ export default function WorkoutScreen() {
     getTotalVolume,
     removeSet,
     updateSet,
+    updateExercise,
     fetchSessions,
     fetchExerciseHistory,
     sessions,
@@ -257,7 +259,7 @@ export default function WorkoutScreen() {
                 </TouchableOpacity>
               </View>
 
-              <RestTimer />
+              <RestTimer exerciseName={activeSession.exercises[activeSession.exercises.length - 1]?.name} />
 
               <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 12, marginBottom: 12, alignSelf: 'stretch', justifyContent: 'center' }}
@@ -299,7 +301,7 @@ export default function WorkoutScreen() {
                   return (
                     <Card key={ex.id} className="mb-3">
                       {/* 종목명 + 카테고리 */}
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                           <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>{ex.name}</Text>
                           {isPR && (
@@ -311,6 +313,42 @@ export default function WorkoutScreen() {
                         </View>
                         <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
                           <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>{ex.category}</Text>
+                        </View>
+                      </View>
+
+                      {/* 한팔 기준 토글 */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#7E9A90' }}>한팔 기준{ex.isSingleArm ? ' (볼륨 ×2)' : ''}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          {ex.isSingleArm && (
+                            <TouchableOpacity
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                              onPress={() => updateExercise(ex.id, { differentSides: !ex.differentSides })}>
+                              <View style={{
+                                width: 15, height: 15, borderRadius: 4,
+                                borderWidth: 1.5, borderColor: ex.differentSides ? '#6FD3B6' : '#D6F0E6',
+                                backgroundColor: ex.differentSides ? '#6FD3B6' : 'transparent',
+                                alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {ex.differentSides && <Icon name="check" size={9} color="#fff" />}
+                              </View>
+                              <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600' }}>좌우 다른 무게</Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={{
+                              width: 40, height: 22, borderRadius: 11,
+                              backgroundColor: ex.isSingleArm ? '#6FD3B6' : '#E7F7F0',
+                              justifyContent: 'center', paddingHorizontal: 2,
+                            }}
+                            onPress={() => updateExercise(ex.id, { isSingleArm: !ex.isSingleArm, differentSides: false })}
+                            activeOpacity={0.8}>
+                            <View style={{
+                              width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff',
+                              transform: [{ translateX: ex.isSingleArm ? 18 : 0 }],
+                              shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 2, elevation: 1,
+                            }} />
+                          </TouchableOpacity>
                         </View>
                       </View>
 
@@ -364,7 +402,9 @@ export default function WorkoutScreen() {
                       {/* 세트 헤더 */}
                       <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 8, marginBottom: 4, borderBottomWidth: 1, borderStyle: 'dashed', borderBottomColor: '#D6F0E6' }}>
                         <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', width: 28 }}>세트</Text>
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>무게(kg)</Text>
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>
+                          무게(kg){ex.isSingleArm && ex.differentSides ? ' L/R' : ''}
+                        </Text>
                         <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>횟수</Text>
                         <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 0.8 }}>볼륨</Text>
                         <View style={{ width: 22 }} />
@@ -373,7 +413,11 @@ export default function WorkoutScreen() {
                       {/* 세트 행들 */}
                       {ex.sets.map((st, idx) => {
                         const prev = prevSets[idx];
-                        const curVol = st.weight * st.reps;
+                        const curVol = ex.isSingleArm
+                          ? (ex.differentSides && st.weightR != null
+                            ? (st.weight + st.weightR) * st.reps
+                            : st.weight * st.reps * 2)
+                          : st.weight * st.reps;
                         const prevVol = prev != null ? prev.weight * prev.reps : undefined;
                         const isSetPR = allTimePRWeight > 0 && st.weight > allTimePRWeight;
                         return (
@@ -395,6 +439,8 @@ export default function WorkoutScreen() {
                               style={{ width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center', marginRight: 2, marginTop: 2, backgroundColor: st.completed ? '#6FD3B6' : '#E7F7F0', flexShrink: 0 }}>
                               {st.completed ? (
                                 <Icon name="check" size={13} color="#fff" />
+                              ) : ex.isSingleArm ? (
+                                <Text style={{ fontSize: 9, fontWeight: '900', color: '#6FD3B6' }}>L</Text>
                               ) : (
                                 <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>{idx + 1}</Text>
                               )}
@@ -406,10 +452,15 @@ export default function WorkoutScreen() {
                                     "text-sm text-center",
                                     st.completed ? "line-through text-text-muted" : "text-text-primary",
                                   ].join(" ")}>
-                                  {st.weight}
+                                  {ex.isSingleArm && ex.differentSides && st.weightR != null
+                                    ? `${st.weight} / ${st.weightR}`
+                                    : st.weight}
                                 </Text>
                                 {isSetPR && <Icon name="trophy" size={10} color="#D9A100" />}
                               </View>
+                              {ex.isSingleArm && !ex.differentSides && (
+                                <Text style={{ fontSize: 9, color: '#B4CFC5', fontWeight: '700' }}>×2</Text>
+                              )}
                               <DiffBadge value={st.weight} prevValue={prev?.weight} unit="kg" />
                             </View>
                             <View className="items-center py-0.5 flex-1">
@@ -579,6 +630,144 @@ function DiffBadge({
   );
 }
 
+function ExerciseHistoryRow({
+  ex,
+  idx,
+  allPrevMax,
+  allTimePR,
+}: {
+  ex: WorkoutSession['exercises'][0];
+  idx: number;
+  allPrevMax: number | null;
+  allTimePR: number;
+}) {
+  const curMaxWeight = ex.sets.length > 0 ? Math.max(...ex.sets.map(st => st.weight)) : 0;
+  const delta = allPrevMax != null ? curMaxWeight - allPrevMax : null;
+  const isSessionPR = curMaxWeight > 0 && curMaxWeight >= allTimePR && allTimePR > 0;
+
+  const prScale = useRef(new Animated.Value(0)).current;
+  const growthOp = useRef(new Animated.Value(0)).current;
+  const compOp = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    prScale.setValue(0);
+    growthOp.setValue(0);
+    compOp.setValue(0);
+    Animated.parallel([
+      Animated.timing(compOp, { toValue: 1, duration: 400, delay: idx * 80, useNativeDriver: true }),
+      ...(isSessionPR ? [Animated.spring(prScale, { toValue: 1, damping: 5, stiffness: 180, useNativeDriver: true } as any)] : []),
+      ...(delta != null && delta > 0 ? [Animated.timing(growthOp, { toValue: 1, duration: 350, delay: 300 + idx * 80, useNativeDriver: true })] : []),
+    ]).start();
+  }, []);
+
+  const prevPct = allPrevMax != null && curMaxWeight > 0
+    ? `${Math.round(Math.min(100, (allPrevMax / curMaxWeight) * 100))}%` as `${number}%`
+    : '0%' as const;
+
+  return (
+    <View className={['py-4', idx > 0 ? 'border-t border-surface-alt' : ''].join(' ')}>
+      {/* 종목 헤더 */}
+      <View className="flex-row items-center justify-between mb-2">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+          <Text className="text-[17px] font-extrabold text-text-primary shrink">{ex.name}</Text>
+          {ex.isSingleArm && (
+            <View style={{ backgroundColor: '#6FD3B620', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#2E9E83' }}>한팔</Text>
+            </View>
+          )}
+          {isSessionPR && (
+            <Animated.View style={{ transform: [{ scale: prScale }] }}>
+              <View style={{ backgroundColor: '#FFF6D9', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Icon name="trophy" size={11} color="#D9A100" />
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#D9A100' }}>PR</Text>
+              </View>
+            </Animated.View>
+          )}
+        </View>
+        <View className="bg-workout/30 rounded-xl px-2 py-1">
+          <Text className="text-[11px] font-bold text-workout">{ex.category}</Text>
+        </View>
+      </View>
+
+      {/* 이전 → 오늘 비교 바 (fade-in) */}
+      {allPrevMax != null && curMaxWeight > 0 && (
+        <Animated.View style={{ marginBottom: 10, gap: 4, opacity: compOp }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 9, color: '#B4CFC5', fontWeight: '700', width: 24, textAlign: 'right' }}>이전</Text>
+            <View style={{ flex: 1, height: 5, backgroundColor: '#E7F7F0', borderRadius: 999, overflow: 'hidden' }}>
+              <View style={{ height: '100%', borderRadius: 999, backgroundColor: '#B4CFC5', width: prevPct }} />
+            </View>
+            <Text style={{ fontSize: 10, color: '#B4CFC5', fontWeight: '600', width: 38 }}>{allPrevMax}kg</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 9, color: '#2E9E83', fontWeight: '700', width: 24, textAlign: 'right' }}>오늘</Text>
+            <View style={{ flex: 1, height: 5, backgroundColor: '#E7F7F0', borderRadius: 999, overflow: 'hidden' }}>
+              <View style={{ height: '100%', borderRadius: 999, backgroundColor: isSessionPR ? '#FFD36E' : '#6FD3B6', width: '100%' }} />
+            </View>
+            <Text style={{ fontSize: 10, color: '#2E9E83', fontWeight: '700', width: 38 }}>{curMaxWeight}kg</Text>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* 성장 메시지 */}
+      {delta != null && delta > 0 && (
+        <Animated.View style={{ opacity: growthOp, marginBottom: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>
+            💪 +{delta}kg 성장했어요!
+          </Text>
+        </Animated.View>
+      )}
+      {delta != null && delta < 0 && (
+        <Text style={{ fontSize: 11, fontWeight: '600', color: '#E76C86', marginBottom: 4 }}>
+          ↓ {Math.abs(delta)}kg
+        </Text>
+      )}
+
+      {/* 세트 목록 */}
+      <View className="gap-1 mb-2">
+        {ex.sets.map((st, i) => {
+          const vol = ex.isSingleArm
+            ? (ex.differentSides && st.weightR != null
+              ? (st.weight + st.weightR) * st.reps
+              : st.weight * st.reps * 2)
+            : st.weight * st.reps;
+          return (
+            <View key={st.id} className="flex-row items-center">
+              <Text className="text-xs font-semibold text-text-muted w-10">{i + 1}세트</Text>
+              <Text className="text-sm font-semibold text-text-primary flex-1">
+                {ex.isSingleArm && ex.differentSides && st.weightR != null
+                  ? `L${st.weight}/R${st.weightR}kg`
+                  : `${st.weight}kg`}
+                {ex.isSingleArm ? '(한팔)' : ''} × {st.reps}회
+              </Text>
+              <Text className="text-sm font-medium text-text-secondary">
+                = {vol.toLocaleString()}kg
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {ex.settings && ex.settings.length > 0 && (
+        <View className="flex-row flex-wrap gap-1 mb-2">
+          {ex.settings.map((st, i) => (
+            <View key={i} className="bg-primary/20 rounded-[20px] px-2 py-0.5">
+              <Text className="text-[10px] font-semibold text-primary">{st.key}: {st.value}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {!!ex.tip && (
+        <View className="flex-row items-start gap-1 bg-warning/30 rounded-xl p-2 mb-1">
+          <Icon name="bulb" size={11} color="#7E9A90" />
+          <Text className="text-xs text-text-secondary flex-1 leading-5">{ex.tip}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function HistoryCard({
   session,
   getVolume,
@@ -591,15 +780,23 @@ function HistoryCard({
   const [expanded, setExpanded] = useState(true);
   const volume = getVolume(session);
 
-  const getPrevMaxWeight = (exName: string) => {
+  const getAllTimePrevMax = (exName: string): number | null => {
+    let max = 0;
     for (const s of allSessions) {
       if (s.date >= session.date) continue;
-      const match = s.exercises.find((e) => e.name === exName);
-      if (match && match.sets.length > 0) {
-        return Math.max(...match.sets.map((st) => st.weight));
-      }
+      const match = s.exercises.find(e => e.name === exName);
+      if (match) match.sets.forEach(st => { if (st.weight > max) max = st.weight; });
     }
-    return null;
+    return max > 0 ? max : null;
+  };
+
+  const getAllTimePR = (exName: string): number => {
+    let max = 0;
+    for (const s of allSessions) {
+      const match = s.exercises.find(e => e.name === exName);
+      if (match) match.sets.forEach(st => { if (st.weight > max) max = st.weight; });
+    }
+    return max;
   };
 
   return (
@@ -608,7 +805,7 @@ function HistoryCard({
         className="flex-row justify-between items-center px-[18px] py-[13px] border-b border-surface-alt"
         onPress={() => {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setExpanded((v) => !v);
+          setExpanded(v => !v);
         }}
         activeOpacity={0.7}>
         <Text className="text-sm font-semibold text-text-secondary">
@@ -628,71 +825,15 @@ function HistoryCard({
 
       {expanded && (
         <View className="px-[18px] pb-1">
-          {session.exercises.map((ex, idx) => {
-            const prevMaxWeight = getPrevMaxWeight(ex.name);
-            const curMaxWeight = ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
-            const delta = prevMaxWeight != null ? curMaxWeight - prevMaxWeight : null;
-            const changeIcon = delta == null ? null : delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
-            const changeColor = delta == null ? '#B4CFC5' : delta > 0 ? '#2E9E83' : delta < 0 ? '#E76C86' : '#B4CFC5';
-
-            return (
-              <View
-                key={ex.id}
-                className={[
-                  "py-4",
-                  idx > 0 ? "border-t border-surface-alt" : "",
-                ].join(" ")}>
-                <View className="flex-row items-center justify-between mb-3">
-                  <Text className="text-[18px] font-extrabold text-text-primary shrink">
-                    {ex.name}
-                  </Text>
-                  <View className="flex-row items-center gap-1">
-                    {changeIcon && (
-                      <Text className="text-sm font-bold" style={{ color: changeColor }}>
-                        {changeIcon} {Math.abs(delta!)}kg
-                      </Text>
-                    )}
-                    <View className="bg-workout/30 rounded-xl px-2 py-1">
-                      <Text className="text-[11px] font-bold text-workout">{ex.category}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View className="gap-1 mb-2">
-                  {ex.sets.map((st, i) => (
-                    <View key={st.id} className="flex-row items-center">
-                      <Text className="text-xs font-semibold text-text-muted w-10">{i + 1}세트</Text>
-                      <Text className="text-sm font-semibold text-text-primary flex-1">
-                        {st.weight}kg × {st.reps}회
-                      </Text>
-                      <Text className="text-sm font-medium text-text-secondary">
-                        = {(st.weight * st.reps).toLocaleString()}kg
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {ex.settings && ex.settings.length > 0 && (
-                  <View className="flex-row flex-wrap gap-1 mb-2">
-                    {ex.settings.map((st, i) => (
-                      <View key={i} className="bg-primary/20 rounded-[20px] px-2 py-0.5">
-                        <Text className="text-[10px] font-semibold text-primary">
-                          {st.key}: {st.value}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {!!ex.tip && (
-                  <View className="flex-row items-start gap-1 bg-warning/30 rounded-xl p-2 mb-1">
-                    <Icon name="bulb" size={11} color="#7E9A90" />
-                    <Text className="text-xs text-text-secondary flex-1 leading-5">{ex.tip}</Text>
-                  </View>
-                )}
-              </View>
-            );
-          })}
+          {session.exercises.map((ex, idx) => (
+            <ExerciseHistoryRow
+              key={ex.id}
+              ex={ex}
+              idx={idx}
+              allPrevMax={getAllTimePrevMax(ex.name)}
+              allTimePR={getAllTimePR(ex.name)}
+            />
+          ))}
 
           <View className="gap-1 border-t border-surface-alt py-3">
             {!!session.caloriesBurned && (

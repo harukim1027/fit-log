@@ -1,6 +1,7 @@
 export interface WorkoutSet {
   id: string;
   weight: number;
+  weightR?: number; // 우측 무게 (differentSides 시 사용)
   reps: number;
   completed: boolean;
 }
@@ -17,6 +18,8 @@ export interface Exercise {
   sets: WorkoutSet[];
   settings?: ExerciseSetting[];
   tip?: string;
+  isSingleArm?: boolean;
+  differentSides?: boolean;
 }
 
 export interface WorkoutSession {

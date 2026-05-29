@@ -10,9 +10,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Header, Card, Input, Button } from "../../components/ui";
+import { Stepper } from "../../components/ui/Stepper";
 import { useState, useEffect } from "react";
-import { Animated } from "react-native";
-import { Icon, HeartIcon } from "../../components/AppIcons";
+import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
 import { Colors, MEAL_LABELS } from "../../constants";
@@ -48,9 +48,6 @@ export default function AddFoodModal() {
   const [manualCarbs, setManualCarbs] = useState("");
   const [manualFat, setManualFat] = useState("");
   const [manualAmount, setManualAmount] = useState("100");
-  const [isSuccess, setIsSuccess] = useState(false);
-
-  const successScale = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchFavorites();
@@ -81,10 +78,8 @@ export default function AddFoodModal() {
       amount: amt,
       unit: "g",
     };
-    setIsSuccess(true);
-    Animated.spring(successScale, { toValue: 1, damping: 8, stiffness: 200, useNativeDriver: true }).start();
     addFood(mealType, item);
-    setTimeout(() => router.back(), 650);
+    router.back();
   };
 
   const handleAddSearch = () => {
@@ -128,10 +123,8 @@ export default function AddFoodModal() {
       amount: parseFloat(manualAmount) || 100,
       unit: "g",
     };
-    setIsSuccess(true);
-    Animated.spring(successScale, { toValue: 1, damping: 8, stiffness: 200, useNativeDriver: true }).start();
     addFood(mealType, food);
-    setTimeout(() => router.back(), 650);
+    router.back();
   };
 
   return (
@@ -157,23 +150,26 @@ export default function AddFoodModal() {
 
       <View className="px-5 flex-1">
         {/* 탭 */}
-        <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
-          {TABS.map((t) => {
-            const isActive = tab === t.key;
-            return (
-              <TouchableOpacity
-                key={t.key}
-                style={[
-                  { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 },
-                  isActive ? { backgroundColor: '#fff', shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
-                ]}
-                onPress={() => setTab(t.key)}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View className="flex-row bg-surface-alt rounded-2xl p-1 mb-4">
+          {TABS.map((t) => (
+            <TouchableOpacity
+              key={t.key}
+              className={[
+                "flex-1 py-2 items-center rounded-xl",
+                tab === t.key ? "bg-surface shadow-card" : "",
+              ].join(" ")}
+              onPress={() => setTab(t.key)}>
+              <Text
+                className={[
+                  "text-sm",
+                  tab === t.key
+                    ? "text-text-primary font-bold"
+                    : "text-text-muted font-medium",
+                ].join(" ")}>
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {tab === "search" && (
@@ -202,10 +198,10 @@ export default function AddFoodModal() {
               keyboardShouldPersistTaps="handled"
               className="flex-1">
               {results.length === 0 && !loading && (
-                <View className="items-center mt-10 gap-2">
-                  <Icon name="search" size={40} color="#B4CFC5" />
+                <View className="items-center mt-10 gap-3">
+                  <BowlMascot size={64} />
                   <Text className="text-center text-text-muted text-sm leading-6">
-                    식품명을 입력하고 검색해주세요{"\n"}한글은 닭가슴살, 영어는 chicken
+                    먹은 걸 검색해볼까요?{"\n"}한글은 닭가슴살, 영어는 chicken
                   </Text>
                 </View>
               )}
@@ -249,36 +245,40 @@ export default function AddFoodModal() {
             {selected && (
               <Card className="my-3">
                 <Text className="text-sm text-text-secondary mb-2 font-semibold">
-                  {selected.name} 양 입력 (g)
+                  {selected.name} 양 입력
                 </Text>
-                <Input
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="numeric"
-                  selectTextOnFocus
-                  className="text-lg font-semibold text-center"
-                />
-                <Text className="text-sm text-diet text-center font-bold">
+                <Stepper value={amount} onChange={setAmount} step={10} min={0} suffix="g" />
+                <View className="flex-row gap-2 mt-3">
+                  {[50, 100, 150, 200].map((g) => {
+                    const on = amount === String(g);
+                    return (
+                      <TouchableOpacity
+                        key={g}
+                        className={[
+                          "flex-1 rounded-full py-2 items-center border",
+                          on ? "bg-diet/10 border-diet" : "bg-surface-alt border-transparent",
+                        ].join(" ")}
+                        onPress={() => setAmount(String(g))}>
+                        <Text className={on ? "text-diet font-bold text-xs" : "text-text-secondary font-semibold text-xs"}>
+                          {g}g
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text className="text-base text-diet text-center font-extrabold mt-3">
                   {Math.round(
                     (selected.calories * parseFloat(amount || "0")) / 100
                   )}{" "}kcal
                 </Text>
               </Card>
             )}
-            <TouchableOpacity
-              className="bg-diet rounded-3xl py-4 items-center mt-2 mb-2"
+            <Button
+              title="추가하기"
               onPress={handleAddSearch}
-              disabled={isSuccess}
-              activeOpacity={0.8}>
-              {isSuccess ? (
-                <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, transform: [{ scale: successScale }] }}>
-                  <Icon name="check" size={20} color="#fff" />
-                  <Text className="text-white font-bold text-base">추가 완료!</Text>
-                </Animated.View>
-              ) : (
-                <Text className="text-white font-bold text-base">추가하기</Text>
-              )}
-            </TouchableOpacity>
+              fullWidth
+              className="mt-2 mb-2"
+            />
           </>
         )}
 
@@ -288,10 +288,10 @@ export default function AddFoodModal() {
             keyboardShouldPersistTaps="handled"
             className="flex-1">
             {favorites.length === 0 ? (
-              <View className="items-center mt-10 gap-2">
-                <HeartIcon size={40} filled={false} />
+              <View className="items-center mt-10 gap-3">
+                <EmptyMascot size={64} />
                 <Text className="text-center text-text-muted text-sm leading-6">
-                  즐겨찾기한 식품이 없어요{"\n"}검색 후 하트를 눌러 추가해보세요
+                  즐겨찾기한 식품이 아직 없어요{"\n"}검색 후 하트를 눌러 담아보세요
                 </Text>
               </View>
             ) : (
@@ -318,7 +318,7 @@ export default function AddFoodModal() {
                         <Text className="text-xs text-diet font-bold">추가</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => removeFavorite(food.id)}>
-                        <HeartIcon size={20} filled color={Colors.secondary} />
+                        <HeartIcon filled size={20} color={Colors.secondary} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -376,20 +376,7 @@ export default function AddFoodModal() {
                 keyboardType="numeric"
               />
             </View>
-            <TouchableOpacity
-              className="bg-diet rounded-3xl py-4 items-center mb-2"
-              onPress={handleAddManual}
-              disabled={isSuccess}
-              activeOpacity={0.8}>
-              {isSuccess ? (
-                <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, transform: [{ scale: successScale }] }}>
-                  <Icon name="check" size={20} color="#fff" />
-                  <Text className="text-white font-bold text-base">추가 완료!</Text>
-                </Animated.View>
-              ) : (
-                <Text className="text-white font-bold text-base">추가하기</Text>
-              )}
-            </TouchableOpacity>
+            <Button title="추가하기" onPress={handleAddManual} fullWidth className="mb-2" />
           </ScrollView>
         )}
       </View>

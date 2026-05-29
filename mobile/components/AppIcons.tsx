@@ -62,6 +62,8 @@ const LINE_PATHS: Record<string, string> = {
   phone: "M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM10.5 18.5h3",
   timer: "M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 9v4l2.5 2M9 2h6",
   stop: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9.5 9.5h5v5h-5Z",
+  eyeoff: "M3 3l18 18M10.5 10.7a2 2 0 0 0 2.8 2.8M6.5 6.6C4.6 7.9 3 10 3 12c0 0 3 6 9 6 1.6 0 3-.4 4.2-1.1M9.5 5.2A9 9 0 0 1 12 5c6 0 9 6 9 6a16 16 0 0 1-2 2.8",
+  nutrition: "M12 8c-2-3-8-2-8 4 0 6 5 10 8 10s8-4 8-10c0-6-6-7-8-4ZM12 8V4",
 };
 
 export function Icon({ name, size = 22, color = MINT.mintInk }: IconProps & { name: keyof typeof LINE_PATHS | string }) {
@@ -199,6 +201,44 @@ export const WaterDrop = ({ size = 22, filled = true }: IconProps & { filled?: b
       <Path d="M12 3C12 3 4 13 4 19a8 8 0 0 0 16 0C20 13 12 3 12 3Z" fill="none" stroke="#CFE3F6" strokeWidth={2} />
     </Svg>
   );
+
+export const BowlMascot = ({ size = 56 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Path d="M10 30h44a22 22 0 0 1-44 0Z" fill="#6FD3B6" />
+    <Path d="M8 30h48" stroke="#2E9E83" strokeWidth={3} strokeLinecap="round" />
+    <Path d="M22 22c2-3 6-3 8 0M34 19c2-2 6-2 8 1" stroke="#9BE3CE" strokeWidth={3} strokeLinecap="round" fill="none" />
+    <Circle cx={26} cy={40} r={2.4} fill="#fff" />
+    <Circle cx={38} cy={40} r={2.4} fill="#fff" />
+    <Path d="M28 45q4 3 8 0" stroke="#fff" strokeWidth={2.2} fill="none" strokeLinecap="round" />
+  </Svg>
+);
+
+export const EmptyMascot = ({ size = 56, color = "#B4CFC5" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
+    <Circle cx={32} cy={32} r={22} fill="none" stroke={color} strokeWidth={3} />
+    <Circle cx={24} cy={29} r={2.6} fill={color} />
+    <Circle cx={40} cy={29} r={2.6} fill={color} />
+    <Path d="M25 41q7 -5 14 0" stroke={color} strokeWidth={2.6} fill="none" strokeLinecap="round" />
+  </Svg>
+);
+
+export const LogoMark = ({ size = 88 }: { size?: number }) => {
+  const r = size * 0.34;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 88 88">
+      <Path
+        d={`M${r} 4h${88 - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${88 - 2 * r}a${r} ${r} 0 0 1 -${r} ${r}h-${88 - 2 * r}a${r} ${r} 0 0 1 -${r} -${r}v-${88 - 2 * r}a${r} ${r} 0 0 1 ${r} -${r}Z`}
+        fill="#6FD3B6"
+      />
+      <Path
+        d="M30 34v20M24 39v10M58 34v20M64 39v10M30 44h28"
+        stroke="#fff"
+        strokeWidth={5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+};
 
 export const PlayIcon = ({ size = 18, color = "#fff" }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">

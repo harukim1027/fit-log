@@ -21,3 +21,5 @@ export type { AvatarProps, AvatarSize } from "./Avatar";
 
 export { Divider } from "./Divider";
 export type { DividerProps } from "./Divider";
+
+export { Stepper } from "./Stepper";
