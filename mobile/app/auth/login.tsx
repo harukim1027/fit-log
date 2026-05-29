@@ -1,19 +1,10 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
-import { Colors } from "../../constants/colors";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header } from "../../components/ui";
+import { Header, Input, Button } from "../../components/ui";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -33,84 +24,40 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={s.container} edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Header title="FitLog" />
-      <View style={s.formWrapper}>
-      <Text style={s.subtitle}>식단과 운동을 한 번에</Text>
-      <View style={s.form}>
-        <TextInput
-          style={s.input}
+      <View className="flex-1 justify-center px-8">
+        <Text className="text-base text-text-secondary text-center mb-12">
+          식단과 운동을 한 번에
+        </Text>
+        <Input
           placeholder="이메일"
-          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <TextInput
-          style={s.input}
+        <Input
           placeholder="비밀번호"
-          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
-        <TouchableOpacity
-          style={s.btn}
+        <Button
+          title="로그인"
           onPress={handleLogin}
-          activeOpacity={0.8}
-          disabled={isLoading}>
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={s.btnText}>로그인</Text>
-          )}
-        </TouchableOpacity>
+          loading={isLoading}
+          fullWidth
+          className="mt-2"
+        />
         <TouchableOpacity
-          style={s.linkBtn}
+          className="items-center mt-3"
           onPress={() => router.push("/auth/register" as any)}>
-          <Text style={s.linkText}>계정이 없으신가요? 회원가입</Text>
+          <Text className="text-sm text-text-secondary">
+            계정이 없으신가요? 회원가입
+          </Text>
         </TouchableOpacity>
-      </View>
       </View>
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  formWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 32,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 48,
-  },
-  form: { gap: 12 },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  btnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  linkBtn: { alignItems: "center", marginTop: 8 },
-  linkText: { fontSize: 14, color: Colors.textSecondary },
-});

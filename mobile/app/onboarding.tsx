@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ScrollView,
   KeyboardAvoidingView,
@@ -13,12 +12,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Header } from "../components/ui";
+import { Header, Button, Input } from "../components/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
 import { useHealthStore } from "../store/healthStore";
-import { Colors } from "../constants/colors";
 
 const GOALS = [
   { key: "체중감량", emoji: "🔥", desc: "체지방 줄이기" },
@@ -40,14 +38,6 @@ const GOAL_MULTIPLIER: Record<string, number> = {
   건강관리: 1.0,
 };
 
-const CARD_SHADOW = {
-  shadowColor: "#B4A0D8",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 12,
-  elevation: 3,
-};
-
 function calcBMR(gender: string, weight: number, height: number, age: number): number {
   if (gender === "남") {
     return Math.round(88.362 + 13.397 * weight + 4.799 * height - 5.677 * age);
@@ -59,37 +49,41 @@ function calcTarget(bmr: number, activityMultiplier: number, goal: string): numb
   return Math.round(bmr * activityMultiplier * (GOAL_MULTIPLIER[goal] ?? 1.0));
 }
 
-// ── Step Indicator ──────────────────────────────────────────
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
-    <View style={si.row}>
+    <View className="flex-row gap-2 items-center">
       {Array.from({ length: total }).map((_, i) => (
-        <View key={i} style={[si.dot, i < current ? si.dotDone : i === current ? si.dotActive : si.dotInactive]} />
+        <View
+          key={i}
+          className={[
+            "h-2 rounded-full",
+            i < current
+              ? "bg-primary/60 w-2"
+              : i === current
+              ? "bg-primary w-6"
+              : "bg-surface-alt w-2",
+          ].join(" ")}
+        />
       ))}
     </View>
   );
 }
 
-// ── Main Component ──────────────────────────────────────────
 export default function OnboardingScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
-  const { fetchHealthData, isLoading: healthLoading, isAvailable: healthAvailable } = useHealthStore();
+  const { fetchHealthData, isLoading: healthLoading, isAvailable: healthAvailable } =
+    useHealthStore();
 
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Step 1
   const [goal, setGoal] = useState("");
-
-  // Step 2
   const [gender, setGender] = useState("");
   const [age, setAge] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
-
-  // Step 3
   const [activityKey, setActivityKey] = useState("보통");
   const [targetCal, setTargetCal] = useState("");
 
@@ -101,7 +95,6 @@ export default function OnboardingScreen() {
       ? calcBMR(gender, parseFloat(weight), parseFloat(height), parseInt(age))
       : null;
 
-  // 활동량/목표 변경 시 자동 계산
   const recalcTarget = (newActivity?: string, newGoal?: string) => {
     if (!bmr) return;
     const mult =
@@ -111,7 +104,6 @@ export default function OnboardingScreen() {
     setTargetCal(String(calcTarget(bmr, mult, g)));
   };
 
-  // ── Validation ──────────────────────────────────────────────
   const validateStep1 = () => {
     if (!goal) { Alert.alert("목표를 선택해주세요"); return false; }
     return true;
@@ -126,12 +118,10 @@ export default function OnboardingScreen() {
     return true;
   };
 
-  // ── Navigation ──────────────────────────────────────────────
   const goNext = () => {
     if (step === 0 && !validateStep1()) return;
     if (step === 1) {
       if (!validateStep2()) return;
-      // Step 3 진입 시 자동 계산
       if (bmr) setTargetCal(String(calcTarget(bmr, activityMultiplier, goal)));
     }
     setStep((s) => s + 1);
@@ -139,7 +129,6 @@ export default function OnboardingScreen() {
 
   const goBack = () => setStep((s) => s - 1);
 
-  // ── Finish ──────────────────────────────────────────────────
   const handleFinish = async () => {
     const cal = parseInt(targetCal);
     if (isNaN(cal) || cal < 500 || cal > 9999) {
@@ -166,9 +155,8 @@ export default function OnboardingScreen() {
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.container} edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Header
         title=""
         showBack={step > 0}
@@ -176,47 +164,76 @@ export default function OnboardingScreen() {
         rightElement={<StepIndicator current={step} total={3} />}
       />
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
-          contentContainerStyle={s.scroll}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
 
           {/* ── STEP 0: 목표 선택 ── */}
           {step === 0 && (
-            <View style={s.stepWrap}>
-              <Text style={s.greeting}>안녕하세요, {user?.name ?? ""}님! 👋</Text>
-              <Text style={s.stepTitle}>어떤 목표를 갖고 계신가요?</Text>
-              <Text style={s.stepDesc}>목표에 맞게 칼로리를 자동으로 설정해드려요</Text>
-              <View style={s.goalGrid}>
-                {GOALS.map((g) => (
-                  <TouchableOpacity
-                    key={g.key}
-                    style={[s.goalCard, goal === g.key && s.goalCardActive]}
-                    onPress={() => setGoal(g.key)}
-                    activeOpacity={0.7}>
-                    <Text style={s.goalEmoji}>{g.emoji}</Text>
-                    <Text style={[s.goalKey, goal === g.key && s.goalKeyActive]}>
-                      {g.key}
-                    </Text>
-                    <Text style={s.goalDesc}>{g.desc}</Text>
-                  </TouchableOpacity>
-                ))}
+            <View className="pt-2">
+              <Text className="text-[15px] font-semibold text-primary mb-2">
+                안녕하세요, {user?.name ?? ""}님! 👋
+              </Text>
+              <Text className="text-[26px] font-extrabold text-text-primary leading-9 mb-2">
+                어떤 목표를 갖고 계신가요?
+              </Text>
+              <Text className="text-sm text-text-secondary mb-7 leading-5">
+                목표에 맞게 칼로리를 자동으로 설정해드려요
+              </Text>
+              <View className="flex-row flex-wrap gap-3">
+                {GOALS.map((g) => {
+                  const isActive = goal === g.key;
+                  return (
+                    <TouchableOpacity
+                      key={g.key}
+                      className={[
+                        "w-[47%] bg-surface rounded-[20px] p-5 items-center gap-1 border-2",
+                        isActive ? "border-primary bg-primary/10" : "border-transparent",
+                      ].join(" ")}
+                      style={{
+                        shadowColor: "#B4A0D8",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.08,
+                        shadowRadius: 10,
+                        elevation: 2,
+                      }}
+                      onPress={() => setGoal(g.key)}
+                      activeOpacity={0.7}>
+                      <Text className="text-[36px]">{g.emoji}</Text>
+                      <Text
+                        className={[
+                          "text-[15px] font-bold",
+                          isActive ? "text-primary" : "text-text-primary",
+                        ].join(" ")}>
+                        {g.key}
+                      </Text>
+                      <Text className="text-[11px] text-text-muted text-center">
+                        {g.desc}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           )}
 
           {/* ── STEP 1: 신체 정보 ── */}
           {step === 1 && (
-            <View style={s.stepWrap}>
-              <Text style={s.stepTitle}>신체 정보를 입력해주세요</Text>
-              <Text style={s.stepDesc}>기초대사량 계산에 사용돼요</Text>
+            <View className="pt-2">
+              <Text className="text-[26px] font-extrabold text-text-primary leading-9 mb-2">
+                신체 정보를 입력해주세요
+              </Text>
+              <Text className="text-sm text-text-secondary mb-7 leading-5">
+                기초대사량 계산에 사용돼요
+              </Text>
 
-              {/* Apple Health 자동 입력 (실제 기기 빌드에서만) */}
               {Platform.OS === "ios" && healthAvailable && (
                 <TouchableOpacity
-                  style={s.healthConnectBtn}
+                  className="flex-row items-center gap-2 border border-[#FF3B3030] rounded-[18px] px-[18px] py-[14px] mb-6"
+                  style={{ backgroundColor: '#FF3B3012', borderWidth: 1.5, borderColor: '#FF3B3030' }}
                   onPress={async () => {
                     const { data } = await (async () => {
                       await fetchHealthData();
@@ -237,127 +254,152 @@ export default function OnboardingScreen() {
                   ) : (
                     <Ionicons name="heart" size={18} color="#FF3B30" />
                   )}
-                  <Text style={s.healthConnectText}>
+                  <Text className="text-[15px] font-bold flex-1" style={{ color: '#FF3B30' }}>
                     {healthLoading ? "가져오는 중..." : "Apple Health 연동하기"}
                   </Text>
-                  <Text style={s.healthConnectHint}>키·몸무게 자동 입력</Text>
+                  <Text className="text-[11px] font-semibold" style={{ color: '#FF3B3080' }}>
+                    키·몸무게 자동 입력
+                  </Text>
                 </TouchableOpacity>
               )}
 
-              {/* 성별 */}
-              <Text style={s.fieldLabel}>성별</Text>
-              <View style={s.genderRow}>
-                {["남", "여"].map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[s.genderBtn, gender === g && s.genderBtnActive]}
-                    onPress={() => setGender(g)}
-                    activeOpacity={0.8}>
-                    <Text style={s.genderEmoji}>{g === "남" ? "🧑" : "👩"}</Text>
-                    <Text style={[s.genderLabel, gender === g && s.genderLabelActive]}>
-                      {g}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <Text className="text-xs font-bold text-text-secondary mb-2">성별</Text>
+              <View className="flex-row gap-3 mb-5">
+                {["남", "여"].map((g) => {
+                  const isActive = gender === g;
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      className={[
+                        "flex-1 bg-surface rounded-[18px] py-5 items-center gap-2 border-2",
+                        isActive ? "border-primary bg-primary/10" : "border-transparent",
+                      ].join(" ")}
+                      style={{
+                        shadowColor: "#B4A0D8",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.08,
+                        shadowRadius: 10,
+                        elevation: 2,
+                      }}
+                      onPress={() => setGender(g)}
+                      activeOpacity={0.8}>
+                      <Text className="text-[32px]">{g === "남" ? "🧑" : "👩"}</Text>
+                      <Text
+                        className={[
+                          "text-base font-bold",
+                          isActive ? "text-primary" : "text-text-secondary",
+                        ].join(" ")}>
+                        {g}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* 나이 */}
-              <Text style={s.fieldLabel}>나이</Text>
-              <View style={s.inputWrap}>
-                <TextInput
-                  style={s.input}
-                  value={age}
-                  onChangeText={setAge}
-                  keyboardType="numeric"
-                  placeholder="예: 25"
-                  placeholderTextColor={Colors.textMuted}
-                  returnKeyType="next"
-                />
-                <Text style={s.inputUnit}>세</Text>
-              </View>
-
-              {/* 키 */}
-              <Text style={s.fieldLabel}>키</Text>
-              <View style={s.inputWrap}>
-                <TextInput
-                  style={s.input}
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="decimal-pad"
-                  placeholder="예: 170"
-                  placeholderTextColor={Colors.textMuted}
-                  returnKeyType="next"
-                />
-                <Text style={s.inputUnit}>cm</Text>
-              </View>
-
-              {/* 몸무게 */}
-              <Text style={s.fieldLabel}>몸무게</Text>
-              <View style={s.inputWrap}>
-                <TextInput
-                  style={s.input}
-                  value={weight}
-                  onChangeText={setWeight}
-                  keyboardType="decimal-pad"
-                  placeholder="예: 70"
-                  placeholderTextColor={Colors.textMuted}
-                  returnKeyType="done"
-                />
-                <Text style={s.inputUnit}>kg</Text>
-              </View>
+              <Input
+                label="나이"
+                value={age}
+                onChangeText={setAge}
+                keyboardType="numeric"
+                placeholder="예: 25"
+                rightElement={<Text className="text-sm font-semibold text-text-muted">세</Text>}
+                returnKeyType="next"
+              />
+              <Input
+                label="키"
+                value={height}
+                onChangeText={setHeight}
+                keyboardType="decimal-pad"
+                placeholder="예: 170"
+                rightElement={<Text className="text-sm font-semibold text-text-muted">cm</Text>}
+                returnKeyType="next"
+              />
+              <Input
+                label="몸무게"
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="decimal-pad"
+                placeholder="예: 70"
+                rightElement={<Text className="text-sm font-semibold text-text-muted">kg</Text>}
+                returnKeyType="done"
+              />
             </View>
           )}
 
           {/* ── STEP 2: 칼로리 계산 ── */}
           {step === 2 && (
-            <View style={s.stepWrap}>
-              <Text style={s.stepTitle}>목표 칼로리를 설정할게요</Text>
-              <Text style={s.stepDesc}>Harris-Benedict 공식으로 자동 계산했어요</Text>
+            <View className="pt-2">
+              <Text className="text-[26px] font-extrabold text-text-primary leading-9 mb-2">
+                목표 칼로리를 설정할게요
+              </Text>
+              <Text className="text-sm text-text-secondary mb-7 leading-5">
+                Harris-Benedict 공식으로 자동 계산했어요
+              </Text>
 
-              {/* BMR 카드 */}
               {bmr !== null && (
-                <View style={s.bmrCard}>
-                  <Text style={s.bmrLabel}>기초대사량 (BMR)</Text>
-                  <Text style={s.bmrValue}>{bmr.toLocaleString()} kcal</Text>
-                  <Text style={s.bmrSub}>
+                <View className="bg-primary/10 rounded-[20px] p-5 items-center mb-6 gap-1">
+                  <Text className="text-xs font-semibold text-primary">기초대사량 (BMR)</Text>
+                  <Text className="text-[32px] font-extrabold text-primary">
+                    {bmr.toLocaleString()} kcal
+                  </Text>
+                  <Text className="text-xs text-text-muted">
                     {gender} · {age}세 · {height}cm · {weight}kg
                   </Text>
                 </View>
               )}
 
-              {/* 활동량 */}
-              <Text style={s.fieldLabel}>활동량</Text>
-              <View style={s.activityRow}>
-                {ACTIVITY_LEVELS.map((a) => (
-                  <TouchableOpacity
-                    key={a.key}
-                    style={[s.activityBtn, activityKey === a.key && s.activityBtnActive]}
-                    onPress={() => {
-                      setActivityKey(a.key);
-                      recalcTarget(a.key);
-                    }}
-                    activeOpacity={0.8}>
-                    <Text style={[s.activityLabel, activityKey === a.key && s.activityLabelActive]}>
-                      {a.label}
-                    </Text>
-                    <Text style={s.activityDesc}>{a.desc}</Text>
-                  </TouchableOpacity>
-                ))}
+              <Text className="text-xs font-bold text-text-secondary mb-2">활동량</Text>
+              <View className="gap-2 mb-6">
+                {ACTIVITY_LEVELS.map((a) => {
+                  const isActive = activityKey === a.key;
+                  return (
+                    <TouchableOpacity
+                      key={a.key}
+                      className={[
+                        "bg-surface rounded-2xl px-[18px] py-[14px] flex-row items-center gap-3 border-2",
+                        isActive ? "border-primary bg-primary/10" : "border-transparent",
+                      ].join(" ")}
+                      style={{
+                        shadowColor: "#B4A0D8",
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.07,
+                        shadowRadius: 8,
+                        elevation: 2,
+                      }}
+                      onPress={() => {
+                        setActivityKey(a.key);
+                        recalcTarget(a.key);
+                      }}
+                      activeOpacity={0.8}>
+                      <Text
+                        className={[
+                          "text-[15px] font-bold w-10",
+                          isActive ? "text-primary" : "text-text-secondary",
+                        ].join(" ")}>
+                        {a.label}
+                      </Text>
+                      <Text className="text-sm text-text-muted">{a.desc}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* 목표 칼로리 */}
-              <Text style={s.fieldLabel}>목표 칼로리 (수정 가능)</Text>
-              <View style={s.targetCalWrap}>
+              <Text className="text-xs font-bold text-text-secondary mb-2">
+                목표 칼로리 (수정 가능)
+              </Text>
+              <View className="flex-row items-center bg-surface rounded-2xl px-4 mb-2 border border-primary/60">
                 <TextInput
-                  style={s.targetCalInput}
+                  className="flex-1 text-primary font-extrabold text-center"
+                  style={{ fontSize: 32, paddingVertical: 14 }}
                   value={targetCal}
                   onChangeText={setTargetCal}
                   keyboardType="numeric"
                   selectTextOnFocus
+                  placeholderTextColor="#C4B8D4"
                 />
-                <Text style={s.targetCalUnit}>kcal / 일</Text>
+                <Text className="text-sm font-semibold text-text-muted">kcal / 일</Text>
               </View>
-              <Text style={s.targetCalHint}>
+              <Text className="text-xs text-text-muted text-center mb-2">
                 {goal} 목표 기준으로 계산됐어요 · 직접 수정도 가능해요
               </Text>
             </View>
@@ -365,267 +407,25 @@ export default function OnboardingScreen() {
         </ScrollView>
 
         {/* 하단 버튼 */}
-        <View style={s.footer}>
+        <View className="px-6 pt-3 pb-2 border-t border-border bg-background">
           {step < 2 ? (
-            <TouchableOpacity style={s.nextBtn} onPress={goNext} activeOpacity={0.8}>
-              <Text style={s.nextBtnText}>다음</Text>
-              <Ionicons name="chevron-forward" size={20} color="#fff" />
-            </TouchableOpacity>
+            <Button
+              title="다음"
+              rightIcon={<Ionicons name="chevron-forward" size={20} color="#fff" />}
+              onPress={goNext}
+              fullWidth
+            />
           ) : (
-            <TouchableOpacity
-              style={[s.nextBtn, s.finishBtn]}
+            <Button
+              title={isLoading ? "저장 중..." : "시작하기 🚀"}
               onPress={handleFinish}
-              activeOpacity={0.8}
-              disabled={isLoading}>
-              <Text style={s.nextBtnText}>
-                {isLoading ? "저장 중..." : "시작하기 🚀"}
-              </Text>
-            </TouchableOpacity>
+              loading={isLoading}
+              fullWidth
+              className="bg-workout"
+            />
           )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-// ── Styles ──────────────────────────────────────────────────
-const si = StyleSheet.create({
-  row: { flexDirection: "row", gap: 8, alignItems: "center" },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  dotActive: { width: 24, backgroundColor: Colors.primary },
-  dotDone: { backgroundColor: Colors.primary + "60" },
-  dotInactive: { backgroundColor: Colors.surfaceAlt },
-});
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-
-  scroll: { paddingHorizontal: 24, paddingBottom: 24 },
-
-  stepWrap: { paddingTop: 8 },
-
-  greeting: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  stepTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: Colors.textPrimary,
-    lineHeight: 34,
-    marginBottom: 8,
-  },
-  stepDesc: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 28,
-    lineHeight: 20,
-  },
-
-  // 목표 선택
-  goalGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  goalCard: {
-    width: "47%",
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 2,
-    borderColor: "transparent",
-    ...{
-      shadowColor: "#B4A0D8",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      elevation: 2,
-    },
-  },
-  goalCardActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + "10",
-  },
-  goalEmoji: { fontSize: 36 },
-  goalKey: { fontSize: 15, fontWeight: "700", color: Colors.textPrimary },
-  goalKeyActive: { color: Colors.primary },
-  goalDesc: { fontSize: 11, color: Colors.textMuted, textAlign: "center" },
-
-  // 신체 정보
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  healthConnectBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#FF3B3012",
-    borderWidth: 1.5,
-    borderColor: "#FF3B3030",
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 24,
-  },
-  healthConnectText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#FF3B30",
-    flex: 1,
-  },
-  healthConnectHint: {
-    fontSize: 11,
-    color: "#FF3B3080",
-    fontWeight: "600",
-  },
-  genderRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
-  genderBtn: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    paddingVertical: 20,
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#B4A0D8",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  genderBtnActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + "10",
-  },
-  genderEmoji: { fontSize: 32 },
-  genderLabel: { fontSize: 16, fontWeight: "700", color: Colors.textSecondary },
-  genderLabelActive: { color: Colors.primary },
-
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: Colors.surfaceAlt,
-  },
-  input: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    paddingVertical: 14,
-  },
-  inputUnit: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.textMuted,
-    marginLeft: 4,
-  },
-
-  // 칼로리 계산
-  bmrCard: {
-    backgroundColor: Colors.primary + "12",
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    marginBottom: 24,
-    gap: 4,
-  },
-  bmrLabel: { fontSize: 12, fontWeight: "600", color: Colors.primary },
-  bmrValue: { fontSize: 32, fontWeight: "800", color: Colors.primary },
-  bmrSub: { fontSize: 12, color: Colors.textMuted },
-
-  activityRow: { gap: 10, marginBottom: 24 },
-  activityBtn: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#B4A0D8",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  activityBtnActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + "10",
-  },
-  activityLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.textSecondary,
-    width: 40,
-  },
-  activityLabelActive: { color: Colors.primary },
-  activityDesc: { fontSize: 13, color: Colors.textMuted },
-
-  targetCalWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: Colors.primary + "60",
-  },
-  targetCalInput: {
-    flex: 1,
-    fontSize: 32,
-    fontWeight: "800",
-    color: Colors.primary,
-    paddingVertical: 14,
-    textAlign: "center",
-  },
-  targetCalUnit: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.textMuted,
-  },
-  targetCalHint: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-
-  // 하단 버튼
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.surfaceAlt,
-    backgroundColor: Colors.background,
-  },
-  nextBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24,
-    paddingVertical: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  finishBtn: { backgroundColor: Colors.workout },
-  nextBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-});

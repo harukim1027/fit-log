@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -24,7 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../lib/apiClient";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useExerciseStore } from "../../store/exerciseStore";
-import { Colors, EXERCISE_CATEGORIES, lookupEnglish } from "../../constants";
+import { EXERCISE_CATEGORIES, lookupEnglish } from "../../constants";
 import { WorkoutSet, ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../../components/MuscleMap";
 
@@ -90,7 +89,6 @@ const PRESET_EXERCISES: PresetExercise[] = [
 
 const isKorean = (text: string) => /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(text);
 
-
 const PRESET_SETTING_KEYS = [
   "시트높이",
   "등받이각도",
@@ -101,7 +99,7 @@ const PRESET_SETTING_KEYS = [
   "기타",
 ];
 
-const CARD_SHADOW = {
+const SHADOW = {
   shadowColor: "#B4A0D8",
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.09,
@@ -176,7 +174,6 @@ export default function AddWorkoutModal() {
     clearResults();
 
     if (isKorean(q)) {
-      // 한글 → 매핑 테이블로 영어 변환 후 API 검색
       const english = lookupEnglish(q);
       if (english) {
         searchTimer.current = setTimeout(() => {
@@ -184,9 +181,7 @@ export default function AddWorkoutModal() {
           searchExercises(english);
         }, 400);
       }
-      // 매핑 없으면 preset 필터링 결과가 fallback으로 표시됨
     } else {
-      // 영어 → 직접 API 검색
       searchTimer.current = setTimeout(() => {
         if (searchIdRef.current !== searchId) return;
         searchExercises(q);
@@ -198,14 +193,12 @@ export default function AddWorkoutModal() {
     };
   }, [searchQuery]);
 
-  // 카테고리 탭 변경 시 검색창 초기화
   useEffect(() => {
     if (selectedCategory) setSearchQuery("");
   }, [selectedCategory]);
 
   const isEnglishSearch = Boolean(searchQuery.trim() && !isKorean(searchQuery));
 
-  // 영어 검색이 아닐 때 preset 표시 (한글 검색 중에는 번역 대기 중 fallback으로 표시)
   const filteredPresets: SelectedExercise[] = isEnglishSearch
     ? []
     : PRESET_EXERCISES.filter((ex) => {
@@ -341,10 +334,9 @@ export default function AddWorkoutModal() {
   };
 
   return (
-    <View style={s.container}>
+    <View className="flex-1 bg-background">
       <Header title="운동 추가" showClose />
 
-      {/* ── 스크롤 + 고정 푸터 ── */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -353,142 +345,153 @@ export default function AddWorkoutModal() {
           ref={scrollRef}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={s.content}>
-          {/* ── 종목 선택: 접힌 상태 ── */}
+          contentContainerStyle={{ padding: 20, paddingBottom: 16 }}>
+
           {exerciseListCollapsed && selectedExercise ? (
             <>
-              <View style={s.selectedExSummary}>
+              {/* 선택된 종목 요약 */}
+              <View
+                className="flex-row items-center bg-surface rounded-[18px] p-4 mb-[14px] gap-3"
+                style={SHADOW}>
                 {selectedExercise.gifUrl ? (
                   <Image
                     source={{ uri: selectedExercise.gifUrl }}
-                    style={s.selectedGif}
+                    style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: '#FFF3EC' }}
                     resizeMode="cover"
                   />
                 ) : null}
-                <View style={s.selectedExInfo}>
-                  <Text style={s.selectedExLabel}>선택된 종목</Text>
-                  <Text style={s.selectedExName}>{selectedExercise.name}</Text>
+                <View className="flex-1">
+                  <Text className="text-[11px] text-text-muted font-semibold mb-[3px]">선택된 종목</Text>
+                  <Text className="text-base font-bold text-text-primary mb-1">{selectedExercise.name}</Text>
                   {selectedExercise.caloriesPerMinute ? (
-                    <Text style={s.calEstimate}>
-                      🔥 약{" "}
-                      {Math.round(selectedExercise.caloriesPerMinute * 30)} kcal
-                      (30분 기준)
+                    <Text className="text-xs font-semibold" style={{ color: '#F4B8A8' }}>
+                      🔥 약 {Math.round(selectedExercise.caloriesPerMinute * 30)} kcal (30분 기준)
                     </Text>
                   ) : null}
                 </View>
-                <View style={s.selectedExRight}>
-                  <Text style={s.selectedExCat}>
+                <View className="items-end gap-[6px]">
+                  <Text
+                    className="text-[11px] px-[10px] py-[3px] rounded-[10px]"
+                    style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
                     {selectedExercise.category}
                   </Text>
                   <TouchableOpacity
-                    style={s.changeExBtn}
+                    className="rounded-[20px] px-[14px] py-[7px]"
+                    style={{ backgroundColor: '#B4A7E818' }}
                     onPress={handleChangeExercise}>
-                    <Text style={s.changeExText}>변경</Text>
+                    <Text className="text-[13px] font-bold" style={{ color: '#B4A7E8' }}>변경</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
               {MUSCLE_MAP[selectedExercise.name] && (
-                <View style={s.muscleCard}>
+                <View
+                  className="bg-surface rounded-[20px] p-[14px] mb-[14px]"
+                  style={SHADOW}>
                   <MuscleMap muscles={MUSCLE_MAP[selectedExercise.name]} />
                 </View>
               )}
             </>
           ) : (
             <>
-              <Text style={s.sectionLabel}>운동 종목 선택</Text>
+              <Text className="text-[13px] font-bold text-text-secondary mb-3">운동 종목 선택</Text>
 
-              {/* ── 검색창 ── */}
-              <View style={s.searchBar}>
-                <Ionicons name="search" size={16} color={Colors.textMuted} />
+              {/* 검색창 */}
+              <View
+                className="flex-row items-center bg-surface rounded-[14px] px-3 py-[10px] mb-3 gap-2"
+                style={SHADOW}>
+                <Ionicons name="search" size={16} color="#C4B8D4" />
                 <TextInput
-                  style={s.searchInput}
+                  className="flex-1 text-[15px] text-text-primary p-0"
                   placeholder="한글 검색 또는 영어로 API 검색..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor="#C4B8D4"
                   returnKeyType="search"
                   autoCorrect={false}
                 />
                 {searchQuery ? (
                   <TouchableOpacity onPress={() => setSearchQuery("")}>
-                    <Ionicons
-                      name="close-circle"
-                      size={16}
-                      color={Colors.textMuted}
-                    />
+                    <Ionicons name="close-circle" size={16} color="#C4B8D4" />
                   </TouchableOpacity>
                 ) : null}
               </View>
 
-              {/* 카테고리 탭 (영어 검색 중엔 숨김) */}
+              {/* 카테고리 탭 */}
               {!isEnglishSearch && (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  style={s.catScroll}
+                  style={{ marginBottom: 12 }}
                   keyboardShouldPersistTaps="handled">
-                  {EXERCISE_CATEGORIES.map((cat) => (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[
-                        s.catChip,
-                        selectedCategory === cat && s.catChipActive,
-                      ]}
-                      onPress={() =>
-                        setSelectedCategory(selectedCategory === cat ? null : cat)
-                      }>
-                      <Text
-                        style={[
-                          s.catText,
-                          selectedCategory === cat && s.catTextActive,
-                        ]}>
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {EXERCISE_CATEGORIES.map((cat) => {
+                    const isActive = selectedCategory === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        className="rounded-[20px] px-4 py-2 mr-2"
+                        style={[SHADOW, { backgroundColor: isActive ? '#F4B8A828' : '#FFFFFF' }]}
+                        onPress={() => setSelectedCategory(isActive ? null : cat)}>
+                        <Text
+                          className="text-[13px]"
+                          style={{ color: isActive ? '#F4B8A8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               )}
 
-              {/* API 검색 중 인라인 표시 */}
+              {/* 검색 중 */}
               {isSearching && (
-                <View style={s.loadingRow}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={s.loadingText}>검색 중...</Text>
+                <View className="flex-row items-center gap-2 py-[10px] px-1">
+                  <ActivityIndicator size="small" color="#B4A7E8" />
+                  <Text className="text-[13px] text-text-muted">검색 중...</Text>
                 </View>
               )}
 
-              <View style={s.exerciseList}>
-                {/* 사용자가 직접 추가한 운동 */}
+              <View className="mb-2">
+                {/* 직접 추가한 운동 */}
                 {filteredCustom.map((ex) => (
                   <TouchableOpacity
                     key={"custom-" + ex.name}
-                    style={s.exItem}
+                    className="flex-row items-center bg-surface rounded-[16px] p-3 mb-2 gap-[10px]"
+                    style={SHADOW}
                     onPress={() => handleSelectExercise(ex)}
                     activeOpacity={0.7}>
-                    <View style={s.exInfo}>
-                      <Text style={s.exName}>{ex.name}</Text>
-                      <Text style={s.exCalHint}>직접 추가</Text>
+                    <View className="flex-1">
+                      <Text className="text-[15px] font-semibold text-text-primary">{ex.name}</Text>
+                      <Text className="text-[11px] text-text-muted mt-[2px]">직접 추가</Text>
                     </View>
-                    <Text style={s.exCat}>{ex.category}</Text>
+                    <Text
+                      className="text-[12px] px-[10px] py-1 rounded-[10px]"
+                      style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                      {ex.category}
+                    </Text>
                   </TouchableOpacity>
                 ))}
 
-                {/* Preset 목록: API 결과가 없을 때만 표시 (번역 대기 중 fallback 포함) */}
+                {/* Preset 목록 */}
                 {results.length === 0 && filteredPresets.map((ex) => (
                   <TouchableOpacity
                     key={"preset-" + ex.name}
-                    style={s.exItem}
+                    className="flex-row items-center bg-surface rounded-[16px] p-3 mb-2 gap-[10px]"
+                    style={SHADOW}
                     onPress={() => handleSelectExercise(ex)}
                     activeOpacity={0.7}>
-                    <View style={s.exInfo}>
-                      <Text style={s.exName}>{ex.name}</Text>
+                    <View className="flex-1">
+                      <Text className="text-[15px] font-semibold text-text-primary">{ex.name}</Text>
                     </View>
-                    <Text style={s.exCat}>{ex.category}</Text>
+                    <Text
+                      className="text-[12px] px-[10px] py-1 rounded-[10px]"
+                      style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                      {ex.category}
+                    </Text>
                   </TouchableOpacity>
                 ))}
 
-                {/* API 결과: 영어 직접 검색 또는 한글 매핑 후 검색 */}
+                {/* API 검색 결과 */}
                 {results.map((ex) => {
                   const displayName = ex.nameKo || ex.name;
                   const displayCat =
@@ -498,7 +501,8 @@ export default function AddWorkoutModal() {
                   return (
                     <TouchableOpacity
                       key={ex.id}
-                      style={s.exItem}
+                      className="flex-row items-center bg-surface rounded-[16px] p-3 mb-2 gap-[10px]"
+                      style={SHADOW}
                       onPress={() =>
                         handleSelectExercise({
                           name: displayName,
@@ -511,128 +515,121 @@ export default function AddWorkoutModal() {
                       {ex.gifUrl ? (
                         <Image
                           source={{ uri: ex.gifUrl }}
-                          style={s.exGif}
+                          style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: '#FFF3EC' }}
                           resizeMode="cover"
                         />
                       ) : null}
-                      <View style={s.exInfo}>
-                        <Text style={s.exName}>{displayName}</Text>
-                        <Text style={s.exCalHint}>
+                      <View className="flex-1">
+                        <Text className="text-[15px] font-semibold text-text-primary">{displayName}</Text>
+                        <Text className="text-[11px] text-text-muted mt-[2px]">
                           {displayCat}
                           {ex.equipmentKo ? ` · ${ex.equipmentKo}` : ""}
-                          {ex.caloriesPerMinute
-                            ? ` · 🔥 ${ex.caloriesPerMinute} kcal/분`
-                            : ""}
+                          {ex.caloriesPerMinute ? ` · 🔥 ${ex.caloriesPerMinute} kcal/분` : ""}
                         </Text>
                       </View>
-                      <Text style={s.exCat}>{displayCat}</Text>
+                      <Text
+                        className="text-[12px] px-[10px] py-1 rounded-[10px]"
+                        style={{ color: '#F4B8A8', backgroundColor: '#F4B8A828' }}>
+                        {displayCat}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
 
-                {/* 검색 결과 없음 (로딩 완료 후 아무것도 없을 때) */}
+                {/* 검색 결과 없음 */}
                 {!isSearching && results.length === 0 &&
                   filteredPresets.length === 0 && filteredCustom.length === 0 &&
                   searchQuery.trim() && (
-                  <View style={s.emptySearch}>
-                    <Text style={s.emptySearchText}>검색 결과가 없어요</Text>
+                  <View className="items-center py-6">
+                    <Text className="text-[14px] text-text-muted">검색 결과가 없어요</Text>
                   </View>
                 )}
               </View>
 
               {!showCustomForm ? (
                 <TouchableOpacity
-                  style={s.directAddBtn}
+                  className="flex-row items-center gap-[6px] py-3 px-1 mb-4"
                   onPress={() => setShowCustomForm(true)}>
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={18}
-                    color={Colors.primary}
-                  />
-                  <Text style={s.directAddText}>직접 추가</Text>
+                  <Ionicons name="add-circle-outline" size={18} color="#B4A7E8" />
+                  <Text className="text-[14px] font-semibold" style={{ color: '#B4A7E8' }}>직접 추가</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={s.customForm}>
-                  <View style={s.customFormHeader}>
-                    <Text style={s.customFormTitle}>직접 추가</Text>
+                <View className="bg-surface rounded-[20px] p-4 mb-4" style={SHADOW}>
+                  <View className="flex-row justify-between items-center mb-[14px]">
+                    <Text className="text-[15px] font-bold text-text-primary">직접 추가</Text>
                     <TouchableOpacity
                       onPress={() => {
                         setShowCustomForm(false);
                         setCustomName("");
                         setCustomCat("");
                       }}>
-                      <Ionicons
-                        name="close"
-                        size={20}
-                        color={Colors.textMuted}
-                      />
+                      <Ionicons name="close" size={20} color="#C4B8D4" />
                     </TouchableOpacity>
                   </View>
                   <TextInput
-                    style={s.customNameInput}
+                    className="bg-surface-alt rounded-[12px] p-3 text-[15px] text-text-primary mb-3"
                     placeholder="종목명 입력 (예: 케이블 플라이)"
                     value={customName}
                     onChangeText={setCustomName}
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor="#C4B8D4"
                     returnKeyType="done"
                   />
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    style={s.catScroll}
+                    style={{ marginBottom: 12 }}
                     keyboardShouldPersistTaps="handled">
-                    {EXERCISE_CATEGORIES.map((cat) => (
-                      <TouchableOpacity
-                        key={cat}
-                        style={[
-                          s.catChip,
-                          customCat === cat && s.catChipActive,
-                        ]}
-                        onPress={() => setCustomCat(cat)}>
-                        <Text
-                          style={[
-                            s.catText,
-                            customCat === cat && s.catTextActive,
-                          ]}>
-                          {cat}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                    {EXERCISE_CATEGORIES.map((cat) => {
+                      const isActive = customCat === cat;
+                      return (
+                        <TouchableOpacity
+                          key={cat}
+                          className="rounded-[20px] px-4 py-2 mr-2"
+                          style={[SHADOW, { backgroundColor: isActive ? '#F4B8A828' : '#FFFFFF' }]}
+                          onPress={() => setCustomCat(cat)}>
+                          <Text
+                            className="text-[13px]"
+                            style={{ color: isActive ? '#F4B8A8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                            {cat}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                   <TouchableOpacity
-                    style={s.customAddBtn}
+                    className="bg-primary rounded-[20px] p-3 items-center mt-1"
                     onPress={handleAddCustomExercise}
                     activeOpacity={0.8}>
-                    <Text style={s.customAddBtnText}>목록에 추가하기</Text>
+                    <Text className="text-[14px] font-bold text-white">목록에 추가하기</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </>
           )}
 
-          {/* ── 세트 기록 ── */}
+          {/* 세트 기록 */}
           {selectedExercise && (
             <View
-              style={s.setSection}
+              className="bg-surface rounded-[20px] p-4 mb-4"
+              style={SHADOW}
               onLayout={(e) => {
                 setsSectionY.current = e.nativeEvent.layout.y;
               }}>
-              <Text style={s.setSectionTitle}>
+              <Text className="text-[15px] font-bold text-text-primary mb-[14px]">
                 {selectedExercise.name} 세트 기록 🏋️
               </Text>
-              <View style={s.setHeaderRow}>
-                <Text style={[s.setHeader, { flex: 0.5 }]}>세트</Text>
-                <Text style={[s.setHeader, { flex: 1 }]}>무게(kg)</Text>
-                <Text style={[s.setHeader, { flex: 1 }]}>횟수</Text>
+              <View className="flex-row mb-2">
+                <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 0.5 }}>세트</Text>
+                <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 1 }}>무게(kg)</Text>
+                <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 1 }}>횟수</Text>
               </View>
               {sets.map((st, i) => (
-                <View key={i} style={s.setRow}>
-                  <Text style={[s.setNum, { flex: 0.5 }]}>{i + 1}</Text>
+                <View key={i} className="flex-row items-center gap-2 mb-2">
+                  <Text className="text-[14px] text-text-secondary text-center font-bold" style={{ flex: 0.5 }}>{i + 1}</Text>
                   <TextInput
-                    ref={(el) => {
-                      setWeightRefs.current[i] = el;
-                    }}
-                    style={[s.setInput, { flex: 1 }]}
+                    ref={(el) => { setWeightRefs.current[i] = el; }}
+                    className="bg-surface-alt rounded-[12px] p-[10px] text-text-primary text-[15px] font-semibold text-center"
+                    style={{ flex: 1 }}
                     value={st.weight}
                     onChangeText={(v) =>
                       setSets((prev) =>
@@ -643,11 +640,12 @@ export default function AddWorkoutModal() {
                     }
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor="#C4B8D4"
                     returnKeyType="next"
                   />
                   <TextInput
-                    style={[s.setInput, { flex: 1 }]}
+                    className="bg-surface-alt rounded-[12px] p-[10px] text-text-primary text-[15px] font-semibold text-center"
+                    style={{ flex: 1 }}
                     value={st.reps}
                     onChangeText={(v) =>
                       setSets((prev) =>
@@ -658,7 +656,7 @@ export default function AddWorkoutModal() {
                     }
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor="#C4B8D4"
                     returnKeyType={i === sets.length - 1 ? "done" : "next"}
                     onSubmitEditing={
                       i === sets.length - 1 ? Keyboard.dismiss : undefined
@@ -666,51 +664,55 @@ export default function AddWorkoutModal() {
                   />
                 </View>
               ))}
-              <TouchableOpacity style={s.addSetBtn} onPress={handleAddSet}>
-                <Text style={s.addSetText}>+ 세트 추가</Text>
+              <TouchableOpacity
+                className="items-center p-[10px] rounded-[20px] mt-1"
+                style={{ backgroundColor: '#F4B8A818' }}
+                onPress={handleAddSet}>
+                <Text className="text-[13px] font-bold" style={{ color: '#F4B8A8' }}>+ 세트 추가</Text>
               </TouchableOpacity>
 
-              {/* ── 설정 ── */}
-              <View style={s.divider} />
-              <View style={s.settingsHeader}>
-                <Text style={s.settingsTitle}>⚙️ 기구 설정</Text>
+              {/* 설정 */}
+              <View className="h-px bg-surface-alt my-[14px]" />
+              <View className="flex-row justify-between items-center mb-[10px]">
+                <Text className="text-[14px] font-bold text-text-primary">⚙️ 기구 설정</Text>
                 <TouchableOpacity
-                  style={s.addSettingBtn}
+                  className="flex-row items-center gap-1 rounded-[20px] px-3 py-[6px]"
+                  style={{ backgroundColor: '#B4A7E818' }}
                   onPress={openSettingsSheet}>
-                  <Ionicons name="add" size={16} color={Colors.primary} />
-                  <Text style={s.addSettingText}>설정 추가</Text>
+                  <Ionicons name="add" size={16} color="#B4A7E8" />
+                  <Text className="text-[13px] font-bold" style={{ color: '#B4A7E8' }}>설정 추가</Text>
                 </TouchableOpacity>
               </View>
               {settings.length > 0 ? (
-                <View style={s.tagsWrap}>
+                <View className="flex-row flex-wrap gap-2">
                   {settings.map((st, i) => (
                     <TouchableOpacity
                       key={i}
-                      style={s.tag}
+                      className="flex-row items-center gap-[5px] rounded-[20px] px-3 py-[6px]"
+                      style={{ backgroundColor: '#B4A7E818' }}
                       onPress={() => removeSetting(i)}
                       activeOpacity={0.7}>
-                      <Text style={s.tagText}>
+                      <Text className="text-xs font-semibold" style={{ color: '#B4A7E8' }}>
                         {st.key}: {st.value}
                       </Text>
-                      <Ionicons name="close" size={12} color={Colors.primary} />
+                      <Ionicons name="close" size={12} color="#B4A7E8" />
                     </TouchableOpacity>
                   ))}
                 </View>
               ) : (
-                <Text style={s.settingsEmpty}>
-                  시트높이, 각도 등 기구 설정을 기록하세요
-                </Text>
+                <Text className="text-xs text-text-muted italic">시트높이, 각도 등 기구 설정을 기록하세요</Text>
               )}
 
-              {/* ── 팁 ── */}
-              <View style={s.divider} />
-              <Text style={s.settingsTitle}>💡 운동 팁</Text>
+              {/* 팁 */}
+              <View className="h-px bg-surface-alt my-[14px]" />
+              <Text className="text-[14px] font-bold text-text-primary">💡 운동 팁</Text>
               <TextInput
-                style={s.tipInput}
+                className="bg-surface-alt rounded-[12px] p-3 text-text-primary text-[14px] mt-[10px]"
+                style={{ minHeight: 80, lineHeight: 20 }}
                 placeholder="자유롭게 팁이나 메모를 남겨보세요"
                 value={tip}
                 onChangeText={setTip}
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor="#C4B8D4"
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -719,107 +721,94 @@ export default function AddWorkoutModal() {
           )}
         </ScrollView>
 
-        {/* ── 고정 푸터 ── */}
+        {/* 고정 푸터 */}
         <View
-          style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          className="px-5 pt-3 border-t border-surface-alt bg-background"
+          style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
           <TouchableOpacity
-            style={s.addBtn}
+            className="bg-workout rounded-[24px] py-4 items-center"
             onPress={handleAdd}
             activeOpacity={0.8}>
-            <Text style={s.addBtnText}>운동 추가</Text>
+            <Text className="text-base font-bold text-white">운동 추가</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      {/* ── 기구 설정 시트 ── */}
+      {/* 기구 설정 시트 */}
       <Modal
         visible={showSettingsSheet}
         transparent
         animationType="slide"
         onRequestClose={closeSettingsSheet}>
         <TouchableOpacity
-          style={sh.overlay}
+          className="flex-1 justify-end"
+          style={{ backgroundColor: 'rgba(61, 50, 86, 0.4)' }}
           activeOpacity={1}
           onPress={closeSettingsSheet}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={{ width: "100%" }}>
-            <View style={sh.sheet}>
-              <View style={sh.handle} />
-              <Text style={sh.title}>기구 설정 추가</Text>
+            <View className="bg-surface rounded-t-[28px] p-6 pb-9">
+              <View className="w-10 h-1 bg-text-muted rounded-full self-center mb-5" />
+              <Text className="text-[18px] font-extrabold text-text-primary mb-5">기구 설정 추가</Text>
 
-              <Text style={sh.label}>항목 선택</Text>
-              <View style={sh.keyGrid}>
-                {PRESET_SETTING_KEYS.map((k) => (
-                  <TouchableOpacity
-                    key={k}
-                    style={[
-                      sh.keyChip,
-                      !isCustomKeyMode && settingKey === k && sh.keyChipActive,
-                    ]}
-                    onPress={() => {
-                      setSettingKey(k);
-                      setIsCustomKeyMode(false);
-                      setCustomKeyName("");
-                    }}>
-                    <Text
-                      style={[
-                        sh.keyText,
-                        !isCustomKeyMode &&
-                          settingKey === k &&
-                          sh.keyTextActive,
-                      ]}>
-                      {k}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                {customSettingKeys.map((k) => (
-                  <View key={k.id} style={sh.savedKeyWrap}>
+              <Text className="text-xs font-bold text-text-secondary mb-[10px]">항목 선택</Text>
+              <View className="flex-row flex-wrap gap-2 mb-1">
+                {PRESET_SETTING_KEYS.map((k) => {
+                  const isActive = !isCustomKeyMode && settingKey === k;
+                  return (
                     <TouchableOpacity
-                      style={[
-                        sh.keyChip,
-                        sh.keyChipSaved,
-                        !isCustomKeyMode &&
-                          settingKey === k.name &&
-                          sh.keyChipActive,
-                      ]}
+                      key={k}
+                      className="rounded-[20px] px-[14px] py-2"
+                      style={{ backgroundColor: isActive ? '#B4A7E828' : '#FFF3EC' }}
                       onPress={() => {
-                        setSettingKey(k.name);
+                        setSettingKey(k);
                         setIsCustomKeyMode(false);
                         setCustomKeyName("");
                       }}>
                       <Text
-                        style={[
-                          sh.keyText,
-                          !isCustomKeyMode &&
-                            settingKey === k.name &&
-                            sh.keyTextActive,
-                        ]}>
-                        {k.name}
+                        className="text-[13px]"
+                        style={{ color: isActive ? '#B4A7E8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                        {k}
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={sh.savedKeyDelete}
-                      onPress={() => deleteCustomKey(k.id)}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                      <Ionicons
-                        name="close-circle"
-                        size={15}
-                        color={Colors.textMuted}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                  );
+                })}
+                {customSettingKeys.map((k) => {
+                  const isActive = !isCustomKeyMode && settingKey === k.name;
+                  return (
+                    <View key={k.id} className="flex-row items-center gap-[2px]">
+                      <TouchableOpacity
+                        className="rounded-[20px] px-[14px] py-2 border"
+                        style={{ backgroundColor: isActive ? '#B4A7E828' : '#FFF3EC', borderColor: '#B4A7E850' }}
+                        onPress={() => {
+                          setSettingKey(k.name);
+                          setIsCustomKeyMode(false);
+                          setCustomKeyName("");
+                        }}>
+                        <Text
+                          className="text-[13px]"
+                          style={{ color: isActive ? '#B4A7E8' : '#8B80A8', fontWeight: isActive ? '700' : '600' }}>
+                          {k.name}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{ marginLeft: -6, marginTop: -8 }}
+                        onPress={() => deleteCustomKey(k.id)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Ionicons name="close-circle" size={15} color="#C4B8D4" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
               </View>
 
-              <View style={sh.directDivider}>
-                <View style={sh.directLine} />
+              <View className="flex-row items-center my-3">
+                <View className="flex-1 h-px bg-surface-alt" />
               </View>
               <TouchableOpacity
-                style={[
-                  sh.directKeyBtn,
-                  isCustomKeyMode && sh.directKeyBtnActive,
-                ]}
+                className="flex-row items-center gap-[6px] self-start rounded-[20px] px-[14px] py-2"
+                style={{ backgroundColor: isCustomKeyMode ? '#B4A7E818' : '#FFF3EC' }}
                 onPress={() => {
                   setIsCustomKeyMode(true);
                   setSettingKey("");
@@ -828,15 +817,11 @@ export default function AddWorkoutModal() {
                 <Ionicons
                   name="add-circle-outline"
                   size={15}
-                  color={
-                    isCustomKeyMode ? Colors.primary : Colors.textSecondary
-                  }
+                  color={isCustomKeyMode ? '#B4A7E8' : '#8B80A8'}
                 />
                 <Text
-                  style={[
-                    sh.directKeyText,
-                    isCustomKeyMode && sh.directKeyTextActive,
-                  ]}>
+                  className="text-[13px]"
+                  style={{ color: isCustomKeyMode ? '#B4A7E8' : '#8B80A8', fontWeight: isCustomKeyMode ? '700' : '600' }}>
                   직접 입력
                 </Text>
               </TouchableOpacity>
@@ -844,31 +829,32 @@ export default function AddWorkoutModal() {
               {isCustomKeyMode && (
                 <TextInput
                   ref={customKeyInputRef}
-                  style={sh.customKeyInput}
+                  className="bg-surface-alt rounded-[14px] p-[13px] text-[15px] text-text-primary mt-[10px] border-[1.5px]"
+                  style={{ borderColor: '#B4A7E860' }}
                   placeholder="항목명 입력 (예: 케이블각도, 풀리높이)"
                   value={customKeyName}
                   onChangeText={setCustomKeyName}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor="#C4B8D4"
                   returnKeyType="next"
                 />
               )}
 
-              <Text style={[sh.label, { marginTop: 16 }]}>값 입력</Text>
+              <Text className="text-xs font-bold text-text-secondary mb-[10px] mt-4">값 입력</Text>
               <TextInput
-                style={sh.valueInput}
+                className="bg-surface-alt rounded-[14px] p-[14px] text-[15px] text-text-primary mb-4"
                 placeholder="예: 3단계, 45도, 오버핸드"
                 value={settingValue}
                 onChangeText={setSettingValue}
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor="#C4B8D4"
                 returnKeyType="done"
                 onSubmitEditing={handleAddSetting}
               />
 
               <TouchableOpacity
-                style={sh.addBtn}
+                className="bg-primary rounded-[24px] p-[15px] items-center"
                 onPress={handleAddSetting}
                 activeOpacity={0.8}>
-                <Text style={sh.addBtnText}>추가하기</Text>
+                <Text className="text-[15px] font-bold text-white">추가하기</Text>
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
@@ -877,399 +863,3 @@ export default function AddWorkoutModal() {
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-
-  content: { padding: 20, paddingBottom: 16 },
-
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.surfaceAlt,
-    backgroundColor: Colors.background,
-  },
-  addBtn: {
-    backgroundColor: Colors.workout,
-    borderRadius: 24,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  addBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-
-  // 선택된 종목 요약
-  selectedExSummary: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 14,
-    gap: 12,
-    ...CARD_SHADOW,
-  },
-  selectedGif: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: Colors.surfaceAlt,
-  },
-  selectedExInfo: { flex: 1 },
-  selectedExLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: "600",
-    marginBottom: 3,
-  },
-  selectedExName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  calEstimate: {
-    fontSize: 12,
-    color: Colors.workout,
-    fontWeight: "600",
-  },
-  selectedExRight: { alignItems: "flex-end", gap: 6 },
-  selectedExCat: {
-    fontSize: 11,
-    color: Colors.workout,
-    backgroundColor: Colors.workout + "28",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  changeExBtn: {
-    backgroundColor: Colors.primary + "18",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  changeExText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
-
-  // 검색창
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-    gap: 8,
-    ...CARD_SHADOW,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    padding: 0,
-  },
-
-  // 종목 목록
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.textSecondary,
-    marginBottom: 12,
-  },
-  catScroll: { marginBottom: 12 },
-  catChip: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    ...CARD_SHADOW,
-  },
-  catChipActive: { backgroundColor: Colors.workout + "28" },
-  catText: { fontSize: 13, color: Colors.textSecondary, fontWeight: "600" },
-  catTextActive: { color: Colors.workout, fontWeight: "700" },
-  exerciseList: { marginBottom: 8 },
-  exItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 8,
-    gap: 10,
-    ...CARD_SHADOW,
-  },
-  exGif: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: Colors.surfaceAlt,
-  },
-  exInfo: { flex: 1 },
-  exName: { fontSize: 15, fontWeight: "600", color: Colors.textPrimary },
-  exCalHint: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
-  exCat: {
-    fontSize: 12,
-    color: Colors.workout,
-    backgroundColor: Colors.workout + "28",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-
-  // 직접 추가
-  directAddBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    marginBottom: 16,
-  },
-  directAddText: { fontSize: 14, fontWeight: "600", color: Colors.primary },
-  customForm: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-    ...CARD_SHADOW,
-  },
-  customFormHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  customFormTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-  },
-  customNameInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    marginBottom: 12,
-  },
-  customAddBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    padding: 12,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  customAddBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
-
-  // 세트 섹션
-  setSection: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-    ...CARD_SHADOW,
-  },
-  setSectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    marginBottom: 14,
-  },
-  setHeaderRow: { flexDirection: "row", marginBottom: 8 },
-  setHeader: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  setRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  setNum: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    fontWeight: "700",
-  },
-  setInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 12,
-    padding: 10,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  addSetBtn: {
-    alignItems: "center",
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: Colors.workout + "18",
-    marginTop: 4,
-  },
-  addSetText: { fontSize: 13, color: Colors.workout, fontWeight: "700" },
-
-  // 설정
-  divider: {
-    height: 1,
-    backgroundColor: Colors.surfaceAlt,
-    marginVertical: 14,
-  },
-  settingsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  settingsTitle: { fontSize: 14, fontWeight: "700", color: Colors.textPrimary },
-  addSettingBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.primary + "18",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  addSettingText: { fontSize: 13, color: Colors.primary, fontWeight: "700" },
-  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: Colors.primary + "18",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  tagText: { fontSize: 12, color: Colors.primary, fontWeight: "600" },
-  settingsEmpty: { fontSize: 12, color: Colors.textMuted, fontStyle: "italic" },
-  tipInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 12,
-    padding: 12,
-    color: Colors.textPrimary,
-    fontSize: 14,
-    minHeight: 80,
-    lineHeight: 20,
-    marginTop: 10,
-  },
-
-  muscleCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 14,
-    ...CARD_SHADOW,
-  },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  loadingText: { fontSize: 13, color: Colors.textMuted },
-  emptySearch: { alignItems: "center", paddingVertical: 24 },
-  emptySearchText: { fontSize: 14, color: Colors.textMuted },
-});
-
-const sh = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(61, 50, 86, 0.4)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: 36,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: Colors.textMuted,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: Colors.textPrimary,
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.textSecondary,
-    marginBottom: 10,
-  },
-  keyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
-  keyChip: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  keyChipSaved: { borderWidth: 1, borderColor: Colors.primary + "50" },
-  keyChipActive: { backgroundColor: Colors.primary + "28" },
-  keyText: { fontSize: 13, color: Colors.textSecondary, fontWeight: "600" },
-  keyTextActive: { color: Colors.primary, fontWeight: "700" },
-  savedKeyWrap: { flexDirection: "row", alignItems: "center", gap: 2 },
-  savedKeyDelete: { marginLeft: -6, marginTop: -8 },
-  directDivider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 12,
-  },
-  directLine: { flex: 1, height: 1, backgroundColor: Colors.surfaceAlt },
-  directKeyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  directKeyBtnActive: { backgroundColor: Colors.primary + "18" },
-  directKeyText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    fontWeight: "600",
-  },
-  directKeyTextActive: { color: Colors.primary, fontWeight: "700" },
-  customKeyInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 14,
-    padding: 13,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.primary + "60",
-  },
-  valueInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    marginBottom: 16,
-  },
-  addBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24,
-    padding: 15,
-    alignItems: "center",
-  },
-  addBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
-});

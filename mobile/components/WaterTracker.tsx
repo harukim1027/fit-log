@@ -1,17 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWaterStore } from '../store/waterStore';
-import { Colors } from '../constants/colors';
+import { Card, ProgressBar } from './ui';
 
 const PRESETS = [150, 200, 250, 500];
-
-const CARD_SHADOW = {
-  shadowColor: '#B4A0D8',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.09,
-  shadowRadius: 12,
-  elevation: 3,
-};
 
 export default function WaterTracker() {
   const { total, target, addWater, resetWater } = useWaterStore();
@@ -19,63 +11,45 @@ export default function WaterTracker() {
   const cups = Math.floor(total / 250);
 
   return (
-    <View style={s.card}>
-      <View style={s.header}>
-        <View style={s.titleRow}>
-          <View style={s.iconBg}>
-            <Text style={s.icon}>💧</Text>
+    <Card className="mb-4">
+      <View className="flex-row justify-between items-center mb-3">
+        <View className="flex-row items-center gap-2">
+          <View className="w-[34px] h-[34px] rounded-xl bg-water/30 items-center justify-center">
+            <Text className="text-base">💧</Text>
           </View>
-          <Text style={s.title}>물 섭취</Text>
+          <Text className="text-base font-bold text-text-primary">물 섭취</Text>
         </View>
-        <TouchableOpacity onPress={() => resetWater()}>
-          <Ionicons name="refresh-outline" size={18} color={Colors.textMuted} />
+        <TouchableOpacity onPress={resetWater}>
+          <Ionicons name="refresh-outline" size={18} color="#C4B8D4" />
         </TouchableOpacity>
       </View>
 
-      <View style={s.progressRow}>
-        <Text style={s.totalText}>{total}ml</Text>
-        <Text style={s.targetText}>/ {target}ml</Text>
+      <View className="flex-row items-baseline gap-1 mb-2">
+        <Text className="text-[22px] font-bold text-water">{total}ml</Text>
+        <Text className="text-sm text-text-secondary">/ {target}ml</Text>
       </View>
 
-      <View style={s.progressBg}>
-        <View style={[s.progressFill, { width: `${progress * 100}%` as `${number}%` }]} />
-      </View>
+      <ProgressBar value={progress} color="water" className="mb-3" />
 
-      <View style={s.cupsRow}>
+      <View className="flex-row gap-1 mb-3">
         {[...Array(8)].map((_, i) => (
-          <View key={i} style={s.cup}>
-            <Text style={s.cupEmoji}>{i < cups ? '💧' : '🫙'}</Text>
+          <View key={i} className="flex-1 items-center">
+            <Text className="text-[20px]">{i < cups ? '💧' : '🫙'}</Text>
           </View>
         ))}
       </View>
 
-      <View style={s.presets}>
+      <View className="flex-row gap-2">
         {PRESETS.map(amt => (
-          <TouchableOpacity key={amt} style={s.presetBtn} onPress={() => addWater(amt)} activeOpacity={0.7}>
-            <Text style={s.presetText}>+{amt}ml</Text>
+          <TouchableOpacity
+            key={amt}
+            className="flex-1 bg-water/20 rounded-[20px] py-2 items-center"
+            onPress={() => addWater(amt)}
+            activeOpacity={0.7}>
+            <Text className="text-xs font-bold text-water">+{amt}ml</Text>
           </TouchableOpacity>
         ))}
       </View>
-    </View>
+    </Card>
   );
 }
-
-const s = StyleSheet.create({
-  card: { backgroundColor: Colors.surface, borderRadius: 22, padding: 20, marginBottom: 16, ...CARD_SHADOW },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconBg: { width: 34, height: 34, borderRadius: 12, backgroundColor: Colors.water + '30', alignItems: 'center', justifyContent: 'center' },
-  icon: { fontSize: 16 },
-  title: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  progressRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 10 },
-  totalText: { fontSize: 22, fontWeight: '700', color: Colors.water },
-  targetText: { fontSize: 14, color: Colors.textSecondary },
-  progressBg: { height: 12, backgroundColor: Colors.surfaceAlt, borderRadius: 6, overflow: 'hidden', marginBottom: 14 },
-  progressFill: { height: '100%', backgroundColor: Colors.water, borderRadius: 6 },
-  cupsRow: { flexDirection: 'row', gap: 4, marginBottom: 14 },
-  cup: { flex: 1, alignItems: 'center' },
-  cupEmoji: { fontSize: 20 },
-  presets: { flexDirection: 'row', gap: 8 },
-  presetBtn: { flex: 1, backgroundColor: Colors.water + '22', borderRadius: 20, paddingVertical: 9, alignItems: 'center' },
-  presetText: { fontSize: 12, fontWeight: '700', color: Colors.water },
-});

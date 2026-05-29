@@ -1,6 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { Colors } from '../constants/colors';
 
 interface Props {
   consumed: number;
@@ -13,10 +12,10 @@ export default function CalorieRing({ consumed, target, size = 180 }: Props) {
   const radius = (size - 24) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDash = circumference * (1 - progress);
-  const color = progress >= 1 ? Colors.danger : Colors.diet;
+  const color = progress >= 1 ? '#F4ADAD' : '#A8DCC8';
 
   return (
-    <View style={[r.wrap, { width: size, height: size }]}>
+    <View className="items-center justify-center" style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
         <Circle
           cx={size / 2}
@@ -40,19 +39,17 @@ export default function CalorieRing({ consumed, target, size = 180 }: Props) {
           origin={`${size / 2}, ${size / 2}`}
         />
       </Svg>
-      <View style={r.center}>
-        <Text style={[r.consumed, { color }]}>{consumed}</Text>
-        <Text style={r.unit}>kcal</Text>
-        <Text style={r.target}>/ {target}</Text>
+      <View className="absolute items-center">
+        <Text className="font-extrabold" style={{ fontSize: 30, color }}>
+          {consumed}
+        </Text>
+        <Text className="text-xs text-text-secondary" style={{ marginTop: -2 }}>
+          kcal
+        </Text>
+        <Text className="text-text-muted" style={{ fontSize: 11 }}>
+          / {target}
+        </Text>
       </View>
     </View>
   );
 }
-
-const r = StyleSheet.create({
-  wrap: { alignItems: 'center', justifyContent: 'center' },
-  center: { position: 'absolute', alignItems: 'center' },
-  consumed: { fontSize: 30, fontWeight: '800' },
-  unit: { fontSize: 12, color: Colors.textSecondary, marginTop: -2 },
-  target: { fontSize: 11, color: Colors.textMuted },
-});
