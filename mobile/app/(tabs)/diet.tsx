@@ -15,7 +15,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useDietStore } from "../../store/dietStore";
 import { MEAL_LABELS } from "../../constants";
 import { MealType } from "../../types/diet";
-import { Icon, MealSun, MealLunch, MealMoon, MealSnack } from "../../components/AppIcons";
+import { Icon, MealSun, MealLunch, MealMoon, MealSnack, SaladIcon } from "../../components/AppIcons";
 
 const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -137,7 +137,7 @@ export default function DietScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="식단 🥗" />
+      <Header title="식단" />
       <View className="flex-1 overflow-hidden" {...panResponder.panHandlers}>
         <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
           <ScrollView
@@ -220,7 +220,7 @@ export default function DietScreen() {
                   </View>
                   {!meal || meal.foods.length === 0 ? (
                     <View style={{ alignItems: 'center', paddingVertical: 10, gap: 4 }}>
-                      <Text style={{ fontSize: 28 }}>🍽️</Text>
+                      <SaladIcon size={28} />
                       <Text style={{ fontSize: 12, fontWeight: '700', color: '#B4CFC5' }}>아직 기록이 없어요</Text>
                     </View>
                   ) : (

@@ -38,6 +38,8 @@ const LINE_PATHS: Record<string, string> = {
   check: "M5 13l4 4 10-11",
   chevronRight: "M9 6l6 6-6 6",
   chevronLeft: "M15 6l-6 6 6 6",
+  chevronUp: "M6 15l6-6 6 6",
+  chevronDown: "M6 9l6 6 6-6",
   plus: "M12 5v14M5 12h14",
   trash: "M5 7h14M10 7V5h4v2M6 7l1 13h10l1-13",
   clock: "M12 13v4l2.5 1.5M9 3h6", // + circle (handled below)
@@ -46,6 +48,20 @@ const LINE_PATHS: Record<string, string> = {
   person: "M5 20c0-3.3 3-5.5 7-5.5s7 2.2 7 5.5", // + head circle below
   logout: "M14 5h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-4M10 12h9M16 9l3 3-3 3",
   protein: "M7 9V6m10 3V6M7 18v3m10-3v3M7 9h10M7 12.5h10",
+  calendar: "M5 7h14a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1ZM4 11.5h16M9 4v3M15 4v3",
+  bulb: "M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.5 10.9c.6.5.9 1.2.9 1.9V16h5.2v-.2c0-.7.3-1.4.9-1.9A6 6 0 0 0 12 3Z",
+  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4",
+  barcode: "M4 6v12M7 6v12M10 6v9M13 6v12M16 6v9M19 6v12",
+  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
+  settings: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM4 12c0-.6 0-1 .1-1.5l-1.8-1.4 2-3.4 2.1.9c.7-.5 1-.7 1.7-1L10.5 2h3l.4 2.2c.7.3 1 .5 1.7 1l2.1-.9 2 3.4-1.8 1.4c.1.5.1.9.1 1.5s0 1-.1 1.5l1.8 1.4-2 3.4-2.1-.9c-.7.5-1 .7-1.7 1L13.5 22h-3l-.4-2.2c-.7-.3-1-.5-1.7-1l-2.1.9-2-3.4 1.8-1.4C4 13 4 12.6 4 12Z",
+  plusCircle: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM12 8v8M8 12h8",
+  close: "M6 6l12 12M18 6 6 18",
+  closeCircle: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6",
+  info: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM12 11v5.5M12 7.8h0.01",
+  chat: "M5 6a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H10l-4 3v-3H6a1 1 0 0 1-1-1ZM9 10h0.01M12 10h0.01M15 10h0.01",
+  phone: "M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM10.5 18.5h3",
+  timer: "M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 9v4l2.5 2M9 2h6",
+  stop: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9.5 9.5h5v5h-5Z",
 };
 
 export function Icon({ name, size = 22, color = MINT.mintInk }: IconProps & { name: keyof typeof LINE_PATHS | string }) {
@@ -183,5 +199,58 @@ export const WaterDrop = ({ size = 22, filled = true }: IconProps & { filled?: b
       <Path d="M12 3C12 3 4 13 4 19a8 8 0 0 0 16 0C20 13 12 3 12 3Z" fill="none" stroke="#CFE3F6" strokeWidth={2} />
     </Svg>
   );
+
+export const PlayIcon = ({ size = 18, color = "#fff" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M8 5l12 7-12 7Z" fill={color} />
+  </Svg>
+);
+
+export const HeartIcon = ({ size = 20, filled = true, color }: IconProps & { filled?: boolean }) =>
+  filled ? (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M12 20S4 14.5 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5.5-8 11-8 11Z" fill={color ?? "#FF9DB0"} />
+    </Svg>
+  ) : (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20S4 14.5 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5.5-8 11-8 11Z"
+        stroke={color ?? "#B4CFC5"}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+
+export const GoalIcon = ({ goal, size = 24 }: { goal: string; size?: number }) => {
+  switch (goal) {
+    case "체중감량":
+      return <FlameIcon size={size} color="#FF9DB0" />;
+    case "근육증가":
+      return <Icon name="dumbbell" size={size} color="#E6932F" />;
+    case "체력유지":
+      return <BoltIcon size={size} color="#FFD36E" />;
+    case "건강관리":
+    default:
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M12 8c-2-3-8-2-8 4 0 6 5 10 8 10s8-4 8-10c0-6-6-7-8-4ZM12 8V4"
+            stroke="#2E9E83"
+            strokeWidth={2.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M9 12l2 2 4-4"
+            stroke="#2E9E83"
+            strokeWidth={2.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+  }
+};
 
 export default Icon;

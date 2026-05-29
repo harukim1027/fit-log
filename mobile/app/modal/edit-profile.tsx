@@ -18,12 +18,13 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
 import { useDietStore } from "../../store/dietStore";
 import { Colors } from "../../constants/colors";
+import { GoalIcon } from "../../components/AppIcons";
 
 const GOALS = [
-  { key: "체중감량", emoji: "🔥" },
-  { key: "근육증가", emoji: "💪" },
-  { key: "체력유지", emoji: "⚡" },
-  { key: "건강관리", emoji: "🌿" },
+  { key: "체중감량" },
+  { key: "근육증가" },
+  { key: "체력유지" },
+  { key: "건강관리" },
 ];
 
 const CARD_SHADOW = {
@@ -172,7 +173,9 @@ export default function EditProfileModal() {
                 key={g.key}
                 style={[s.goalBtn, goal === g.key && s.goalBtnActive]}
                 onPress={() => setGoal(g.key)}>
-                <Text style={s.goalEmoji}>{g.emoji}</Text>
+                <View style={s.goalEmoji}>
+                  <GoalIcon goal={g.key} size={26} />
+                </View>
                 <Text style={[s.goalText, goal === g.key && s.goalTextActive]}>
                   {g.key}
                 </Text>
@@ -296,7 +299,7 @@ const s = StyleSheet.create({
     ...CARD_SHADOW,
   },
   goalBtnActive: { backgroundColor: Colors.primary + "18", borderColor: Colors.primary },
-  goalEmoji: { fontSize: 22 },
+  goalEmoji: { alignItems: 'center' as const, justifyContent: 'center' as const, height: 28 },
   goalText: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
   goalTextActive: { color: Colors.primary, fontWeight: "700" },
 

@@ -28,7 +28,7 @@ export default function WaterTracker() {
             <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90' }}>/ {target}ml</Text>
           </View>
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', marginTop: 2 }}>
-            오늘 {cups}잔째 · {progress >= 1 ? '목표 달성! 🎉' : '잘하고 있어요!'}
+            오늘 {cups}잔째 · {progress >= 1 ? '목표 달성!' : '잘하고 있어요!'}
           </Text>
         </View>
         <TouchableOpacity onPress={() => resetWater()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

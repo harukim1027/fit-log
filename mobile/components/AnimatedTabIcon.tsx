@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from './AppIcons';
 
 type Props = {
-  name: React.ComponentProps<typeof Ionicons>['name'];
+  name: string;
   size: number;
   color: string;
   focused: boolean;
@@ -33,7 +33,7 @@ export default function AnimatedTabIcon({ name, size, color, focused, accentColo
           paddingVertical: 5,
         },
       ]}>
-      <Ionicons name={name} size={size} color={color} />
+      <Icon name={name} size={size} color={color} />
     </Animated.View>
   );
 }

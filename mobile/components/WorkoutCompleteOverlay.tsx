@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Text, TouchableOpacity, Animated } from 'react-native';
+import { Text, View, TouchableOpacity, Animated } from 'react-native';
+import { Icon, FlameIcon } from './AppIcons';
 
 type Props = {
   visible: boolean;
@@ -63,16 +64,19 @@ export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }:
           opacity: cardOpacity,
           transform: [{ translateY: cardY }],
         }}>
-        <Animated.Text style={{ fontSize: 68, marginBottom: 16, transform: [{ scale: emojiScale }] }}>
-          🎉
-        </Animated.Text>
+        <Animated.View style={{ marginBottom: 16, transform: [{ scale: emojiScale }] }}>
+          <Icon name="trophy" size={68} color="#FFD36E" />
+        </Animated.View>
         <Text style={{ fontSize: 24, fontWeight: '800', color: '#34514A', marginBottom: 8, textAlign: 'center' }}>
           운동 완료!
         </Text>
         {calories > 0 && (
-          <Text style={{ fontSize: 17, color: '#E76C86', fontWeight: '700', marginBottom: 28 }}>
-            🔥 {calories} kcal 소모
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 28 }}>
+            <FlameIcon size={18} color="#E76C86" />
+            <Text style={{ fontSize: 17, color: '#E76C86', fontWeight: '700' }}>
+              {calories} kcal 소모
+            </Text>
+          </View>
         )}
         <TouchableOpacity
           style={{
@@ -83,7 +87,7 @@ export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }:
           }}
           onPress={onDismiss}
           activeOpacity={0.8}>
-          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>완료 🙌</Text>
+          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>완료</Text>
         </TouchableOpacity>
       </Animated.View>
     </Animated.View>

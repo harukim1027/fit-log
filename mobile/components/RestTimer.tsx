@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
-import { Icon } from './AppIcons';
+import { Icon, PlayIcon } from './AppIcons';
 
 const PRESETS = [30, 60, 90, 120, 180];
 
@@ -81,7 +81,7 @@ export default function RestTimer() {
           style={{ flexDirection: 'row', backgroundColor: '#FFC078', borderRadius: 999, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', gap: 6 }}
           onPress={start}
           activeOpacity={0.8}>
-          <Icon name="play" size={18} color="#fff" />
+          <PlayIcon size={18} color="#fff" />
           <Text style={{ fontSize: 14, fontWeight: '900', color: '#fff' }}>시작</Text>
         </TouchableOpacity>
       )}
