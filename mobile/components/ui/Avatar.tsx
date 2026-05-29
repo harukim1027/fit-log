@@ -50,7 +50,7 @@ export function Avatar({
   source,
   size = "md",
   badge = false,
-  badgeColor = "#A8DCC8",
+  badgeColor = "#6FD3B6",
   className,
   style,
   ...props

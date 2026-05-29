@@ -48,7 +48,7 @@ const BODY_FILL   = '#EDE8F8';   // inactive muscle fill
 const BODY_BORDER = Colors.textMuted;
 
 const CARD_SHADOW = {
-  shadowColor: '#B4A0D8', shadowOffset: { width: 0, height: 1 },
+  shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 1 },
   shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
 };
 

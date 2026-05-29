@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../AppIcons";
 import { useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 
@@ -42,7 +43,7 @@ export function Header({
             style={s.iconBtn}
             onPress={handleBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+            <Icon name="chevronLeft" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
         )}
         {showClose && !showBack && (
@@ -50,7 +51,7 @@ export function Header({
             style={s.iconBtn}
             onPress={handleClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
+            <Text style={{ fontSize: 18, color: Colors.textPrimary, fontWeight: '700' }}>✕</Text>
           </TouchableOpacity>
         )}
       </View>

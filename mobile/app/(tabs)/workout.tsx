@@ -6,24 +6,39 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Header, Card } from "../../components/ui";
 import { useEffect, useState, useMemo } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../../components/AppIcons";
 import { Calendar } from "react-native-calendars";
 import { useWorkoutStore, calculateCaloriesBurned, CompareMode } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import RestTimer from "../../components/RestTimer";
+import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { WorkoutSession } from "../../types/workout";
+
+if (Platform.OS === "android") {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
 
 type Tab = "today" | "history";
 
 const SHADOW = {
-  shadowColor: "#B4A0D8",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.09,
-  shadowRadius: 12,
+  shadowColor: "#4EBFA0",
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.20,
+  shadowRadius: 24,
+  elevation: 4,
+};
+const SHADOW_SM = {
+  shadowColor: "#4EBFA0",
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.16,
+  shadowRadius: 14,
   elevation: 3,
 };
 
@@ -40,19 +55,19 @@ const formatSelectedDate = (dateStr: string) => {
 };
 
 const CAL_THEME = {
-  backgroundColor: '#FFF8F2',
+  backgroundColor: '#EFFAF4',
   calendarBackground: '#FFFFFF',
-  textSectionTitleColor: '#8B80A8',
-  selectedDayBackgroundColor: '#B4A7E8',
+  textSectionTitleColor: '#7E9A90',
+  selectedDayBackgroundColor: '#6FD3B6',
   selectedDayTextColor: "#fff",
-  todayTextColor: '#B4A7E8',
-  todayBackgroundColor: '#B4A7E8' + "18",
-  dayTextColor: '#3D3256',
-  textDisabledColor: '#C4B8D4',
-  dotColor: '#F4B8A8',
+  todayTextColor: '#2E9E83',
+  todayBackgroundColor: '#6FD3B6' + "18",
+  dayTextColor: '#34514A',
+  textDisabledColor: '#B4CFC5',
+  dotColor: '#FF9DB0',
   selectedDotColor: "#fff",
-  arrowColor: '#B4A7E8',
-  monthTextColor: '#3D3256',
+  arrowColor: '#6FD3B6',
+  monthTextColor: '#34514A',
   textDayFontWeight: "600" as const,
   textMonthFontWeight: "800" as const,
   textDayHeaderFontWeight: "600" as const,
@@ -91,6 +106,7 @@ export default function WorkoutScreen() {
   const { user } = useAuthStore();
   const [tab, setTab] = useState<Tab>("today");
   const [compareModes, setCompareModes] = useState<Record<string, CompareMode>>({});
+  const [completeCalories, setCompleteCalories] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     new Date().toISOString().substring(0, 7)
@@ -130,7 +146,7 @@ export default function WorkoutScreen() {
         text: "저장 및 종료",
         onPress: async () => {
           await endSession(calories);
-          Alert.alert("운동 완료 🎉", `🔥 ${calories} kcal 소모`);
+          setCompleteCalories(calories);
         },
       },
     ]);
@@ -140,14 +156,14 @@ export default function WorkoutScreen() {
     const result: Record<string, any> = {};
     sessions.forEach((s) => {
       const key = SESSION_DATE_KEY(s);
-      result[key] = { marked: true, dotColor: '#F4B8A8' };
+      result[key] = { marked: true, dotColor: '#FF9DB0' };
     });
     if (selectedDate) {
       result[selectedDate] = {
         ...(result[selectedDate] ?? {}),
         selected: true,
-        selectedColor: '#B4A7E8',
-        dotColor: result[selectedDate]?.marked ? "#fff" : '#F4B8A8',
+        selectedColor: '#6FD3B6',
+        dotColor: result[selectedDate]?.marked ? "#fff" : '#FF9DB0',
       };
     }
     return result;
@@ -176,7 +192,7 @@ export default function WorkoutScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator size="large" color="#B4A7E8" />
+        <ActivityIndicator size="large" color="#2E9E83" />
       </View>
     );
   }
@@ -185,24 +201,16 @@ export default function WorkoutScreen() {
     <View className="flex-1 bg-background">
       <Header title="운동 💪" />
 
-      {/* 탭 */}
-      <View className="flex-row bg-surface-alt rounded-2xl p-1 mx-5 mb-4">
+      {/* 세그먼트 탭 (알약) */}
+      <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginHorizontal: 18, marginBottom: 14, gap: 4 }}>
         {(["today", "history"] as Tab[]).map((t) => {
           const isActive = tab === t;
           return (
             <TouchableOpacity
               key={t}
-              className={[
-                "flex-1 py-2 items-center rounded-xl",
-                isActive ? "bg-surface" : "",
-              ].join(" ")}
-              style={isActive ? SHADOW : undefined}
+              style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: '#fff', ...SHADOW_SM } : undefined]}
               onPress={() => setTab(t)}>
-              <Text
-                className={[
-                  "text-sm",
-                  isActive ? "text-text-primary font-bold" : "text-text-muted font-medium",
-                ].join(" ")}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
                 {t === "today" ? "오늘 운동" : "히스토리"}
               </Text>
             </TouchableOpacity>
@@ -229,36 +237,34 @@ export default function WorkoutScreen() {
                 style={SHADOW}
                 onPress={startSession}
                 activeOpacity={0.8}>
-                <Ionicons name="play" size={20} color="#fff" />
+                <Icon name="play" size={20} color="#fff" />
                 <Text className="text-base font-bold text-white">운동 시작</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
-              <View className="flex-row justify-between items-start mb-4">
+              <View style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, SHADOW]}>
                 <View>
-                  <Text className="text-[22px] font-bold text-text-primary">운동 중 🔥</Text>
-                  <Text className="text-sm text-text-secondary mt-1">
-                    {activeSession.exercises.length}종목 · 총 볼륨{" "}
-                    {getTotalVolume(activeSession).toLocaleString()}kg
+                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#34514A' }}>운동 중 🔥</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', marginTop: 3 }}>
+                    {activeSession.exercises.length}종목 · 총 볼륨 {getTotalVolume(activeSession).toLocaleString()}kg
                   </Text>
                 </View>
                 <TouchableOpacity
-                  className="bg-success/30 rounded-[20px] px-4 py-2"
+                  style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 }}
                   onPress={handleEnd}>
-                  <Text className="text-sm font-bold text-success">저장 및 종료</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>저장 및 종료</Text>
                 </TouchableOpacity>
               </View>
 
               <RestTimer />
 
               <TouchableOpacity
-                className="flex-row items-center gap-2 bg-surface rounded-2xl p-3 mb-4"
-                style={SHADOW}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 12, marginBottom: 12, alignSelf: 'stretch', justifyContent: 'center' }}
                 onPress={() => router.push("/modal/add-workout")}
                 activeOpacity={0.8}>
-                <Ionicons name="add-circle" size={20} color="#F4B8A8" />
-                <Text className="text-sm font-semibold text-workout">운동 종목 추가</Text>
+                <Icon name="plus" size={18} color="#2E9E83" />
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#2E9E83' }}>운동 종목 추가</Text>
               </TouchableOpacity>
 
               {activeSession.exercises.length === 0 ? (
@@ -293,18 +299,19 @@ export default function WorkoutScreen() {
                   return (
                     <Card key={ex.id} className="mb-3">
                       {/* 종목명 + 카테고리 */}
-                      <View className="flex-row justify-between items-center mb-3">
-                        <View className="flex-row items-center gap-2 flex-1">
-                          <Text className="text-base font-bold text-text-primary">{ex.name}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>{ex.name}</Text>
                           {isPR && (
-                            <View className="bg-stats/60 rounded-xl px-2 py-0.5">
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#B86A00' }}>🏆 PR</Text>
+                            <View style={{ backgroundColor: '#FFF6D9', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Icon name="trophy" size={11} color="#D9A100" />
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: '#D9A100' }}>PR</Text>
                             </View>
                           )}
                         </View>
-                        <Text className="text-xs text-workout bg-workout/30 px-2 py-1 rounded-xl">
-                          {ex.category}
-                        </Text>
+                        <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>{ex.category}</Text>
+                        </View>
                       </View>
 
                       {/* 비교 기준 선택 */}
@@ -327,7 +334,7 @@ export default function WorkoutScreen() {
                                 style={{
                                   fontSize: 11,
                                   fontWeight: '600',
-                                  color: isSelected ? '#fff' : '#C4B8D4',
+                                  color: isSelected ? '#fff' : '#B4CFC5',
                                 }}>
                                 {label}
                               </Text>
@@ -349,18 +356,18 @@ export default function WorkoutScreen() {
                       {/* 기록 없음 안내 */}
                       {cachedHistory && !comparisonSession && (
                         <View className="flex-row items-center gap-1 mb-2 px-2 py-[7px] bg-surface-alt rounded-lg">
-                          <Ionicons name="information-circle-outline" size={14} color="#C4B8D4" />
+                          <Text style={{ fontSize: 12, color: '#B4CFC5' }}>ℹ</Text>
                           <Text className="text-xs text-text-muted">이 기준의 기록이 없어요</Text>
                         </View>
                       )}
 
                       {/* 세트 헤더 */}
-                      <View className="flex-row items-center mb-1 pb-2 border-b border-border">
-                        <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 0.5 }}>세트</Text>
-                        <Text className="text-[11px] text-text-muted font-semibold text-center flex-1">무게(kg)</Text>
-                        <Text className="text-[11px] text-text-muted font-semibold text-center flex-1">횟수</Text>
-                        <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 0.5 }}>볼륨</Text>
-                        <View style={{ width: 24 }} />
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 8, marginBottom: 4, borderBottomWidth: 1, borderStyle: 'dashed', borderBottomColor: '#D6F0E6' }}>
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', width: 28 }}>세트</Text>
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>무게(kg)</Text>
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>횟수</Text>
+                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 0.8 }}>볼륨</Text>
+                        <View style={{ width: 22 }} />
                       </View>
 
                       {/* 세트 행들 */}
@@ -376,18 +383,20 @@ export default function WorkoutScreen() {
                               "flex-row items-start py-2",
                               st.completed ? "opacity-60" : "",
                             ].join(" ")}
-                            onPress={() => updateSet(ex.id, st.id, { completed: !st.completed })}
+                            onPress={() => {
+                              LayoutAnimation.configureNext({
+                                duration: 220,
+                                update: { type: 'spring', springDamping: 0.65 },
+                              });
+                              updateSet(ex.id, st.id, { completed: !st.completed });
+                            }}
                             activeOpacity={0.7}>
                             <View
-                              className={[
-                                "w-[26px] h-[26px] rounded-full items-center justify-center mr-2 mt-0.5",
-                                st.completed ? "bg-success" : "bg-surface-alt",
-                              ].join(" ")}
-                              style={{ flex: 0.5 }}>
+                              style={{ width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center', marginRight: 2, marginTop: 2, backgroundColor: st.completed ? '#6FD3B6' : '#E7F7F0', flexShrink: 0 }}>
                               {st.completed ? (
-                                <Ionicons name="checkmark" size={14} color="#fff" />
+                                <Icon name="check" size={13} color="#fff" />
                               ) : (
-                                <Text className="text-xs font-semibold text-text-secondary">{idx + 1}</Text>
+                                <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>{idx + 1}</Text>
                               )}
                             </View>
                             <View className="items-center py-0.5 flex-1">
@@ -426,7 +435,7 @@ export default function WorkoutScreen() {
                             <TouchableOpacity
                               style={{ marginTop: 3 }}
                               onPress={() => removeSet(ex.id, st.id)}>
-                              <Ionicons name="close-circle-outline" size={18} color="#C4B8D4" />
+                              <Icon name="trash" size={15} color="#B4CFC5" />
                             </TouchableOpacity>
                           </TouchableOpacity>
                         );
@@ -527,6 +536,12 @@ export default function WorkoutScreen() {
           )}
         </ScrollView>
       )}
+
+      <WorkoutCompleteOverlay
+        visible={completeCalories !== null}
+        calories={completeCalories ?? 0}
+        onDismiss={() => setCompleteCalories(null)}
+      />
     </View>
   );
 }
@@ -549,7 +564,7 @@ function DiffBadge({
         fontSize: 10,
         fontWeight: '700',
         lineHeight: 14,
-        color: up ? '#E05555' : '#4A90D9',
+        color: up ? '#E76C86' : '#3F8DD6',
       }}>
       {up ? `↑+${diff}` : `↓${diff}`}{unit}
     </Text>
@@ -583,7 +598,10 @@ function HistoryCard({
     <Card bare className="overflow-hidden mb-3">
       <TouchableOpacity
         className="flex-row justify-between items-center px-[18px] py-[13px] border-b border-surface-alt"
-        onPress={() => setExpanded((v) => !v)}
+        onPress={() => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setExpanded((v) => !v);
+        }}
         activeOpacity={0.7}>
         <Text className="text-sm font-semibold text-text-secondary">
           {session.exercises.length}종목
@@ -593,11 +611,7 @@ function HistoryCard({
             <Text className="text-xs font-bold text-danger">🔥 {session.caloriesBurned} kcal</Text>
           )}
           <Text className="text-sm font-bold text-workout">{volume.toLocaleString()}kg</Text>
-          <Ionicons
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={16}
-            color="#C4B8D4"
-          />
+          <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '700' }}>{expanded ? '▲' : '▼'}</Text>
         </View>
       </TouchableOpacity>
 
@@ -608,7 +622,7 @@ function HistoryCard({
             const curMaxWeight = ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
             const delta = prevMaxWeight != null ? curMaxWeight - prevMaxWeight : null;
             const changeIcon = delta == null ? null : delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
-            const changeColor = delta == null ? '#C4B8D4' : delta > 0 ? '#A8DCC8' : delta < 0 ? '#F4ADAD' : '#C4B8D4';
+            const changeColor = delta == null ? '#B4CFC5' : delta > 0 ? '#2E9E83' : delta < 0 ? '#E76C86' : '#B4CFC5';
 
             return (
               <View
@@ -661,7 +675,7 @@ function HistoryCard({
 
                 {!!ex.tip && (
                   <View className="flex-row items-start gap-1 bg-warning/30 rounded-xl p-2 mb-1">
-                    <Ionicons name="chatbubble-ellipses-outline" size={13} color="#8B80A8" />
+                    <Text style={{ fontSize: 11, color: '#7E9A90' }}>💡</Text>
                     <Text className="text-xs text-text-secondary flex-1 leading-5">{ex.tip}</Text>
                   </View>
                 )}

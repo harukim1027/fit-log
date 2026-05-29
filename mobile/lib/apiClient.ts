@@ -10,4 +10,20 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
+let _onUnauthorized: (() => void) | null = null;
+
+export const setUnauthorizedHandler = (handler: () => void) => {
+  _onUnauthorized = handler;
+};
+
+apiClient.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status === 401 && _onUnauthorized) {
+      _onUnauthorized();
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default apiClient;

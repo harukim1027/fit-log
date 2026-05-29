@@ -12,6 +12,8 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Header, Card, Input, Button } from "../../components/ui";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { Animated } from "react-native";
+import { Icon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
 import { Colors, MEAL_LABELS } from "../../constants";
@@ -47,6 +49,9 @@ export default function AddFoodModal() {
   const [manualCarbs, setManualCarbs] = useState("");
   const [manualFat, setManualFat] = useState("");
   const [manualAmount, setManualAmount] = useState("100");
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const successScale = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchFavorites();
@@ -77,8 +82,10 @@ export default function AddFoodModal() {
       amount: amt,
       unit: "g",
     };
+    setIsSuccess(true);
+    Animated.spring(successScale, { toValue: 1, damping: 8, stiffness: 200, useNativeDriver: true }).start();
     addFood(mealType, item);
-    router.back();
+    setTimeout(() => router.back(), 650);
   };
 
   const handleAddSearch = () => {
@@ -122,8 +129,10 @@ export default function AddFoodModal() {
       amount: parseFloat(manualAmount) || 100,
       unit: "g",
     };
+    setIsSuccess(true);
+    Animated.spring(successScale, { toValue: 1, damping: 8, stiffness: 200, useNativeDriver: true }).start();
     addFood(mealType, food);
-    router.back();
+    setTimeout(() => router.back(), 650);
   };
 
   return (
@@ -149,26 +158,23 @@ export default function AddFoodModal() {
 
       <View className="px-5 flex-1">
         {/* 탭 */}
-        <View className="flex-row bg-surface-alt rounded-2xl p-1 mb-4">
-          {TABS.map((t) => (
-            <TouchableOpacity
-              key={t.key}
-              className={[
-                "flex-1 py-2 items-center rounded-xl",
-                tab === t.key ? "bg-surface shadow-card" : "",
-              ].join(" ")}
-              onPress={() => setTab(t.key)}>
-              <Text
-                className={[
-                  "text-sm",
-                  tab === t.key
-                    ? "text-text-primary font-bold"
-                    : "text-text-muted font-medium",
-                ].join(" ")}>
-                {t.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
+          {TABS.map((t) => {
+            const isActive = tab === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                style={[
+                  { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 },
+                  isActive ? { backgroundColor: '#fff', shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
+                ]}
+                onPress={() => setTab(t.key)}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {tab === "search" && (
@@ -260,12 +266,20 @@ export default function AddFoodModal() {
                 </Text>
               </Card>
             )}
-            <Button
-              title="추가하기"
+            <TouchableOpacity
+              className="bg-diet rounded-3xl py-4 items-center mt-2 mb-2"
               onPress={handleAddSearch}
-              fullWidth
-              className="mt-2 mb-2"
-            />
+              disabled={isSuccess}
+              activeOpacity={0.8}>
+              {isSuccess ? (
+                <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, transform: [{ scale: successScale }] }}>
+                  <Icon name="check" size={20} color="#fff" />
+                  <Text className="text-white font-bold text-base">추가 완료!</Text>
+                </Animated.View>
+              ) : (
+                <Text className="text-white font-bold text-base">추가하기</Text>
+              )}
+            </TouchableOpacity>
           </>
         )}
 
@@ -363,7 +377,20 @@ export default function AddFoodModal() {
                 keyboardType="numeric"
               />
             </View>
-            <Button title="추가하기" onPress={handleAddManual} fullWidth className="mb-2" />
+            <TouchableOpacity
+              className="bg-diet rounded-3xl py-4 items-center mb-2"
+              onPress={handleAddManual}
+              disabled={isSuccess}
+              activeOpacity={0.8}>
+              {isSuccess ? (
+                <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, transform: [{ scale: successScale }] }}>
+                  <Icon name="check" size={20} color="#fff" />
+                  <Text className="text-white font-bold text-base">추가 완료!</Text>
+                </Animated.View>
+              ) : (
+                <Text className="text-white font-bold text-base">추가하기</Text>
+              )}
+            </TouchableOpacity>
           </ScrollView>
         )}
       </View>

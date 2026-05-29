@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Header, Button, Input } from "../components/ui";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
 import { useHealthStore } from "../store/healthStore";
@@ -194,7 +194,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: "#B4A0D8",
+                        shadowColor: "#4EBFA0",
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.08,
                         shadowRadius: 10,
@@ -252,7 +252,7 @@ export default function OnboardingScreen() {
                   {healthLoading ? (
                     <ActivityIndicator size="small" color="#FF3B30" />
                   ) : (
-                    <Ionicons name="heart" size={18} color="#FF3B30" />
+                    <Text style={{ fontSize: 16 }}>❤️</Text>
                   )}
                   <Text className="text-[15px] font-bold flex-1" style={{ color: '#FF3B30' }}>
                     {healthLoading ? "가져오는 중..." : "Apple Health 연동하기"}
@@ -275,7 +275,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: "#B4A0D8",
+                        shadowColor: "#4EBFA0",
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.08,
                         shadowRadius: 10,
@@ -360,7 +360,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: "#B4A0D8",
+                        shadowColor: "#4EBFA0",
                         shadowOffset: { width: 0, height: 1 },
                         shadowOpacity: 0.07,
                         shadowRadius: 8,
@@ -395,7 +395,7 @@ export default function OnboardingScreen() {
                   onChangeText={setTargetCal}
                   keyboardType="numeric"
                   selectTextOnFocus
-                  placeholderTextColor="#C4B8D4"
+                  placeholderTextColor="#B4CFC5"
                 />
                 <Text className="text-sm font-semibold text-text-muted">kcal / 일</Text>
               </View>
@@ -411,7 +411,7 @@ export default function OnboardingScreen() {
           {step < 2 ? (
             <Button
               title="다음"
-              rightIcon={<Ionicons name="chevron-forward" size={20} color="#fff" />}
+              rightIcon={<Icon name="chevronRight" size={20} color="#fff" />}
               onPress={goNext}
               fullWidth
             />

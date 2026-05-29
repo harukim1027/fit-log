@@ -15,7 +15,6 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { useDietStore } from "../../store/dietStore";
 import { Colors } from "../../constants/colors";
@@ -28,7 +27,7 @@ const GOALS = [
 ];
 
 const CARD_SHADOW = {
-  shadowColor: "#B4A0D8",
+  shadowColor: "#4EBFA0",
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.09,
   shadowRadius: 10,
@@ -87,7 +86,7 @@ export default function EditProfileModal() {
           style={s.closeBtn}
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close" size={24} color={Colors.textPrimary} />
+          <Text style={{ fontSize: 18, color: Colors.textPrimary, fontWeight: '700' }}>✕</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>프로필 편집</Text>
         <View style={s.headerRight} />
@@ -260,12 +259,14 @@ const s = StyleSheet.create({
   genderBtn: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 20,
     paddingVertical: 14,
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: 'transparent',
     ...CARD_SHADOW,
   },
-  genderBtnActive: { backgroundColor: Colors.primary + "22" },
+  genderBtnActive: { backgroundColor: Colors.primary + "18", borderColor: Colors.primary },
   genderText: { fontSize: 15, fontWeight: "600", color: Colors.textSecondary },
   genderTextActive: { color: Colors.primary, fontWeight: "700" },
 
@@ -286,13 +287,15 @@ const s = StyleSheet.create({
   goalBtn: {
     width: "47%",
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 20,
     paddingVertical: 14,
     alignItems: "center",
     gap: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
     ...CARD_SHADOW,
   },
-  goalBtnActive: { backgroundColor: Colors.primary + "22" },
+  goalBtnActive: { backgroundColor: Colors.primary + "18", borderColor: Colors.primary },
   goalEmoji: { fontSize: 22 },
   goalText: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
   goalTextActive: { color: Colors.primary, fontWeight: "700" },
@@ -309,7 +312,7 @@ const s = StyleSheet.create({
   },
   saveBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 24,
+    borderRadius: 999,
     paddingVertical: 16,
     alignItems: "center",
   },

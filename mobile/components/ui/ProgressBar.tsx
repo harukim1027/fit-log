@@ -14,13 +14,13 @@ export interface ProgressBarProps extends ViewProps {
 }
 
 const fillColor: Record<ProgressColor, string> = {
-  primary: "#B4A7E8",
-  success: "#A8DCC8",
-  warning: "#FFCBA4",
-  danger:  "#F4ADAD",
-  diet:    "#A8DCC8",
-  workout: "#F4B8A8",
-  water:   "#A8C8F0",
+  primary: "#6FD3B6",
+  success: "#9BE3CE",
+  warning: "#FFC078",
+  danger:  "#FF9DB0",
+  diet:    "#FFC078",
+  workout: "#FF9DB0",
+  water:   "#8FC7F5",
 };
 
 export function ProgressBar({

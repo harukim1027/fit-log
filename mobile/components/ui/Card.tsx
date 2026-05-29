@@ -20,7 +20,7 @@ export function Card({
   return (
     <View
       className={[
-        "bg-surface rounded-2xl",
+        "bg-surface rounded-[30px]",
         bare ? "" : "p-4",
         className ?? "",
       ]
@@ -35,10 +35,10 @@ export function Card({
 
 const styles = StyleSheet.create({
   shadow: {
-    shadowColor: "#B4A0D8",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.09,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowColor: "#4EBFA0",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.20,
+    shadowRadius: 24,
+    elevation: 4,
   },
 });

@@ -46,7 +46,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
           ]
             .filter(Boolean)
             .join(" ")}
-          placeholderTextColor="#C4B8D4"
+          placeholderTextColor="#B4CFC5"
           {...props}
         />
 

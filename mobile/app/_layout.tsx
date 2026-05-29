@@ -5,16 +5,20 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { useRouter, useSegments } from "expo-router";
 import { useAuthStore } from "../store/authStore";
+import { setUnauthorizedHandler } from "../lib/apiClient";
 import { Colors } from "../constants/colors";
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { token, isReady, loadToken, user } = useAuthStore();
+  const { token, isReady, loadToken, logout, user } = useAuthStore();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout().then(() => router.replace("/auth/login" as any));
+    });
     loadToken();
   }, []);
 
@@ -65,33 +69,31 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: Colors.background },
+            animation: "slide_from_right",
           }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: "none" }} />
+          <Stack.Screen name="auth/login" options={{ headerShown: false, animation: "fade" }} />
+          <Stack.Screen name="auth/register" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade_from_bottom" }} />
           <Stack.Screen
             name="modal/add-food"
-            options={{ presentation: "fullScreenModal", headerShown: false }}
+            options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
           />
           <Stack.Screen
             name="modal/add-workout"
-            options={{
-              presentation: "fullScreenModal",
-              headerShown: false,
-            }}
+            options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
           />
           <Stack.Screen
             name="modal/barcode-scan"
-            options={{ presentation: "fullScreenModal", headerShown: false }}
+            options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
           />
           <Stack.Screen
             name="modal/set-target"
-            options={{ presentation: "fullScreenModal", headerShown: false }}
+            options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
           />
           <Stack.Screen
             name="modal/edit-profile"
-            options={{ presentation: "fullScreenModal", headerShown: false }}
+            options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
           />
         </Stack>
       </AuthGate>
