@@ -74,7 +74,7 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90' }}>{today}</Text>
           </View>
           <Text style={{ fontSize: 22, fontWeight: '900', color: '#34514A', letterSpacing: -0.5, lineHeight: 28 }}>
-            {user?.name ? `${user.name}님,` : '안녕하세요,'}{'\n'}오늘도 토닥토닥! 🌿
+            {user?.name ? `${user.name}님,` : '안녕하세요,'}{'\n'}오늘도 토닥토닥!
           </Text>
         </View>
         <TouchableOpacity
@@ -168,7 +168,7 @@ export default function HomeScreen() {
                   <Icon name="clock" size={28} color="#E6932F" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>운동 중... 💪</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>운동 중...</Text>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', marginTop: 3 }}>
                     {activeSession.exercises.length}종목 기록 중
                   </Text>
@@ -176,7 +176,7 @@ export default function HomeScreen() {
               </View>
             ) : (
               <View style={{ alignItems: 'center', paddingVertical: 10, gap: 6 }}>
-                <Text style={{ fontSize: 38 }}>🏃‍♀️</Text>
+                <Icon name="dumbbell" size={38} color="#B4CFC5" />
                 <Text style={{ fontSize: 12, fontWeight: '700', color: '#B4CFC5' }}>오늘 운동 기록이 없어요</Text>
               </View>
             )}

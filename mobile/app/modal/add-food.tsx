@@ -11,9 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Header, Card, Input, Button } from "../../components/ui";
 import { useState, useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { Animated } from "react-native";
-import { Icon } from "../../components/AppIcons";
+import { Icon, HeartIcon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
 import { Colors, MEAL_LABELS } from "../../constants";
@@ -150,7 +149,7 @@ export default function AddFoodModal() {
                 params: { mealType },
               } as any)
             }>
-            <Ionicons name="barcode-outline" size={20} color={Colors.primary} />
+            <Icon name="barcode" size={20} color={Colors.primary} />
             <Text className="text-sm font-bold text-primary">바코드</Text>
           </TouchableOpacity>
         }
@@ -204,7 +203,7 @@ export default function AddFoodModal() {
               className="flex-1">
               {results.length === 0 && !loading && (
                 <View className="items-center mt-10 gap-2">
-                  <Text className="text-5xl">🔍</Text>
+                  <Icon name="search" size={40} color="#B4CFC5" />
                   <Text className="text-center text-text-muted text-sm leading-6">
                     식품명을 입력하고 검색해주세요{"\n"}한글은 닭가슴살, 영어는 chicken
                   </Text>
@@ -236,8 +235,8 @@ export default function AddFoodModal() {
                         {food.calories}kcal
                       </Text>
                       <TouchableOpacity onPress={() => handleToggleFavorite(food)}>
-                        <Ionicons
-                          name={isFavorite(food.name) ? "heart" : "heart-outline"}
+                        <HeartIcon
+                          filled={isFavorite(food.name)}
                           size={20}
                           color={isFavorite(food.name) ? Colors.secondary : Colors.textMuted}
                         />
@@ -290,7 +289,7 @@ export default function AddFoodModal() {
             className="flex-1">
             {favorites.length === 0 ? (
               <View className="items-center mt-10 gap-2">
-                <Text className="text-5xl">🤍</Text>
+                <HeartIcon size={40} filled={false} />
                 <Text className="text-center text-text-muted text-sm leading-6">
                   즐겨찾기한 식품이 없어요{"\n"}검색 후 하트를 눌러 추가해보세요
                 </Text>
@@ -319,7 +318,7 @@ export default function AddFoodModal() {
                         <Text className="text-xs text-diet font-bold">추가</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => removeFavorite(food.id)}>
-                        <Ionicons name="heart" size={20} color={Colors.secondary} />
+                        <HeartIcon size={20} filled color={Colors.secondary} />
                       </TouchableOpacity>
                     </View>
                   </View>

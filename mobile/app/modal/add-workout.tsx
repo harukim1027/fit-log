@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Header } from "../../components/ui";
 import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
-import { Icon } from "../../components/AppIcons";
+import { Icon, FlameIcon } from "../../components/AppIcons";
 import apiClient from "../../lib/apiClient";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useExerciseStore } from "../../store/exerciseStore";
@@ -370,9 +370,12 @@ export default function AddWorkoutModal() {
                   <Text className="text-[11px] text-text-muted font-semibold mb-[3px]">선택된 종목</Text>
                   <Text className="text-base font-bold text-text-primary mb-1">{selectedExercise.name}</Text>
                   {selectedExercise.caloriesPerMinute ? (
-                    <Text className="text-xs font-semibold" style={{ color: '\#FF9DB0' }}>
-                      🔥 약 {Math.round(selectedExercise.caloriesPerMinute * 30)} kcal (30분 기준)
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                      <FlameIcon size={11} color="#FF9DB0" />
+                      <Text className="text-xs font-semibold" style={{ color: '#FF9DB0' }}>
+                        약 {Math.round(selectedExercise.caloriesPerMinute * 30)} kcal (30분 기준)
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
                 <View className="items-end gap-[6px]">
@@ -406,7 +409,7 @@ export default function AddWorkoutModal() {
               <View
                 className="flex-row items-center bg-surface rounded-[14px] px-3 py-[10px] mb-3 gap-2"
                 style={SHADOW}>
-                <Text style={{ fontSize: 14, color: '#B4CFC5' }}>🔍</Text>
+                <Icon name="search" size={16} color="#B4CFC5" />
                 <TextInput
                   className="flex-1 text-[15px] text-text-primary p-0"
                   placeholder="한글 검색 또는 영어로 API 검색..."
@@ -530,7 +533,7 @@ export default function AddWorkoutModal() {
                         <Text className="text-[11px] text-text-muted mt-[2px]">
                           {displayCat}
                           {ex.equipmentKo ? ` · ${ex.equipmentKo}` : ""}
-                          {ex.caloriesPerMinute ? ` · 🔥 ${ex.caloriesPerMinute} kcal/분` : ""}
+                          {ex.caloriesPerMinute ? ` · ${ex.caloriesPerMinute} kcal/분` : ""}
                         </Text>
                       </View>
                       <Text
@@ -622,7 +625,7 @@ export default function AddWorkoutModal() {
                 setsSectionY.current = e.nativeEvent.layout.y;
               }}>
               <Text className="text-[15px] font-bold text-text-primary mb-[14px]">
-                {selectedExercise.name} 세트 기록 🏋️
+                {selectedExercise.name} 세트 기록
               </Text>
               <View className="flex-row mb-2">
                 <Text className="text-[11px] text-text-muted font-semibold text-center" style={{ flex: 0.5 }}>세트</Text>
@@ -680,7 +683,10 @@ export default function AddWorkoutModal() {
               {/* 설정 */}
               <View className="h-px bg-surface-alt my-[14px]" />
               <View className="flex-row justify-between items-center mb-[10px]">
-                <Text className="text-[14px] font-bold text-text-primary">⚙️ 기구 설정</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Icon name="settings" size={14} color="#34514A" />
+                  <Text className="text-[14px] font-bold text-text-primary">기구 설정</Text>
+                </View>
                 <TouchableOpacity
                   className="flex-row items-center gap-1 rounded-[20px] px-3 py-[6px]"
                   style={{ backgroundColor: '#6FD3B618' }}
@@ -711,7 +717,10 @@ export default function AddWorkoutModal() {
 
               {/* 팁 */}
               <View className="h-px bg-surface-alt my-[14px]" />
-              <Text className="text-[14px] font-bold text-text-primary">💡 운동 팁</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Icon name="bulb" size={14} color="#7E9A90" />
+                <Text className="text-[14px] font-bold text-text-primary">운동 팁</Text>
+              </View>
               <TextInput
                 className="bg-surface-alt rounded-[12px] p-3 text-text-primary text-[14px] mt-[10px]"
                 style={{ minHeight: 80, lineHeight: 20 }}

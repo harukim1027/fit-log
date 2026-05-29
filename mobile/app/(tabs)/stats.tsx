@@ -9,8 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Header, Card } from "../../components/ui";
-import { Ionicons } from "@expo/vector-icons";
-import { Icon } from "../../components/AppIcons";
+import { Icon, HeartIcon, SaladIcon, FlameIcon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
@@ -130,7 +129,7 @@ export default function StatsScreen() {
   return (
     <View className="flex-1 bg-background">
       <Header
-        title="통계 📊"
+        title="통계"
         subtitle={user?.name ?? undefined}
         rightElement={
           <View className="flex-row items-center gap-1">
@@ -177,7 +176,7 @@ export default function StatsScreen() {
             />
           ) : (
             <View className="items-center py-5 gap-1">
-              <Text className="text-[40px]">🥗</Text>
+              <SaladIcon size={40} />
               <Text className="text-sm text-text-muted text-center">식단 기록이 없어요</Text>
             </View>
           )}
@@ -203,7 +202,7 @@ export default function StatsScreen() {
             />
           ) : (
             <View className="items-center py-5 gap-1">
-              <Text className="text-[40px]">🏋️</Text>
+              <Icon name="dumbbell" size={40} color="#B4CFC5" />
               <Text className="text-sm text-text-muted text-center">운동 기록이 없어요</Text>
             </View>
           )}
@@ -211,7 +210,7 @@ export default function StatsScreen() {
 
         {/* 주간 칼로리 소모 */}
         <Card className="mb-4">
-          <Text className="text-[15px] font-bold text-text-secondary mb-4">주간 운동 칼로리 소모 🔥</Text>
+          <Text className="text-[15px] font-bold text-text-secondary mb-4">주간 운동 칼로리 소모</Text>
           {last7BurnData.some((v) => v > 0) ? (
             <BarChart
               data={{ labels: dayLabels, datasets: [{ data: last7BurnData }] }}
@@ -229,7 +228,7 @@ export default function StatsScreen() {
             />
           ) : (
             <View className="items-center py-5 gap-1">
-              <Text className="text-[40px]">🔥</Text>
+              <FlameIcon size={40} />
               <Text className="text-sm text-text-muted text-center">운동 기록이 없어요</Text>
             </View>
           )}
@@ -250,7 +249,7 @@ export default function StatsScreen() {
                     <ActivityIndicator size="small" color="#FF3B30" />
                   ) : (
                     <>
-                      <Ionicons name="heart" size={14} color="#FF3B30" />
+                      <HeartIcon size={14} filled color="#FF3B30" />
                       <Text className="text-sm font-semibold" style={{ color: '#FF3B30' }}>가져오기</Text>
                     </>
                   )}
@@ -260,7 +259,7 @@ export default function StatsScreen() {
 
             {!healthAvailable ? (
               <View className="items-center py-5 gap-2">
-                <Ionicons name="phone-portrait-outline" size={32} color="#B4CFC5" />
+                <Icon name="phone" size={32} color="#B4CFC5" />
                 <Text className="text-sm text-text-muted text-center">
                   Apple Health는 실제 기기 빌드에서 사용 가능해요
                 </Text>
@@ -299,7 +298,7 @@ export default function StatsScreen() {
               </>
             ) : (
               <View className="items-center py-5 gap-2">
-                <Ionicons name="heart-outline" size={36} color="#B4CFC5" />
+                <HeartIcon size={36} filled={false} />
                 <Text className="text-sm text-text-muted text-center">
                   Apple Health에서 신체 데이터를 가져오세요
                 </Text>
@@ -320,7 +319,7 @@ export default function StatsScreen() {
         {/* 종목별 성장 그래프 */}
         {exerciseNames.length > 0 && (
           <Card className="mb-4">
-            <Text className="text-[15px] font-bold text-text-secondary mb-4">종목별 성장 그래프 📈</Text>
+            <Text className="text-[15px] font-bold text-text-secondary mb-4">종목별 성장 그래프</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -369,7 +368,7 @@ export default function StatsScreen() {
               />
             ) : (
               <View className="items-center py-5 gap-1">
-                <Text className="text-[40px]">📊</Text>
+                <Icon name="chart" size={40} color="#B4CFC5" />
                 <Text className="text-sm text-text-muted text-center">
                   {activeExercise ? "2회 이상 기록이 있어야 그래프가 표시돼요" : "운동 기록이 없어요"}
                 </Text>
@@ -381,7 +380,7 @@ export default function StatsScreen() {
         {/* PR 기록 */}
         {prs.length > 0 && (
           <View className="bg-surface rounded-[30px] p-[18px] mb-4" style={{ shadowColor: "#4EBFA0", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.20, shadowRadius: 24, elevation: 4 }}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>종목별 최고 기록 PR 🏆</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>종목별 최고 기록 PR</Text>
             {prs.map(([name, vol], idx) => (
               <View
                 key={name}

@@ -13,16 +13,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Header, Button, Input } from "../components/ui";
-import { Icon } from "../components/AppIcons";
+import { Icon, GoalIcon, HeartIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
 import { useHealthStore } from "../store/healthStore";
 
 const GOALS = [
-  { key: "체중감량", emoji: "🔥", desc: "체지방 줄이기" },
-  { key: "근육증가", emoji: "💪", desc: "근육량 늘리기" },
-  { key: "체력유지", emoji: "⚡", desc: "현재 체형 유지" },
-  { key: "건강관리", emoji: "🌿", desc: "전반적인 건강" },
+  { key: "체중감량", desc: "체지방 줄이기" },
+  { key: "근육증가", desc: "근육량 늘리기" },
+  { key: "체력유지", desc: "현재 체형 유지" },
+  { key: "건강관리", desc: "전반적인 건강" },
 ];
 
 const ACTIVITY_LEVELS = [
@@ -175,7 +175,7 @@ export default function OnboardingScreen() {
           {step === 0 && (
             <View className="pt-2">
               <Text className="text-[15px] font-semibold text-primary mb-2">
-                안녕하세요, {user?.name ?? ""}님! 👋
+                안녕하세요, {user?.name ?? ""}님!
               </Text>
               <Text className="text-[26px] font-extrabold text-text-primary leading-9 mb-2">
                 어떤 목표를 갖고 계신가요?
@@ -202,7 +202,7 @@ export default function OnboardingScreen() {
                       }}
                       onPress={() => setGoal(g.key)}
                       activeOpacity={0.7}>
-                      <Text className="text-[36px]">{g.emoji}</Text>
+                      <GoalIcon goal={g.key} size={36} />
                       <Text
                         className={[
                           "text-[15px] font-bold",
@@ -252,7 +252,7 @@ export default function OnboardingScreen() {
                   {healthLoading ? (
                     <ActivityIndicator size="small" color="#FF3B30" />
                   ) : (
-                    <Text style={{ fontSize: 16 }}>❤️</Text>
+                    <HeartIcon size={16} filled color="#FF3B30" />
                   )}
                   <Text className="text-[15px] font-bold flex-1" style={{ color: '#FF3B30' }}>
                     {healthLoading ? "가져오는 중..." : "Apple Health 연동하기"}
@@ -283,7 +283,7 @@ export default function OnboardingScreen() {
                       }}
                       onPress={() => setGender(g)}
                       activeOpacity={0.8}>
-                      <Text className="text-[32px]">{g === "남" ? "🧑" : "👩"}</Text>
+                      <Icon name="person" size={32} color="#B4CFC5" />
                       <Text
                         className={[
                           "text-base font-bold",
@@ -417,7 +417,7 @@ export default function OnboardingScreen() {
             />
           ) : (
             <Button
-              title={isLoading ? "저장 중..." : "시작하기 🚀"}
+              title={isLoading ? "저장 중..." : "시작하기"}
               onPress={handleFinish}
               loading={isLoading}
               fullWidth

@@ -13,7 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { Header, Card } from "../../components/ui";
 import { useEffect, useState, useMemo } from "react";
-import { Icon } from "../../components/AppIcons";
+import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { Calendar } from "react-native-calendars";
 import { useWorkoutStore, calculateCaloriesBurned, CompareMode } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
@@ -199,7 +199,7 @@ export default function WorkoutScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title="운동 💪" />
+      <Header title="운동" />
 
       {/* 세그먼트 탭 (알약) */}
       <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginHorizontal: 18, marginBottom: 14, gap: 4 }}>
@@ -225,7 +225,7 @@ export default function WorkoutScreen() {
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
           {!activeSession ? (
             <View className="items-center justify-center py-[60px] gap-2">
-              <Text className="text-[64px]">🏋️‍♀️</Text>
+              <Icon name="dumbbell" size={64} color="#B4CFC5" />
               <Text className="text-[20px] font-bold text-text-primary text-center">
                 오늘 운동을 시작해볼까요?
               </Text>
@@ -237,7 +237,7 @@ export default function WorkoutScreen() {
                 style={SHADOW}
                 onPress={startSession}
                 activeOpacity={0.8}>
-                <Icon name="play" size={20} color="#fff" />
+                <PlayIcon size={20} color="#fff" />
                 <Text className="text-base font-bold text-white">운동 시작</Text>
               </TouchableOpacity>
             </View>
@@ -245,7 +245,7 @@ export default function WorkoutScreen() {
             <>
               <View style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, SHADOW]}>
                 <View>
-                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#34514A' }}>운동 중 🔥</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#34514A' }}>운동 중</Text>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', marginTop: 3 }}>
                     {activeSession.exercises.length}종목 · 총 볼륨 {getTotalVolume(activeSession).toLocaleString()}kg
                   </Text>
@@ -269,7 +269,7 @@ export default function WorkoutScreen() {
 
               {activeSession.exercises.length === 0 ? (
                 <View className="items-center justify-center py-[60px] gap-2">
-                  <Text className="text-[64px]">🎯</Text>
+                  <Icon name="target" size={64} color="#B4CFC5" />
                   <Text className="text-sm text-text-secondary text-center">운동 종목을 추가해주세요</Text>
                 </View>
               ) : (
@@ -356,7 +356,7 @@ export default function WorkoutScreen() {
                       {/* 기록 없음 안내 */}
                       {cachedHistory && !comparisonSession && (
                         <View className="flex-row items-center gap-1 mb-2 px-2 py-[7px] bg-surface-alt rounded-lg">
-                          <Text style={{ fontSize: 12, color: '#B4CFC5' }}>ℹ</Text>
+                          <Icon name="info" size={12} color="#B4CFC5" />
                           <Text className="text-xs text-text-muted">이 기준의 기록이 없어요</Text>
                         </View>
                       )}
@@ -408,7 +408,7 @@ export default function WorkoutScreen() {
                                   ].join(" ")}>
                                   {st.weight}
                                 </Text>
-                                {isSetPR && <Text style={{ fontSize: 10 }}>🏆</Text>}
+                                {isSetPR && <Icon name="trophy" size={10} color="#D9A100" />}
                               </View>
                               <DiffBadge value={st.weight} prevValue={prev?.weight} unit="kg" />
                             </View>
@@ -456,8 +456,9 @@ export default function WorkoutScreen() {
                         </View>
                       )}
                       {!!ex.tip && (
-                        <View className="bg-warning/20 rounded-xl p-2 mt-2">
-                          <Text className="text-xs text-text-secondary leading-5">💡 {ex.tip}</Text>
+                        <View className="flex-row items-start gap-1 bg-warning/20 rounded-xl p-2 mt-2">
+                          <Icon name="bulb" size={13} color="#7E9A90" />
+                          <Text className="text-xs text-text-secondary leading-5 flex-1">{ex.tip}</Text>
                         </View>
                       )}
                     </Card>
@@ -478,12 +479,19 @@ export default function WorkoutScreen() {
               <Text className="text-sm font-semibold text-text-secondary">
                 {visibleMonth.split("-")[0]}년 {parseInt(visibleMonth.split("-")[1])}월
               </Text>
-              <Text className="text-[18px] font-bold text-text-primary">
-                {monthSessions.length}회 운동 · {monthVolume.toLocaleString()}kg
-                {monthCalories > 0 ? ` · 🔥 ${monthCalories.toLocaleString()} kcal` : ""}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                <Text className="text-[18px] font-bold text-text-primary">
+                  {monthSessions.length}회 운동 · {monthVolume.toLocaleString()}kg
+                </Text>
+                {monthCalories > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <FlameIcon size={14} color="#FF9DB0" />
+                    <Text className="text-[15px] font-bold text-text-primary">{monthCalories.toLocaleString()} kcal</Text>
+                  </View>
+                )}
+              </View>
             </View>
-            <Text className="text-[36px]">📆</Text>
+            <Icon name="calendar" size={36} color="#7E9A90" />
           </Card>
 
           {/* 달력 */}
@@ -511,7 +519,7 @@ export default function WorkoutScreen() {
               </Text>
               {selectedSessions.length === 0 ? (
                 <Card className="items-center gap-2">
-                  <Text className="text-[36px]">🙈</Text>
+                  <Icon name="person" size={36} color="#B4CFC5" />
                   <Text className="text-sm text-text-muted">운동 기록이 없어요</Text>
                 </Card>
               ) : (
@@ -529,7 +537,7 @@ export default function WorkoutScreen() {
 
           {sessions.length === 0 && (
             <View className="items-center justify-center py-[60px] gap-2">
-              <Text className="text-[64px]">📅</Text>
+              <Icon name="calendar" size={64} color="#B4CFC5" />
               <Text className="text-[20px] font-bold text-text-primary text-center">운동 기록이 없어요</Text>
               <Text className="text-sm text-text-secondary text-center">운동을 시작하고 기록을 쌓아보세요</Text>
             </View>
@@ -608,7 +616,10 @@ function HistoryCard({
         </Text>
         <View className="flex-row items-center gap-2">
           {!!session.caloriesBurned && (
-            <Text className="text-xs font-bold text-danger">🔥 {session.caloriesBurned} kcal</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <FlameIcon size={11} color="#E76C86" />
+              <Text className="text-xs font-bold text-danger">{session.caloriesBurned} kcal</Text>
+            </View>
           )}
           <Text className="text-sm font-bold text-workout">{volume.toLocaleString()}kg</Text>
           <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '700' }}>{expanded ? '▲' : '▼'}</Text>
@@ -675,7 +686,7 @@ function HistoryCard({
 
                 {!!ex.tip && (
                   <View className="flex-row items-start gap-1 bg-warning/30 rounded-xl p-2 mb-1">
-                    <Text style={{ fontSize: 11, color: '#7E9A90' }}>💡</Text>
+                    <Icon name="bulb" size={11} color="#7E9A90" />
                     <Text className="text-xs text-text-secondary flex-1 leading-5">{ex.tip}</Text>
                   </View>
                 )}
@@ -687,7 +698,10 @@ function HistoryCard({
             {!!session.caloriesBurned && (
               <View className="flex-row justify-end items-center gap-2">
                 <Text className="text-xs font-semibold text-text-muted">칼로리 소모</Text>
-                <Text className="text-[15px] font-bold text-danger">🔥 {session.caloriesBurned} kcal</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <FlameIcon size={13} color="#E76C86" />
+                  <Text className="text-[15px] font-bold text-danger">{session.caloriesBurned} kcal</Text>
+                </View>
               </View>
             )}
             <View className="flex-row justify-end items-center gap-2">
