@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Exercise, WorkoutSession, WorkoutSet } from '../types/workout';
+import { Routine } from './routineStore';
 import apiClient from '../lib/apiClient';
 
 export type CompareMode = 'recent' | 'pr' | 'week' | 'month';
@@ -60,12 +61,14 @@ interface WorkoutStore {
   isLoading: boolean;
   exerciseHistoryCache: Map<string, ExerciseHistory>;
   startSession: () => void;
+  startSessionWithRoutine: (routine: Routine) => void;
   endSession: (caloriesBurned: number) => Promise<void>;
+  deleteSession: (id: string) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, 'sets'>) => void;
   addSet: (exerciseId: string, set: WorkoutSet) => void;
   updateSet: (exerciseId: string, setId: string, data: Partial<WorkoutSet>) => void;
   removeSet: (exerciseId: string, setId: string) => void;
-  updateExercise: (exerciseId: string, data: Partial<Pick<Exercise, 'isSingleArm' | 'differentSides'>>) => void;
+  updateExercise: (exerciseId: string, data: Partial<Pick<Exercise, 'isSingleArm' | 'differentSides' | 'name'>>) => void;
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
   fetchSessions: () => Promise<void>;
@@ -90,6 +93,37 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       note: '',
     };
     set({ activeSession: session, sessionStartTime: Date.now() });
+  },
+
+  startSessionWithRoutine: (routine) => {
+    const now = Date.now();
+    const exercises: Exercise[] = routine.exercises.map((ex, i) => ({
+      id: `${now}-${i}`,
+      name: ex.name,
+      category: ex.category,
+      sets: [],
+    }));
+    const session: WorkoutSession = {
+      id: now.toString(),
+      date: todayStr(),
+      exercises,
+      durationMinutes: 0,
+      note: '',
+    };
+    set({ activeSession: session, sessionStartTime: now });
+    exercises.forEach(ex => {
+      get().fetchExerciseHistory(ex.name, 'recent');
+      get().fetchExerciseHistory(ex.name, 'pr');
+    });
+  },
+
+  deleteSession: async (id: string) => {
+    try {
+      await apiClient.delete(`/workout/${id}`);
+      set(s => ({ sessions: s.sessions.filter(s => s.id !== id) }));
+    } catch (e) {
+      console.error('운동 기록 삭제 실패', e);
+    }
   },
 
   endSession: async (caloriesBurned: number) => {

@@ -64,6 +64,9 @@ const LINE_PATHS: Record<string, string> = {
   stop: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9.5 9.5h5v5h-5Z",
   eyeoff: "M3 3l18 18M10.5 10.7a2 2 0 0 0 2.8 2.8M6.5 6.6C4.6 7.9 3 10 3 12c0 0 3 6 9 6 1.6 0 3-.4 4.2-1.1M9.5 5.2A9 9 0 0 1 12 5c6 0 9 6 9 6a16 16 0 0 1-2 2.8",
   nutrition: "M12 8c-2-3-8-2-8 4 0 6 5 10 8 10s8-4 8-10c0-6-6-7-8-4ZM12 8V4",
+  camera: "M3 9a2 2 0 0 1 2-2h2l1.5-2h5L15 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9ZM12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  gallery: "M4 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM4 15l5-5 4 4 3-3 4 4M15 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z",
+  pencil: "M4 20l4-1L20 7a1.4 1.4 0 0 0-2-2L6 17l-2 3Z",
 };
 
 export function Icon({ name, size = 22, color = MINT.mintInk }: IconProps & { name: keyof typeof LINE_PATHS | string }) {

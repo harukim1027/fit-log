@@ -11,6 +11,7 @@ import { FavoriteModule } from './favorite/favorite.module';
 import { WaterModule } from './water/water.module';
 import { WorkoutSettingsModule } from './workout-settings/workout-settings.module';
 import { ExerciseModule } from './exercise/exercise.module';
+import { RoutineModule } from './routine/routine.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ExerciseModule } from './exercise/exercise.module';
     WaterModule,
     WorkoutSettingsModule,
     ExerciseModule,
+    RoutineModule,
   ],
 })
 export class AppModule {}

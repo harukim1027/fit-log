@@ -36,6 +36,15 @@ export class User {
   @Column({ default: false })
   isOnboardingDone: boolean;
 
+  @Column({ default: 50 })
+  targetCarbsRatio: number;
+
+  @Column({ default: 30 })
+  targetProteinRatio: number;
+
+  @Column({ default: 20 })
+  targetFatRatio: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

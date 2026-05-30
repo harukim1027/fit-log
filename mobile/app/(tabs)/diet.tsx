@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState as useLocalState } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  Alert,
   ActivityIndicator,
   PanResponder,
   Animated,
@@ -62,6 +63,9 @@ export default function DietScreen() {
     getTodayDiet,
     getTotalCalories,
     targetCalories,
+    targetCarbsRatio,
+    targetProteinRatio,
+    targetFatRatio,
     removeFood,
     fetchDiet,
     isLoading,
@@ -69,6 +73,7 @@ export default function DietScreen() {
     dailyDiets,
   } = useDietStore();
 
+  const [snackCardNames, setSnackCardNames] = useLocalState<Record<string, string>>({});
   const slideAnim = useRef(new Animated.Value(0)).current;
   const isAnimating = useRef(false);
   const currentDateRef = useRef(currentDate);
@@ -188,14 +193,23 @@ export default function DietScreen() {
                 <View style={{ flex: fat / totalMacro, backgroundColor: '#FF9DB0' }} />
               </View>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <MacroChip label="탄수화물" value={carbs + "g"} color="#E6932F" bg="#FFC07820" />
-                <MacroChip label="단백질" value={protein + "g"} color="#2E9E83" bg="#6FD3B620" />
-                <MacroChip label="지방" value={fat + "g"} color="#E76C86" bg="#FF9DB020" />
+                {(() => {
+                  const targetCarbsG = Math.round((targetCalories * targetCarbsRatio / 100) / 4);
+                  const targetProteinG = Math.round((targetCalories * targetProteinRatio / 100) / 4);
+                  const targetFatG = Math.round((targetCalories * targetFatRatio / 100) / 9);
+                  return (
+                    <>
+                      <MacroChip label="탄수화물" value={carbs + "g"} target={targetCarbsG} color="#E6932F" bg="#FFC07820" />
+                      <MacroChip label="단백질" value={protein + "g"} target={targetProteinG} color="#2E9E83" bg="#6FD3B620" />
+                      <MacroChip label="지방" value={fat + "g"} target={targetFatG} color="#E76C86" bg="#FF9DB020" />
+                    </>
+                  );
+                })()}
               </View>
             </View>
 
-            {/* 식사별 카드 */}
-            {MEAL_TYPES.map((type) => {
+            {/* 식사별 카드 (아침/점심/저녁) */}
+            {(['breakfast', 'lunch', 'dinner'] as const).map((type) => {
               const meal = diet?.meals.find((m) => m.type === type);
               const mealCal = meal?.foods.reduce((s, f) => s + f.calories, 0) ?? 0;
               return (
@@ -225,29 +239,85 @@ export default function DietScreen() {
                     </View>
                   ) : (
                     meal.foods.map((food) => (
-                      <View
-                        key={food.id}
-                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E7F7F0', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10, marginTop: 7 }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#34514A' }}>{food.name}</Text>
-                          <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#7E9A90', marginTop: 2 }}>
-                            {food.amount}{food.unit} · 탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={{ fontSize: 12, fontWeight: '900', color: '#2E9E83' }}>{food.calories}kcal</Text>
-                          {isToday(currentDate) && (
-                            <TouchableOpacity onPress={() => removeFood(type, food.id, dateStr(currentDate))}>
-                              <Icon name="trash" size={15} color="#B4CFC5" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
+                      <FoodRow key={food.id} food={food} mealType={type} date={dateStr(currentDate)} isToday={isToday(currentDate)} onRemove={removeFood} />
                     ))
                   )}
                 </View>
               );
             })}
+
+            {/* 간식 카드들 */}
+            {(diet?.snackCards ?? [{ id: 'snack-default', name: '간식', foods: [] }]).map((card, cardIdx) => {
+              const cardCal = card.foods.reduce((s, f) => s + f.calories, 0);
+              const cardName = snackCardNames[card.id] ?? card.name;
+              return (
+                <View key={card.id} style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 16, marginBottom: 10 }, SHADOW]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 34, height: 34, borderRadius: 13, backgroundColor: MEAL_BG['snack'], alignItems: 'center', justifyContent: 'center' }}>
+                        {MEAL_ICONS['snack']}
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 15, fontWeight: '900', color: '#34514A' }}>{cardName}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90' }}>{cardCal} kcal</Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {cardIdx > 0 && (
+                        <TouchableOpacity
+                          style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: '#FFE8EF', alignItems: 'center', justifyContent: 'center' }}
+                          onPress={() => {
+                            if (card.foods.length > 0) {
+                              Alert.alert('간식 카드 삭제', '이 간식 카드의 모든 기록이 삭제돼요. 계속할까요?', [
+                                { text: '취소', style: 'cancel' },
+                                {
+                                  text: '삭제', style: 'destructive',
+                                  onPress: () => card.foods.forEach(f => removeFood('snack', f.id, dateStr(currentDate))),
+                                },
+                              ]);
+                            }
+                          }}>
+                          <Icon name="close" size={13} color="#E76C86" />
+                        </TouchableOpacity>
+                      )}
+                      {isToday(currentDate) && (
+                        <TouchableOpacity
+                          style={{ width: 32, height: 32, borderRadius: 12, backgroundColor: '#E7F7F0', alignItems: 'center', justifyContent: 'center' }}
+                          onPress={() => router.push({ pathname: "/modal/add-food", params: { mealType: 'snack', snackCardId: card.id } })}>
+                          <Icon name="plus" size={18} color="#2E9E83" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                  {card.foods.length === 0 ? (
+                    <View style={{ alignItems: 'center', paddingVertical: 10, gap: 4 }}>
+                      <SaladIcon size={28} />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#B4CFC5' }}>아직 기록이 없어요</Text>
+                    </View>
+                  ) : (
+                    card.foods.map((food) => (
+                      <FoodRow key={food.id} food={food} mealType="snack" date={dateStr(currentDate)} isToday={isToday(currentDate)} onRemove={removeFood} />
+                    ))
+                  )}
+                </View>
+              );
+            })}
+
+            {/* 간식 추가 + */}
+            {isToday(currentDate) && (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, borderWidth: 1.5, borderColor: '#FFD3E0', marginBottom: 10 }}
+                onPress={() => {
+                  const newId = `snack-${Date.now()}`;
+                  const cardCount = (diet?.snackCards.length ?? 1) + 1;
+                  setSnackCardNames(prev => ({ ...prev, [newId]: `간식${cardCount}` }));
+                  router.push({ pathname: "/modal/add-food", params: { mealType: 'snack', snackCardId: newId } });
+                }}
+                activeOpacity={0.8}>
+                <MealSnack size={16} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#E76C86' }}>간식 추가 +</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </Animated.View>
       </View>
@@ -255,12 +325,47 @@ export default function DietScreen() {
   );
 }
 
-function MacroChip({ label, value, color, bg }: { label: string; value: string; color: string; bg: string }) {
+function FoodRow({ food, mealType, date, isToday, onRemove }: {
+  food: any; mealType: string; date: string; isToday: boolean;
+  onRemove: (type: any, id: string, date: string) => void;
+}) {
   return (
-    <View style={{ flex: 1, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 4, alignItems: 'center', gap: 3, backgroundColor: bg }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#E7F7F0', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10, marginTop: 7 }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, fontWeight: '800', color: '#34514A' }}>{food.name}</Text>
+        <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#7E9A90', marginTop: 2 }}>
+          {food.amount}{food.unit} · 탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 12, fontWeight: '900', color: '#2E9E83' }}>{food.calories}kcal</Text>
+        {isToday && (
+          <TouchableOpacity onPress={() => onRemove(mealType, food.id, date)}>
+            <Icon name="trash" size={15} color="#B4CFC5" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function MacroChip({ label, value, target, color, bg }: { label: string; value: string; target?: number; color: string; bg: string }) {
+  const numVal = parseFloat(value);
+  const pct = target && target > 0 ? Math.min(100, Math.round((numVal / target) * 100)) : null;
+  return (
+    <View style={{ flex: 1, borderRadius: 16, paddingVertical: 9, paddingHorizontal: 8, alignItems: 'center', gap: 3, backgroundColor: bg }}>
       <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color }} />
       <Text style={{ fontSize: 10, color: '#7E9A90', fontWeight: '700' }}>{label}</Text>
       <Text style={{ fontSize: 13, fontWeight: '900', color }}>{value}</Text>
+      {target != null && (
+        <>
+          <Text style={{ fontSize: 9, color, fontWeight: '700', opacity: 0.8 }}>/{target}g</Text>
+          <View style={{ width: '100%', height: 4, backgroundColor: `${color}30`, borderRadius: 999, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${pct ?? 0}%` as `${number}%`, backgroundColor: color, borderRadius: 999 }} />
+          </View>
+          <Text style={{ fontSize: 9, color, fontWeight: '800' }}>{pct ?? 0}%</Text>
+        </>
+      )}
     </View>
   );
 }

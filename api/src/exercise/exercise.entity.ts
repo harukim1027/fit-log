@@ -43,4 +43,7 @@ export class Exercise {
 
   @Column({ nullable: true })
   nameKo: string;
+
+  @Column({ nullable: true })
+  userId: string;
 }

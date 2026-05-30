@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DailyDiet, FoodItem, MealType } from '../types/diet';
+import { DailyDiet, FoodItem, MealType, SnackCard } from '../types/diet';
 import { DEFAULT_TARGET_CALORIES } from '../constants';
 import apiClient from '../lib/apiClient';
 
@@ -14,18 +14,24 @@ interface NutrientSummary {
 interface DietStore {
   dailyDiets: DailyDiet[];
   targetCalories: number;
+  targetCarbsRatio: number;
+  targetProteinRatio: number;
+  targetFatRatio: number;
   isLoading: boolean;
   summary: NutrientSummary | null;
   getTodayDiet: () => DailyDiet;
-  addFood: (mealType: MealType, food: FoodItem, date?: string) => Promise<void>;
+  addFood: (mealType: MealType, food: FoodItem, date?: string, snackCardId?: string) => Promise<void>;
   removeFood: (mealType: MealType, foodId: string, date?: string) => Promise<void>;
   getTotalCalories: (date?: string) => number;
   fetchDiet: (date?: string) => Promise<void>;
   fetchSummary: (date?: string) => Promise<void>;
   setTargetCalories: (cal: number) => void;
+  setMacroRatios: (carbs: number, protein: number, fat: number) => void;
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0];
+
+const DEFAULT_SNACK_CARD_ID = 'snack-default';
 
 const emptyDiet = (date: string, target: number): DailyDiet => ({
   date,
@@ -36,15 +42,20 @@ const emptyDiet = (date: string, target: number): DailyDiet => ({
     { id: date+'-dinner',    type: 'dinner',    foods: [], date },
     { id: date+'-snack',     type: 'snack',     foods: [], date },
   ],
+  snackCards: [{ id: DEFAULT_SNACK_CARD_ID, name: '간식', foods: [] }],
 });
 
 export const useDietStore = create<DietStore>((set, get) => ({
   dailyDiets: [],
   targetCalories: DEFAULT_TARGET_CALORIES,
+  targetCarbsRatio: 50,
+  targetProteinRatio: 30,
+  targetFatRatio: 20,
   isLoading: false,
   summary: null,
 
   setTargetCalories: (cal) => set({ targetCalories: cal }),
+  setMacroRatios: (carbs, protein, fat) => set({ targetCarbsRatio: carbs, targetProteinRatio: protein, targetFatRatio: fat }),
 
   getTodayDiet: () => {
     const today = todayStr();
@@ -73,18 +84,32 @@ export const useDietStore = create<DietStore>((set, get) => ({
       const logs = res.data;
       const diet = emptyDiet(d, get().targetCalories);
       logs.forEach((log: any) => {
-        const meal = diet.meals.find(m => m.type === log.mealType);
-        if (meal) {
-          meal.foods.push({
-            id: log.id,
-            name: log.foodName,
-            calories: log.calories,
-            protein: log.protein,
-            carbs: log.carbs,
-            fat: log.fat,
-            amount: log.amount,
-            unit: log.unit,
-          });
+        const food: FoodItem = {
+          id: log.id,
+          name: log.foodName,
+          calories: log.calories,
+          protein: log.protein,
+          carbs: log.carbs,
+          fat: log.fat,
+          amount: log.amount,
+          unit: log.unit,
+          snackCardId: log.snackCardId ?? undefined,
+        };
+        if (log.mealType === 'snack') {
+          const cardId = log.snackCardId ?? DEFAULT_SNACK_CARD_ID;
+          let card = diet.snackCards.find(c => c.id === cardId);
+          if (!card) {
+            const idx = diet.snackCards.length + 1;
+            card = { id: cardId, name: `간식${idx}`, foods: [] };
+            diet.snackCards.push(card);
+          }
+          card.foods.push(food);
+          // Also push to the legacy snack meal for calorie calculation
+          const snackMeal = diet.meals.find(m => m.type === 'snack');
+          if (snackMeal) snackMeal.foods.push(food);
+        } else {
+          const meal = diet.meals.find(m => m.type === log.mealType);
+          if (meal) meal.foods.push(food);
         }
       });
       set(s => {
@@ -98,7 +123,7 @@ export const useDietStore = create<DietStore>((set, get) => ({
     }
   },
 
-  addFood: async (mealType, food, date) => {
+  addFood: async (mealType, food, date, snackCardId) => {
     const d = date ?? todayStr();
     try {
       await apiClient.post('/diet', {
@@ -111,6 +136,7 @@ export const useDietStore = create<DietStore>((set, get) => ({
         fat: food.fat,
         amount: food.amount,
         unit: food.unit,
+        snackCardId: mealType === 'snack' ? (snackCardId ?? DEFAULT_SNACK_CARD_ID) : undefined,
       });
       await get().fetchDiet(d);
     } catch (e) {

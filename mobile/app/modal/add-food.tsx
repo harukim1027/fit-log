@@ -2,10 +2,12 @@ import React from "react";
 import {
   View,
   Text,
+  TextInput as RNTextInput,
   TouchableOpacity,
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -18,19 +20,22 @@ import { useFavoriteStore } from "../../store/favoriteStore";
 import { Colors, MEAL_LABELS } from "../../constants";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
+import * as ImagePicker from 'expo-image-picker';
 
-type Tab = "search" | "favorites" | "manual";
+type Tab = "search" | "favorites" | "photo" | "manual";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "search", label: "검색" },
   { key: "favorites", label: "즐겨찾기" },
+  { key: "photo", label: "사진" },
   { key: "manual", label: "직접 입력" },
 ];
 
 export default function AddFoodModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ mealType: MealType }>();
+  const params = useLocalSearchParams<{ mealType: MealType; snackCardId?: string }>();
   const mealType = params.mealType ?? "breakfast";
+  const snackCardId = params.snackCardId;
   const { addFood } = useDietStore();
   const { favorites, fetchFavorites, addFavorite, removeFavorite, isFavorite } =
     useFavoriteStore();
@@ -41,6 +46,10 @@ export default function AddFoodModal() {
   const [selected, setSelected] = useState<any | null>(null);
   const [amount, setAmount] = useState("100");
   const [loading, setLoading] = useState(false);
+
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
+  const [photoResult, setPhotoResult] = useState<any | null>(null);
 
   const [manualName, setManualName] = useState("");
   const [manualCalories, setManualCalories] = useState("");
@@ -78,7 +87,7 @@ export default function AddFoodModal() {
       amount: amt,
       unit: "g",
     };
-    addFood(mealType, item);
+    addFood(mealType, item, undefined, snackCardId);
     router.back();
   };
 
@@ -106,6 +115,63 @@ export default function AddFoodModal() {
         unit: "g",
       });
     }
+  };
+
+  const pickImageFromGallery = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('권한 필요', '사진 접근 권한이 필요해요'); return; }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      base64: true,
+    });
+    if (!res.canceled && res.assets[0]) {
+      setPhotoUri(res.assets[0].uri);
+      analyzePhoto(res.assets[0].base64 ?? '');
+    }
+  };
+
+  const pickImageFromCamera = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) { Alert.alert('권한 필요', '카메라 접근 권한이 필요해요'); return; }
+    const res = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+      base64: true,
+    });
+    if (!res.canceled && res.assets[0]) {
+      setPhotoUri(res.assets[0].uri);
+      analyzePhoto(res.assets[0].base64 ?? '');
+    }
+  };
+
+  const analyzePhoto = async (base64: string) => {
+    if (!base64) return;
+    setPhotoAnalyzing(true);
+    setPhotoResult(null);
+    try {
+      const res = await apiClient.post('/food/analyze-image', { base64 });
+      setPhotoResult({ ...res.data, amount: String(res.data.amount || 100) });
+    } catch {
+      Alert.alert('분석 실패', '음식을 인식하지 못했어요. 다시 시도해주세요');
+    } finally {
+      setPhotoAnalyzing(false);
+    }
+  };
+
+  const handleAddPhotoResult = () => {
+    if (!photoResult) return;
+    const food: FoodItem = {
+      id: Date.now().toString(),
+      name: photoResult.name,
+      calories: Math.round(parseFloat(photoResult.calories) || 0),
+      protein: parseFloat(photoResult.protein) || 0,
+      carbs: parseFloat(photoResult.carbs) || 0,
+      fat: parseFloat(photoResult.fat) || 0,
+      amount: parseFloat(photoResult.amount) || 100,
+      unit: photoResult.unit || 'g',
+    };
+    addFood(mealType, food);
+    router.back();
   };
 
   const handleAddManual = () => {
@@ -150,26 +216,23 @@ export default function AddFoodModal() {
 
       <View className="px-5 flex-1">
         {/* 탭 */}
-        <View className="flex-row bg-surface-alt rounded-2xl p-1 mb-4">
-          {TABS.map((t) => (
-            <TouchableOpacity
-              key={t.key}
-              className={[
-                "flex-1 py-2 items-center rounded-xl",
-                tab === t.key ? "bg-surface shadow-card" : "",
-              ].join(" ")}
-              onPress={() => setTab(t.key)}>
-              <Text
-                className={[
-                  "text-sm",
-                  tab === t.key
-                    ? "text-text-primary font-bold"
-                    : "text-text-muted font-medium",
-                ].join(" ")}>
-                {t.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
+          {TABS.map((t) => {
+            const isActive = tab === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                style={[
+                  { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 },
+                  isActive ? { backgroundColor: '#fff', shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
+                ]}
+                onPress={() => setTab(t.key)}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {tab === "search" && (
@@ -280,6 +343,84 @@ export default function AddFoodModal() {
               className="mt-2 mb-2"
             />
           </>
+        )}
+
+        {tab === "photo" && (
+          <ScrollView keyboardShouldPersistTaps="handled" className="flex-1">
+            {/* 촬영/갤러리 버튼 */}
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
+                onPress={pickImageFromCamera}
+                activeOpacity={0.8}>
+                <Icon name="camera" size={28} color="#2E9E83" />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#2E9E83' }}>촬영하기</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#FFF1E3', borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
+                onPress={pickImageFromGallery}
+                activeOpacity={0.8}>
+                <Icon name="gallery" size={28} color="#E6932F" />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#E6932F' }}>갤러리</Text>
+              </TouchableOpacity>
+            </View>
+
+            {photoUri && (
+              <Image
+                source={{ uri: photoUri }}
+                style={{ width: '100%', height: 200, borderRadius: 20, marginBottom: 16, backgroundColor: '#E7F7F0' }}
+                resizeMode="cover"
+              />
+            )}
+
+            {photoAnalyzing && (
+              <View style={{ alignItems: 'center', paddingVertical: 32, gap: 10 }}>
+                <ActivityIndicator size="large" color="#6FD3B6" />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#7E9A90' }}>AI가 음식을 분석 중이에요...</Text>
+              </View>
+            )}
+
+            {photoResult && !photoAnalyzing && (
+              <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 18, shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.13, shadowRadius: 14, elevation: 3 }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>분석 결과 (수정 가능)</Text>
+
+                {[
+                  { label: '음식명', key: 'name', keyboard: 'default' as const },
+                  { label: '칼로리 (kcal)', key: 'calories', keyboard: 'numeric' as const },
+                  { label: '탄수화물 (g)', key: 'carbs', keyboard: 'numeric' as const },
+                  { label: '단백질 (g)', key: 'protein', keyboard: 'numeric' as const },
+                  { label: '지방 (g)', key: 'fat', keyboard: 'numeric' as const },
+                  { label: '양 (g)', key: 'amount', keyboard: 'numeric' as const },
+                ].map(({ label, key, keyboard }) => (
+                  <View key={key} style={{ marginBottom: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5', marginBottom: 4 }}>{label}</Text>
+                    <RNTextInput
+                      style={{ backgroundColor: '#E7F7F0', borderRadius: 12, padding: 12, fontSize: 15, fontWeight: '700', color: '#34514A' }}
+                      value={String(photoResult[key] ?? '')}
+                      onChangeText={v => setPhotoResult((p: any) => ({ ...p, [key]: v }))}
+                      keyboardType={keyboard}
+                    />
+                  </View>
+                ))}
+
+                <TouchableOpacity
+                  style={{ backgroundColor: '#6FD3B6', borderRadius: 999, paddingVertical: 14, alignItems: 'center', marginTop: 4 }}
+                  onPress={handleAddPhotoResult}
+                  activeOpacity={0.8}>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#fff' }}>추가하기</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {!photoUri && !photoAnalyzing && (
+              <View style={{ alignItems: 'center', paddingTop: 40, gap: 10 }}>
+                <Icon name="camera" size={56} color="#B4CFC5" />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#B4CFC5', textAlign: 'center' }}>
+                  음식 사진을 찍거나 갤러리에서{'\n'}선택하면 AI가 영양성분을 분석해요
+                </Text>
+              </View>
+            )}
+          </ScrollView>
         )}
 
         {tab === "favorites" && (
