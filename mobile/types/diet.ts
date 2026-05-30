@@ -7,6 +7,7 @@ export interface FoodItem {
   fat: number;
   amount: number;
   unit: string;
+  snackCardId?: string;
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -18,8 +19,15 @@ export interface Meal {
   date: string;
 }
 
+export interface SnackCard {
+  id: string;
+  name: string;
+  foods: FoodItem[];
+}
+
 export interface DailyDiet {
   date: string;
   meals: Meal[];
+  snackCards: SnackCard[];
   targetCalories: number;
 }

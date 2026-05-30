@@ -43,19 +43,31 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (inAuth || inOnboarding) router.replace("/(tabs)" as any);
   }, [token, isReady, segments, user?.isOnboardingDone]);
 
-  if (!isReady) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: Colors.background,
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-      </View>
-    );
-  }
+  const inAuth = segments[0] === "auth";
+  const inOnboarding = segments[0] === "onboarding";
+
+  const loading = (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: Colors.background,
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+      <ActivityIndicator color={Colors.primary} size="large" />
+    </View>
+  );
+
+  if (!isReady) return loading;
+
+  // 미인증 상태인데 인증 페이지가 아직 아닌 경우 — redirect effect 대기
+  if (!token && !inAuth) return loading;
+
+  // 온보딩 미완료인데 온보딩 페이지가 아직 아닌 경우
+  if (token && !user?.isOnboardingDone && !inOnboarding) return loading;
+
+  // 인증 완료인데 auth/onboarding 페이지에 있는 경우 — redirect effect 대기
+  if (token && user?.isOnboardingDone && (inAuth || inOnboarding)) return loading;
 
   return <>{children}</>;
 }
@@ -93,6 +105,10 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="modal/edit-profile"
+            options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
+          />
+          <Stack.Screen
+            name="modal/routine-manage"
             options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
           />
         </Stack>

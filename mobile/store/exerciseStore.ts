@@ -18,18 +18,19 @@ export interface ExerciseResult {
   caloriesPerMinute: number;
   difficulty: string;
   difficultyKo: string | null;
+  isCustom?: boolean;
 }
 
 interface ExerciseStore {
   results: ExerciseResult[];
   isSearching: boolean;
   error: string | null;
-  // 캐시: key → 결과
   cache: Map<string, ExerciseResult[]>;
   searchExercises: (query: string) => Promise<void>;
   getByBodyPart: (part: string) => Promise<void>;
   getList: (page?: number) => Promise<void>;
   clearResults: () => void;
+  saveCustomExercise: (name: string, category: string) => Promise<ExerciseResult | null>;
 }
 
 export const useExerciseStore = create<ExerciseStore>((set, get) => ({
@@ -101,4 +102,13 @@ export const useExerciseStore = create<ExerciseStore>((set, get) => ({
   },
 
   clearResults: () => set({ results: [], error: null }),
+
+  saveCustomExercise: async (name: string, category: string) => {
+    try {
+      const res = await apiClient.post<ExerciseResult>('/exercise/custom', { name, category, nameKo: name });
+      return res.data;
+    } catch {
+      return null;
+    }
+  },
 }));

@@ -96,4 +96,46 @@ export class FoodService {
       throw new HttpException('바코드 조회 중 오류가 발생했어요', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  async analyzeImage(base64: string): Promise<any> {
+    const apiKey = this.config.get('ANTHROPIC_API_KEY');
+    if (!apiKey) throw new HttpException('API 키가 설정되지 않았어요', HttpStatus.INTERNAL_SERVER_ERROR);
+
+    const body = {
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 512,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+          },
+          {
+            type: 'text',
+            text: '이 음식 사진을 분석해서 음식명, 예상 칼로리, 탄수화물, 단백질, 지방을 JSON으로 반환해줘. 100g 기준으로. 반드시 JSON만 반환해 (마크다운 없이). 형식: {"name":"음식명","calories":숫자,"carbs":숫자,"protein":숫자,"fat":숫자,"amount":100,"unit":"g"}',
+          },
+        ],
+      }],
+    };
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      const data: any = await res.json();
+      const text: string = data?.content?.[0]?.text ?? '';
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('JSON 파싱 실패');
+      return JSON.parse(match[0]);
+    } catch {
+      throw new HttpException('음식 분석 중 오류가 발생했어요', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

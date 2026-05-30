@@ -79,17 +79,37 @@ export class ExerciseService {
 
   // ─── 검색 ──────────────────────────────────────────────────────────────────
 
-  async search(query: string, limit = 20): Promise<any[]> {
+  async search(query: string, userId?: string, limit = 20): Promise<any[]> {
     const q = query.trim();
     if (!q) return [];
     const rows = await this.repo
       .createQueryBuilder('e')
-      .where('e.name ILIKE :q', { q: `%${q}%` })
-      .orWhere('e.bodyPart ILIKE :q', { q: `%${q}%` })
-      .orWhere('e.target ILIKE :q', { q: `%${q}%` })
+      .where('(e.name ILIKE :q OR e.bodyPart ILIKE :q OR e.target ILIKE :q)', { q: `%${q}%` })
+      .andWhere('(e.userId IS NULL OR e.userId = :uid)', { uid: userId ?? '' })
       .limit(limit)
       .getMany();
-    return this.localizeAll(rows);
+    return (await this.localizeAll(rows)).map(e => ({
+      ...e,
+      isCustom: !!e.userId,
+    }));
+  }
+
+  async createCustomExercise(userId: string, data: {
+    name: string; category: string; nameKo?: string;
+  }): Promise<any> {
+    const existing = await this.repo.findOne({ where: { name: data.name, userId } });
+    if (existing) return this.localize(existing);
+    const entity = this.repo.create({
+      id: `custom_${userId}_${Date.now()}`,
+      name: data.name,
+      nameKo: data.nameKo ?? data.name,
+      bodyPart: data.category,
+      userId,
+      secondaryMuscles: [],
+      instructions: [],
+    });
+    const saved = await this.repo.save(entity);
+    return { ...this.localize(saved), isCustom: true };
   }
 
   async findByBodyPart(bodyPart: string, limit = 20): Promise<any[]> {

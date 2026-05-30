@@ -33,6 +33,9 @@ export class DietLog {
   @Column()
   unit: string;
 
+  @Column({ nullable: true })
+  snackCardId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

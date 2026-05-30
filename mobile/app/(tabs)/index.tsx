@@ -27,7 +27,7 @@ const SHADOW_SM = {
 export default function HomeScreen() {
   const router = useRouter();
   const { getTotalCalories, targetCalories, getTodayDiet, fetchDiet, summary } = useDietStore();
-  const { activeSession, getTodaySession, startSession, fetchSessions } = useWorkoutStore();
+  const { activeSession, sessionStartTime, getTodaySession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore();
   const { user } = useAuthStore();
   const { fetchTotal } = useWaterStore();
 
@@ -52,6 +52,17 @@ export default function HomeScreen() {
   const remaining = Math.max(target - consumed, 0);
   const todaySession = getTodaySession();
   const exerciseCount = todaySession?.exercises.length ?? 0;
+  const sessionDuration = todaySession?.durationMinutes ??
+    (activeSession && sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : 0);
+  const sessionVolume = todaySession ? getTotalVolume(todaySession) : 0;
+
+  const getMotivation = (mins: number) => {
+    if (mins === 0) return "오늘 운동을 시작해볼까요? 🏋️";
+    if (mins <= 20) return "좋은 시작이에요! 계속 해봐요 🔥";
+    if (mins <= 40) return "잘 하고 있어요! 💪";
+    if (mins <= 60) return "훌륭해요! 오늘도 최선을 다했네요 🌟";
+    return "대단해요! 오늘의 챔피언 🏆";
+  };
   const protein = summary?.protein ?? 0;
   const carbs = summary?.carbs ?? 0;
   const fat = summary?.fat ?? 0;
@@ -137,41 +148,42 @@ export default function HomeScreen() {
         <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
           <View style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 18 }, SHADOW]}>
             <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>오늘의 운동</Text>
-            {todaySession ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                {/* 스티커 */}
-                <View style={[{ width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFF1E3', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], flexShrink: 0 }, SHADOW_SM]}>
-                  <Icon name="dumbbell" size={28} color="#E6932F" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>
-                    {exerciseCount}가지 운동 완료!
-                  </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 5 }}>
-                    {[...Array(Math.min(exerciseCount, 5))].map((_, i) => (
-                      <View key={i} style={{ width: 22, height: 22, borderRadius: 999, backgroundColor: '#6FD3B6', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name="check" size={12} color="#fff" />
-                      </View>
-                    ))}
-                    {todaySession.caloriesBurned ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFEBE2', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, marginLeft: 'auto' }}>
-                        <FlameIcon size={11} color="#E6932F" />
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#E6932F' }}>{todaySession.caloriesBurned} kcal</Text>
-                      </View>
-                    ) : null}
+            {todaySession || activeSession ? (
+              <View>
+                {/* 시간 + 동기부여 */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+                  <View style={[{ width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFF1E3', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], flexShrink: 0 }, SHADOW_SM]}>
+                    <Icon name="dumbbell" size={28} color="#E6932F" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 32, fontWeight: '900', color: '#34514A', letterSpacing: -1 }}>
+                      {sessionDuration}<Text style={{ fontSize: 16, fontWeight: '700', color: '#7E9A90' }}>분</Text>
+                    </Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#2E9E83', marginTop: 1 }}>
+                      {getMotivation(sessionDuration)}
+                    </Text>
                   </View>
                 </View>
-              </View>
-            ) : activeSession ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <View style={[{ width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFF1E3', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], flexShrink: 0 }, SHADOW_SM]}>
-                  <Icon name="clock" size={28} color="#E6932F" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>운동 중...</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', marginTop: 3 }}>
-                    {activeSession.exercises.length}종목 기록 중
-                  </Text>
+                {/* 볼륨 + 칼로리 */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {sessionVolume > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#E7F7F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                      <Icon name="dumbbell" size={12} color="#2E9E83" />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>{sessionVolume.toLocaleString()}kg</Text>
+                    </View>
+                  )}
+                  {(todaySession?.caloriesBurned ?? 0) > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FFEBE2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                      <FlameIcon size={12} color="#E6932F" />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#E6932F' }}>{todaySession!.caloriesBurned} kcal</Text>
+                    </View>
+                  )}
+                  {activeSession && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#E7F7F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                      <Icon name="clock" size={12} color="#7E9A90" />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#7E9A90' }}>진행 중</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             ) : (

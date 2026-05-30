@@ -20,6 +20,10 @@ export interface Exercise {
   tip?: string;
   isSingleArm?: boolean;
   differentSides?: boolean;
+  targetMuscles?: string[];
+  restSeconds?: number;
+  targetReps?: string;
+  note?: string;
 }
 
 export interface WorkoutSession {

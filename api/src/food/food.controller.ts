@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
 import { FoodService } from './food.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -15,5 +15,10 @@ export class FoodController {
   @Get('barcode/:code')
   getByBarcode(@Param('code') code: string) {
     return this.foodService.getByBarcode(code);
+  }
+
+  @Post('analyze-image')
+  analyzeImage(@Body() body: { base64: string }) {
+    return this.foodService.analyzeImage(body.base64);
   }
 }

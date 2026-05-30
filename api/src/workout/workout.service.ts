@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorkoutSession } from './workout-session.entity';
@@ -113,5 +113,21 @@ export class WorkoutService {
       pr: { weight: prWeight, volume: prVolume, date: prEntry.date },
       comparisonSession,
     };
+  }
+
+  async update(id: string, userId: string, data: { note?: string; durationMinutes?: number }): Promise<WorkoutSession> {
+    const session = await this.sessionRepo.findOne({
+      where: { id, user: { id: userId } },
+      relations: { exercises: { sets: true } },
+    });
+    if (!session) throw new NotFoundException('운동 기록을 찾을 수 없어요');
+    if (data.note !== undefined) session.note = data.note;
+    if (data.durationMinutes !== undefined) session.durationMinutes = data.durationMinutes;
+    return this.sessionRepo.save(session);
+  }
+
+  async remove(id: string, userId: string): Promise<void> {
+    const result = await this.sessionRepo.delete({ id, user: { id: userId } });
+    if (result.affected === 0) throw new NotFoundException('운동 기록을 찾을 수 없어요');
   }
 }
