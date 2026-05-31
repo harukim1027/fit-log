@@ -14,4 +14,9 @@ export class AuthController {
   login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body.email, body.password);
   }
+
+  @Post('google')
+  loginWithGoogle(@Body() body: { access_token: string }) {
+    return this.authService.loginWithGoogle(body.access_token);
+  }
 }

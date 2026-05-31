@@ -9,8 +9,14 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
+  @Column({ nullable: true })
   password: string;
+
+  @Column({ default: 'local' })
+  provider: string;
+
+  @Column({ nullable: true })
+  providerId: string;
 
   @Column({ nullable: true })
   name: string;
