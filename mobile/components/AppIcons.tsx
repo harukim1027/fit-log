@@ -69,6 +69,8 @@ const LINE_PATHS: Record<string, string> = {
   pencil: "M4 20l4-1L20 7a1.4 1.4 0 0 0-2-2L6 17l-2 3Z",
   menu: "M4 8h16M4 12h16M4 16h16",
   merge: "M8 5H5v3M5 8v4a4 4 0 0 0 4 4h2m5-11h3v3m0 0v4a4 4 0 0 1-4 4h-2M12 16v3",
+  play: "M8 5l12 7-12 7Z",
+  list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
 };
 
 export function Icon({ name, size = 22, color = MINT.mintInk }: IconProps & { name: keyof typeof LINE_PATHS | string }) {

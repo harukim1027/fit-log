@@ -174,12 +174,21 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       restSeconds: ex.restSeconds,
       targetReps: ex.targetReps,
       targetMuscles: ex.targetMuscles,
-      sets: Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
-        id: `${now}-${i}-${j}`,
-        weight: ex.defaultWeight ?? 0,
-        reps: 0,
-        completed: false,
-      })),
+      isSingleArm: ex.isSingleArm ?? false,
+      differentSides: ex.differentSides ?? false,
+      sets: ex.sets && ex.sets.length > 0
+        ? ex.sets.map((rs, j) => ({
+            id: `${now}-${i}-${j}`,
+            weight: rs.targetWeight,
+            reps: rs.targetReps,
+            completed: false,
+          }))
+        : Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
+            id: `${now}-${i}-${j}`,
+            weight: ex.defaultWeight ?? 0,
+            reps: ex.defaultReps ?? 0,
+            completed: false,
+          })),
     }));
     const session: WorkoutSession = {
       id: now.toString(),

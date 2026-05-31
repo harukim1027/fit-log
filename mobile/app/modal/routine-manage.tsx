@@ -124,13 +124,17 @@ export default function RoutineManageModal() {
         name: data.name,
         category: data.category,
         defaultSets: data.defaultSets ?? 3,
-        defaultWeight: data.defaultWeight,
+        defaultWeight: data.routineSets ? undefined : data.defaultWeight,
+        defaultReps: data.routineSets ? undefined : data.defaultReps,
+        sets: data.routineSets,
         restSeconds: data.restSeconds,
         targetReps: data.targetReps,
         settings: data.settings,
         tip: data.tip,
         targetMuscles: data.targetMuscles,
         gifUrl: data.gifUrl,
+        isSingleArm: data.isSingleArm,
+        differentSides: data.differentSides,
         key: `${data.name}-${Date.now()}`,
       },
     ]);
@@ -148,13 +152,17 @@ export default function RoutineManageModal() {
               name: data.name,
               category: data.category,
               defaultSets: data.defaultSets ?? ex.defaultSets,
-              defaultWeight: data.defaultWeight ?? ex.defaultWeight,
+              defaultWeight: data.routineSets ? undefined : (data.defaultWeight ?? ex.defaultWeight),
+              defaultReps: data.routineSets ? undefined : data.defaultReps,
+              sets: data.routineSets,
               restSeconds: data.restSeconds,
               targetReps: data.targetReps,
               settings: data.settings,
               tip: data.tip,
               targetMuscles: data.targetMuscles,
               gifUrl: data.gifUrl ?? ex.gifUrl,
+              isSingleArm: data.isSingleArm,
+              differentSides: data.differentSides,
             }
       )
     );
@@ -250,6 +258,10 @@ export default function RoutineManageModal() {
           targetMuscles: ex.targetMuscles,
           defaultSets: ex.defaultSets,
           defaultWeight: ex.defaultWeight,
+          defaultReps: ex.defaultReps,
+          routineSets: ex.sets,
+          isSingleArm: ex.isSingleArm,
+          differentSides: ex.differentSides,
         }}
         onAdd={handleExerciseEdit}
         onClose={() => {

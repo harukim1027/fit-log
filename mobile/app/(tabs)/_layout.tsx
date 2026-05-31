@@ -5,11 +5,10 @@ import { useColors } from "../../constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "../../components/AppIcons";
 
-type TabIconName = "home" | "apple" | "dumbbell" | "chart";
+type TabIconName = "home" | "dumbbell" | "chart";
 
 const TABS: { name: string; title: string; icon: TabIconName }[] = [
   { name: "index",   title: "홈",  icon: "home" },
-  { name: "diet",    title: "식단", icon: "apple" },
   { name: "workout", title: "운동", icon: "dumbbell" },
   { name: "stats",   title: "통계", icon: "chart" },
 ];
@@ -78,6 +77,8 @@ export default function TabLayout() {
           }}
         />
       ))}
+      {/* diet 탭: 파일 보존, 탭바에서 숨김 */}
+      <Tabs.Screen name="diet" options={{ href: null }} />
     </Tabs>
   );
 }
