@@ -1,5 +1,6 @@
 import React, { forwardRef } from "react";
 import { View, Text, TextInput, TextInputProps } from "react-native";
+import { useColors } from "../../constants/colors";
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -21,6 +22,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   },
   ref
 ) {
+  const c = useColors();
   const hasError = Boolean(error);
 
   return (
@@ -46,7 +48,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
           ]
             .filter(Boolean)
             .join(" ")}
-          placeholderTextColor="#B4CFC5"
+          placeholderTextColor={c.textMuted}
           {...props}
         />
 

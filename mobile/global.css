@@ -1,3 +1,63 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================================
+   테마 토큰 (CSS 변수) — NativeWind v4
+   값은 공백 구분 RGB 채널 (alpha 유틸 bg-primary/10 지원용)
+   .dark 클래스가 붙으면 다크 팔레트로 전환됩니다.
+   ============================================================ */
+
+:root {
+  --color-primary: 61 139 224;       /* #3D8BE0 */
+  --color-secondary: 91 155 217;     /* #5B9BD9 */
+  --color-success: 46 158 131;       /* #2E9E83 */
+  --color-warning: 197 127 28;       /* #C57F1C */
+  --color-danger: 224 106 134;       /* #E06A86 */
+  --color-on-accent: 255 255 255;    /* #FFFFFF */
+
+  --color-background: 242 246 251;   /* #F2F6FB */
+  --color-surface: 255 255 255;      /* #FFFFFF */
+  --color-surface-alt: 234 241 248;  /* #EAF1F8 */
+  --color-surface-high: 228 236 244; /* #E4ECF4 */
+  --color-border: 220 230 240;       /* #DCE6F0 */
+
+  --color-text-primary: 22 32 43;    /* #16202B */
+  --color-text-secondary: 90 102 117;/* #5A6675 */
+  --color-text-muted: 154 166 180;   /* #9AA6B4 */
+
+  --color-diet: 61 139 224;
+  --color-workout: 91 155 217;
+  --color-stats: 197 127 28;         /* #C57F1C */
+  --color-water: 61 139 224;
+  --color-carb: 217 154 43;          /* #D99A2B */
+  --color-protein: 61 139 224;
+  --color-fat: 224 106 134;          /* #E06A86 */
+}
+
+.dark {
+  --color-primary: 61 139 224;       /* #3D8BE0 */
+  --color-secondary: 91 155 217;     /* #5B9BD9 */
+  --color-success: 79 169 140;       /* #4FA98C */
+  --color-warning: 205 177 120;      /* #CDB178 */
+  --color-danger: 213 141 156;       /* #D58D9C */
+  --color-on-accent: 2 21 38;        /* #021526 */
+
+  --color-background: 23 27 33;      /* #171B21 */
+  --color-surface: 33 39 47;         /* #21272F */
+  --color-surface-alt: 34 48 63;     /* #22303F */
+  --color-surface-high: 42 51 64;    /* #2A3340 */
+  --color-border: 56 64 73;          /* #384049 */
+
+  --color-text-primary: 224 230 236; /* #E0E6EC */
+  --color-text-secondary: 144 154 166;/* #909AA6 */
+  --color-text-muted: 100 110 122;   /* #646E7A */
+
+  --color-diet: 61 139 224;
+  --color-workout: 91 155 217;
+  --color-stats: 205 177 120;        /* #CDB178 */
+  --color-water: 61 139 224;
+  --color-carb: 205 177 120;         /* #CDB178 */
+  --color-protein: 61 139 224;
+  --color-fat: 213 141 156;          /* #D58D9C */
+}

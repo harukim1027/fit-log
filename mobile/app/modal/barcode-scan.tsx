@@ -10,17 +10,19 @@ import { Header, Button } from "../../components/ui";
 import { useLocalSearchParams } from "expo-router";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
+import { useColors } from "../../constants/colors";
 
 const CORNER = 24;
-const cornerBase = {
-  position: 'absolute' as const,
-  width: CORNER,
-  height: CORNER,
-  borderColor: '#fff',
-  borderWidth: 3,
-};
 
 export default function BarcodeScanModal() {
+  const c = useColors();
+  const cornerBase = {
+    position: 'absolute' as const,
+    width: CORNER,
+    height: CORNER,
+    borderColor: c.surface,
+    borderWidth: 3,
+  };
   const router = useRouter();
   const params = useLocalSearchParams<{ mealType: MealType }>();
   const mealType = params.mealType ?? "breakfast";
@@ -93,7 +95,7 @@ export default function BarcodeScanModal() {
           <TouchableOpacity
             className="self-end mr-5 bg-black/50 rounded-[20px] p-2"
             onPress={() => router.back()}>
-            <Icon name="close" size={28} color="#fff" />
+            <Icon name="close" size={28} color={c.surface} />
           </TouchableOpacity>
 
           <View style={{ width: 260, height: 160, position: 'relative' }}>

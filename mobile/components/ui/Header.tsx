@@ -1,10 +1,10 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "../AppIcons";
 import { useRouter } from "expo-router";
-import { Colors } from "../../constants/colors";
+import { useColors } from "../../constants/colors";
 
 export interface HeaderProps {
   title: string;
@@ -25,6 +25,7 @@ export function Header({
   onBack,
   onClose,
 }: HeaderProps) {
+  const c = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -35,88 +36,51 @@ export function Header({
   const hasRight = Boolean(rightElement);
 
   return (
-    <View style={[s.container, { paddingTop: insets.top + 6 }]}>
+    <View style={{
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 8,
+      paddingBottom: 10,
+      paddingTop: insets.top + 6,
+      backgroundColor: c.background,
+      minHeight: 56,
+    }}>
       {/* 왼쪽: 뒤로가기 또는 닫기 */}
-      <View style={s.side}>
+      <View style={{ width: 56, alignItems: "flex-start", justifyContent: "center" }}>
         {showBack && (
           <TouchableOpacity
-            style={s.iconBtn}
+            style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: c.surfaceAlt }}
             onPress={handleBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Icon name="chevronLeft" size={24} color={Colors.textPrimary} />
+            <Icon name="chevronLeft" size={24} color={c.textPrimary} />
           </TouchableOpacity>
         )}
         {showClose && !showBack && (
           <TouchableOpacity
-            style={s.iconBtn}
+            style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: c.surfaceAlt }}
             onPress={handleClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={{ fontSize: 18, color: Colors.textPrimary, fontWeight: '700' }}>✕</Text>
+            <Text style={{ fontSize: 18, color: c.textPrimary, fontWeight: '700' }}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* 중앙: 타이틀 */}
-      <View style={s.center}>
-        <Text style={s.title} numberOfLines={1}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: 17, fontWeight: "700", color: c.textPrimary }} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={s.subtitle} numberOfLines={1}>
+          <Text style={{ fontSize: 12, color: c.textSecondary, marginTop: 1 }} numberOfLines={1}>
             {subtitle}
           </Text>
         ) : null}
       </View>
 
       {/* 오른쪽: 커스텀 */}
-      <View style={[s.side, s.right]}>
-        {hasRight ? rightElement : hasLeft ? <View style={s.placeholder} /> : null}
+      <View style={{ width: 56, alignItems: "flex-end", justifyContent: "center" }}>
+        {hasRight ? rightElement : hasLeft ? <View style={{ width: 40 }} /> : null}
       </View>
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-    backgroundColor: Colors.background,
-    minHeight: 56,
-  },
-  side: {
-    width: 56,
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-  right: {
-    alignItems: "flex-end",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 20,
-    backgroundColor: Colors.surfaceAlt,
-  },
-  placeholder: {
-    width: 40,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 1,
-  },
-});

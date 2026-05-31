@@ -25,6 +25,8 @@ import {
   MealSnack,
   SaladIcon,
 } from "../../components/AppIcons";
+import { useColors, ThemeColors } from "../../constants/colors";
+import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -34,12 +36,12 @@ const MEAL_ICONS: Record<MealType, React.ReactNode> = {
   dinner: <MealMoon size={18} />,
   snack: <MealSnack size={18} />,
 };
-const MEAL_BG: Record<MealType, string> = {
-  breakfast: "#FFF6D9",
-  lunch: "#FFF1E3",
-  dinner: "#EAF4FF",
-  snack: "#FFE8EF",
-};
+const getMealBg = (c: ThemeColors): Record<MealType, string> => ({
+  breakfast: c.stats + '20',
+  lunch:     c.warning + '18',
+  dinner:    c.primary + '18',
+  snack:     c.danger + '18',
+});
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.2;
@@ -53,25 +55,29 @@ const formatDate = (d: Date) =>
   });
 const isToday = (d: Date) => dateStr(d) === dateStr(new Date());
 
-const SHADOW = {
-  shadowColor: "#4EBFA0",
+const makeShadow = (c: ThemeColors) => ({
+  shadowColor: c.primary,
   shadowOffset: { width: 0, height: 10 },
   shadowOpacity: 0.2,
   shadowRadius: 24,
   elevation: 4,
-};
-const SHADOW_SM = {
-  shadowColor: "#4EBFA0",
+});
+const makeShadowSm = (c: ThemeColors) => ({
+  shadowColor: c.primary,
   shadowOffset: { width: 0, height: 6 },
   shadowOpacity: 0.16,
   shadowRadius: 14,
   elevation: 3,
-};
+});
 
 type DietTab = 'today' | 'calendar';
 
 export default function DietScreen() {
   const router = useRouter();
+  const c = useColors();
+  const MEAL_BG = getMealBg(c);
+  const SHADOW = makeShadow(c);
+  const SHADOW_SM = makeShadowSm(c);
   const [dietTab, setDietTab] = useState<DietTab>('today');
   const [currentDate, setCurrentDate] = useState(new Date());
   const {
@@ -92,6 +98,8 @@ export default function DietScreen() {
 
   const [snackCardNames, setSnackCardNames] = useLocalState<Record<string, string>>({});
   const [orderedSnackCards, setOrderedSnackCards] = useLocalState<NonNullable<typeof diet>['snackCards']>([]);
+  const [snackCardHeight, setSnackCardHeight] = useState(130);
+  const didMeasureSnackCard = useRef(false);
   const [calVisibleMonth, setCalVisibleMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
@@ -100,6 +108,7 @@ export default function DietScreen() {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const isAnimating = useRef(false);
   const currentDateRef = useRef(currentDate);
+  const dietScrollRef = useRef<any>(null);
 
   useEffect(() => { currentDateRef.current = currentDate; }, [currentDate]);
 
@@ -175,7 +184,7 @@ export default function DietScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator size="large" color="#2E9E83" />
+        <ActivityIndicator size="large" color={c.success} />
       </View>
     );
   }
@@ -186,14 +195,14 @@ export default function DietScreen() {
     const achieved = calories >= targetCalories;
     calMarkedDates[date] = {
       marked: true,
-      dotColor: achieved ? '#6FD3B6' : '#FFC078',
+      dotColor: achieved ? c.primary : c.warning,
     };
   });
   if (calSelectedDate) {
     calMarkedDates[calSelectedDate] = {
       ...(calMarkedDates[calSelectedDate] ?? {}),
       selected: true,
-      selectedColor: '#6FD3B6',
+      selectedColor: c.primary,
       dotColor: calMarkedDates[calSelectedDate]?.dotColor ?? undefined,
     };
   }
@@ -210,18 +219,19 @@ export default function DietScreen() {
 
   return (
     <View className="flex-1 bg-background">
+      <BackgroundBlobs />
       <Header title="식단" />
 
       {/* 상단 탭: 오늘 식단 / 달력 */}
-      <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginHorizontal: 18, marginBottom: 10, gap: 4 }}>
+      <View style={{ flexDirection: 'row', backgroundColor: c.surfaceAlt, borderRadius: 999, padding: 4, marginHorizontal: 18, marginBottom: 10, gap: 4 }}>
         {(['today', 'calendar'] as DietTab[]).map(t => {
           const isActive = dietTab === t;
           return (
             <TouchableOpacity
               key={t}
-              style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: '#fff', shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined]}
+              style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: c.surface, shadowColor: c.success, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined]}
               onPress={() => setDietTab(t)}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? c.success : c.textMuted }}>
                 {t === 'today' ? '오늘 식단' : '달력'}
               </Text>
             </TouchableOpacity>
@@ -232,27 +242,27 @@ export default function DietScreen() {
       {dietTab === 'calendar' ? (
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
           {/* 이번달 요약 */}
-          <View style={[{ backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 14 }, SHADOW_SM]}>
-            <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 8 }}>{calMonthLabel} 요약</Text>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, marginBottom: 14 }, SHADOW_SM]}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary, marginBottom: 8 }}>{calMonthLabel} 요약</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 16, padding: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: '#2E9E83' }}>{achievedDays}</Text>
-                <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '700', marginTop: 2 }}>목표 달성일 🎯</Text>
+              <View style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 16, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: c.success }}>{achievedDays}</Text>
+                <Text style={{ fontSize: 11, color: c.textSecondary, fontWeight: '700', marginTop: 2 }}>목표 달성일 🎯</Text>
               </View>
-              <View style={{ flex: 1, backgroundColor: '#FFF1E3', borderRadius: 16, padding: 12, alignItems: 'center' }}>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: '#E6932F' }}>{avgCalories}</Text>
-                <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '700', marginTop: 2 }}>평균 kcal</Text>
+              <View style={{ flex: 1, backgroundColor: c.warning + '18', borderRadius: 16, padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: c.warning }}>{avgCalories}</Text>
+                <Text style={{ fontSize: 11, color: c.textSecondary, fontWeight: '700', marginTop: 2 }}>평균 kcal</Text>
               </View>
             </View>
             {achievedDays > 0 && (
-              <Text style={{ fontSize: 12, color: '#2E9E83', fontWeight: '800', textAlign: 'center', marginTop: 10 }}>
+              <Text style={{ fontSize: 12, color: c.success, fontWeight: '800', textAlign: 'center', marginTop: 10 }}>
                 이번달 {achievedDays}일 목표 달성 🎯
               </Text>
             )}
           </View>
 
           {/* 달력 */}
-          <View style={[{ backgroundColor: '#fff', borderRadius: 24, overflow: 'hidden', marginBottom: 14 }, SHADOW_SM]}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 24, overflow: 'hidden', marginBottom: 14 }, SHADOW_SM]}>
             <Calendar
               markedDates={calMarkedDates}
               onDayPress={day => setCalSelectedDate(p => p === day.dateString ? null : day.dateString)}
@@ -261,49 +271,49 @@ export default function DietScreen() {
                 setCalSelectedDate(null);
               }}
               theme={{
-                backgroundColor: '#fff',
-                calendarBackground: '#fff',
-                textSectionTitleColor: '#7E9A90',
-                selectedDayBackgroundColor: '#6FD3B6',
-                selectedDayTextColor: '#fff',
-                todayTextColor: '#2E9E83',
-                dayTextColor: '#34514A',
-                textDisabledColor: '#B4CFC5',
-                arrowColor: '#6FD3B6',
-                monthTextColor: '#34514A',
-                dotColor: '#6FD3B6',
+                backgroundColor: c.surface,
+                calendarBackground: c.surface,
+                textSectionTitleColor: c.textSecondary,
+                selectedDayBackgroundColor: c.primary,
+                selectedDayTextColor: c.surface,
+                todayTextColor: c.success,
+                dayTextColor: c.textPrimary,
+                textDisabledColor: c.textMuted,
+                arrowColor: c.primary,
+                monthTextColor: c.textPrimary,
+                dotColor: c.primary,
               }}
             />
           </View>
 
           {/* 선택한 날짜 요약 */}
           {calSelectedDate && (
-            <View style={[{ backgroundColor: '#fff', borderRadius: 24, padding: 16 }, SHADOW_SM]}>
-              <Text style={{ fontSize: 14, fontWeight: '900', color: '#34514A', marginBottom: 10 }}>
+            <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16 }, SHADOW_SM]}>
+              <Text style={{ fontSize: 14, fontWeight: '900', color: c.textPrimary, marginBottom: 10 }}>
                 {calSelectedDate.replace(/-/g, '. ')}
               </Text>
               {selectedDayData ? (
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text style={{ fontSize: 26, fontWeight: '900', color: '#34514A' }}>{selectedDayData.calories} kcal</Text>
-                    <View style={{ backgroundColor: selectedDayData.calories >= targetCalories ? '#E7F7F0' : '#FFF1E3', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: selectedDayData.calories >= targetCalories ? '#2E9E83' : '#E6932F' }}>
+                    <Text style={{ fontSize: 26, fontWeight: '900', color: c.textPrimary }}>{selectedDayData.calories} kcal</Text>
+                    <View style={{ backgroundColor: selectedDayData.calories >= targetCalories ? c.surfaceAlt : c.warning + '18', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: selectedDayData.calories >= targetCalories ? c.success : c.warning }}>
                         {selectedDayData.calories >= targetCalories ? '✅ 목표 달성' : `목표 ${targetCalories - selectedDayData.calories} 부족`}
                       </Text>
                     </View>
                   </View>
                   <TouchableOpacity
-                    style={{ backgroundColor: '#E7F7F0', borderRadius: 14, paddingVertical: 10, alignItems: 'center', marginTop: 4 }}
+                    style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, paddingVertical: 10, alignItems: 'center', marginTop: 4 }}
                     onPress={() => {
                       setDietTab('today');
                       const [y, m, d] = calSelectedDate.split('-').map(Number);
                       setCurrentDate(new Date(y, m - 1, d));
                     }}>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#2E9E83' }}>자세히 보기 →</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: c.success }}>자세히 보기 →</Text>
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={{ fontSize: 13, color: '#B4CFC5', fontWeight: '600', textAlign: 'center', paddingVertical: 12 }}>기록이 없어요</Text>
+                <Text style={{ fontSize: 13, color: c.textMuted, fontWeight: '600', textAlign: 'center', paddingVertical: 12 }}>기록이 없어요</Text>
               )}
             </View>
           )}
@@ -314,6 +324,7 @@ export default function DietScreen() {
         <Animated.View
           style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
           <ScrollView
+            ref={dietScrollRef}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
@@ -331,18 +342,18 @@ export default function DietScreen() {
                     width: 38,
                     height: 38,
                     borderRadius: 999,
-                    backgroundColor: "#fff",
+                    backgroundColor: c.surface,
                     alignItems: "center",
                     justifyContent: "center",
                   },
                   SHADOW_SM,
                 ]}
                 onPress={goBack}>
-                <Icon name="chevronLeft" size={20} color="#7E9A90" />
+                <Icon name="chevronLeft" size={20} color={c.textSecondary} />
               </TouchableOpacity>
               <View style={{ alignItems: "center", gap: 4 }}>
                 <Text
-                  style={{ fontSize: 16, fontWeight: "900", color: "#34514A" }}>
+                  style={{ fontSize: 16, fontWeight: "900", color: c.textPrimary }}>
                   {formatDate(currentDate)}
                 </Text>
                 {isToday(currentDate) && (
@@ -351,7 +362,7 @@ export default function DietScreen() {
                       width: 7,
                       height: 7,
                       borderRadius: 999,
-                      backgroundColor: "#6FD3B6",
+                      backgroundColor: c.primary,
                     }}
                   />
                 )}
@@ -362,7 +373,7 @@ export default function DietScreen() {
                     width: 38,
                     height: 38,
                     borderRadius: 999,
-                    backgroundColor: "#fff",
+                    backgroundColor: c.surface,
                     alignItems: "center",
                     justifyContent: "center",
                     opacity: isToday(currentDate) ? 0.3 : 1,
@@ -373,7 +384,7 @@ export default function DietScreen() {
                 <Icon
                   name="chevronRight"
                   size={20}
-                  color={isToday(currentDate) ? "#B4CFC5" : "#7E9A90"}
+                  color={isToday(currentDate) ? c.textMuted : c.textSecondary}
                 />
               </TouchableOpacity>
             </View>
@@ -382,7 +393,7 @@ export default function DietScreen() {
             <View
               style={[
                 {
-                  backgroundColor: "#fff",
+                  backgroundColor: c.surface,
                   borderRadius: 30,
                   padding: 18,
                   marginBottom: 14,
@@ -397,11 +408,11 @@ export default function DietScreen() {
                   marginBottom: 12,
                 }}>
                 <Text
-                  style={{ fontSize: 22, fontWeight: "900", color: "#34514A" }}>
+                  style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary }}>
                   {total} kcal
                 </Text>
                 <Text
-                  style={{ fontSize: 12, fontWeight: "700", color: "#7E9A90" }}>
+                  style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>
                   목표 {targetCalories} kcal
                 </Text>
               </View>
@@ -409,7 +420,7 @@ export default function DietScreen() {
                 style={{
                   height: 12,
                   borderRadius: 999,
-                  backgroundColor: "#E7F7F0",
+                  backgroundColor: c.surfaceAlt,
                   overflow: "hidden",
                   marginBottom: 6,
                 }}>
@@ -418,7 +429,7 @@ export default function DietScreen() {
                     height: "100%",
                     borderRadius: 999,
                     width: `${progress * 100}%` as `${number}%`,
-                    backgroundColor: progress >= 1 ? "#FF8FA0" : "#6FD3B6",
+                    backgroundColor: progress >= 1 ? c.danger : c.primary,
                   }}
                 />
               </View>
@@ -426,7 +437,7 @@ export default function DietScreen() {
                 style={{
                   fontSize: 12,
                   fontWeight: "800",
-                  color: "#2E9E83",
+                  color: c.success,
                   textAlign: "right",
                 }}>
                 {Math.round(progress * 100)}% 달성 ·{" "}
@@ -438,7 +449,7 @@ export default function DietScreen() {
             <View
               style={[
                 {
-                  backgroundColor: "#fff",
+                  backgroundColor: c.surface,
                   borderRadius: 30,
                   padding: 18,
                   marginBottom: 14,
@@ -449,7 +460,7 @@ export default function DietScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: "800",
-                  color: "#7E9A90",
+                  color: c.textSecondary,
                   marginBottom: 12,
                 }}>
                 영양소
@@ -465,17 +476,17 @@ export default function DietScreen() {
                 <View
                   style={{
                     flex: carbs / totalMacro,
-                    backgroundColor: "#FFC078",
+                    backgroundColor: c.warning,
                   }}
                 />
                 <View
                   style={{
                     flex: protein / totalMacro,
-                    backgroundColor: "#6FD3B6",
+                    backgroundColor: c.primary,
                   }}
                 />
                 <View
-                  style={{ flex: fat / totalMacro, backgroundColor: "#FF9DB0" }}
+                  style={{ flex: fat / totalMacro, backgroundColor: c.danger }}
                 />
               </View>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -495,22 +506,22 @@ export default function DietScreen() {
                         label="탄수화물"
                         value={carbs + "g"}
                         target={targetCarbsG}
-                        color="#E6932F"
-                        bg="#FFC07820"
+                        color={c.warning}
+                        bg={c.warning + '20'}
                       />
                       <MacroChip
                         label="단백질"
                         value={protein + "g"}
                         target={targetProteinG}
-                        color="#2E9E83"
-                        bg="#6FD3B620"
+                        color={c.success}
+                        bg={c.primary + '20'}
                       />
                       <MacroChip
                         label="지방"
                         value={fat + "g"}
                         target={targetFatG}
-                        color="#E76C86"
-                        bg="#FF9DB020"
+                        color={c.danger}
+                        bg={c.danger + '20'}
                       />
                     </>
                   );
@@ -528,7 +539,7 @@ export default function DietScreen() {
                   key={type}
                   style={[
                     {
-                      backgroundColor: "#fff",
+                      backgroundColor: c.surface,
                       borderRadius: 30,
                       padding: 16,
                       marginBottom: 10,
@@ -564,7 +575,7 @@ export default function DietScreen() {
                           style={{
                             fontSize: 15,
                             fontWeight: "900",
-                            color: "#34514A",
+                            color: c.textPrimary,
                           }}>
                           {MEAL_LABELS[type]}
                         </Text>
@@ -572,7 +583,7 @@ export default function DietScreen() {
                           style={{
                             fontSize: 12,
                             fontWeight: "700",
-                            color: "#7E9A90",
+                            color: c.textSecondary,
                           }}>
                           {mealCal} kcal
                         </Text>
@@ -583,7 +594,7 @@ export default function DietScreen() {
                           width: 32,
                           height: 32,
                           borderRadius: 12,
-                          backgroundColor: "#E7F7F0",
+                          backgroundColor: c.surfaceAlt,
                           alignItems: "center",
                           justifyContent: "center",
                         }}
@@ -593,7 +604,7 @@ export default function DietScreen() {
                             params: { mealType: type, date: dateStr(currentDate) },
                           })
                         }>
-                        <Icon name="plus" size={18} color="#2E9E83" />
+                        <Icon name="plus" size={18} color={c.success} />
                       </TouchableOpacity>
                   </View>
                   {!meal || meal.foods.length === 0 ? (
@@ -608,7 +619,7 @@ export default function DietScreen() {
                         style={{
                           fontSize: 12,
                           fontWeight: "700",
-                          color: "#B4CFC5",
+                          color: c.textMuted,
                         }}>
                         아직 기록이 없어요
                       </Text>
@@ -633,16 +644,25 @@ export default function DietScreen() {
             <SortableList
               data={orderedSnackCards.length > 0 ? orderedSnackCards : (diet?.snackCards ?? [{ id: 'snack-default', name: '간식', foods: [] }])}
               keyExtractor={(card) => card.id}
-              itemHeight={130}
+              itemHeight={snackCardHeight}
+              onDragStart={() => dietScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+              onDragRelease={() => dietScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
               onDragEnd={setOrderedSnackCards}
               renderItem={(card, cardIdx, isActive) => {
                 const cardCal = card.foods.reduce((s, f) => s + f.calories, 0);
                 const cardName = snackCardNames[card.id] ?? card.name;
                 return (
                   <View
+                    onLayout={cardIdx === 0 ? (e) => {
+                      const h = Math.round(e.nativeEvent.layout.height);
+                      if (!didMeasureSnackCard.current && h > 0) {
+                        didMeasureSnackCard.current = true;
+                        setSnackCardHeight(h);
+                      }
+                    } : undefined}
                     style={[
                       {
-                        backgroundColor: "#fff",
+                        backgroundColor: c.surface,
                         borderRadius: 30,
                         padding: 16,
                         marginBottom: 10,
@@ -663,7 +683,7 @@ export default function DietScreen() {
                           gap: 10,
                         }}>
                         <View style={{ opacity: isActive ? 1.0 : 0.3 }}>
-                          <Icon name="menu" size={16} color="#7E9A90" />
+                          <Icon name="menu" size={16} color={c.textSecondary} />
                         </View>
                         <View
                           style={{
@@ -681,7 +701,7 @@ export default function DietScreen() {
                             style={{
                               fontSize: 15,
                               fontWeight: "900",
-                              color: "#34514A",
+                              color: c.textPrimary,
                             }}>
                             {cardName}
                           </Text>
@@ -689,7 +709,7 @@ export default function DietScreen() {
                             style={{
                               fontSize: 12,
                               fontWeight: "700",
-                              color: "#7E9A90",
+                              color: c.textSecondary,
                             }}>
                             {cardCal} kcal
                           </Text>
@@ -707,7 +727,7 @@ export default function DietScreen() {
                               width: 28,
                               height: 28,
                               borderRadius: 10,
-                              backgroundColor: "#FFE8EF",
+                              backgroundColor: c.danger + '18',
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -734,7 +754,7 @@ export default function DietScreen() {
                                 );
                               }
                             }}>
-                            <Icon name="close" size={13} color="#E76C86" />
+                            <Icon name="close" size={13} color={c.danger} />
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity
@@ -742,7 +762,7 @@ export default function DietScreen() {
                               width: 32,
                               height: 32,
                               borderRadius: 12,
-                              backgroundColor: "#E7F7F0",
+                              backgroundColor: c.surfaceAlt,
                               alignItems: "center",
                               justifyContent: "center",
                             }}
@@ -756,7 +776,7 @@ export default function DietScreen() {
                                 },
                               })
                             }>
-                            <Icon name="plus" size={18} color="#2E9E83" />
+                            <Icon name="plus" size={18} color={c.success} />
                           </TouchableOpacity>
                       </View>
                     </View>
@@ -772,7 +792,7 @@ export default function DietScreen() {
                           style={{
                             fontSize: 12,
                             fontWeight: "700",
-                            color: "#B4CFC5",
+                            color: c.textMuted,
                           }}>
                           아직 기록이 없어요
                         </Text>
@@ -801,7 +821,7 @@ export default function DietScreen() {
                 paddingVertical: 14,
                 borderRadius: 999,
                 borderWidth: 1.5,
-                borderColor: "#FFD3E0",
+                borderColor: c.danger + '20',
                 marginBottom: 10,
               }}
               onPress={() => {
@@ -819,7 +839,7 @@ export default function DietScreen() {
               activeOpacity={0.8}>
               <MealSnack size={16} />
               <Text
-                style={{ fontSize: 14, fontWeight: "700", color: "#E76C86" }}>
+                style={{ fontSize: 14, fontWeight: "700", color: c.danger }}>
                 간식 추가 +
               </Text>
             </TouchableOpacity>
@@ -851,6 +871,7 @@ function DraggableFoodItem({
   food, idx, isDragging, dragDy, isToday, mealType, date,
   onRemove, onDragStart, onDragMove, onDragEnd,
 }: DraggableFoodItemProps) {
+  const c = useColors();
   const idxRef = useRef(idx);
   idxRef.current = idx;
   const foodRef = useRef(food);
@@ -901,25 +922,25 @@ function DraggableFoodItem({
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: isDragging ? '#D6F0E6' : '#E7F7F0',
+          backgroundColor: isDragging ? c.border : c.surfaceAlt,
           borderRadius: 16,
           paddingHorizontal: 10,
           paddingVertical: 10,
         }}>
         <View {...panResponder.panHandlers} style={{ paddingRight: 6, paddingLeft: 2, paddingVertical: 4 }}>
-          <Icon name="menu" size={17} color={isDragging ? '#2E9E83' : '#C5DDD6'} />
+          <Icon name="menu" size={17} color={isDragging ? c.success : c.textMuted} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13, fontWeight: '800', color: '#34514A' }}>{food.name}</Text>
-          <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#7E9A90', marginTop: 2 }}>
+          <Text style={{ fontSize: 13, fontWeight: '800', color: c.textPrimary }}>{food.name}</Text>
+          <Text style={{ fontSize: 10.5, fontWeight: '600', color: c.textSecondary, marginTop: 2 }}>
             {food.amount}{food.unit} · 탄 {food.carbs}g · 단 {food.protein}g · 지 {food.fat}g
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', color: '#2E9E83' }}>{food.calories}kcal</Text>
+          <Text style={{ fontSize: 12, fontWeight: '900', color: c.success }}>{food.calories}kcal</Text>
           {isToday && (
             <TouchableOpacity onPress={() => onRemove(mealType, food.id, date)}>
-              <Icon name="trash" size={15} color="#B4CFC5" />
+              <Icon name="trash" size={15} color={c.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -941,6 +962,7 @@ function DraggableFoodList({
   isToday: boolean;
   onRemove: (type: any, id: string, date: string) => void;
 }) {
+  const c = useColors();
   const [localFoods, setLocalFoods] = useState(foods);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const draggingRef = useRef<{ id: string | null; fromIdx: number }>({ id: null, fromIdx: -1 });
@@ -1013,27 +1035,28 @@ function FoodRow({
   isToday: boolean;
   onRemove: (type: any, id: string, date: string) => void;
 }) {
+  const c = useColors();
   return (
     <View
       style={{
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        backgroundColor: "#E7F7F0",
+        backgroundColor: c.surfaceAlt,
         borderRadius: 16,
         paddingHorizontal: 13,
         paddingVertical: 10,
         marginTop: 7,
       }}>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, fontWeight: "800", color: "#34514A" }}>
+        <Text style={{ fontSize: 13, fontWeight: "800", color: c.textPrimary }}>
           {food.name}
         </Text>
         <Text
           style={{
             fontSize: 10.5,
             fontWeight: "600",
-            color: "#7E9A90",
+            color: c.textSecondary,
             marginTop: 2,
           }}>
           {food.amount}
@@ -1041,12 +1064,12 @@ function FoodRow({
         </Text>
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Text style={{ fontSize: 12, fontWeight: "900", color: "#2E9E83" }}>
+        <Text style={{ fontSize: 12, fontWeight: "900", color: c.success }}>
           {food.calories}kcal
         </Text>
         {isToday && (
           <TouchableOpacity onPress={() => onRemove(mealType, food.id, date)}>
-            <Icon name="trash" size={15} color="#B4CFC5" />
+            <Icon name="trash" size={15} color={c.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -1067,6 +1090,7 @@ function MacroChip({
   color: string;
   bg: string;
 }) {
+  const c = useColors();
   const numVal = parseFloat(value);
   const pct =
     target && target > 0
@@ -1091,7 +1115,7 @@ function MacroChip({
           backgroundColor: color,
         }}
       />
-      <Text style={{ fontSize: 10, color: "#7E9A90", fontWeight: "700" }}>
+      <Text style={{ fontSize: 10, color: c.textSecondary, fontWeight: "700" }}>
         {label}
       </Text>
       <Text style={{ fontSize: 13, fontWeight: "900", color }}>{value}</Text>

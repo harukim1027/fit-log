@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Text, View, TouchableOpacity, Animated } from 'react-native';
 import { Icon, FlameIcon } from './AppIcons';
+import { useColors } from '../constants/colors';
 
 type Props = {
   visible: boolean;
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }: Props) {
+  const c = useColors();
   const bgOpacity = useRef(new Animated.Value(0)).current;
   const cardY = useRef(new Animated.Value(80)).current;
   const cardOpacity = useRef(new Animated.Value(0)).current;
@@ -51,12 +53,12 @@ export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }:
       pointerEvents="auto">
       <Animated.View
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: c.surface,
           borderRadius: 32,
           padding: 36,
           alignItems: 'center',
           width: '84%',
-          shadowColor: '#4EBFA0',
+          shadowColor: c.primary,
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.18,
           shadowRadius: 20,
@@ -65,29 +67,29 @@ export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }:
           transform: [{ translateY: cardY }],
         }}>
         <Animated.View style={{ marginBottom: 16, transform: [{ scale: emojiScale }] }}>
-          <Icon name="trophy" size={68} color="#FFD36E" />
+          <Icon name="trophy" size={68} color={c.stats} />
         </Animated.View>
-        <Text style={{ fontSize: 24, fontWeight: '800', color: '#34514A', marginBottom: 8, textAlign: 'center' }}>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: c.textPrimary, marginBottom: 8, textAlign: 'center' }}>
           운동 완료!
         </Text>
         {calories > 0 && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 28 }}>
-            <FlameIcon size={18} color="#E76C86" />
-            <Text style={{ fontSize: 17, color: '#E76C86', fontWeight: '700' }}>
+            <FlameIcon size={18} color={c.danger} />
+            <Text style={{ fontSize: 17, color: c.danger, fontWeight: '700' }}>
               {calories} kcal 소모
             </Text>
           </View>
         )}
         <TouchableOpacity
           style={{
-            backgroundColor: '#6FD3B6',
+            backgroundColor: c.primary,
             borderRadius: 22,
             paddingHorizontal: 44,
             paddingVertical: 14,
           }}
           onPress={onDismiss}
           activeOpacity={0.8}>
-          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>완료</Text>
+          <Text style={{ color: c.onAccent, fontWeight: '800', fontSize: 16 }}>완료</Text>
         </TouchableOpacity>
       </Animated.View>
     </Animated.View>

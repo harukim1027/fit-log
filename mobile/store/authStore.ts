@@ -25,6 +25,7 @@ interface AuthStore {
   isReady: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  loginWithGoogle: (accessToken: string) => Promise<void>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
   fetchMe: () => Promise<void>;
@@ -85,6 +86,21 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (e: any) {
       set({ isLoading: false });
       throw new Error(e.response?.data?.message || '로그인 실패');
+    }
+  },
+
+  loginWithGoogle: async (accessToken: string) => {
+    set({ isLoading: true });
+    try {
+      const res = await axios.post(API_URL + '/auth/google', { access_token: accessToken });
+      const { access_token: token, user } = res.data;
+      await AsyncStorage.setItem('token', token);
+      await saveUser(user);
+      set({ token, user, isLoading: false });
+      get().fetchMe().catch(() => {});
+    } catch (e: any) {
+      set({ isLoading: false });
+      throw new Error(e.response?.data?.message || 'Google 로그인 실패');
     }
   },
 

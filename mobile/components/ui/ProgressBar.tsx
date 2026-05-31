@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, ViewProps, StyleSheet } from "react-native";
+import { useColors } from "../../constants/colors";
 
 export type ProgressColor = "primary" | "success" | "warning" | "danger" | "diet" | "workout" | "water";
 
@@ -13,16 +14,6 @@ export interface ProgressBarProps extends ViewProps {
   trackClassName?: string;
 }
 
-const fillColor: Record<ProgressColor, string> = {
-  primary: "#6FD3B6",
-  success: "#9BE3CE",
-  warning: "#FFC078",
-  danger:  "#FF9DB0",
-  diet:    "#FFC078",
-  workout: "#FF9DB0",
-  water:   "#8FC7F5",
-};
-
 export function ProgressBar({
   value,
   color = "primary",
@@ -34,8 +25,19 @@ export function ProgressBar({
   style,
   ...props
 }: ProgressBarProps) {
+  const c = useColors();
   const clamped = Math.min(Math.max(value, 0), 1);
   const pct = `${Math.round(clamped * 100)}%` as `${number}%`;
+
+  const fillColor: Record<ProgressColor, string> = {
+    primary: c.primary,
+    success: c.success,
+    warning: c.warning,
+    danger:  c.danger,
+    diet:    c.warning,
+    workout: c.danger,
+    water:   c.secondary,
+  };
 
   return (
     <View className={["w-full", className ?? ""].filter(Boolean).join(" ")} {...props}>

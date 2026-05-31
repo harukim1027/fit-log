@@ -1,13 +1,15 @@
-import React, { useRef, useState } from 'react';
-import { View, PanResponder, Animated, ViewStyle } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import React, { useRef, useState, useCallback } from "react";
+import { View, PanResponder, Animated, ViewStyle } from "react-native";
+import * as Haptics from "expo-haptics";
 
 export interface SortableListProps<T> {
   data: T[];
   keyExtractor: (item: T) => string;
   renderItem: (item: T, index: number, isActive: boolean) => React.ReactNode;
   onDragEnd: (newData: T[]) => void;
-  itemHeight: number;
+  onDragStart?: () => void;
+  onDragRelease?: () => void;
+  itemHeight?: number; // 실측 대체 후 사용 안 함, 하위호환용
   style?: ViewStyle;
 }
 
@@ -16,23 +18,45 @@ export function SortableList<T>({
   keyExtractor,
   renderItem,
   onDragEnd,
-  itemHeight,
+  onDragStart,
+  onDragRelease,
   style,
 }: SortableListProps<T>) {
-  const [dragIndex, setDragIndex] = useState(-1);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  const dragIndexRef = useRef(-1);
-  const hoverIndexRef = useRef(-1);
   const isDragging = useRef(false);
-  const touchStartY = useRef(0);
-  const grantDy = useRef(0);
+  const dragStartIndex = useRef(0);
+  const hoverIndexRef = useRef<number | null>(null);
+
+  // 각 아이템의 실측 높이 (onLayout)
+  const itemHeights = useRef<number[]>([]);
+  // 각 아이템의 top Y (컨테이너 기준) — 누적 계산
+  // → itemHeights에서 매번 계산하므로 별도 저장 불필요
+  // 컨테이너 전체 높이
+  const [totalHeight, setTotalHeight] = useState(0);
+
+  // 드래그 시작 시 containerPageY (fresh 측정)
+  const containerPageY = useRef(0);
+  // PanResponder grant 시점 pageY
+  const grantPageY = useRef(0);
+  // onTouchStart pageY
+  const touchStartPageY = useRef(0);
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<View>(null);
 
-  const dragDy = useRef(new Animated.Value(0)).current;
+  const dataRef = useRef(data);
+  const onDragEndRef = useRef(onDragEnd);
+  const onDragStartRef = useRef(onDragStart);
+  const onDragReleaseRef = useRef(onDragRelease);
+  dataRef.current = data;
+  onDragEndRef.current = onDragEnd;
+  onDragStartRef.current = onDragStart;
+  onDragReleaseRef.current = onDragRelease;
+
+  const dragY = useRef(new Animated.Value(0)).current;
   const dragScale = useRef(new Animated.Value(1)).current;
-  const dragOpacity = useRef(new Animated.Value(1)).current;
 
-  // One Animated.Value per item for shift animation
   const shiftsRef = useRef<Animated.Value[]>([]);
   while (shiftsRef.current.length < data.length) {
     shiftsRef.current.push(new Animated.Value(0));
@@ -40,58 +64,66 @@ export function SortableList<T>({
   if (shiftsRef.current.length > data.length) {
     shiftsRef.current = shiftsRef.current.slice(0, data.length);
   }
-  const shifts = shiftsRef.current;
 
-  const clamp = (v: number) => Math.max(0, Math.min(data.length - 1, v));
+  // index의 top Y (컨테이너 기준) = 앞 아이템 높이 합산
+  const getTopY = (index: number): number => {
+    let y = 0;
+    for (let i = 0; i < index; i++) {
+      y += itemHeights.current[i] ?? 0;
+    }
+    return y;
+  };
+
+  // pageY → 아이템 인덱스
+  const indexFromPageY = (pageY: number): number => {
+    const relY = pageY - containerPageY.current;
+    const n = dataRef.current.length;
+    let acc = 0;
+    for (let i = 0; i < n; i++) {
+      acc += itemHeights.current[i] ?? 0;
+      if (relY < acc) return i;
+    }
+    return n - 1;
+  };
+
+  // 드래그 아이템 높이
+  const getDragItemHeight = (): number =>
+    itemHeights.current[dragStartIndex.current] ?? 60;
 
   const applyShifts = (active: number, hover: number) => {
-    data.forEach((_, i) => {
+    const h = itemHeights.current[active] ?? 60;
+    dataRef.current.forEach((_, i) => {
+      if (i === active) return;
       let target = 0;
-      if (active >= 0) {
-        if (active < hover && i > active && i <= hover) target = -itemHeight;
-        else if (active > hover && i >= hover && i < active) target = itemHeight;
+      if (active < hover && i > active && i <= hover) target = -h;
+      else if (active > hover && i >= hover && i < active) target = h;
+      const s = shiftsRef.current[i];
+      if (s) {
+        Animated.spring(s, {
+          toValue: target,
+          damping: 20,
+          stiffness: 200,
+          useNativeDriver: true,
+        }).start();
       }
-      Animated.spring(shifts[i], {
-        toValue: target,
-        damping: 20,
-        stiffness: 200,
-        useNativeDriver: true,
-      }).start();
     });
   };
 
-  const startDrag = (idx: number) => {
-    isDragging.current = true;
-    dragIndexRef.current = idx;
-    hoverIndexRef.current = idx;
-    dragDy.setValue(0);
-    setDragIndex(idx);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    Animated.spring(dragScale, { toValue: 1.03, damping: 15, stiffness: 200, useNativeDriver: true }).start();
-    Animated.timing(dragOpacity, { toValue: 0.95, duration: 100, useNativeDriver: true }).start();
-  };
-
-  const finishDrag = () => {
-    const from = dragIndexRef.current;
-    const to = hoverIndexRef.current;
-
-    isDragging.current = false;
-    dragIndexRef.current = -1;
-    hoverIndexRef.current = -1;
-    setDragIndex(-1);
-
-    Animated.spring(dragDy, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true }).start();
-    Animated.spring(dragScale, { toValue: 1, damping: 15, stiffness: 200, useNativeDriver: true }).start();
-    Animated.spring(dragOpacity, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }).start();
-    shifts.forEach(s => Animated.spring(s, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true }).start());
-
-    if (from >= 0 && from !== to) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      const next = [...data];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      onDragEnd(next);
-    }
+  const resetAnimations = () => {
+    Animated.spring(dragScale, {
+      toValue: 1,
+      damping: 15,
+      stiffness: 200,
+      useNativeDriver: true,
+    }).start();
+    shiftsRef.current.forEach((s) =>
+      Animated.spring(s, {
+        toValue: 0,
+        damping: 20,
+        stiffness: 200,
+        useNativeDriver: true,
+      }).start()
+    );
   };
 
   const cancelTimer = () => {
@@ -103,81 +135,158 @@ export function SortableList<T>({
 
   const panResponder = useRef(
     PanResponder.create({
-      // Don't capture on start — let children handle taps normally.
-      // Capture movement only once drag mode is active.
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: () => isDragging.current,
       onMoveShouldSetPanResponderCapture: () => isDragging.current,
 
-      onPanResponderGrant: (_, gs) => {
-        // Record dy at grant so we can zero-base subsequent movement
-        grantDy.current = gs.dy;
+      onPanResponderGrant: (e) => {
+        grantPageY.current = e.nativeEvent.pageY;
+        const h = getDragItemHeight();
+        const relY = grantPageY.current - containerPageY.current;
+        dragY.setValue(relY - h / 2);
       },
 
       onPanResponderMove: (_, gs) => {
         if (!isDragging.current) return;
-        const dy = gs.dy - grantDy.current;
-        dragDy.setValue(dy);
-        const newHover = clamp(Math.round(dragIndexRef.current + dy / itemHeight));
-        if (newHover !== hoverIndexRef.current) {
-          hoverIndexRef.current = newHover;
-          applyShifts(dragIndexRef.current, newHover);
+        const currentPageY = grantPageY.current + gs.dy;
+        const h = getDragItemHeight();
+        dragY.setValue(currentPageY - containerPageY.current - h / 2);
+
+        const newHoverIndex = indexFromPageY(currentPageY);
+        if (newHoverIndex !== hoverIndexRef.current) {
+          hoverIndexRef.current = newHoverIndex;
+          applyShifts(dragStartIndex.current, newHoverIndex);
         }
       },
 
-      onPanResponderRelease: () => finishDrag(),
-      onPanResponderTerminate: () => finishDrag(),
+      onPanResponderRelease: (_, gs) => {
+        if (!isDragging.current) return;
+
+        const currentPageY = grantPageY.current + gs.dy;
+        const finalIndex = indexFromPageY(currentPageY);
+
+        isDragging.current = false;
+        hoverIndexRef.current = null;
+        setDragIndex(null);
+        resetAnimations();
+        onDragReleaseRef.current?.();
+
+        if (finalIndex !== dragStartIndex.current) {
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success
+          ).catch(() => {});
+          const next = [...dataRef.current];
+          const [moved] = next.splice(dragStartIndex.current, 1);
+          next.splice(finalIndex, 0, moved);
+          onDragEndRef.current(next);
+        }
+      },
+
+      onPanResponderTerminate: () => {
+        isDragging.current = false;
+        hoverIndexRef.current = null;
+        setDragIndex(null);
+        resetAnimations();
+        onDragReleaseRef.current?.();
+      },
     })
   ).current;
 
   return (
     <View
-      style={[{ overflow: 'visible' }, style]}
+      ref={containerRef}
+      style={[{ overflow: "visible" }, style]}
       onTouchStart={(e) => {
-        const localY = e.nativeEvent.locationY;
-        touchStartY.current = localY;
-        const idx = clamp(Math.floor(localY / itemHeight));
-        timerRef.current = setTimeout(() => startDrag(idx), 400);
+        touchStartPageY.current = e.nativeEvent.pageY;
+
+        timerRef.current = setTimeout(() => {
+          containerRef.current?.measure((_x, _y, _w, _h, _px, py) => {
+            containerPageY.current = py;
+
+            const idx = indexFromPageY(touchStartPageY.current);
+
+            isDragging.current = true;
+            dragStartIndex.current = idx;
+            hoverIndexRef.current = idx;
+            setDragIndex(idx);
+            onDragStartRef.current?.();
+
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(
+              () => {}
+            );
+            Animated.spring(dragScale, {
+              toValue: 1.05,
+              damping: 15,
+              stiffness: 200,
+              useNativeDriver: true,
+            }).start();
+          });
+        }, 400);
       }}
       onTouchMove={(e) => {
         if (isDragging.current) return;
-        const dy = Math.abs(e.nativeEvent.locationY - touchStartY.current);
-        if (dy > 6) cancelTimer();
+        const dy = Math.abs(e.nativeEvent.pageY - touchStartPageY.current);
+        if (dy > 8) cancelTimer();
       }}
       onTouchEnd={cancelTimer}
       onTouchCancel={cancelTimer}
-      {...panResponder.panHandlers}
-    >
-      {data.map((item, index) => {
-        const isActive = index === dragIndex;
-        return (
+      {...panResponder.panHandlers}>
+      {/* 전체 높이를 실측 합산으로 맞춤 */}
+      <View style={{ height: totalHeight }}>
+        {data.map((item, index) => {
+          const isActive = index === dragIndex;
+          const shift = shiftsRef.current[index];
+          const topY = getTopY(index);
+
+          return (
+            <Animated.View
+              key={keyExtractor(item)}
+              onLayout={(e) => {
+                const h = e.nativeEvent.layout.height;
+                itemHeights.current[index] = h;
+                // 전체 높이 재계산
+                const total = itemHeights.current
+                  .slice(0, data.length)
+                  .reduce((s, v) => s + (v ?? 0), 0);
+                setTotalHeight(total);
+              }}
+              style={[
+                {
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: topY,
+                },
+                isActive ? { opacity: 0.15 } : undefined,
+                shift ? { transform: [{ translateY: shift }] } : undefined,
+              ]}>
+              {renderItem(item, index, false)}
+            </Animated.View>
+          );
+        })}
+
+        {dragIndex !== null && dragIndex >= 0 && dragIndex < data.length && (
           <Animated.View
-            key={keyExtractor(item)}
-            style={[
-              { height: itemHeight },
-              isActive
-                ? {
-                    transform: [{ translateY: dragDy }, { scale: dragScale }],
-                    opacity: dragOpacity,
-                    zIndex: 100,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.22,
-                    shadowRadius: 12,
-                    elevation: 10,
-                  }
-                : {
-                    transform: [{ translateY: shifts[index] }],
-                    zIndex: 1,
-                    elevation: 0,
-                  },
-            ]}
-          >
-            {renderItem(item, index, isActive)}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              width: "100%",
+              height: itemHeights.current[dragIndex] ?? 60,
+              transform: [{ translateY: dragY }, { scale: dragScale }],
+              zIndex: 999,
+              elevation: 999,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.25,
+              shadowRadius: 16,
+            }}>
+            {renderItem(data[dragIndex], dragIndex, true)}
           </Animated.View>
-        );
-      })}
+        )}
+      </View>
     </View>
   );
 }

@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { Icon, PlayIcon } from "./AppIcons";
+import { useColors } from "../constants/colors";
 
 const PRESETS = [
   { label: "5초", seconds: 5 },
@@ -20,14 +21,6 @@ const PRESETS = [
 ];
 
 const STORAGE_KEY = (name?: string) => `restTimer2:${name ?? "_default_"}`;
-
-const SHADOW = {
-  shadowColor: "#4EBFA0",
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.2,
-  shadowRadius: 24,
-  elevation: 4,
-};
 
 const formatTime = (s: number) =>
   Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
@@ -60,6 +53,14 @@ export default function RestTimer({
   externalPaused,
   onStateChange,
 }: Props) {
+  const c = useColors();
+  const SHADOW = {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 4,
+  };
   const [_seconds, _setSeconds] = useState(externalSeconds ?? 0);
   const [_remaining, _setRemaining] = useState(externalRemaining ?? 0);
   const [_running, _setRunning] = useState(externalRunning ?? false);
@@ -251,17 +252,17 @@ export default function RestTimer({
     'waiting' as const;
 
   const timerColor =
-    (timerState === 'running' || timerState === 'paused') && remaining <= 10 ? '#FF8FA0' :
-    timerState === 'running' ? '#FFAE96' :
-    timerState === 'paused' ? '#E6932F' :
-    timerState === 'completed' ? '#6FD3B6' :
-    seconds > 0 ? '#34514A' : '#B4CFC5';
+    (timerState === 'running' || timerState === 'paused') && remaining <= 10 ? c.danger :
+    timerState === 'running' ? c.warning :
+    timerState === 'paused' ? c.warning :
+    timerState === 'completed' ? c.primary :
+    seconds > 0 ? c.textPrimary : c.textMuted;
 
   return (
     <View
       style={[
         {
-          backgroundColor: "#fff",
+          backgroundColor: c.surface,
           borderRadius: pinned ? 0 : 30,
           borderBottomLeftRadius: 20,
           borderBottomRightRadius: 20,
@@ -288,11 +289,11 @@ export default function RestTimer({
             flex: 1,
           }}
           activeOpacity={0.8}>
-          <Icon name="clock" size={16} color="#7E9A90" />
-          <Text style={{ fontSize: 15, fontWeight: "800", color: "#34514A" }}>
+          <Icon name="clock" size={16} color={c.textSecondary} />
+          <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>
             휴식 타이머
           </Text>
-          <Text style={{ fontSize: 13, color: "#B4CFC5", fontWeight: "900" }}>
+          <Text style={{ fontSize: 13, color: c.textMuted, fontWeight: "900" }}>
             {collapsed ? "▼" : "▲"}
           </Text>
         </TouchableOpacity>
@@ -310,7 +311,7 @@ export default function RestTimer({
                 style={{
                   fontSize: 11,
                   fontWeight: "700",
-                  color: pinned ? "#E6932F" : "#7E9A90",
+                  color: pinned ? c.warning : c.textSecondary,
                 }}>
                 {pinned ? "고정됨" : "고정"}
               </Text>
@@ -319,8 +320,8 @@ export default function RestTimer({
           <TouchableOpacity
             onPress={reset}
             style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Icon name="refresh" size={16} color="#E76C86" />
-            <Text style={{ fontSize: 11, fontWeight: "700", color: "#E76C86" }}>
+            <Icon name="refresh" size={16} color={c.danger} />
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.danger }}>
               리셋
             </Text>
           </TouchableOpacity>
@@ -349,44 +350,44 @@ export default function RestTimer({
           <View style={{ flex: 1, flexDirection: "row", gap: 6 }}>
             {timerState === 'waiting' && seconds > 0 && (
               <TouchableOpacity
-                style={{ flex: 1, backgroundColor: '#FFAE96', borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
+                style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
                 onPress={start} activeOpacity={0.8}>
-                <Text style={{ fontSize: 12, fontWeight: '900', color: '#fff' }}>▶ 시작</Text>
+                <Text style={{ fontSize: 12, fontWeight: '900', color: c.onAccent }}>▶ 시작</Text>
               </TouchableOpacity>
             )}
             {timerState === 'running' && (
               <>
                 <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: '#FFF1E3', borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
+                  style={{ flex: 1, backgroundColor: c.warning + '18', borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
                   onPress={togglePause} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#E6932F' }}>⏸ 일시정지</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.warning }}>⏸ 일시정지</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 999, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' }}
+                  style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 999, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: c.border }}
                   onPress={stopTimer} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>⏹ 초기화</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>⏹ 초기화</Text>
                 </TouchableOpacity>
               </>
             )}
             {timerState === 'paused' && (
               <>
                 <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: '#FFAE96', borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
+                  style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
                   onPress={togglePause} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff' }}>▶ 재개</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.onAccent }}>▶ 재개</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: '#F3F4F6', borderRadius: 999, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' }}
+                  style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 999, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: c.border }}
                   onPress={stopTimer} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>⏹ 초기화</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>⏹ 초기화</Text>
                 </TouchableOpacity>
               </>
             )}
             {timerState === 'completed' && (
               <TouchableOpacity
-                style={{ flex: 1, backgroundColor: '#FFAE96', borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
+                style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
                 onPress={restartTimer} activeOpacity={0.8}>
-                <Text style={{ fontSize: 12, fontWeight: '900', color: '#fff' }}>🔄 다시시작</Text>
+                <Text style={{ fontSize: 12, fontWeight: '900', color: c.onAccent }}>🔄 다시시작</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -410,7 +411,7 @@ export default function RestTimer({
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: "#E7F7F0",
+                backgroundColor: c.surfaceAlt,
                 alignItems: "center",
                 justifyContent: "center",
               }}>
@@ -418,7 +419,7 @@ export default function RestTimer({
                 style={{
                   fontSize: 20,
                   fontWeight: "800",
-                  color: "#7E9A90",
+                  color: c.textSecondary,
                   marginTop: -2,
                 }}>
                 −
@@ -429,7 +430,7 @@ export default function RestTimer({
                 style={{
                   fontSize: 34,
                   fontWeight: "900",
-                  color: "#34514A",
+                  color: c.textPrimary,
                   letterSpacing: -1,
                 }}>
                 {formatTime(seconds)}
@@ -437,7 +438,7 @@ export default function RestTimer({
               <Text
                 style={{
                   fontSize: 10,
-                  color: "#B4CFC5",
+                  color: c.textMuted,
                   fontWeight: "600",
                   marginTop: 2,
                 }}>
@@ -450,7 +451,7 @@ export default function RestTimer({
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: "#6FD3B6",
+                backgroundColor: c.primary,
                 alignItems: "center",
                 justifyContent: "center",
               }}>
@@ -458,7 +459,7 @@ export default function RestTimer({
                 style={{
                   fontSize: 20,
                   fontWeight: "800",
-                  color: "#fff",
+                  color: c.onAccent,
                   marginTop: -2,
                 }}>
                 +
@@ -483,10 +484,10 @@ export default function RestTimer({
                   borderRadius: 999,
                   paddingVertical: 7,
                   alignItems: "center",
-                  backgroundColor: "#FFF1E3",
+                  backgroundColor: c.warning + '18',
                 }}>
                 <Text
-                  style={{ fontSize: 11, fontWeight: "800", color: "#E6932F" }}>
+                  style={{ fontSize: 11, fontWeight: "800", color: c.warning }}>
                   +{p.label}
                 </Text>
               </TouchableOpacity>
@@ -495,23 +496,23 @@ export default function RestTimer({
 
           {(timerState === 'running' || timerState === 'paused') && (
             <View style={{ alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <View style={{ width: "100%", height: 8, backgroundColor: "#E7F7F0", borderRadius: 999, overflow: "hidden" }}>
-                <View style={{ height: "100%", backgroundColor: timerState === 'paused' ? '#B4CFC5' : '#FFAE96', borderRadius: 999, width: `${progress}%` as `${number}%` }} />
+              <View style={{ width: "100%", height: 8, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden" }}>
+                <View style={{ height: "100%", backgroundColor: timerState === 'paused' ? c.textMuted : c.warning, borderRadius: 999, width: `${progress}%` as `${number}%` }} />
               </View>
               <Animated.Text style={{ fontSize: 48, fontWeight: "900", letterSpacing: -2, color: timerColor, transform: timerState === 'running' ? [{ scale: pulseAnim }] : [] }}>
                 {formatTime(remaining)}
               </Animated.Text>
               <TouchableOpacity
-                style={{ backgroundColor: '#F3F4F6', borderRadius: 999, paddingVertical: 8, paddingHorizontal: 22, borderWidth: 1, borderColor: '#E5E7EB' }}
+                style={{ backgroundColor: c.surfaceAlt, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 22, borderWidth: 1, borderColor: c.border }}
                 onPress={stopTimer} activeOpacity={0.8}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90' }}>⏹ 초기화</Text>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary }}>⏹ 초기화</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {timerState === 'completed' && (
             <View style={{ alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 48, fontWeight: '900', letterSpacing: -2, color: '#6FD3B6' }}>완료! 🎉</Text>
+              <Text style={{ fontSize: 48, fontWeight: '900', letterSpacing: -2, color: c.primary }}>완료! 🎉</Text>
             </View>
           )}
 
@@ -526,16 +527,16 @@ export default function RestTimer({
               placeholder="직접 입력 (초)"
               style={{
                 flex: 1,
-                backgroundColor: "#E7F7F0",
+                backgroundColor: c.surfaceAlt,
                 borderRadius: 16,
                 paddingVertical: 12,
                 paddingHorizontal: 14,
                 fontSize: 15,
                 fontWeight: "800",
-                color: "#34514A",
+                color: c.textPrimary,
                 textAlign: "center",
               }}
-              placeholderTextColor="#B4CFC5"
+              placeholderTextColor={c.textMuted}
             />
             <TouchableOpacity
               style={{
@@ -545,8 +546,8 @@ export default function RestTimer({
                 minWidth: 90,
                 alignItems: 'center',
                 backgroundColor:
-                  timerState === 'running' ? '#FFF1E3' :
-                  timerState === 'waiting' && seconds === 0 ? '#E7F7F0' : '#FFAE96',
+                  timerState === 'running' ? c.warning + '18' :
+                  timerState === 'waiting' && seconds === 0 ? c.surfaceAlt : c.warning,
               }}
               onPress={
                 timerState === 'running' ? togglePause :
@@ -560,8 +561,8 @@ export default function RestTimer({
                 fontSize: 13,
                 fontWeight: '900',
                 color:
-                  timerState === 'running' ? '#E6932F' :
-                  timerState === 'waiting' && seconds === 0 ? '#B4CFC5' : '#fff',
+                  timerState === 'running' ? c.warning :
+                  timerState === 'waiting' && seconds === 0 ? c.textMuted : c.surface,
               }}>
                 {timerState === 'running' ? '⏸ 일시정지' :
                  timerState === 'paused' ? '▶ 재개' :

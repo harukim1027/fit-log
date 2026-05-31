@@ -1,5 +1,6 @@
 import React from "react";
-import { View, ViewProps, StyleSheet } from "react-native";
+import { View, ViewProps } from "react-native";
+import { useColors } from "../../constants/colors";
 
 export interface CardProps extends ViewProps {
   children: React.ReactNode;
@@ -17,6 +18,15 @@ export function Card({
   style,
   ...props
 }: CardProps) {
+  const c = useColors();
+  const shadowStyle = shadow ? {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.20,
+    shadowRadius: 24,
+    elevation: 4,
+  } : undefined;
+
   return (
     <View
       className={[
@@ -26,19 +36,9 @@ export function Card({
       ]
         .filter(Boolean)
         .join(" ")}
-      style={[shadow && styles.shadow, style]}
+      style={[shadowStyle, style]}
       {...props}>
       {children}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  shadow: {
-    shadowColor: "#4EBFA0",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.20,
-    shadowRadius: 24,
-    elevation: 4,
-  },
-});
