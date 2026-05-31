@@ -2,7 +2,6 @@ import React from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Alert,
   ScrollView,
@@ -14,7 +13,7 @@ import { useState, useEffect } from "react";
 import { useDietStore } from "../../store/dietStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
-import { Header, Button } from "../../components/ui";
+import { Header, Button, NumberPad } from "../../components/ui";
 import { Stepper } from "../../components/ui/Stepper";
 import { Icon } from "../../components/AppIcons";
 import { useColors, ThemeColors } from "../../constants/colors";
@@ -49,18 +48,10 @@ function MacroRow({
 }) {
   const c = useColors();
   const grams = Math.round((targetCal * ratio) / 100 / kcalPer);
-  const [gramText, setGramText] = useState(String(grams));
-  const [ratioText, setRatioText] = useState(String(ratio));
+  const [ratioPadVisible, setRatioPadVisible] = useState(false);
+  const [gramPadVisible, setGramPadVisible] = useState(false);
 
-  useEffect(() => {
-    setGramText(String(grams));
-  }, [grams]);
-  useEffect(() => {
-    setRatioText(String(ratio));
-  }, [ratio]);
-
-  const handleGramChange = (text: string) => {
-    setGramText(text);
+  const handleGramConfirm = (text: string) => {
     const g = parseFloat(text);
     if (!isNaN(g) && g >= 0 && targetCal > 0) {
       const newRatio = Math.round(((g * kcalPer) / targetCal) * 100);
@@ -68,176 +59,71 @@ function MacroRow({
     }
   };
 
-  const handleRatioTextChange = (text: string) => {
-    setRatioText(text);
+  const handleRatioConfirm = (text: string) => {
     const r = parseInt(text);
     if (!isNaN(r) && r >= 1 && r <= 99) onRatioChange(r);
   };
 
   return (
     <View style={{ marginBottom: 14 }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          marginBottom: 6,
-        }}>
-        <View
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: 5,
-            backgroundColor: color.bar,
-          }}
-        />
-        <Text
-          style={{
-            fontSize: 14,
-            fontWeight: "700",
-            color: c.textPrimary,
-            flex: 1,
-          }}>
-          {label}
-        </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color.bar }} />
+        <Text style={{ fontSize: 14, fontWeight: "700", color: c.textPrimary, flex: 1 }}>{label}</Text>
       </View>
       {/* 비율 바 */}
-      <View
-        style={{
-          height: 8,
-          backgroundColor: c.surfaceAlt,
-          borderRadius: 999,
-          overflow: "hidden",
-          marginBottom: 10,
-        }}>
-        <View
-          style={{
-            height: "100%",
-            width: `${Math.min(ratio, 100)}%` as `${number}%`,
-            backgroundColor: color.bar,
-            borderRadius: 999,
-          }}
-        />
+      <View style={{ height: 8, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden", marginBottom: 10 }}>
+        <View style={{ height: "100%", width: `${Math.min(ratio, 100)}%` as `${number}%`, backgroundColor: color.bar, borderRadius: 999 }} />
       </View>
       {/* % 조작 */}
-      <View
-        style={{
-          flexDirection: "row",
-          gap: 6,
-          alignItems: "center",
-          marginBottom: 8,
-        }}>
+      <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginBottom: 8 }}>
         <TouchableOpacity
           onPress={onDec}
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            backgroundColor: c.surfaceAlt,
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "800",
-              color: c.textSecondary,
-              marginTop: -2,
-            }}>
-            −
-          </Text>
+          style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
         </TouchableOpacity>
-        <View
-          style={{
-            flex: 1,
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: color.bg,
-            borderRadius: 12,
-            paddingVertical: 6,
-            paddingHorizontal: 10,
-          }}>
-          <TextInput
-            style={{
-              flex: 1,
-              fontSize: 20,
-              fontWeight: "900",
-              color: color.text,
-              textAlign: "center",
-              padding: 0,
-            }}
-            value={ratioText}
-            onChangeText={handleRatioTextChange}
-            keyboardType="numeric"
-            selectTextOnFocus
-          />
-          <Text style={{ fontSize: 16, fontWeight: "700", color: color.text }}>
-            %
-          </Text>
-        </View>
+        <TouchableOpacity
+          onPress={() => setRatioPadVisible(true)}
+          style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: color.bg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10, gap: 2 }}>
+          <Text style={{ fontSize: 20, fontWeight: "900", color: color.text }}>{ratio}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: color.text }}>%</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={onInc}
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            backgroundColor: color.bar,
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "800",
-              color: c.onAccent,
-              marginTop: -2,
-            }}>
-            +
-          </Text>
+          style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: color.bar, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: c.onAccent, marginTop: -2 }}>+</Text>
         </TouchableOpacity>
       </View>
       {/* g 직접 입력 */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Text
-          style={{
-            fontSize: 12,
-            color: c.textSecondary,
-            fontWeight: "700",
-            width: 60,
-          }}>
-          목표량
-        </Text>
-        <TextInput
-          style={{
-            flex: 1,
-            backgroundColor: c.surfaceAlt,
-            borderRadius: 10,
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            fontSize: 14,
-            fontWeight: "700",
-            color: c.textPrimary,
-            textAlign: "center",
-          }}
-          value={gramText}
-          onChangeText={handleGramChange}
-          keyboardType="numeric"
-          selectTextOnFocus
-        />
-        <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700" }}>
-          g
-        </Text>
-        <Text
-          style={{
-            fontSize: 11,
-            color: color.text,
-            fontWeight: "700",
-            width: 50,
-            textAlign: "right",
-          }}>
+        <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700", width: 60 }}>목표량</Text>
+        <TouchableOpacity
+          onPress={() => setGramPadVisible(true)}
+          style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, alignItems: "center" }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: c.textPrimary, textAlign: "center" }}>{grams}</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700" }}>g</Text>
+        <Text style={{ fontSize: 11, color: color.text, fontWeight: "700", width: 50, textAlign: "right" }}>
           {grams * kcalPer} kcal
         </Text>
       </View>
+
+      <NumberPad
+        visible={ratioPadVisible}
+        value={String(ratio)}
+        decimal={false}
+        suffix="%"
+        max={99}
+        onConfirm={(v) => { handleRatioConfirm(v); setRatioPadVisible(false); }}
+        onCancel={() => setRatioPadVisible(false)}
+      />
+      <NumberPad
+        visible={gramPadVisible}
+        value={String(grams)}
+        decimal={false}
+        suffix="g"
+        onConfirm={(v) => { handleGramConfirm(v); setGramPadVisible(false); }}
+        onCancel={() => setGramPadVisible(false)}
+      />
     </View>
   );
 }

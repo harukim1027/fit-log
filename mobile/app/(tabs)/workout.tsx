@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Header, Card, SortableList } from "../../components/ui";
+import { Header, Card, SortableList, NumberPad } from "../../components/ui";
 import { useEffect, useState, useMemo } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { useRoutineStore } from "../../store/routineStore";
@@ -141,7 +141,6 @@ export default function WorkoutScreen() {
     workoutPaused,
     setWorkoutElapsed,
     setWorkoutPaused,
-    resetWorkoutTimer,
     addSet,
     addExercise,
     removeExercise,
@@ -203,6 +202,11 @@ export default function WorkoutScreen() {
   const [showRoutineSheet, setShowRoutineSheet] = useState(false);
   const [expandedRoutineInSheet, setExpandedRoutineInSheet] = useState<string | null>(null);
   const [addedFromRoutine, setAddedFromRoutine] = useState<Set<string>>(new Set());
+
+  type PadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
+  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
+    setPadConfig({ value, decimal, suffix, onConfirm });
 
   const SETTING_KEYS = ["시트높이", "등받이각도", "그립종류", "발판위치", "바높이", "인클라인각도", "기타"];
 
@@ -1156,7 +1160,6 @@ export default function WorkoutScreen() {
                 elapsed={workoutElapsed}
                 paused={workoutPaused}
                 onPausedChange={setWorkoutPaused}
-                onReset={resetWorkoutTimer}
                 onEnd={handleEnd}
               />
               {activeSession.fromRoutineId && (() => {
@@ -1555,23 +1558,17 @@ export default function WorkoutScreen() {
                                   ? <Icon name="check" size={13} color={c.surface} />
                                   : <Text style={{fontSize: 11, fontWeight: '800', color: c.textSecondary}}>{idx + 1}</Text>}
                               </TouchableOpacity>
-                              <TextInput
-                                style={{flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 38, textAlign: 'center', fontSize: 14, fontWeight: '700', color: c.textPrimary}}
-                                value={ds.weight}
-                                onChangeText={v => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, weight: v} : s))}
-                                keyboardType="decimal-pad"
-                                placeholder="0"
-                                placeholderTextColor={c.textMuted}
-                              />
+                              <TouchableOpacity
+                                style={{flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 38, alignItems: 'center', justifyContent: 'center'}}
+                                onPress={() => openPad(ds.weight, true, 'kg', v => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, weight: v} : s)))}>
+                                <Text style={{fontSize: 14, fontWeight: '700', color: ds.weight ? c.textPrimary : c.textMuted}}>{ds.weight || '0'}</Text>
+                              </TouchableOpacity>
                               <Text style={{fontSize: 11, color: c.textSecondary, fontWeight: '600'}}>kg×</Text>
-                              <TextInput
-                                style={{flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 38, textAlign: 'center', fontSize: 14, fontWeight: '700', color: c.textPrimary}}
-                                value={ds.reps}
-                                onChangeText={v => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, reps: v} : s))}
-                                keyboardType="number-pad"
-                                placeholder="0"
-                                placeholderTextColor={c.textMuted}
-                              />
+                              <TouchableOpacity
+                                style={{flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 38, alignItems: 'center', justifyContent: 'center'}}
+                                onPress={() => openPad(ds.reps, false, '회', v => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, reps: v} : s)))}>
+                                <Text style={{fontSize: 14, fontWeight: '700', color: ds.reps ? c.textPrimary : c.textMuted}}>{ds.reps || '0'}</Text>
+                              </TouchableOpacity>
                               <Text style={{fontSize: 11, color: c.textSecondary, fontWeight: '600'}}>회</Text>
                               <TouchableOpacity onPress={() => setDraftSets(prev => prev.filter((_, i) => i !== idx))}>
                                 <Icon name="trash" size={14} color={c.textMuted} />
@@ -1890,13 +1887,11 @@ export default function WorkoutScreen() {
                                 onPress={() => updateExercise(ex.id, { restSeconds: Math.max(0, (ex.restSeconds ?? 60) - 10) })}>
                                 <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary }}>-10</Text>
                               </TouchableOpacity>
-                              <TextInput
-                                style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, textAlign: 'center', fontSize: 14, fontWeight: '700', color: c.textPrimary }}
-                                value={String(ex.restSeconds ?? 60)}
-                                onChangeText={v => { const n = parseInt(v); if (!isNaN(n) && n >= 0) updateExercise(ex.id, { restSeconds: n }); }}
-                                keyboardType="number-pad"
-                                placeholderTextColor={c.textMuted}
-                              />
+                              <TouchableOpacity
+                                style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => openPad(String(ex.restSeconds ?? 60), false, '초', v => { const n = parseInt(v); if (!isNaN(n) && n >= 0) updateExercise(ex.id, { restSeconds: n }); })}>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: c.textPrimary }}>{ex.restSeconds ?? 60}</Text>
+                              </TouchableOpacity>
                               <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: '700' }}>초</Text>
                               <TouchableOpacity
                                 style={{ backgroundColor: c.primary + '18', borderRadius: 10, width: 42, height: 36, alignItems: 'center', justifyContent: 'center' }}
@@ -2134,6 +2129,14 @@ export default function WorkoutScreen() {
         </View>
       </Modal>
 
+      <NumberPad
+        visible={padConfig !== null}
+        value={padConfig?.value ?? '0'}
+        decimal={padConfig?.decimal ?? true}
+        suffix={padConfig?.suffix}
+        onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
+        onCancel={() => setPadConfig(null)}
+      />
     </View>
   );
 }
@@ -2464,6 +2467,10 @@ function HistoryCard({
   useEffect(() => { setOrderedExercises(session.exercises); }, [session.exercises]);
   const [saving, setSaving] = useState(false);
   const [draftExercises, setDraftExercises] = useState<DraftExercise[]>([]);
+  type HistoryPadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  const [historyPadConfig, setHistoryPadConfig] = useState<HistoryPadConfig | null>(null);
+  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
+    setHistoryPadConfig({ value, decimal, suffix, onConfirm });
   const volume = getVolume(session);
 
   const durationText = (() => {
@@ -2603,6 +2610,7 @@ function HistoryCard({
   };
 
   return (
+    <>
     <Card bare className="overflow-hidden mb-3">
       {/* ── 세션 요약 (항상 표시) ── */}
       <TouchableOpacity
@@ -2693,23 +2701,17 @@ function HistoryCard({
                         ? <Icon name="check" size={12} color={c.surface} />
                         : <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>{setIdx + 1}</Text>}
                     </TouchableOpacity>
-                    <TextInput
-                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, textAlign: 'center', fontSize: 13, fontWeight: '700', color: c.textPrimary }}
-                      value={ds.weight}
-                      onChangeText={v => updateDraftSet(exIdx, setIdx, { weight: v })}
-                      keyboardType="decimal-pad"
-                      placeholder="0"
-                      placeholderTextColor={c.textMuted}
-                    />
+                    <TouchableOpacity
+                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => openPad(ds.weight, true, 'kg', v => updateDraftSet(exIdx, setIdx, { weight: v }))}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: ds.weight ? c.textPrimary : c.textMuted }}>{ds.weight || '0'}</Text>
+                    </TouchableOpacity>
                     <Text style={{ fontSize: 11, color: c.textSecondary, fontWeight: '600' }}>kg×</Text>
-                    <TextInput
-                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, textAlign: 'center', fontSize: 13, fontWeight: '700', color: c.textPrimary }}
-                      value={ds.reps}
-                      onChangeText={v => updateDraftSet(exIdx, setIdx, { reps: v })}
-                      keyboardType="number-pad"
-                      placeholder="0"
-                      placeholderTextColor={c.textMuted}
-                    />
+                    <TouchableOpacity
+                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => openPad(ds.reps, false, '회', v => updateDraftSet(exIdx, setIdx, { reps: v }))}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: ds.reps ? c.textPrimary : c.textMuted }}>{ds.reps || '0'}</Text>
+                    </TouchableOpacity>
                     <Text style={{ fontSize: 11, color: c.textSecondary, fontWeight: '600' }}>회</Text>
                     <TouchableOpacity onPress={() => removeDraftSet(exIdx, setIdx)}>
                       <Icon name="trash" size={14} color={c.textMuted} />
@@ -2881,5 +2883,14 @@ function HistoryCard({
         )
       )}
     </Card>
+    <NumberPad
+      visible={historyPadConfig !== null}
+      value={historyPadConfig?.value ?? '0'}
+      decimal={historyPadConfig?.decimal ?? true}
+      suffix={historyPadConfig?.suffix}
+      onConfirm={v => { historyPadConfig?.onConfirm(v); setHistoryPadConfig(null); }}
+      onCancel={() => setHistoryPadConfig(null)}
+    />
+    </>
   );
 }

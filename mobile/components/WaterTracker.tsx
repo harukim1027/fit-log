@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useWaterStore } from '../store/waterStore';
 import { WaterMascot, WaterDrop, Icon } from './AppIcons';
 import { useColors } from '../constants/colors';
+import { NumberPad } from './ui/NumberPad';
 
 const PRESETS = [150, 200, 250, 500];
 
 export default function WaterTracker() {
   const c = useColors();
   const { total, target, addWater, resetWater } = useWaterStore();
+  const [padVisible, setPadVisible] = useState(false);
   const progress = Math.min(total / target, 1);
   const cups = Math.floor(total / 250);
 
@@ -52,7 +55,7 @@ export default function WaterTracker() {
         ))}
       </View>
 
-      {/* 프리셋 알약 */}
+      {/* 프리셋 알약 + 직접 입력 */}
       <View style={{ flexDirection: 'row', gap: 7 }}>
         {PRESETS.map(amt => (
           <TouchableOpacity
@@ -63,7 +66,23 @@ export default function WaterTracker() {
             <Text style={{ fontSize: 12, fontWeight: '800', color: c.primary }}>+{amt}ml</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: c.primary + '18', borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}
+          onPress={() => setPadVisible(true)}
+          activeOpacity={0.7}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: c.primary }}>직접</Text>
+        </TouchableOpacity>
       </View>
+
+      <NumberPad
+        visible={padVisible}
+        value=""
+        suffix="ml"
+        decimal={false}
+        max={5000}
+        onConfirm={(v) => { addWater(parseInt(v) || 0); setPadVisible(false); }}
+        onCancel={() => setPadVisible(false)}
+      />
     </View>
   );
 }
