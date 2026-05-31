@@ -7,11 +7,18 @@ import { useAuthStore } from "../../store/authStore";
 import { Icon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
-import { ThemeToggle } from "../../components/ui";
+import { ThemeToggle, LabelTag } from "../../components/ui";
+import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS } from "../../components/MuscleMap";
+import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 
 const WEEKLY_GOAL = 4;
-const MUSCLE_GROUPS = ["가슴", "등", "어깨", "팔", "복근", "하체", "전완"];
+const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
+
+function eunNeun(s: string) {
+  const code = s.charCodeAt(s.length - 1) - 0xAC00;
+  return code >= 0 && code % 28 !== 0 ? '은' : '는';
+}
 
 function getWeekBounds() {
   const now = new Date();
@@ -106,7 +113,7 @@ export default function HomeScreen() {
     elevation: 3,
   };
 
-  const { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, activeMuscles } = useMemo(() => {
+  const { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, weekMuscles } = useMemo(() => {
     const { start, end } = getWeekBounds();
     const weekSessions = sessions.filter((s) => {
       const d = new Date(s.date + "T00:00:00");
@@ -146,15 +153,16 @@ export default function HomeScreen() {
       }
     }
 
-    const activeMuscles = new Set<string>();
+    const weekMuscleSet = new Set<string>();
     for (const sess of weekSessions) {
       for (const ex of sess.exercises) {
-        for (const m of ex.targetMuscles ?? []) activeMuscles.add(m);
-        if (ex.category) activeMuscles.add(ex.category);
+        const slugs = MUSCLE_MAP[ex.name];
+        if (slugs) for (const s of slugs) weekMuscleSet.add(s);
       }
     }
+    const weekMuscles = Array.from(weekMuscleSet);
 
-    return { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, activeMuscles };
+    return { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, weekMuscles };
   }, [sessions, getTotalVolume]);
 
   const recentSession = useMemo(() => {
@@ -162,8 +170,15 @@ export default function HomeScreen() {
     return completed.sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
   }, [sessions, activeSession]);
 
-  const hasMuscleTags = MUSCLE_GROUPS.some((m) => activeMuscles.has(m));
   const today = new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+
+  const weekMuscleSet = new Set(weekMuscles);
+  const missingMajor = MAJOR_MUSCLES.find(m => !weekMuscleSet.has(m));
+  const muscleHint = weekMuscles.length === 0
+    ? "이번 주 첫 운동을 기록해보세요"
+    : missingMajor
+      ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
+      : "전신 골고루 자극했어요!";
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
@@ -195,9 +210,9 @@ export default function HomeScreen() {
         contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 14 }}>
 
         {/* ── 이번 주 운동 목표 히어로 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18 }, SHADOW]}>
-            <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary, marginBottom: 14 }}>이번 주 운동 목표</Text>
+        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], overflow: 'visible' }}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18, paddingTop: 28, overflow: 'visible' }, SHADOW]}>
+            <LabelTag label="이번 주 운동 목표" color={c.tagCoral} />
             <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
               <GoalRing current={weekSessions.length} total={WEEKLY_GOAL} size={100} />
               <View style={{ flex: 1, gap: 10 }}>
@@ -265,11 +280,11 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* ── 최근 기록 ── */}
-        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }] }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <Text style={{ fontSize: 14, fontWeight: "900", color: c.textPrimary }}>최근 기록</Text>
+        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
+          <View style={{ position: 'relative', overflow: 'visible', height: 20, marginBottom: 16, marginTop: 14 }}>
+            <LabelTag label="최근 기록" color={c.tagMint} />
             <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
+              style={{ position: 'absolute', right: 0, top: 0, flexDirection: "row", alignItems: "center", gap: 3 }}
               onPress={() => router.push("/(tabs)/stats")}>
               <Text style={{ fontSize: 12, fontWeight: "800", color: c.primary }}>전체 보기</Text>
               <Icon name="chevronRight" size={12} color={c.primary} />
@@ -313,28 +328,22 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* ── 이번 주 자극 부위 ── */}
-        {hasMuscleTags && (
-          <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
-            <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, borderWidth: 1, borderColor: c.border, flexDirection: "row", alignItems: "center", gap: 14 }, SHADOW_SM]}>
-              <Icon name="dumbbell" size={28} color={c.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, marginBottom: 8 }}>이번 주 자극 부위</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {MUSCLE_GROUPS.map((m) => {
-                    const active = activeMuscles.has(m);
-                    return (
-                      <View
-                        key={m}
-                        style={{ backgroundColor: active ? c.primary + "28" : c.surfaceAlt, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                        <Text style={{ fontSize: 11, fontWeight: "800", color: active ? c.primary : c.textMuted }}>{m}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
+        <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }], overflow: 'visible' }}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, paddingTop: 28, borderWidth: 1, borderColor: c.border, overflow: 'visible' }, SHADOW_SM]}>
+            <LabelTag label="이번 주 자극 부위" color={c.tagSun} />
+            <MuscleMap muscles={weekMuscles} scale={0.55} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.border }}>
+              <Icon
+                name={weekMuscles.length === 0 ? "dumbbell" : missingMajor ? "target" : "check"}
+                size={13}
+                color={weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success}
+              />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success }}>
+                {muscleHint}
+              </Text>
             </View>
-          </Animated.View>
-        )}
+          </View>
+        </Animated.View>
 
       </ScrollView>
     </View>

@@ -80,6 +80,7 @@ interface WorkoutStore {
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
   fetchSessions: () => Promise<void>;
+  createSessionForDate: (date: string, exercises: WorkoutSession['exercises']) => Promise<void>;
   fetchExerciseHistory: (
     exerciseName: string,
     mode?: CompareMode
@@ -429,6 +430,33 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       console.error("운동 기록 불러오기 실패", e);
       set({ isLoading: false });
     }
+  },
+
+  createSessionForDate: async (date, exercises) => {
+    await apiClient.post("/workout", {
+      date,
+      durationMinutes: 0,
+      caloriesBurned: 0,
+      note: "",
+      exercises: exercises.map((ex) => ({
+        name: ex.name,
+        category: ex.category,
+        settings: ex.settings ?? [],
+        tip: ex.tip ?? "",
+        isSingleArm: ex.isSingleArm ?? false,
+        differentSides: ex.differentSides ?? false,
+        targetMuscles: ex.targetMuscles ?? [],
+        restSeconds: ex.restSeconds ?? null,
+        targetReps: ex.targetReps ?? "",
+        sets: ex.sets.map((st) => ({
+          weight: st.weight,
+          weightR: st.weightR ?? null,
+          reps: st.reps,
+          completed: st.completed,
+        })),
+      })),
+    });
+    await get().fetchSessions();
   },
 
   fetchExerciseHistory: async (exerciseName, mode = "recent") => {
