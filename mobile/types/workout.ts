@@ -33,4 +33,5 @@ export interface WorkoutSession {
   durationMinutes: number;
   note: string;
   caloriesBurned?: number;
+  fromRoutineId?: string;
 }

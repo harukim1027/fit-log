@@ -22,6 +22,16 @@ export class RoutineController {
     return this.routineService.findAll(req.user.id);
   }
 
+  @Post('combine')
+  combine(@Request() req: any, @Body() body: any) {
+    return this.routineService.combine(req.user.id, body);
+  }
+
+  @Patch('reorder')
+  reorder(@Request() req: any, @Body() body: { ids: string[] }) {
+    return this.routineService.reorderRoutines(req.user.id, body.ids);
+  }
+
   @Post()
   create(@Request() req: any, @Body() body: any) {
     return this.routineService.create(req.user.id, body);

@@ -19,11 +19,13 @@ export interface ButtonProps extends TouchableOpacityProps {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   fullWidth?: boolean;
+  horizontalMargin?: number;
 }
 
 const container: Record<ButtonVariant, string> = {
   primary: "bg-primary items-center justify-center flex-row rounded-3xl",
-  secondary: "bg-surface border border-border items-center justify-center flex-row rounded-3xl",
+  secondary:
+    "bg-surface border border-border items-center justify-center flex-row rounded-3xl",
   danger: "bg-danger/10 items-center justify-center flex-row rounded-3xl",
   ghost: "items-center justify-center flex-row rounded-3xl",
 };
@@ -66,6 +68,7 @@ export function Button({
   className,
   onPressIn: externalPressIn,
   onPressOut: externalPressOut,
+  horizontalMargin,
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
@@ -73,13 +76,23 @@ export function Button({
 
   const handlePressIn = (e: any) => {
     if (!isDisabled) {
-      Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
+      Animated.spring(scale, {
+        toValue: 0.96,
+        useNativeDriver: true,
+        damping: 15,
+        stiffness: 400,
+      }).start();
     }
     externalPressIn?.(e);
   };
 
   const handlePressOut = (e: any) => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 400,
+    }).start();
     externalPressOut?.(e);
   };
 
@@ -87,7 +100,12 @@ export function Button({
     <Animated.View
       style={[
         { transform: [{ scale }] },
-        fullWidth ? { alignSelf: 'stretch' as const } : { alignSelf: 'flex-start' as const },
+        fullWidth
+          ? {
+              alignSelf: "stretch" as const,
+              marginHorizontal: horizontalMargin ?? 10,
+            }
+          : { alignSelf: "flex-start" as const },
       ]}>
       <TouchableOpacity
         className={[

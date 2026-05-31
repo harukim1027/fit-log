@@ -1,18 +1,58 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { CustomFood } from './custom_food.entity';
 
 @Injectable()
 export class FoodService {
   private koApiKey: string;
 
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    @InjectRepository(CustomFood)
+    private customFoodRepo: Repository<CustomFood>,
+  ) {
     this.koApiKey = config.get('FOOD_KO_API_KEY') || '';
   }
 
-  async search(query: string, page = 1) {
+  async search(query: string, page = 1, userId?: string) {
     const isKorean = /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(query);
-    if (isKorean) return this.searchKorean(query, page);
-    return this.searchGlobal(query, page);
+    const [dbResults, customResults] = await Promise.all([
+      isKorean ? this.searchKorean(query, page) : this.searchGlobal(query, page),
+      this.searchCustomFoods(query, userId),
+    ]);
+    return [...customResults, ...dbResults];
+  }
+
+  private async searchCustomFoods(query: string, userId?: string) {
+    const where: any[] = [{ foodName: ILike(`%${query}%`), isPublic: true }];
+    if (userId) {
+      where.push({ foodName: ILike(`%${query}%`), userId });
+    }
+    const foods = await this.customFoodRepo.find({ where, order: { createdAt: 'DESC' } });
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const f of foods) {
+      const key = f.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({
+        id: `custom-${f.id}`,
+        name: f.foodName,
+        brand: '',
+        calories: f.calories,
+        protein: f.protein,
+        carbs: f.carbs,
+        fat: f.fat,
+        servingSize: `${f.amount}${f.unit}`,
+        source: f.userId === userId ? 'my' : 'custom',
+        customFoodId: f.id,
+        isPublic: f.isPublic,
+        copyCount: f.copyCount,
+      });
+    }
+    return result;
   }
 
   private cleanFoodName(name: string): string {
@@ -32,6 +72,7 @@ export class FoodService {
       carbs: Math.round((parseFloat(item.AMT_NUM6) || 0) * 10) / 10,
       fat: Math.round((parseFloat(item.AMT_NUM4) || 0) * 10) / 10,
       servingSize: item.SERVING_SIZE || '100g',
+      source: 'db' as const,
     };
   }
 
@@ -70,6 +111,7 @@ export class FoodService {
         carbs: Math.round((p.nutriments?.carbohydrates_100g || 0) * 10) / 10,
         fat: Math.round((p.nutriments?.fat_100g || 0) * 10) / 10,
         servingSize: p.serving_size || '100g',
+        source: 'db' as const,
       }));
     } catch {
       throw new HttpException('식품 검색 중 오류가 발생했어요', HttpStatus.INTERNAL_SERVER_ERROR);
@@ -137,5 +179,60 @@ export class FoodService {
     } catch {
       throw new HttpException('음식 분석 중 오류가 발생했어요', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  // --- Custom food CRUD ---
+
+  async createCustomFood(userId: string, dto: {
+    foodName: string; calories: number; protein: number;
+    carbs: number; fat: number; amount: number; unit: string; isPublic?: boolean;
+  }): Promise<CustomFood> {
+    const food = this.customFoodRepo.create({ ...dto, userId, isPublic: dto.isPublic ?? false });
+    return this.customFoodRepo.save(food);
+  }
+
+  async getMyCustomFoods(userId: string): Promise<CustomFood[]> {
+    return this.customFoodRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateCustomFood(userId: string, id: string, dto: Partial<{
+    foodName: string; calories: number; protein: number;
+    carbs: number; fat: number; amount: number; unit: string; isPublic: boolean;
+  }>): Promise<CustomFood> {
+    const food = await this.customFoodRepo.findOne({ where: { id } });
+    if (!food) throw new NotFoundException('식품을 찾을 수 없어요');
+    if (food.userId !== userId) throw new ForbiddenException('권한이 없어요');
+    Object.assign(food, dto);
+    return this.customFoodRepo.save(food);
+  }
+
+  async deleteCustomFood(userId: string, id: string): Promise<void> {
+    const food = await this.customFoodRepo.findOne({ where: { id } });
+    if (!food) throw new NotFoundException('식품을 찾을 수 없어요');
+    if (food.userId !== userId) throw new ForbiddenException('권한이 없어요');
+    await this.customFoodRepo.remove(food);
+  }
+
+  async copyCustomFood(userId: string, id: string): Promise<CustomFood> {
+    const original = await this.customFoodRepo.findOne({ where: { id } });
+    if (!original) throw new NotFoundException('식품을 찾을 수 없어요');
+    if (!original.isPublic) throw new ForbiddenException('공개된 식품만 가져올 수 있어요');
+    original.copyCount += 1;
+    await this.customFoodRepo.save(original);
+    const copy = this.customFoodRepo.create({
+      foodName: original.foodName,
+      calories: original.calories,
+      protein: original.protein,
+      carbs: original.carbs,
+      fat: original.fat,
+      amount: original.amount,
+      unit: original.unit,
+      isPublic: false,
+      userId,
+    });
+    return this.customFoodRepo.save(copy);
   }
 }

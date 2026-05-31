@@ -11,18 +11,28 @@ import {
   Platform,
   UIManager,
   Animated,
+  Pressable,
+  Modal,
+  KeyboardAvoidingView,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Header, Card } from "../../components/ui";
+import { Header, Card, SortableList } from "../../components/ui";
 import { useEffect, useState, useMemo } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
-import { useRoutineStore, Routine } from "../../store/routineStore";
+import { useRoutineStore } from "../../store/routineStore";
 import { Calendar } from "react-native-calendars";
-import { useWorkoutStore, calculateCaloriesBurned, CompareMode } from "../../store/workoutStore";
+import {
+  useWorkoutStore,
+  calculateCaloriesBurned,
+  CompareMode,
+} from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import RestTimer from "../../components/RestTimer";
 import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { WorkoutSession } from "../../types/workout";
+import WorkoutTimer from "../../components/WorkoutTimer";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -33,7 +43,7 @@ type Tab = "today" | "history";
 const SHADOW = {
   shadowColor: "#4EBFA0",
   shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.20,
+  shadowOpacity: 0.2,
   shadowRadius: 24,
   elevation: 4,
 };
@@ -58,19 +68,19 @@ const formatSelectedDate = (dateStr: string) => {
 };
 
 const CAL_THEME = {
-  backgroundColor: '#EFFAF4',
-  calendarBackground: '#FFFFFF',
-  textSectionTitleColor: '#7E9A90',
-  selectedDayBackgroundColor: '#6FD3B6',
+  backgroundColor: "#EFFAF4",
+  calendarBackground: "#FFFFFF",
+  textSectionTitleColor: "#7E9A90",
+  selectedDayBackgroundColor: "#6FD3B6",
   selectedDayTextColor: "#fff",
-  todayTextColor: '#2E9E83',
-  todayBackgroundColor: '#6FD3B6' + "18",
-  dayTextColor: '#34514A',
-  textDisabledColor: '#B4CFC5',
-  dotColor: '#FF9DB0',
+  todayTextColor: "#2E9E83",
+  todayBackgroundColor: "#6FD3B6" + "18",
+  dayTextColor: "#34514A",
+  textDisabledColor: "#B4CFC5",
+  dotColor: "#FF9DB0",
   selectedDotColor: "#fff",
-  arrowColor: '#6FD3B6',
-  monthTextColor: '#34514A',
+  arrowColor: "#6FD3B6",
+  monthTextColor: "#34514A",
   textDayFontWeight: "600" as const,
   textMonthFontWeight: "800" as const,
   textDayHeaderFontWeight: "600" as const,
@@ -79,16 +89,28 @@ const CAL_THEME = {
   textDayHeaderFontSize: 12,
 };
 
-const todayStr = () => new Date().toISOString().split('T')[0];
-
 const COMPARE_MODES: { mode: CompareMode; label: string }[] = [
-  { mode: 'recent', label: '최근 1회' },
-  { mode: 'pr',     label: '최고기록' },
-  { mode: 'week',   label: '1주전' },
-  { mode: 'month',  label: '1달전' },
+  { mode: "recent", label: "최근 1회" },
+  { mode: "pr", label: "최고기록" },
+  { mode: "week", label: "1주전" },
+  { mode: "month", label: "1달전" },
 ];
 
-const fmtDate = (iso: string) => iso.replace(/-/g, '.');
+const fmtDate = (iso: string) => iso.replace(/-/g, ".");
+
+const fmtRestSeconds = (sec: number): string => {
+  if (sec < 60) return `${sec}초`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s === 0 ? `${m}분` : `${m}분 ${s}초`;
+};
+
+const fmtExerciseMeta = (targetReps?: string, restSeconds?: number): string | null => {
+  const parts: string[] = [];
+  if (targetReps?.trim()) parts.push(targetReps.trim());
+  if (restSeconds && restSeconds > 0) parts.push(fmtRestSeconds(restSeconds));
+  return parts.length > 0 ? parts.join(' · ') : null;
+};
 
 export default function WorkoutScreen() {
   const router = useRouter();
@@ -105,56 +127,117 @@ export default function WorkoutScreen() {
     updateExercise,
     fetchSessions,
     fetchExerciseHistory,
+
     sessions,
     isLoading,
     exerciseHistoryCache,
+    workoutElapsed,
+    workoutPaused,
+    setWorkoutElapsed,
+    setWorkoutPaused,
+    resetWorkoutTimer,
+    addSet,
+    addExercise,
+    removeExercise,
+    updateSession,
+    reorderSessionExercises,
   } = useWorkoutStore();
   const { user } = useAuthStore();
   const {
-    routines, publicRoutines, loaded: routinesLoaded,
-    loadRoutines, deleteRoutine, shareRoutine, unshareRoutine,
-    fetchPublicRoutines, copyRoutine, searchByCode,
+    routines,
+    publicRoutines,
+    loadRoutines,
+    deleteRoutine,
+    shareRoutine,
+    unshareRoutine,
+    fetchPublicRoutines,
+    copyRoutine,
+    searchByCode,
   } = useRoutineStore();
+
   const [tab, setTab] = useState<Tab>("today");
-  const [compareModes, setCompareModes] = useState<Record<string, CompareMode>>({});
+  const [compareModes, setCompareModes] = useState<Record<string, CompareMode>>(
+    {}
+  );
   const [completeCalories, setCompleteCalories] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     new Date().toISOString().substring(0, 7)
   );
-  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
-  const [editExName, setEditExName] = useState('');
+  const [activeEditExId, setActiveEditExId] = useState<string | null>(null);
+  const [draftExName, setDraftExName] = useState("");
+  const [draftSets, setDraftSets] = useState<Array<{id: string; weight: string; reps: string; completed: boolean; isNew?: boolean}>>([]);
   const [communityExpanded, setCommunityExpanded] = useState(false);
-  const [communitySort, setCommunitySort] = useState<'latest' | 'popular'>('latest');
-  const [codeInput, setCodeInput] = useState('');
-  const [codeResult, setCodeResult] = useState<import('../../store/routineStore').Routine | null>(null);
+  const [communitySort, setCommunitySort] = useState<"latest" | "popular">(
+    "latest"
+  );
+  const [codeInput, setCodeInput] = useState("");
+  const [codeResult, setCodeResult] = useState<
+    import("../../store/routineStore").Routine | null
+  >(null);
   const [codeSearching, setCodeSearching] = useState(false);
   const [copyingId, setCopyingId] = useState<string | null>(null);
+  const [timerPinned, setTimerPinned] = useState(false);
+  const [timerState, setTimerState] = useState({
+    seconds: 0,
+    remaining: 0,
+    running: false,
+    paused: false,
+  });
+  const [detailExpanded, setDetailExpanded] = useState<Record<string, boolean>>({});
+  const [addingSettingFor, setAddingSettingFor] = useState<string | null>(null);
+  const [newSettingKey, setNewSettingKey] = useState("시트높이");
+  const [newSettingVal, setNewSettingVal] = useState("");
+  const [showLongPressHint, setShowLongPressHint] = useState(false);
+  const [showRoutineSheet, setShowRoutineSheet] = useState(false);
+  const [expandedRoutineInSheet, setExpandedRoutineInSheet] = useState<string | null>(null);
+  const [addedFromRoutine, setAddedFromRoutine] = useState<Set<string>>(new Set());
+  const [showReorderSheet, setShowReorderSheet] = useState(false);
+
+  const SETTING_KEYS = ["시트높이", "등받이각도", "그립종류", "발판위치", "바높이", "인클라인각도", "기타"];
 
   useEffect(() => {
     fetchSessions();
     loadRoutines();
+    AsyncStorage.getItem('longPressHintCount').then(val => {
+      if (parseInt(val ?? '0') < 3) setShowLongPressHint(true);
+    });
   }, []);
 
   useEffect(() => {
     if (communityExpanded) fetchPublicRoutines(communitySort).catch(() => {});
   }, [communityExpanded, communitySort]);
 
-  const handleShareToggle = (routine: import('../../store/routineStore').Routine) => {
+  const handleShareToggle = (
+    routine: import("../../store/routineStore").Routine
+  ) => {
     if (routine.isPublic && routine.shareCode) {
-      Alert.alert(
-        '공유 중',
-        `공유 코드: ${routine.shareCode}`,
-        [
-          { text: '비공개로 변경', style: 'destructive', onPress: () => unshareRoutine(routine.id).catch(() => Alert.alert('오류', '변경에 실패했어요')) },
-          { text: '닫기', style: 'cancel' },
-        ],
-      );
-    } else {
-      Alert.alert('루틴 공개', '이 루틴을 다른 사람과 공유할까요?\n공유 코드가 생성돼요.', [
-        { text: '취소', style: 'cancel' },
-        { text: '공개하기', onPress: () => shareRoutine(routine.id).catch(() => Alert.alert('오류', '공유 설정에 실패했어요')) },
+      Alert.alert("공유 중", `공유 코드: ${routine.shareCode}`, [
+        {
+          text: "비공개로 변경",
+          style: "destructive",
+          onPress: () =>
+            unshareRoutine(routine.id).catch(() =>
+              Alert.alert("오류", "변경에 실패했어요")
+            ),
+        },
+        { text: "닫기", style: "cancel" },
       ]);
+    } else {
+      Alert.alert(
+        "루틴 공개",
+        "이 루틴을 다른 사람과 공유할까요?\n공유 코드가 생성돼요.",
+        [
+          { text: "취소", style: "cancel" },
+          {
+            text: "공개하기",
+            onPress: () =>
+              shareRoutine(routine.id).catch(() =>
+                Alert.alert("오류", "공유 설정에 실패했어요")
+              ),
+          },
+        ]
+      );
     }
   };
 
@@ -162,42 +245,92 @@ export default function WorkoutScreen() {
     setCopyingId(id);
     try {
       await copyRoutine(id);
-      Alert.alert('완료', '내 루틴으로 가져왔어요!');
+      Alert.alert("완료", "내 루틴으로 가져왔어요!");
     } catch {
-      Alert.alert('오류', '가져오기에 실패했어요');
+      Alert.alert("오류", "가져오기에 실패했어요");
     } finally {
       setCopyingId(null);
     }
   };
 
   const handleCodeSearch = async () => {
-    if (codeInput.trim().length !== 6) return Alert.alert('코드 오류', '6자리 코드를 입력해주세요');
+    if (codeInput.trim().length !== 6)
+      return Alert.alert("코드 오류", "6자리 코드를 입력해주세요");
     setCodeSearching(true);
     setCodeResult(null);
     try {
       const result = await searchByCode(codeInput);
       setCodeResult(result);
     } catch {
-      Alert.alert('루틴을 찾을 수 없어요', '코드를 다시 확인해주세요');
+      Alert.alert("루틴을 찾을 수 없어요", "코드를 다시 확인해주세요");
     } finally {
       setCodeSearching(false);
     }
   };
 
+  const enterEdit = (ex: WorkoutSession['exercises'][0]) => {
+    setDraftExName(ex.name);
+    setDraftSets(ex.sets.map(s => ({
+      id: s.id,
+      weight: String(s.weight),
+      reps: String(s.reps),
+      completed: s.completed,
+    })));
+    setActiveEditExId(ex.id);
+  };
+
+  const commitEdit = (ex: WorkoutSession['exercises'][0]) => {
+    if (draftExName.trim() && draftExName.trim() !== ex.name) {
+      updateExercise(ex.id, { name: draftExName.trim() } as any);
+    }
+    const originalIds = new Set(ex.sets.map(s => s.id));
+    const keptIds = new Set(draftSets.filter(s => !s.isNew).map(s => s.id));
+    ex.sets.forEach(s => { if (!keptIds.has(s.id)) removeSet(ex.id, s.id); });
+    draftSets.filter(s => !s.isNew && originalIds.has(s.id)).forEach(ds => {
+      updateSet(ex.id, ds.id, {
+        weight: parseFloat(ds.weight) || 0,
+        reps: parseInt(ds.reps) || 0,
+        completed: ds.completed,
+      });
+    });
+    draftSets.filter(s => s.isNew).forEach((ds, i) => {
+      addSet(ex.id, {
+        id: `${ex.id}-edit-${Date.now()}-${i}`,
+        weight: parseFloat(ds.weight) || 0,
+        reps: parseInt(ds.reps) || 0,
+        completed: ds.completed,
+      });
+    });
+    setActiveEditExId(null);
+    setDraftSets([]);
+  };
+
   useEffect(() => {
     if (!activeSession?.exercises.length) return;
-    activeSession.exercises.forEach(ex => {
-      const mode = compareModes[ex.name] ?? 'recent';
+    activeSession.exercises.forEach((ex) => {
+      const mode = compareModes[ex.name] ?? "recent";
       const key = `${ex.name}:${mode}`;
       const data = exerciseHistoryCache.get(key);
       console.log(
         `[ExHistory] ${key}:`,
         data
           ? `comparisonSession=${JSON.stringify(data.comparisonSession)}`
-          : '캐시없음 (로딩중)'
+          : "캐시없음 (로딩중)"
       );
     });
   }, [exerciseHistoryCache, activeSession?.exercises?.length]);
+
+  const handleLongPress = async (ex: WorkoutSession['exercises'][0]) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    const val = await AsyncStorage.getItem('longPressHintCount');
+    const count = parseInt(val ?? '0') + 1;
+    await AsyncStorage.setItem('longPressHintCount', String(count));
+    if (count >= 3) setShowLongPressHint(false);
+    router.push({
+      pathname: '/modal/add-workout',
+      params: { editMode: 'true', exerciseId: ex.id, exerciseData: JSON.stringify(ex) },
+    } as any);
+  };
 
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
@@ -207,6 +340,8 @@ export default function WorkoutScreen() {
     const calories = activeSession
       ? calculateCaloriesBurned(activeSession, weightKg, durationMinutes)
       : 0;
+    const fromRoutineId = activeSession?.fromRoutineId;
+    const sessionSnapshot = activeSession ? { ...activeSession, exercises: [...activeSession.exercises] } : null;
 
     Alert.alert("운동 종료", "오늘 운동을 저장하고 종료할까요?", [
       { text: "취소", style: "cancel" },
@@ -215,6 +350,34 @@ export default function WorkoutScreen() {
         onPress: async () => {
           await endSession(calories);
           setCompleteCalories(calories);
+
+          if (fromRoutineId && sessionSnapshot) {
+            const routine = routines.find(r => r.id === fromRoutineId);
+            if (routine) {
+              const changes: string[] = [];
+              sessionSnapshot.exercises.forEach(ex => {
+                const re = routine.exercises.find(r => r.name === ex.name);
+                if (!re) changes.push(`${ex.name} 추가`);
+                else if (ex.sets.length !== re.defaultSets) changes.push(`${ex.name} 세트 변경`);
+              });
+              routine.exercises.forEach(re => {
+                if (!sessionSnapshot.exercises.find(ex => ex.name === re.name)) changes.push(`${re.name} 제거`);
+              });
+              if (changes.length > 0) {
+                const summary = changes.slice(0, 3).join(', ');
+                Alert.alert(
+                  '루틴에도 반영할까요?',
+                  `변경 내역: ${summary}\n다음에도 동일하게 시작할 수 있어요`,
+                  [
+                    { text: '이번만', style: 'cancel' },
+                    { text: '루틴에 반영', onPress: () =>
+                      useRoutineStore.getState().updateRoutineFromSession(fromRoutineId, sessionSnapshot)
+                    },
+                  ]
+                );
+              }
+            }
+          }
         },
       },
     ]);
@@ -224,14 +387,14 @@ export default function WorkoutScreen() {
     const result: Record<string, any> = {};
     sessions.forEach((s) => {
       const key = SESSION_DATE_KEY(s);
-      result[key] = { marked: true, dotColor: '#FF9DB0' };
+      result[key] = { marked: true, dotColor: "#FF9DB0" };
     });
     if (selectedDate) {
       result[selectedDate] = {
         ...(result[selectedDate] ?? {}),
         selected: true,
-        selectedColor: '#6FD3B6',
-        dotColor: result[selectedDate]?.marked ? "#fff" : '#FF9DB0',
+        selectedColor: "#6FD3B6",
+        dotColor: result[selectedDate]?.marked ? "#fff" : "#FF9DB0",
       };
     }
     return result;
@@ -253,7 +416,10 @@ export default function WorkoutScreen() {
   );
 
   const selectedSessions = useMemo(
-    () => selectedDate ? sessions.filter((s) => SESSION_DATE_KEY(s) === selectedDate) : [],
+    () =>
+      selectedDate
+        ? sessions.filter((s) => SESSION_DATE_KEY(s) === selectedDate)
+        : [],
     [sessions, selectedDate]
   );
 
@@ -265,247 +431,697 @@ export default function WorkoutScreen() {
     );
   }
 
+  const timerProps = activeSession
+    ? {
+        exerciseName:
+          activeSession.exercises[activeSession.exercises.length - 1]?.name,
+        externalSeconds: timerState.seconds,
+        externalRemaining: timerState.remaining,
+        externalRunning: timerState.running,
+        externalPaused: timerState.paused,
+        onStateChange: setTimerState,
+        onPin: () => setTimerPinned(true),
+        onUnpin: () => setTimerPinned(false),
+      }
+    : null;
   return (
     <View className="flex-1 bg-background">
       <Header title="운동" />
 
-      {/* 세그먼트 탭 (알약) */}
-      <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginHorizontal: 18, marginBottom: 14, gap: 4 }}>
+      {/* 탭 */}
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: "#E7F7F0",
+          borderRadius: 999,
+          padding: 4,
+          marginHorizontal: 18,
+          marginBottom: 14,
+          gap: 4,
+        }}>
         {(["today", "history"] as Tab[]).map((t) => {
-          const isActive = tab === t;
+          const isActiveTab = tab === t;
           return (
             <TouchableOpacity
               key={t}
-              style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: '#fff', ...SHADOW_SM } : undefined]}
+              style={[
+                {
+                  flex: 1,
+                  paddingVertical: 9,
+                  alignItems: "center",
+                  borderRadius: 999,
+                },
+                isActiveTab
+                  ? { backgroundColor: "#fff", ...SHADOW_SM }
+                  : undefined,
+              ]}
               onPress={() => setTab(t)}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "800",
+                  color: isActiveTab ? "#2E9E83" : "#B4CFC5",
+                }}>
                 {t === "today" ? "오늘 운동" : "히스토리"}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
+      {activeSession && timerPinned && timerProps && (
+        <RestTimer {...timerProps} pinned={true} />
+      )}
 
       {tab === "today" ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         <ScrollView
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
           {!activeSession ? (
             <>
-              {/* 상단: 제목 + 운동 시작 버튼 */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: '#34514A' }}>내 루틴</Text>
+              {/* 제목 + 운동 시작 버튼 */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}>
+                <Text
+                  style={{ fontSize: 18, fontWeight: "900", color: "#34514A" }}>
+                  내 루틴
+                </Text>
                 <TouchableOpacity
-                  style={[{ backgroundColor: '#FFAE96', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9 }, SHADOW_SM]}
+                  style={[
+                    {
+                      backgroundColor: "#FFAE96",
+                      borderRadius: 999,
+                      paddingHorizontal: 18,
+                      paddingVertical: 9,
+                    },
+                    SHADOW_SM,
+                  ]}
                   onPress={startSession}
                   activeOpacity={0.8}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#fff' }}>운동 시작</Text>
+                  <Text
+                    style={{ fontSize: 13, fontWeight: "800", color: "#fff" }}>
+                    운동 시작
+                  </Text>
                 </TouchableOpacity>
               </View>
 
               {routines.length === 0 ? (
-                /* 빈 상태 온보딩 UI */
-                <View style={{ alignItems: 'center', paddingTop: 40, paddingBottom: 20, gap: 8 }}>
+                <View
+                  style={{
+                    alignItems: "center",
+                    paddingTop: 40,
+                    paddingBottom: 20,
+                    gap: 8,
+                  }}>
                   <Text style={{ fontSize: 28 }}>🏋️</Text>
-                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#34514A', marginTop: 4 }}>아직 루틴이 없어요</Text>
-                  <Text style={{ fontSize: 14, color: '#7E9A90', textAlign: 'center', lineHeight: 22 }}>
-                    루틴을 만들면 매번 운동을{'\n'}빠르게 시작할 수 있어요
+                  <Text
+                    style={{
+                      fontSize: 20,
+                      fontWeight: "900",
+                      color: "#34514A",
+                      marginTop: 4,
+                    }}>
+                    아직 루틴이 없어요
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#7E9A90",
+                      textAlign: "center",
+                      lineHeight: 22,
+                    }}>
+                    루틴을 만들면 매번 운동을{"\n"}빠르게 시작할 수 있어요
                   </Text>
                   <TouchableOpacity
-                    style={[{ backgroundColor: '#6FD3B6', borderRadius: 999, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 }, SHADOW]}
-                    onPress={() => router.push('/modal/routine-manage' as any)}
+                    style={[
+                      {
+                        backgroundColor: "#6FD3B6",
+                        borderRadius: 999,
+                        paddingHorizontal: 32,
+                        paddingVertical: 14,
+                        marginTop: 8,
+                      },
+                      SHADOW,
+                    ]}
+                    onPress={() => router.push("/modal/routine-manage" as any)}
                     activeOpacity={0.8}>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#fff' }}>루틴 만들기 +</Text>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "800",
+                        color: "#fff",
+                      }}>
+                      루틴 만들기 +
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <>
-                  {/* 루틴 카드 목록 */}
-                  {routines.map(routine => (
-                    <View key={routine.id} style={[{ backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 10 }, SHADOW]}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  {routines.map((routine) => (
+                    <View
+                      key={routine.id}
+                      style={[
+                        {
+                          backgroundColor: "#fff",
+                          borderRadius: 24,
+                          padding: 16,
+                          marginBottom: 10,
+                        },
+                        SHADOW,
+                      ]}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 10,
+                        }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 17, fontWeight: '900', color: '#34514A' }}>{routine.name}</Text>
-                          <Text style={{ fontSize: 12, color: '#7E9A90', fontWeight: '600', marginTop: 3 }}>
-                            {routine.exercises.length}종목 · 예상 {routine.exercises.reduce((s, e) => s + e.defaultSets, 0) * 3}분
+                          <Text
+                            style={{
+                              fontSize: 17,
+                              fontWeight: "900",
+                              color: "#34514A",
+                            }}>
+                            {routine.name}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: "#7E9A90",
+                              fontWeight: "600",
+                              marginTop: 3,
+                            }}>
+                            {routine.exercises.length}종목 · 예상{" "}
+                            {routine.exercises.reduce(
+                              (s, e) => s + e.defaultSets,
+                              0
+                            ) * 3}
+                            분
                           </Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <TouchableOpacity onPress={() => handleShareToggle(routine)}>
-                            <Text style={{ fontSize: 16 }}>{routine.isPublic ? '🔓' : '🔒'}</Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 10,
+                          }}>
+                          <TouchableOpacity
+                            onPress={() => handleShareToggle(routine)}>
+                            <Text style={{ fontSize: 16 }}>
+                              {routine.isPublic ? "🔓" : "🔒"}
+                            </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            onPress={() => router.push({ pathname: '/modal/routine-manage', params: { editId: routine.id } } as any)}>
+                            onPress={() =>
+                              router.push({
+                                pathname: "/modal/routine-manage",
+                                params: { editId: routine.id },
+                              } as any)
+                            }>
                             <Icon name="pencil" size={17} color="#7E9A90" />
                           </TouchableOpacity>
                           <TouchableOpacity
-                            onPress={() => Alert.alert('루틴 삭제', `"${routine.name}"을 삭제할까요?`, [
-                              { text: '취소', style: 'cancel' },
-                              { text: '삭제', style: 'destructive', onPress: () => deleteRoutine(routine.id) },
-                            ])}>
+                            onPress={() =>
+                              Alert.alert(
+                                "루틴 삭제",
+                                `"${routine.name}"을 삭제할까요?`,
+                                [
+                                  { text: "취소", style: "cancel" },
+                                  {
+                                    text: "삭제",
+                                    style: "destructive",
+                                    onPress: () => deleteRoutine(routine.id),
+                                  },
+                                ]
+                              )
+                            }>
                             <Icon name="trash" size={17} color="#B4CFC5" />
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={{ backgroundColor: '#FFAE96', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}
+                            style={{
+                              backgroundColor: "#FFAE96",
+                              borderRadius: 999,
+                              paddingHorizontal: 14,
+                              paddingVertical: 7,
+                            }}
                             onPress={() => startSessionWithRoutine(routine)}
                             activeOpacity={0.8}>
-                            <Text style={{ fontSize: 13, fontWeight: '800', color: '#fff' }}>시작</Text>
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                fontWeight: "800",
+                                color: "#fff",
+                              }}>
+                              시작
+                            </Text>
                           </TouchableOpacity>
                         </View>
                       </View>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          flexWrap: "wrap",
+                          gap: 6,
+                        }}>
                         {routine.exercises.slice(0, 5).map((ex, i) => (
-                          <View key={i} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>{ex.name}</Text>
+                          <View
+                            key={i}
+                            style={{
+                              backgroundColor: "#E7F7F0",
+                              borderRadius: 999,
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                            }}>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: "700",
+                                color: "#2E9E83",
+                              }}>
+                              {ex.name}
+                            </Text>
                           </View>
                         ))}
                         {routine.exercises.length > 5 && (
-                          <View style={{ backgroundColor: '#F0F0F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5' }}>+{routine.exercises.length - 5}</Text>
+                          <View
+                            style={{
+                              backgroundColor: "#F0F0F0",
+                              borderRadius: 999,
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                            }}>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: "700",
+                                color: "#B4CFC5",
+                              }}>
+                              +{routine.exercises.length - 5}
+                            </Text>
                           </View>
                         )}
                       </View>
                       {routine.isPublic && routine.shareCode && (
-                        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83', letterSpacing: 2 }}>
+                        <View
+                          style={{
+                            marginTop: 8,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                          }}>
+                          <View
+                            style={{
+                              backgroundColor: "#E7F7F0",
+                              borderRadius: 999,
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                            }}>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: "800",
+                                color: "#2E9E83",
+                                letterSpacing: 2,
+                              }}>
                               🔓 {routine.shareCode}
                             </Text>
                           </View>
-                          <Text style={{ fontSize: 11, color: '#7E9A90' }}>공유 중</Text>
+                          <Text style={{ fontSize: 11, color: "#7E9A90" }}>
+                            공유 중
+                          </Text>
                         </View>
                       )}
                     </View>
                   ))}
 
-                  {/* 루틴 만들기 + */}
                   <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, borderWidth: 1.5, borderColor: '#D6F0E6', marginTop: 4 }}
-                    onPress={() => router.push('/modal/routine-manage' as any)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      paddingVertical: 14,
+                      borderRadius: 999,
+                      borderWidth: 1.5,
+                      borderColor: "#D6F0E6",
+                      marginTop: 4,
+                    }}
+                    onPress={() => router.push("/modal/routine-manage" as any)}
                     activeOpacity={0.8}>
                     <Icon name="plus" size={16} color="#6FD3B6" />
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#7E9A90' }}>루틴 만들기 +</Text>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "700",
+                        color: "#7E9A90",
+                      }}>
+                      루틴 만들기 +
+                    </Text>
                   </TouchableOpacity>
 
-                  {/* 커뮤니티 루틴 섹션 */}
                   <TouchableOpacity
-                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, marginBottom: 10 }}
-                    onPress={() => setCommunityExpanded(v => !v)}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: 24,
+                      marginBottom: 10,
+                    }}
+                    onPress={() => setCommunityExpanded((v) => !v)}
                     activeOpacity={0.8}>
-                    <Text style={{ fontSize: 17, fontWeight: '900', color: '#34514A' }}>커뮤니티 루틴</Text>
-                    <Text style={{ fontSize: 13, color: '#7E9A90', fontWeight: '700' }}>
-                      {communityExpanded ? '접기 ▲' : '더 보기 ▼'}
+                    <Text
+                      style={{
+                        fontSize: 17,
+                        fontWeight: "900",
+                        color: "#34514A",
+                      }}>
+                      커뮤니티 루틴
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: "#7E9A90",
+                        fontWeight: "700",
+                      }}>
+                      {communityExpanded ? "접기 ▲" : "더 보기 ▼"}
                     </Text>
                   </TouchableOpacity>
 
                   {communityExpanded && (
                     <>
-                      {/* 정렬 탭 */}
-                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                        {(['latest', 'popular'] as const).map(s => (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          gap: 8,
+                          marginBottom: 12,
+                        }}>
+                        {(["latest", "popular"] as const).map((s) => (
                           <TouchableOpacity
                             key={s}
                             style={{
-                              paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999,
-                              backgroundColor: communitySort === s ? '#6FD3B6' : '#E7F7F0',
+                              paddingHorizontal: 16,
+                              paddingVertical: 7,
+                              borderRadius: 999,
+                              backgroundColor:
+                                communitySort === s ? "#6FD3B6" : "#E7F7F0",
                             }}
                             onPress={() => setCommunitySort(s)}>
-                            <Text style={{ fontSize: 12, fontWeight: '800', color: communitySort === s ? '#fff' : '#7E9A90' }}>
-                              {s === 'latest' ? '최신순' : '인기순'}
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: "800",
+                                color: communitySort === s ? "#fff" : "#7E9A90",
+                              }}>
+                              {s === "latest" ? "최신순" : "인기순"}
                             </Text>
                           </TouchableOpacity>
                         ))}
                       </View>
 
-                      {/* 코드 검색 */}
-                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          gap: 8,
+                          marginBottom: 12,
+                          alignItems: "center",
+                        }}>
                         <TextInput
                           style={{
-                            flex: 1, backgroundColor: '#F5FBF8', borderRadius: 14,
-                            paddingHorizontal: 14, paddingVertical: 10,
-                            fontSize: 15, fontWeight: '800', color: '#34514A',
-                            borderWidth: 1.5, borderColor: '#D6F0E6', letterSpacing: 2,
+                            flex: 1,
+                            backgroundColor: "#F5FBF8",
+                            borderRadius: 14,
+                            paddingHorizontal: 14,
+                            paddingVertical: 10,
+                            fontSize: 15,
+                            fontWeight: "800",
+                            color: "#34514A",
+                            borderWidth: 1.5,
+                            borderColor: "#D6F0E6",
+                            letterSpacing: 2,
                           }}
                           placeholder="6자리 코드 입력"
                           placeholderTextColor="#B4CFC5"
                           value={codeInput}
-                          onChangeText={t => { setCodeInput(t.toUpperCase()); setCodeResult(null); }}
+                          onChangeText={(t) => {
+                            setCodeInput(t.toUpperCase());
+                            setCodeResult(null);
+                          }}
                           maxLength={6}
                           autoCapitalize="characters"
                         />
                         <TouchableOpacity
-                          style={{ backgroundColor: '#6FD3B6', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 }}
+                          style={{
+                            backgroundColor: "#6FD3B6",
+                            borderRadius: 14,
+                            paddingHorizontal: 16,
+                            paddingVertical: 10,
+                          }}
                           onPress={handleCodeSearch}
                           activeOpacity={0.8}>
-                          {codeSearching
-                            ? <ActivityIndicator size="small" color="#fff" />
-                            : <Text style={{ fontSize: 13, fontWeight: '800', color: '#fff' }}>검색</Text>}
+                          {codeSearching ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                fontWeight: "800",
+                                color: "#fff",
+                              }}>
+                              검색
+                            </Text>
+                          )}
                         </TouchableOpacity>
                       </View>
 
-                      {/* 코드 검색 결과 */}
                       {codeResult && (
-                        <View style={[{ backgroundColor: '#fff', borderRadius: 20, padding: 14, marginBottom: 10, borderWidth: 2, borderColor: '#6FD3B6' }, SHADOW_SM]}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                        <View
+                          style={[
+                            {
+                              backgroundColor: "#fff",
+                              borderRadius: 20,
+                              padding: 14,
+                              marginBottom: 10,
+                              borderWidth: 2,
+                              borderColor: "#6FD3B6",
+                            },
+                            SHADOW_SM,
+                          ]}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                              marginBottom: 8,
+                            }}>
                             <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 15, fontWeight: '900', color: '#34514A' }}>{codeResult.name}</Text>
-                              <Text style={{ fontSize: 11, color: '#7E9A90', marginTop: 2 }}>by {codeResult.authorName ?? '익명'}</Text>
+                              <Text
+                                style={{
+                                  fontSize: 15,
+                                  fontWeight: "900",
+                                  color: "#34514A",
+                                }}>
+                                {codeResult.name}
+                              </Text>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: "#7E9A90",
+                                  marginTop: 2,
+                                }}>
+                                by {codeResult.authorName ?? "익명"}
+                              </Text>
                             </View>
                             <TouchableOpacity
-                              style={{ backgroundColor: '#FFAE96', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}
+                              style={{
+                                backgroundColor: "#FFAE96",
+                                borderRadius: 999,
+                                paddingHorizontal: 14,
+                                paddingVertical: 7,
+                              }}
                               onPress={() => handleCopy(codeResult!.id)}
                               disabled={copyingId === codeResult.id}>
-                              {copyingId === codeResult.id
-                                ? <ActivityIndicator size="small" color="#fff" />
-                                : <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff' }}>가져오기</Text>}
+                              {copyingId === codeResult.id ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: "800",
+                                    color: "#fff",
+                                  }}>
+                                  가져오기
+                                </Text>
+                              )}
                             </TouchableOpacity>
                           </View>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              flexWrap: "wrap",
+                              gap: 5,
+                            }}>
                             {codeResult.exercises.slice(0, 4).map((ex, i) => (
-                              <View key={i} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>{ex.name}</Text>
+                              <View
+                                key={i}
+                                style={{
+                                  backgroundColor: "#E7F7F0",
+                                  borderRadius: 999,
+                                  paddingHorizontal: 9,
+                                  paddingVertical: 3,
+                                }}>
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "700",
+                                    color: "#2E9E83",
+                                  }}>
+                                  {ex.name}
+                                </Text>
                               </View>
                             ))}
                           </View>
                         </View>
                       )}
 
-                      {/* 커뮤니티 루틴 목록 */}
                       {publicRoutines.length === 0 ? (
-                        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                          <Text style={{ fontSize: 13, color: '#B4CFC5', fontWeight: '600' }}>아직 공유된 루틴이 없어요</Text>
+                        <View
+                          style={{ alignItems: "center", paddingVertical: 24 }}>
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              color: "#B4CFC5",
+                              fontWeight: "600",
+                            }}>
+                            아직 공유된 루틴이 없어요
+                          </Text>
                         </View>
                       ) : (
-                        publicRoutines.map(r => (
-                          <View key={r.id} style={[{ backgroundColor: '#fff', borderRadius: 20, padding: 14, marginBottom: 10 }, SHADOW_SM]}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                        publicRoutines.map((r) => (
+                          <View
+                            key={r.id}
+                            style={[
+                              {
+                                backgroundColor: "#fff",
+                                borderRadius: 20,
+                                padding: 14,
+                                marginBottom: 10,
+                              },
+                              SHADOW_SM,
+                            ]}>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                justifyContent: "space-between",
+                                alignItems: "flex-start",
+                                marginBottom: 8,
+                              }}>
                               <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 15, fontWeight: '900', color: '#34514A' }}>{r.name}</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                  <Text style={{ fontSize: 11, color: '#7E9A90' }}>by {r.authorName ?? '익명'}</Text>
-                                  <Text style={{ fontSize: 11, color: '#B4CFC5' }}>·</Text>
-                                  <Text style={{ fontSize: 11, color: '#B4CFC5' }}>복사 {r.copyCount ?? 0}회</Text>
+                                <Text
+                                  style={{
+                                    fontSize: 15,
+                                    fontWeight: "900",
+                                    color: "#34514A",
+                                  }}>
+                                  {r.name}
+                                </Text>
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    marginTop: 2,
+                                  }}>
+                                  <Text
+                                    style={{ fontSize: 11, color: "#7E9A90" }}>
+                                    by {r.authorName ?? "익명"}
+                                  </Text>
+                                  <Text
+                                    style={{ fontSize: 11, color: "#B4CFC5" }}>
+                                    ·
+                                  </Text>
+                                  <Text
+                                    style={{ fontSize: 11, color: "#B4CFC5" }}>
+                                    복사 {r.copyCount ?? 0}회
+                                  </Text>
                                 </View>
                               </View>
                               <TouchableOpacity
-                                style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}
+                                style={{
+                                  backgroundColor: "#E7F7F0",
+                                  borderRadius: 999,
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 6,
+                                }}
                                 onPress={() => handleCopy(r.id)}
                                 disabled={copyingId === r.id}>
-                                {copyingId === r.id
-                                  ? <ActivityIndicator size="small" color="#2E9E83" />
-                                  : <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>내 루틴으로</Text>}
+                                {copyingId === r.id ? (
+                                  <ActivityIndicator
+                                    size="small"
+                                    color="#2E9E83"
+                                  />
+                                ) : (
+                                  <Text
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: "800",
+                                      color: "#2E9E83",
+                                    }}>
+                                    내 루틴으로
+                                  </Text>
+                                )}
                               </TouchableOpacity>
                             </View>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                flexWrap: "wrap",
+                                gap: 5,
+                              }}>
                               {r.exercises.slice(0, 4).map((ex, i) => (
-                                <View key={i} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>{ex.name}</Text>
+                                <View
+                                  key={i}
+                                  style={{
+                                    backgroundColor: "#E7F7F0",
+                                    borderRadius: 999,
+                                    paddingHorizontal: 9,
+                                    paddingVertical: 3,
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "700",
+                                      color: "#2E9E83",
+                                    }}>
+                                    {ex.name}
+                                  </Text>
                                 </View>
                               ))}
                               {r.exercises.length > 4 && (
-                                <View style={{ backgroundColor: '#F0F0F0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5' }}>+{r.exercises.length - 4}</Text>
+                                <View
+                                  style={{
+                                    backgroundColor: "#F0F0F0",
+                                    borderRadius: 999,
+                                    paddingHorizontal: 9,
+                                    paddingVertical: 3,
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "700",
+                                      color: "#B4CFC5",
+                                    }}>
+                                    +{r.exercises.length - 4}
+                                  </Text>
                                 </View>
                               )}
                             </View>
@@ -519,142 +1135,340 @@ export default function WorkoutScreen() {
             </>
           ) : (
             <>
-              <View style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, SHADOW]}>
-                <View>
-                  <Text style={{ fontSize: 20, fontWeight: '900', color: '#34514A' }}>운동 중</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', marginTop: 3 }}>
-                    {activeSession.exercises.length}종목 · 총 볼륨 {getTotalVolume(activeSession).toLocaleString()}kg
-                  </Text>
-                </View>
+              {/* 운동 중 헤더 */}
+              <WorkoutTimer
+                exerciseCount={activeSession.exercises.length}
+                totalVolume={getTotalVolume(activeSession)}
+                elapsed={workoutElapsed}
+                paused={workoutPaused}
+                onPausedChange={setWorkoutPaused}
+                onReset={resetWorkoutTimer}
+                onEnd={handleEnd}
+              />
+              {activeSession.fromRoutineId && (() => {
+                const rn = routines.find(r => r.id === activeSession.fromRoutineId);
+                return rn ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, paddingHorizontal: 4 }}>
+                    <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '600' }}>기반 루틴:</Text>
+                    <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>📋 {rn.name}</Text>
+                    </View>
+                  </View>
+                ) : null;
+              })()}
+              {!timerPinned && timerProps && (
+                <RestTimer {...timerProps} pinned={false} />
+              )}
+              {/* 종목 추가 버튼들 */}
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                 <TouchableOpacity
-                  style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 }}
-                  onPress={handleEnd}>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>저장 및 종료</Text>
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    backgroundColor: "#E7F7F0",
+                    borderRadius: 999,
+                    paddingVertical: 12,
+                  }}
+                  onPress={() => router.push("/modal/add-workout")}
+                  activeOpacity={0.8}>
+                  <Icon name="plus" size={16} color="#2E9E83" />
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: "#2E9E83" }}>
+                    직접 추가
+                  </Text>
                 </TouchableOpacity>
+                {routines.length > 0 && (
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      backgroundColor: "#FFF1E3",
+                      borderRadius: 999,
+                      paddingVertical: 12,
+                    }}
+                    onPress={() => {
+                      setExpandedRoutineInSheet(null);
+                      setAddedFromRoutine(new Set());
+                      setShowRoutineSheet(true);
+                    }}
+                    activeOpacity={0.8}>
+                    <Text style={{ fontSize: 14 }}>📋</Text>
+                    <Text style={{ fontSize: 13, fontWeight: "800", color: "#E6932F" }}>
+                      루틴에서 가져오기
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <RestTimer exerciseName={activeSession.exercises[activeSession.exercises.length - 1]?.name} />
-
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 12, marginBottom: 12, alignSelf: 'stretch', justifyContent: 'center' }}
-                onPress={() => router.push("/modal/add-workout")}
-                activeOpacity={0.8}>
-                <Icon name="plus" size={18} color="#2E9E83" />
-                <Text style={{ fontSize: 14, fontWeight: '800', color: '#2E9E83' }}>운동 종목 추가</Text>
-              </TouchableOpacity>
+              {activeSession.exercises.length > 1 && (
+                <TouchableOpacity
+                  style={{ alignItems: 'center', marginBottom: 10, paddingVertical: 6 }}
+                  onPress={() => setShowReorderSheet(true)}>
+                  <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '700' }}>≡ 종목 순서 편집</Text>
+                </TouchableOpacity>
+              )}
 
               {activeSession.exercises.length === 0 ? (
                 <View className="items-center justify-center py-[60px] gap-2">
                   <Icon name="target" size={64} color="#B4CFC5" />
-                  <Text className="text-sm text-text-secondary text-center">운동 종목을 추가해주세요</Text>
+                  <Text className="text-sm text-text-secondary text-center">
+                    운동 종목을 추가해주세요
+                  </Text>
                 </View>
               ) : (
                 activeSession.exercises.map((ex) => {
-                  const mode = compareModes[ex.name] ?? 'recent';
+                  const mode = compareModes[ex.name] ?? "recent";
                   const cacheKey = `${ex.name}:${mode}`;
                   const cachedHistory = exerciseHistoryCache.get(cacheKey);
-                  const comparisonSession = cachedHistory?.comparisonSession ?? null;
+                  const comparisonSession =
+                    cachedHistory?.comparisonSession ?? null;
                   const prevSets = comparisonSession?.sets ?? [];
 
-                  const allTimePRWeight = cachedHistory?.pr?.weight ??
+                  const allTimePRWeight =
+                    cachedHistory?.pr?.weight ??
                     sessions.reduce((max, s) => {
                       const match = s.exercises.find((e) => e.name === ex.name);
                       if (!match) return max;
-                      return Math.max(max, ...match.sets.map((st) => st.weight));
+                      return Math.max(
+                        max,
+                        ...match.sets.map((st) => st.weight)
+                      );
                     }, 0);
-                  const currentMax = ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
+                  const currentMax =
+                    ex.sets.length > 0
+                      ? Math.max(...ex.sets.map((st) => st.weight))
+                      : 0;
                   const isPR = currentMax > 0 && currentMax > allTimePRWeight;
 
                   const getDateLabel = () => {
                     if (!comparisonSession) return null;
                     const d = fmtDate(comparisonSession.date);
-                    return mode === 'pr' ? `${d} ${comparisonSession.maxWeight}kg` : d;
+                    return mode === "pr"
+                      ? `${d} ${comparisonSession.maxWeight}kg`
+                      : d;
                   };
                   const dateLabel = getDateLabel();
 
                   return (
-                    <Card key={ex.id} className="mb-3">
-                      {/* 종목명 + 카테고리 + 수정 버튼 */}
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                          {editingExerciseId === ex.id ? (
+                    <Pressable
+                      key={ex.id}
+                      onLongPress={() => handleLongPress(ex)}
+                      delayLongPress={600}
+                      style={({ pressed }) => [{ marginBottom: 12 }, pressed && { opacity: 0.88 }]}>
+                    <Card className="mb-0">
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                            flex: 1,
+                          }}>
+                          {activeEditExId === ex.id ? (
                             <TextInput
-                              style={{ fontSize: 16, fontWeight: '900', color: '#34514A', flex: 1, borderBottomWidth: 1.5, borderBottomColor: '#6FD3B6', paddingBottom: 2 }}
-                              value={editExName}
-                              onChangeText={setEditExName}
-                              autoFocus
+                              style={{
+                                fontSize: 16,
+                                fontWeight: "900",
+                                color: "#34514A",
+                                flex: 1,
+                                borderBottomWidth: 1.5,
+                                borderBottomColor: "#6FD3B6",
+                                paddingBottom: 2,
+                              }}
+                              value={draftExName}
+                              onChangeText={setDraftExName}
                               returnKeyType="done"
                               onSubmitEditing={() => {
-                                if (editExName.trim()) updateExercise(ex.id, { name: editExName.trim() } as any);
-                                setEditingExerciseId(null);
+                                if (draftExName.trim() && draftExName.trim() !== ex.name)
+                                  updateExercise(ex.id, { name: draftExName.trim() } as any);
                               }}
                             />
                           ) : (
-                            <Text style={{ fontSize: 16, fontWeight: '900', color: '#34514A' }}>{ex.name}</Text>
+                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
+                              <Text
+                                style={{ fontSize: 16, fontWeight: "900", color: "#34514A", flexShrink: 1 }}
+                                numberOfLines={1}>
+                                {ex.name}
+                              </Text>
+                              {fmtExerciseMeta(ex.targetReps, ex.restSeconds) !== null && (
+                                <Text style={{ fontSize: 12, color: "#7E9A90", fontWeight: "600", flexShrink: 0 }}>
+                                  {fmtExerciseMeta(ex.targetReps, ex.restSeconds)}
+                                </Text>
+                              )}
+                            </View>
                           )}
                           {isPR && (
-                            <View style={{ backgroundColor: '#FFF6D9', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View
+                              style={{
+                                backgroundColor: "#FFF6D9",
+                                borderRadius: 999,
+                                paddingHorizontal: 9,
+                                paddingVertical: 4,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                              }}>
                               <Icon name="trophy" size={11} color="#D9A100" />
-                              <Text style={{ fontSize: 11, fontWeight: '800', color: '#D9A100' }}>PR</Text>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "800",
+                                  color: "#D9A100",
+                                }}>
+                                PR
+                              </Text>
                             </View>
                           )}
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                          }}>
                           <TouchableOpacity
                             onPress={() => {
-                              if (editingExerciseId === ex.id) {
-                                if (editExName.trim()) updateExercise(ex.id, { name: editExName.trim() } as any);
-                                setEditingExerciseId(null);
+                              if (activeEditExId === ex.id) {
+                                commitEdit(ex);
                               } else {
-                                setEditExName(ex.name);
-                                setEditingExerciseId(ex.id);
+                                enterEdit(ex);
                               }
                             }}>
-                            <Icon name={editingExerciseId === ex.id ? 'check' : 'pencil'} size={16} color={editingExerciseId === ex.id ? '#6FD3B6' : '#B4CFC5'} />
+                            <Icon
+                              name={activeEditExId === ex.id ? "check" : "pencil"}
+                              size={16}
+                              color={activeEditExId === ex.id ? "#6FD3B6" : "#B4CFC5"}
+                            />
                           </TouchableOpacity>
-                          <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>{ex.category}</Text>
+                          <View
+                            style={{
+                              backgroundColor: "#E7F7F0",
+                              borderRadius: 999,
+                              paddingHorizontal: 10,
+                              paddingVertical: 5,
+                            }}>
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: "800",
+                                color: "#2E9E83",
+                              }}>
+                              {ex.category}
+                            </Text>
                           </View>
                         </View>
                       </View>
 
-                      {/* 한팔 기준 토글 */}
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#7E9A90' }}>한팔 기준{ex.isSingleArm ? ' (볼륨 ×2)' : ''}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 6,
+                        }}>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: "600",
+                            color: "#7E9A90",
+                          }}>
+                          한팔 기준{ex.isSingleArm ? " (볼륨 ×2)" : ""}
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}>
                           {ex.isSingleArm && (
                             <TouchableOpacity
-                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                              onPress={() => updateExercise(ex.id, { differentSides: !ex.differentSides })}>
-                              <View style={{
-                                width: 15, height: 15, borderRadius: 4,
-                                borderWidth: 1.5, borderColor: ex.differentSides ? '#6FD3B6' : '#D6F0E6',
-                                backgroundColor: ex.differentSides ? '#6FD3B6' : 'transparent',
-                                alignItems: 'center', justifyContent: 'center',
-                              }}>
-                                {ex.differentSides && <Icon name="check" size={9} color="#fff" />}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                              onPress={() =>
+                                updateExercise(ex.id, {
+                                  differentSides: !ex.differentSides,
+                                })
+                              }>
+                              <View
+                                style={{
+                                  width: 15,
+                                  height: 15,
+                                  borderRadius: 4,
+                                  borderWidth: 1.5,
+                                  borderColor: ex.differentSides
+                                    ? "#6FD3B6"
+                                    : "#D6F0E6",
+                                  backgroundColor: ex.differentSides
+                                    ? "#6FD3B6"
+                                    : "transparent",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}>
+                                {ex.differentSides && (
+                                  <Icon name="check" size={9} color="#fff" />
+                                )}
                               </View>
-                              <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600' }}>좌우 다른 무게</Text>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: "#7E9A90",
+                                  fontWeight: "600",
+                                }}>
+                                좌우 다른 무게
+                              </Text>
                             </TouchableOpacity>
                           )}
                           <TouchableOpacity
                             style={{
-                              width: 40, height: 22, borderRadius: 11,
-                              backgroundColor: ex.isSingleArm ? '#6FD3B6' : '#E7F7F0',
-                              justifyContent: 'center', paddingHorizontal: 2,
+                              width: 40,
+                              height: 22,
+                              borderRadius: 11,
+                              backgroundColor: ex.isSingleArm
+                                ? "#6FD3B6"
+                                : "#E7F7F0",
+                              justifyContent: "center",
+                              paddingHorizontal: 2,
                             }}
-                            onPress={() => updateExercise(ex.id, { isSingleArm: !ex.isSingleArm, differentSides: false })}
+                            onPress={() =>
+                              updateExercise(ex.id, {
+                                isSingleArm: !ex.isSingleArm,
+                                differentSides: false,
+                              })
+                            }
                             activeOpacity={0.8}>
-                            <View style={{
-                              width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff',
-                              transform: [{ translateX: ex.isSingleArm ? 18 : 0 }],
-                              shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 2, elevation: 1,
-                            }} />
+                            <View
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: 9,
+                                backgroundColor: "#fff",
+                                transform: [
+                                  { translateX: ex.isSingleArm ? 18 : 0 },
+                                ],
+                                shadowColor: "#000",
+                                shadowOpacity: 0.12,
+                                shadowRadius: 2,
+                                elevation: 1,
+                              }}
+                            />
                           </TouchableOpacity>
                         </View>
                       </View>
 
-                      {/* 비교 기준 선택 */}
                       <View className="flex-row gap-1 mb-2">
                         {COMPARE_MODES.map(({ mode: m, label }) => {
                           const isSelected = mode === m;
@@ -666,62 +1480,167 @@ export default function WorkoutScreen() {
                                 isSelected ? "bg-primary" : "bg-surface-alt",
                               ].join(" ")}
                               onPress={() => {
-                                setCompareModes(prev => ({ ...prev, [ex.name]: m }));
+                                setCompareModes((prev) => ({
+                                  ...prev,
+                                  [ex.name]: m,
+                                }));
                                 fetchExerciseHistory(ex.name, m);
                               }}
                               activeOpacity={0.7}>
                               <Text
                                 style={{
                                   fontSize: 11,
-                                  fontWeight: '600',
-                                  color: isSelected ? '#fff' : '#B4CFC5',
+                                  fontWeight: "600",
+                                  color: isSelected ? "#fff" : "#B4CFC5",
                                 }}>
                                 {label}
                               </Text>
                               {isSelected && dateLabel != null && (
-                                <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', marginTop: 1 }}>
+                                <Text
+                                  style={{
+                                    fontSize: 9,
+                                    color: "rgba(255,255,255,0.8)",
+                                    marginTop: 1,
+                                  }}>
                                   {dateLabel}
                                 </Text>
                               )}
-                              {isSelected && cachedHistory && !comparisonSession && (
-                                <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', marginTop: 1 }}>
-                                  기록없음
-                                </Text>
-                              )}
+                              {isSelected &&
+                                cachedHistory &&
+                                !comparisonSession && (
+                                  <Text
+                                    style={{
+                                      fontSize: 9,
+                                      color: "rgba(255,255,255,0.7)",
+                                      marginTop: 1,
+                                    }}>
+                                    기록없음
+                                  </Text>
+                                )}
                             </TouchableOpacity>
                           );
                         })}
                       </View>
 
-                      {/* 기록 없음 안내 */}
                       {cachedHistory && !comparisonSession && (
                         <View className="flex-row items-center gap-1 mb-2 px-2 py-[7px] bg-surface-alt rounded-lg">
                           <Icon name="info" size={12} color="#B4CFC5" />
-                          <Text className="text-xs text-text-muted">이 기준의 기록이 없어요</Text>
+                          <Text className="text-xs text-text-muted">
+                            이 기준의 기록이 없어요
+                          </Text>
                         </View>
                       )}
 
-                      {/* 세트 헤더 */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 8, marginBottom: 4, borderBottomWidth: 1, borderStyle: 'dashed', borderBottomColor: '#D6F0E6' }}>
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', width: 28 }}>세트</Text>
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>
-                          무게(kg){ex.isSingleArm && ex.differentSides ? ' L/R' : ''}
+                      {activeEditExId === ex.id ? (
+                        <View style={{marginTop: 8}}>
+                          {draftSets.map((ds, idx) => (
+                            <View key={ds.id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8}}>
+                              <TouchableOpacity
+                                style={{width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: ds.completed ? '#6FD3B6' : '#E7F7F0', flexShrink: 0}}
+                                onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, completed: !s.completed} : s))}>
+                                {ds.completed
+                                  ? <Icon name="check" size={13} color="#fff" />
+                                  : <Text style={{fontSize: 11, fontWeight: '800', color: '#7E9A90'}}>{idx + 1}</Text>}
+                              </TouchableOpacity>
+                              <TextInput
+                                style={{flex: 1, backgroundColor: '#E7F7F0', borderRadius: 10, height: 38, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#34514A'}}
+                                value={ds.weight}
+                                onChangeText={v => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, weight: v} : s))}
+                                keyboardType="decimal-pad"
+                                placeholder="0"
+                                placeholderTextColor="#B4CFC5"
+                              />
+                              <Text style={{fontSize: 11, color: '#7E9A90', fontWeight: '600'}}>kg×</Text>
+                              <TextInput
+                                style={{flex: 1, backgroundColor: '#E7F7F0', borderRadius: 10, height: 38, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#34514A'}}
+                                value={ds.reps}
+                                onChangeText={v => setDraftSets(prev => prev.map((s, i) => i === idx ? {...s, reps: v} : s))}
+                                keyboardType="number-pad"
+                                placeholder="0"
+                                placeholderTextColor="#B4CFC5"
+                              />
+                              <Text style={{fontSize: 11, color: '#7E9A90', fontWeight: '600'}}>회</Text>
+                              <TouchableOpacity onPress={() => setDraftSets(prev => prev.filter((_, i) => i !== idx))}>
+                                <Icon name="trash" size={14} color="#B4CFC5" />
+                              </TouchableOpacity>
+                            </View>
+                          ))}
+                          <TouchableOpacity
+                            style={{alignItems: 'center', paddingVertical: 8, borderRadius: 14, backgroundColor: '#6FD3B618', marginTop: 2, marginBottom: 4}}
+                            onPress={() => {
+                              const last = draftSets[draftSets.length - 1];
+                              setDraftSets(prev => [...prev, {id: `new-${Date.now()}`, weight: last?.weight ?? '', reps: last?.reps ?? '', completed: false, isNew: true}]);
+                            }}>
+                            <Text style={{fontSize: 13, fontWeight: '700', color: '#2E9E83'}}>+ 세트 추가</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <>
+                        <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingBottom: 8,
+                          marginBottom: 4,
+                          borderBottomWidth: 1,
+                          borderStyle: "dashed",
+                          borderBottomColor: "#D6F0E6",
+                        }}>
+                        <Text
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: "800",
+                            color: "#B4CFC5",
+                            textAlign: "center",
+                            width: 28,
+                          }}>
+                          세트
                         </Text>
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 1 }}>횟수</Text>
-                        <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#B4CFC5', textAlign: 'center', flex: 0.8 }}>볼륨</Text>
+                        <Text
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: "800",
+                            color: "#B4CFC5",
+                            textAlign: "center",
+                            flex: 1,
+                          }}>
+                          무게(kg)
+                          {ex.isSingleArm && ex.differentSides ? " L/R" : ""}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: "800",
+                            color: "#B4CFC5",
+                            textAlign: "center",
+                            flex: 1,
+                          }}>
+                          횟수
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: "800",
+                            color: "#B4CFC5",
+                            textAlign: "center",
+                            flex: 0.8,
+                          }}>
+                          볼륨
+                        </Text>
                         <View style={{ width: 22 }} />
                       </View>
 
-                      {/* 세트 행들 */}
                       {ex.sets.map((st, idx) => {
                         const prev = prevSets[idx];
                         const curVol = ex.isSingleArm
-                          ? (ex.differentSides && st.weightR != null
+                          ? ex.differentSides && st.weightR != null
                             ? (st.weight + st.weightR) * st.reps
-                            : st.weight * st.reps * 2)
+                            : st.weight * st.reps * 2
                           : st.weight * st.reps;
-                        const prevVol = prev != null ? prev.weight * prev.reps : undefined;
-                        const isSetPR = allTimePRWeight > 0 && st.weight > allTimePRWeight;
+                        const prevVol =
+                          prev != null ? prev.weight * prev.reps : undefined;
+                        const isSetPR =
+                          allTimePRWeight > 0 && st.weight > allTimePRWeight;
                         return (
                           <TouchableOpacity
                             key={st.id}
@@ -732,19 +1651,47 @@ export default function WorkoutScreen() {
                             onPress={() => {
                               LayoutAnimation.configureNext({
                                 duration: 220,
-                                update: { type: 'spring', springDamping: 0.65 },
+                                update: { type: "spring", springDamping: 0.65 },
                               });
-                              updateSet(ex.id, st.id, { completed: !st.completed });
+                              updateSet(ex.id, st.id, {
+                                completed: !st.completed,
+                              });
                             }}
                             activeOpacity={0.7}>
                             <View
-                              style={{ width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center', marginRight: 2, marginTop: 2, backgroundColor: st.completed ? '#6FD3B6' : '#E7F7F0', flexShrink: 0 }}>
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 999,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: 2,
+                                marginTop: 2,
+                                backgroundColor: st.completed
+                                  ? "#6FD3B6"
+                                  : "#E7F7F0",
+                                flexShrink: 0,
+                              }}>
                               {st.completed ? (
                                 <Icon name="check" size={13} color="#fff" />
                               ) : ex.isSingleArm ? (
-                                <Text style={{ fontSize: 9, fontWeight: '900', color: '#6FD3B6' }}>L</Text>
+                                <Text
+                                  style={{
+                                    fontSize: 9,
+                                    fontWeight: "900",
+                                    color: "#6FD3B6",
+                                  }}>
+                                  L
+                                </Text>
                               ) : (
-                                <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>{idx + 1}</Text>
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "800",
+                                    color: "#7E9A90",
+                                  }}>
+                                  {idx + 1}
+                                </Text>
                               )}
                             </View>
                             <View className="items-center py-0.5 flex-1">
@@ -752,38 +1699,73 @@ export default function WorkoutScreen() {
                                 <Text
                                   className={[
                                     "text-sm text-center",
-                                    st.completed ? "line-through text-text-muted" : "text-text-primary",
+                                    st.completed
+                                      ? "line-through text-text-muted"
+                                      : "text-text-primary",
                                   ].join(" ")}>
-                                  {ex.isSingleArm && ex.differentSides && st.weightR != null
+                                  {ex.isSingleArm &&
+                                  ex.differentSides &&
+                                  st.weightR != null
                                     ? `${st.weight} / ${st.weightR}`
                                     : st.weight}
                                 </Text>
-                                {isSetPR && <Icon name="trophy" size={10} color="#D9A100" />}
+                                {isSetPR && (
+                                  <Icon
+                                    name="trophy"
+                                    size={10}
+                                    color="#D9A100"
+                                  />
+                                )}
                               </View>
                               {ex.isSingleArm && !ex.differentSides && (
-                                <Text style={{ fontSize: 9, color: '#B4CFC5', fontWeight: '700' }}>×2</Text>
+                                <Text
+                                  style={{
+                                    fontSize: 9,
+                                    color: "#B4CFC5",
+                                    fontWeight: "700",
+                                  }}>
+                                  ×2
+                                </Text>
                               )}
-                              <DiffBadge value={st.weight} prevValue={prev?.weight} unit="kg" />
+                              <DiffBadge
+                                value={st.weight}
+                                prevValue={prev?.weight}
+                                unit="kg"
+                              />
                             </View>
                             <View className="items-center py-0.5 flex-1">
                               <Text
                                 className={[
                                   "text-sm text-center",
-                                  st.completed ? "line-through text-text-muted" : "text-text-primary",
+                                  st.completed
+                                    ? "line-through text-text-muted"
+                                    : "text-text-primary",
                                 ].join(" ")}>
                                 {st.reps}
                               </Text>
-                              <DiffBadge value={st.reps} prevValue={prev?.reps} unit="회" />
+                              <DiffBadge
+                                value={st.reps}
+                                prevValue={prev?.reps}
+                                unit="회"
+                              />
                             </View>
-                            <View className="items-center py-0.5" style={{ flex: 0.5 }}>
+                            <View
+                              className="items-center py-0.5"
+                              style={{ flex: 0.5 }}>
                               <Text
                                 className={[
                                   "text-sm text-center",
-                                  st.completed ? "line-through text-text-muted" : "text-text-primary",
+                                  st.completed
+                                    ? "line-through text-text-muted"
+                                    : "text-text-primary",
                                 ].join(" ")}>
                                 {curVol}
                               </Text>
-                              <DiffBadge value={curVol} prevValue={prevVol} unit="kg" />
+                              <DiffBadge
+                                value={curVol}
+                                prevValue={prevVol}
+                                unit="kg"
+                              />
                             </View>
                             <TouchableOpacity
                               style={{ marginTop: 3 }}
@@ -794,52 +1776,185 @@ export default function WorkoutScreen() {
                         );
                       })}
                       {ex.sets.length === 0 && (
-                        <Text className="text-sm text-text-muted text-center py-2">세트를 추가해주세요</Text>
+                        <Text className="text-sm text-text-muted text-center py-2">
+                          세트를 추가해주세요
+                        </Text>
+                      )}
+                        </>
                       )}
 
-                      {ex.settings && ex.settings.length > 0 && (
-                        <View className="flex-row flex-wrap gap-1 pt-3">
-                          {ex.settings.map((st, i) => (
-                            <View key={i} className="bg-primary/20 rounded-[20px] px-2 py-1">
-                              <Text className="text-[11px] text-primary font-semibold">
-                                {st.key}: {st.value}
-                              </Text>
+                      {/* 상세 설정 토글 */}
+                      <TouchableOpacity
+                        onPress={() => setDetailExpanded(prev => ({ ...prev, [ex.id]: !prev[ex.id] }))}
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 10, marginTop: 6, borderTopWidth: 1, borderTopColor: '#E7F7F0' }}
+                        activeOpacity={0.7}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#7E9A90', flex: 1 }}>
+                          {detailExpanded[ex.id] ? '▲ 접기' : '▼ 상세 설정'}
+                        </Text>
+                        {!!(ex.settings?.length || ex.tip || ex.targetReps || ex.restSeconds) && !detailExpanded[ex.id] && (
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#FFAE96' }} />
+                        )}
+                      </TouchableOpacity>
+
+                      {detailExpanded[ex.id] && (
+                        <View style={{ gap: 14, marginTop: 10 }}>
+                          {/* 기구 설정 */}
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5', marginBottom: 8 }}>기구 설정</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                              {(ex.settings ?? []).map((st, si) => (
+                                <View key={si} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E7F7F0', borderRadius: 999, paddingLeft: 10, paddingRight: 4, paddingVertical: 4, gap: 4 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>{st.key}: {st.value}</Text>
+                                  <TouchableOpacity
+                                    onPress={() => updateExercise(ex.id, { settings: (ex.settings ?? []).filter((_, idx) => idx !== si) })}
+                                    hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+                                    <Text style={{ fontSize: 14, color: '#B4CFC5', fontWeight: '700' }}>×</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
+                              <TouchableOpacity
+                                style={{ backgroundColor: '#F3F4F6', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#E5E7EB' }}
+                                onPress={() => setAddingSettingFor(addingSettingFor === ex.id ? null : ex.id)}>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#7E9A90' }}>+ 추가</Text>
+                              </TouchableOpacity>
                             </View>
-                          ))}
-                        </View>
-                      )}
-                      {!!ex.tip && (
-                        <View className="flex-row items-start gap-1 bg-warning/20 rounded-xl p-2 mt-2">
-                          <Icon name="bulb" size={13} color="#7E9A90" />
-                          <Text className="text-xs text-text-secondary leading-5 flex-1">{ex.tip}</Text>
+                            {addingSettingFor === ex.id && (
+                              <View style={{ marginTop: 8, gap: 6 }}>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                                    {SETTING_KEYS.map(k => (
+                                      <TouchableOpacity
+                                        key={k}
+                                        style={{ backgroundColor: newSettingKey === k ? '#6FD3B6' : '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}
+                                        onPress={() => setNewSettingKey(k)}>
+                                        <Text style={{ fontSize: 11, fontWeight: '700', color: newSettingKey === k ? '#fff' : '#7E9A90' }}>{k}</Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </View>
+                                </ScrollView>
+                                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                                  <TextInput
+                                    style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 10, height: 36, paddingHorizontal: 10, fontSize: 13, fontWeight: '700', color: '#34514A' }}
+                                    placeholder="값 입력"
+                                    placeholderTextColor="#B4CFC5"
+                                    value={newSettingVal}
+                                    onChangeText={setNewSettingVal}
+                                  />
+                                  <TouchableOpacity
+                                    style={{ backgroundColor: '#6FD3B6', borderRadius: 10, height: 36, paddingHorizontal: 14, justifyContent: 'center' }}
+                                    onPress={() => {
+                                      if (!newSettingVal.trim()) return;
+                                      updateExercise(ex.id, { settings: [...(ex.settings ?? []), { key: newSettingKey, value: newSettingVal.trim() }] });
+                                      setNewSettingVal('');
+                                      setAddingSettingFor(null);
+                                    }}>
+                                    <Icon name="check" size={14} color="#fff" />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* 목표 횟수 */}
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5', marginBottom: 6 }}>목표 횟수</Text>
+                            <TextInput
+                              style={{ backgroundColor: '#E7F7F0', borderRadius: 12, padding: 10, fontSize: 13, fontWeight: '700', color: '#34514A' }}
+                              value={ex.targetReps ?? ''}
+                              onChangeText={v => updateExercise(ex.id, { targetReps: v })}
+                              placeholder="예: 12회, 15-20회"
+                              placeholderTextColor="#B4CFC5"
+                              returnKeyType="done"
+                            />
+                          </View>
+
+                          {/* 쉬는 시간 */}
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5', marginBottom: 6 }}>쉬는 시간</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <TouchableOpacity
+                                style={{ backgroundColor: '#E7F7F0', borderRadius: 10, width: 42, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => updateExercise(ex.id, { restSeconds: Math.max(0, (ex.restSeconds ?? 60) - 10) })}>
+                                <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90' }}>-10</Text>
+                              </TouchableOpacity>
+                              <TextInput
+                                style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 10, height: 36, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#34514A' }}
+                                value={String(ex.restSeconds ?? 60)}
+                                onChangeText={v => { const n = parseInt(v); if (!isNaN(n) && n >= 0) updateExercise(ex.id, { restSeconds: n }); }}
+                                keyboardType="number-pad"
+                                placeholderTextColor="#B4CFC5"
+                              />
+                              <Text style={{ fontSize: 12, color: '#7E9A90', fontWeight: '700' }}>초</Text>
+                              <TouchableOpacity
+                                style={{ backgroundColor: '#6FD3B618', borderRadius: 10, width: 42, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => updateExercise(ex.id, { restSeconds: (ex.restSeconds ?? 60) + 10 })}>
+                                <Text style={{ fontSize: 13, fontWeight: '800', color: '#2E9E83' }}>+10</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          {/* 운동 팁 */}
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5', marginBottom: 6 }}>운동 팁</Text>
+                            <TextInput
+                              style={{ backgroundColor: '#E7F7F0', borderRadius: 12, padding: 10, fontSize: 13, color: '#34514A', minHeight: 60 }}
+                              value={ex.tip ?? ''}
+                              onChangeText={v => updateExercise(ex.id, { tip: v })}
+                              placeholder="예: 무릎이 발끝을 넘지 않게"
+                              placeholderTextColor="#B4CFC5"
+                              multiline
+                              numberOfLines={3}
+                              textAlignVertical="top"
+                            />
+                          </View>
                         </View>
                       )}
                     </Card>
+                    {showLongPressHint && (
+                      <View style={{ backgroundColor: '#fff', paddingBottom: 8, alignItems: 'center', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}>
+                        <Text style={{ fontSize: 10, color: '#D6E8E0', fontWeight: '600' }}>꾹 눌러서 수정</Text>
+                      </View>
+                    )}
+                    </Pressable>
                   );
                 })
               )}
             </>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       ) : (
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-
-          {/* 이번 달 요약 */}
           <Card className="flex-row justify-between items-center mb-3 p-[18px]">
             <View className="gap-1">
               <Text className="text-sm font-semibold text-text-secondary">
-                {visibleMonth.split("-")[0]}년 {parseInt(visibleMonth.split("-")[1])}월
+                {visibleMonth.split("-")[0]}년{" "}
+                {parseInt(visibleMonth.split("-")[1])}월
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 2,
+                }}>
                 <Text className="text-[18px] font-bold text-text-primary">
-                  {monthSessions.length}회 운동 · {monthVolume.toLocaleString()}kg
+                  {monthSessions.length}회 운동 · {monthVolume.toLocaleString()}
+                  kg
                 </Text>
                 {monthCalories > 0 && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 2,
+                    }}>
                     <FlameIcon size={14} color="#FF9DB0" />
-                    <Text className="text-[15px] font-bold text-text-primary">{monthCalories.toLocaleString()} kcal</Text>
+                    <Text className="text-[15px] font-bold text-text-primary">
+                      {monthCalories.toLocaleString()} kcal
+                    </Text>
                   </View>
                 )}
               </View>
@@ -847,7 +1962,6 @@ export default function WorkoutScreen() {
             <Icon name="calendar" size={36} color="#7E9A90" />
           </Card>
 
-          {/* 달력 */}
           <Card bare className="overflow-hidden mb-5">
             <Calendar
               markedDates={markedDates}
@@ -864,7 +1978,6 @@ export default function WorkoutScreen() {
             />
           </Card>
 
-          {/* 선택한 날짜 상세 */}
           {selectedDate && (
             <>
               <Text className="text-[15px] font-bold text-text-primary mb-3">
@@ -873,7 +1986,9 @@ export default function WorkoutScreen() {
               {selectedSessions.length === 0 ? (
                 <Card className="items-center gap-2">
                   <Icon name="person" size={36} color="#B4CFC5" />
-                  <Text className="text-sm text-text-muted">운동 기록이 없어요</Text>
+                  <Text className="text-sm text-text-muted">
+                    운동 기록이 없어요
+                  </Text>
                 </Card>
               ) : (
                 selectedSessions.map((session) => (
@@ -883,6 +1998,7 @@ export default function WorkoutScreen() {
                     getVolume={getTotalVolume}
                     allSessions={sessions}
                     onDelete={deleteSession}
+                    onUpdate={(exercises) => updateSession(session.id, exercises)}
                   />
                 ))
               )}
@@ -892,8 +2008,12 @@ export default function WorkoutScreen() {
           {sessions.length === 0 && (
             <View className="items-center justify-center py-[60px] gap-2">
               <Icon name="calendar" size={64} color="#B4CFC5" />
-              <Text className="text-[20px] font-bold text-text-primary text-center">운동 기록이 없어요</Text>
-              <Text className="text-sm text-text-secondary text-center">운동을 시작하고 기록을 쌓아보세요</Text>
+              <Text className="text-[20px] font-bold text-text-primary text-center">
+                운동 기록이 없어요
+              </Text>
+              <Text className="text-sm text-text-secondary text-center">
+                운동을 시작하고 기록을 쌓아보세요
+              </Text>
             </View>
           )}
         </ScrollView>
@@ -904,6 +2024,151 @@ export default function WorkoutScreen() {
         calories={completeCalories ?? 0}
         onDismiss={() => setCompleteCalories(null)}
       />
+
+      {/* 루틴에서 가져오기 모달 */}
+      <Modal
+        visible={showRoutineSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowRoutineSheet(false)}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }}
+          activeOpacity={1}
+          onPress={() => setShowRoutineSheet(false)}
+        />
+        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '75%', paddingBottom: 34 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E7F7F0' }}>
+            <Text style={{ flex: 1, fontSize: 17, fontWeight: '900', color: '#34514A' }}>루틴에서 가져오기</Text>
+            <TouchableOpacity onPress={() => setShowRoutineSheet(false)}>
+              <Text style={{ fontSize: 20, color: '#B4CFC5', fontWeight: '700' }}>×</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }} keyboardShouldPersistTaps="handled">
+            {routines.map((routine) => {
+              const isExpanded = expandedRoutineInSheet === routine.id;
+              const currentNames = new Set(activeSession?.exercises.map(e => e.name) ?? []);
+              return (
+                <View key={routine.id} style={{ backgroundColor: '#F5FBF8', borderRadius: 20, overflow: 'hidden', marginBottom: 10 }}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 }}
+                    onPress={() => setExpandedRoutineInSheet(isExpanded ? null : routine.id)}
+                    activeOpacity={0.8}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '900', color: '#34514A' }}>{routine.name}</Text>
+                      <Text style={{ fontSize: 11, color: '#7E9A90', marginTop: 2 }}>
+                        {routine.exercises.length}종목
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#FFAE96', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}
+                      onPress={() => {
+                        let added = 0;
+                        routine.exercises.forEach((re, i) => {
+                          if (currentNames.has(re.name)) return;
+                          const exId = `${Date.now()}-${i}`;
+                          addExercise({ id: exId, name: re.name, category: re.category, settings: re.settings, tip: re.tip, isSingleArm: false, differentSides: false, targetMuscles: re.targetMuscles, restSeconds: re.restSeconds, targetReps: re.targetReps });
+                          for (let s = 0; s < (re.defaultSets || 3); s++) {
+                            addSet(exId, { id: `${exId}-${s}`, weight: re.defaultWeight ?? 0, reps: 0, completed: false });
+                          }
+                          setAddedFromRoutine(prev => new Set([...prev, re.name]));
+                          added++;
+                        });
+                        if (added === 0) Alert.alert('알림', '이미 모든 종목이 추가되어 있어요');
+                        else { setShowRoutineSheet(false); }
+                      }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#fff' }}>전체 추가</Text>
+                    </TouchableOpacity>
+                    <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '700' }}>{isExpanded ? '▲' : '▼'}</Text>
+                  </TouchableOpacity>
+                  {isExpanded && (
+                    <View style={{ borderTopWidth: 1, borderTopColor: '#E7F7F0' }}>
+                      {routine.exercises.map((re, i) => {
+                        const alreadyIn = currentNames.has(re.name) || addedFromRoutine.has(re.name);
+                        return (
+                          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: i < routine.exercises.length - 1 ? 1 : 0, borderBottomColor: '#E7F7F0' }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 13, fontWeight: '700', color: '#34514A' }}>{re.name}</Text>
+                              <Text style={{ fontSize: 10, color: '#7E9A90', marginTop: 1 }}>
+                                {re.defaultSets}세트 {re.targetReps ? `· ${re.targetReps}` : ''} {re.defaultWeight ? `· ${re.defaultWeight}kg` : ''}
+                              </Text>
+                            </View>
+                            {alreadyIn ? (
+                              <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>추가됨</Text>
+                              </View>
+                            ) : (
+                              <TouchableOpacity
+                                style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}
+                                onPress={() => {
+                                  const exId = `${Date.now()}-${i}`;
+                                  addExercise({ id: exId, name: re.name, category: re.category, settings: re.settings, tip: re.tip, isSingleArm: false, differentSides: false, targetMuscles: re.targetMuscles, restSeconds: re.restSeconds, targetReps: re.targetReps });
+                                  for (let s = 0; s < (re.defaultSets || 3); s++) {
+                                    addSet(exId, { id: `${exId}-${s}`, weight: re.defaultWeight ?? 0, reps: 0, completed: false });
+                                  }
+                                  setAddedFromRoutine(prev => new Set([...prev, re.name]));
+                                }}>
+                                <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>+ 추가</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* 종목 순서 편집 모달 */}
+      <Modal
+        visible={showReorderSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowReorderSheet(false)}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }}
+            activeOpacity={1}
+            onPress={() => setShowReorderSheet(false)}
+          />
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '60%', paddingBottom: 34 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E7F7F0' }}>
+              <Text style={{ flex: 1, fontSize: 17, fontWeight: '900', color: '#34514A' }}>종목 순서 편집</Text>
+              <TouchableOpacity onPress={() => setShowReorderSheet(false)}>
+                <Text style={{ fontSize: 20, color: '#B4CFC5', fontWeight: '700' }}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '600', marginBottom: 10, textAlign: 'center' }}>
+                꾹 눌러서 드래그해 순서를 바꿀 수 있어요
+              </Text>
+              <SortableList
+                data={activeSession?.exercises ?? []}
+                keyExtractor={(ex) => ex.id}
+                itemHeight={72}
+                onDragEnd={reorderSessionExercises}
+                renderItem={(ex) => (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    backgroundColor: '#F5FBF8', borderRadius: 16, padding: 14, marginBottom: 8,
+                  }}>
+                    <Icon name="menu" size={20} color="#B4CFC5" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#34514A' }}>{ex.name}</Text>
+                      <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600', marginTop: 2 }}>
+                        {ex.sets.length}세트 · {ex.category}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -924,11 +2189,12 @@ function DiffBadge({
     <Text
       style={{
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: "700",
         lineHeight: 14,
-        color: up ? '#E76C86' : '#3F8DD6',
+        color: up ? "#E76C86" : "#3F8DD6",
       }}>
-      {up ? `↑+${diff}` : `↓${diff}`}{unit}
+      {up ? `↑+${diff}` : `↓${diff}`}
+      {unit}
     </Text>
   );
 }
@@ -939,14 +2205,16 @@ function ExerciseHistoryRow({
   allPrevMax,
   allTimePR,
 }: {
-  ex: WorkoutSession['exercises'][0];
+  ex: WorkoutSession["exercises"][0];
   idx: number;
   allPrevMax: number | null;
   allTimePR: number;
 }) {
-  const curMaxWeight = ex.sets.length > 0 ? Math.max(...ex.sets.map(st => st.weight)) : 0;
+  const curMaxWeight =
+    ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
   const delta = allPrevMax != null ? curMaxWeight - allPrevMax : null;
-  const isSessionPR = curMaxWeight > 0 && curMaxWeight >= allTimePR && allTimePR > 0;
+  const isSessionPR =
+    curMaxWeight > 0 && curMaxWeight >= allTimePR && allTimePR > 0;
 
   const prScale = useRef(new Animated.Value(0)).current;
   const growthOp = useRef(new Animated.Value(0)).current;
@@ -957,91 +2225,217 @@ function ExerciseHistoryRow({
     growthOp.setValue(0);
     compOp.setValue(0);
     Animated.parallel([
-      Animated.timing(compOp, { toValue: 1, duration: 400, delay: idx * 80, useNativeDriver: true }),
-      ...(isSessionPR ? [Animated.spring(prScale, { toValue: 1, damping: 5, stiffness: 180, useNativeDriver: true } as any)] : []),
-      ...(delta != null && delta > 0 ? [Animated.timing(growthOp, { toValue: 1, duration: 350, delay: 300 + idx * 80, useNativeDriver: true })] : []),
+      Animated.timing(compOp, {
+        toValue: 1,
+        duration: 400,
+        delay: idx * 80,
+        useNativeDriver: true,
+      }),
+      ...(isSessionPR
+        ? [
+            Animated.spring(prScale, {
+              toValue: 1,
+              damping: 5,
+              stiffness: 180,
+              useNativeDriver: true,
+            } as any),
+          ]
+        : []),
+      ...(delta != null && delta > 0
+        ? [
+            Animated.timing(growthOp, {
+              toValue: 1,
+              duration: 350,
+              delay: 300 + idx * 80,
+              useNativeDriver: true,
+            }),
+          ]
+        : []),
     ]).start();
   }, []);
 
-  const prevPct = allPrevMax != null && curMaxWeight > 0
-    ? `${Math.round(Math.min(100, (allPrevMax / curMaxWeight) * 100))}%` as `${number}%`
-    : '0%' as const;
+  const prevPct =
+    allPrevMax != null && curMaxWeight > 0
+      ? (`${Math.round(
+          Math.min(100, (allPrevMax / curMaxWeight) * 100)
+        )}%` as `${number}%`)
+      : ("0%" as const);
 
   return (
-    <View className={['py-4', idx > 0 ? 'border-t border-surface-alt' : ''].join(' ')}>
-      {/* 종목 헤더 */}
+    <View
+      className={["py-4", idx > 0 ? "border-t border-surface-alt" : ""].join(
+        " "
+      )}>
       <View className="flex-row items-center justify-between mb-2">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-          <Text className="text-[17px] font-extrabold text-text-primary shrink">{ex.name}</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            flex: 1,
+          }}>
+          <Text className="text-[17px] font-extrabold text-text-primary shrink">
+            {ex.name}
+          </Text>
           {ex.isSingleArm && (
-            <View style={{ backgroundColor: '#6FD3B620', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#2E9E83' }}>한팔</Text>
+            <View
+              style={{
+                backgroundColor: "#6FD3B620",
+                borderRadius: 999,
+                paddingHorizontal: 7,
+                paddingVertical: 3,
+              }}>
+              <Text
+                style={{ fontSize: 10, fontWeight: "700", color: "#2E9E83" }}>
+                한팔
+              </Text>
             </View>
           )}
           {isSessionPR && (
             <Animated.View style={{ transform: [{ scale: prScale }] }}>
-              <View style={{ backgroundColor: '#FFF6D9', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <View
+                style={{
+                  backgroundColor: "#FFF6D9",
+                  borderRadius: 999,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 3,
+                }}>
                 <Icon name="trophy" size={11} color="#D9A100" />
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#D9A100' }}>PR</Text>
+                <Text
+                  style={{ fontSize: 11, fontWeight: "800", color: "#D9A100" }}>
+                  PR
+                </Text>
               </View>
             </Animated.View>
           )}
         </View>
         <View className="bg-workout/30 rounded-xl px-2 py-1">
-          <Text className="text-[11px] font-bold text-workout">{ex.category}</Text>
+          <Text className="text-[11px] font-bold text-workout">
+            {ex.category}
+          </Text>
         </View>
       </View>
 
-      {/* 이전 → 오늘 비교 바 (fade-in) */}
       {allPrevMax != null && curMaxWeight > 0 && (
         <Animated.View style={{ marginBottom: 10, gap: 4, opacity: compOp }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontSize: 9, color: '#B4CFC5', fontWeight: '700', width: 24, textAlign: 'right' }}>이전</Text>
-            <View style={{ flex: 1, height: 5, backgroundColor: '#E7F7F0', borderRadius: 999, overflow: 'hidden' }}>
-              <View style={{ height: '100%', borderRadius: 999, backgroundColor: '#B4CFC5', width: prevPct }} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={{
+                fontSize: 9,
+                color: "#B4CFC5",
+                fontWeight: "700",
+                width: 24,
+                textAlign: "right",
+              }}>
+              이전
+            </Text>
+            <View
+              style={{
+                flex: 1,
+                height: 5,
+                backgroundColor: "#E7F7F0",
+                borderRadius: 999,
+                overflow: "hidden",
+              }}>
+              <View
+                style={{
+                  height: "100%",
+                  borderRadius: 999,
+                  backgroundColor: "#B4CFC5",
+                  width: prevPct,
+                }}
+              />
             </View>
-            <Text style={{ fontSize: 10, color: '#B4CFC5', fontWeight: '600', width: 38 }}>{allPrevMax}kg</Text>
+            <Text
+              style={{
+                fontSize: 10,
+                color: "#B4CFC5",
+                fontWeight: "600",
+                width: 38,
+              }}>
+              {allPrevMax}kg
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontSize: 9, color: '#2E9E83', fontWeight: '700', width: 24, textAlign: 'right' }}>오늘</Text>
-            <View style={{ flex: 1, height: 5, backgroundColor: '#E7F7F0', borderRadius: 999, overflow: 'hidden' }}>
-              <View style={{ height: '100%', borderRadius: 999, backgroundColor: isSessionPR ? '#FFD36E' : '#6FD3B6', width: '100%' }} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={{
+                fontSize: 9,
+                color: "#2E9E83",
+                fontWeight: "700",
+                width: 24,
+                textAlign: "right",
+              }}>
+              오늘
+            </Text>
+            <View
+              style={{
+                flex: 1,
+                height: 5,
+                backgroundColor: "#E7F7F0",
+                borderRadius: 999,
+                overflow: "hidden",
+              }}>
+              <View
+                style={{
+                  height: "100%",
+                  borderRadius: 999,
+                  backgroundColor: isSessionPR ? "#FFD36E" : "#6FD3B6",
+                  width: "100%",
+                }}
+              />
             </View>
-            <Text style={{ fontSize: 10, color: '#2E9E83', fontWeight: '700', width: 38 }}>{curMaxWeight}kg</Text>
+            <Text
+              style={{
+                fontSize: 10,
+                color: "#2E9E83",
+                fontWeight: "700",
+                width: 38,
+              }}>
+              {curMaxWeight}kg
+            </Text>
           </View>
         </Animated.View>
       )}
 
-      {/* 성장 메시지 */}
       {delta != null && delta > 0 && (
         <Animated.View style={{ opacity: growthOp, marginBottom: 6 }}>
-          <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>
+          <Text style={{ fontSize: 12, fontWeight: "800", color: "#2E9E83" }}>
             💪 +{delta}kg 성장했어요!
           </Text>
         </Animated.View>
       )}
       {delta != null && delta < 0 && (
-        <Text style={{ fontSize: 11, fontWeight: '600', color: '#E76C86', marginBottom: 4 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: "600",
+            color: "#E76C86",
+            marginBottom: 4,
+          }}>
           ↓ {Math.abs(delta)}kg
         </Text>
       )}
 
-      {/* 세트 목록 */}
       <View className="gap-1 mb-2">
         {ex.sets.map((st, i) => {
           const vol = ex.isSingleArm
-            ? (ex.differentSides && st.weightR != null
+            ? ex.differentSides && st.weightR != null
               ? (st.weight + st.weightR) * st.reps
-              : st.weight * st.reps * 2)
+              : st.weight * st.reps * 2
             : st.weight * st.reps;
           return (
             <View key={st.id} className="flex-row items-center">
-              <Text className="text-xs font-semibold text-text-muted w-10">{i + 1}세트</Text>
+              <Text className="text-xs font-semibold text-text-muted w-10">
+                {i + 1}세트
+              </Text>
               <Text className="text-sm font-semibold text-text-primary flex-1">
                 {ex.isSingleArm && ex.differentSides && st.weightR != null
                   ? `L${st.weight}/R${st.weightR}kg`
                   : `${st.weight}kg`}
-                {ex.isSingleArm ? '(한팔)' : ''} × {st.reps}회
+                {ex.isSingleArm ? "(한팔)" : ""} × {st.reps}회
               </Text>
               <Text className="text-sm font-medium text-text-secondary">
                 = {vol.toLocaleString()}kg
@@ -1055,60 +2449,168 @@ function ExerciseHistoryRow({
         <View className="flex-row flex-wrap gap-1 mb-2">
           {ex.settings.map((st, i) => (
             <View key={i} className="bg-primary/20 rounded-[20px] px-2 py-0.5">
-              <Text className="text-[10px] font-semibold text-primary">{st.key}: {st.value}</Text>
+              <Text className="text-[10px] font-semibold text-primary">
+                {st.key}: {st.value}
+              </Text>
             </View>
           ))}
         </View>
       )}
-
       {!!ex.tip && (
         <View className="flex-row items-start gap-1 bg-warning/30 rounded-xl p-2 mb-1">
           <Icon name="bulb" size={11} color="#7E9A90" />
-          <Text className="text-xs text-text-secondary flex-1 leading-5">{ex.tip}</Text>
+          <Text className="text-xs text-text-secondary flex-1 leading-5">
+            {ex.tip}
+          </Text>
         </View>
       )}
     </View>
   );
 }
 
+type DraftSet = { id: string; weight: string; reps: string; completed: boolean };
+type DraftExercise = Omit<WorkoutSession['exercises'][0], 'sets'> & { sets: DraftSet[] };
+
 function HistoryCard({
   session,
   getVolume,
   allSessions,
   onDelete,
+  onUpdate,
 }: {
   session: WorkoutSession;
   getVolume: (s: WorkoutSession) => number;
   allSessions: WorkoutSession[];
   onDelete: (id: string) => void;
+  onUpdate: (exercises: WorkoutSession['exercises']) => Promise<void>;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [exExpanded, setExExpanded] = useState<Record<string, boolean>>({});
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draftExercises, setDraftExercises] = useState<DraftExercise[]>([]);
   const volume = getVolume(session);
 
-  const handleMore = () => {
-    Alert.alert(
-      session.date,
-      `${session.exercises.length}종목 · ${volume.toLocaleString()}kg`,
-      [
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: () => Alert.alert('운동 기록 삭제', '이 기록을 삭제할까요?', [
-            { text: '취소', style: 'cancel' },
-            { text: '삭제', style: 'destructive', onPress: () => onDelete(session.id) },
-          ]),
-        },
-        { text: '취소', style: 'cancel' },
-      ],
-    );
+  const durationText = (() => {
+    const m = session.durationMinutes ?? 0;
+    if (m <= 0) return null;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    if (h > 0) return `${h}시간${rem > 0 ? ` ${rem}분` : ''}`;
+    return `${m}분`;
+  })();
+
+  const bodyParts = [...new Set(session.exercises.map(ex => ex.category).filter(Boolean))];
+
+  const enterHistoryEdit = () => {
+    setDraftExercises(session.exercises.map(ex => ({
+      ...ex,
+      sets: ex.sets.map(s => ({
+        id: s.id,
+        weight: String(s.weight),
+        reps: String(s.reps),
+        completed: s.completed,
+      })),
+    })));
+    setEditMode(true);
+    setExpanded(true);
+  };
+
+  const updateDraftSet = (exIdx: number, setIdx: number, data: Partial<DraftSet>) => {
+    setDraftExercises(prev => prev.map((ex, ei) =>
+      ei !== exIdx ? ex : {...ex, sets: ex.sets.map((s, si) => si !== setIdx ? s : {...s, ...data})}
+    ));
+  };
+
+  const removeDraftSet = (exIdx: number, setIdx: number) => {
+    setDraftExercises(prev => prev.map((ex, ei) =>
+      ei !== exIdx ? ex : {...ex, sets: ex.sets.filter((_, si) => si !== setIdx)}
+    ));
+  };
+
+  const addDraftSet = (exIdx: number) => {
+    setDraftExercises(prev => prev.map((ex, ei) => {
+      if (ei !== exIdx) return ex;
+      const last = ex.sets[ex.sets.length - 1];
+      return {...ex, sets: [...ex.sets, {id: `draft-${Date.now()}`, weight: last?.weight ?? '0', reps: last?.reps ?? '0', completed: false}]};
+    }));
+  };
+
+  const removeDraftExercise = (exIdx: number) => {
+    setDraftExercises(prev => prev.filter((_, i) => i !== exIdx));
+  };
+
+  const updateDraftExName = (exIdx: number, name: string) => {
+    setDraftExercises(prev => prev.map((ex, i) => i !== exIdx ? ex : {...ex, name}));
+  };
+
+  const addDraftExercise = () => {
+    setDraftExercises(prev => [...prev, {
+      id: `new-ex-${Date.now()}`,
+      name: '',
+      category: '',
+      sets: [{id: `new-set-${Date.now()}`, weight: '0', reps: '0', completed: false}],
+      settings: [],
+      tip: '',
+      isSingleArm: false,
+      differentSides: false,
+    }]);
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      const exercises: WorkoutSession['exercises'] = draftExercises.map(ex => ({
+        ...ex,
+        sets: ex.sets.map(s => ({
+          ...s,
+          weight: parseFloat(s.weight) || 0,
+          reps: parseInt(s.reps) || 0,
+        })),
+      }));
+      await onUpdate(exercises);
+      setEditMode(false);
+    } catch {
+      Alert.alert('오류', '저장에 실패했어요');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = () => {
+    Alert.alert("운동 기록 삭제", "이 기록을 삭제할까요?", [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => onDelete(session.id) },
+    ]);
+  };
+
+  const getExMaxWeight = (ex: WorkoutSession['exercises'][0]) =>
+    ex.sets.length > 0 ? Math.max(...ex.sets.map(s => s.weight)) : 0;
+
+  const getExVolume = (ex: WorkoutSession['exercises'][0]) =>
+    ex.sets.reduce((sum, s) => sum + s.weight * s.reps * (ex.isSingleArm ? 2 : 1), 0);
+
+  const getPrevSessionInfo = (exName: string): { maxWeight: number; date: string } | null => {
+    let best: { maxWeight: number; date: string } | null = null;
+    for (const s of allSessions) {
+      if (s.date >= session.date) continue;
+      const match = s.exercises.find(e => e.name === exName);
+      if (!match) continue;
+      const mx = match.sets.length > 0 ? Math.max(...match.sets.map(st => st.weight)) : 0;
+      if (!best || s.date > best.date) best = { maxWeight: mx, date: s.date };
+    }
+    return best;
   };
 
   const getAllTimePrevMax = (exName: string): number | null => {
     let max = 0;
     for (const s of allSessions) {
       if (s.date >= session.date) continue;
-      const match = s.exercises.find(e => e.name === exName);
-      if (match) match.sets.forEach(st => { if (st.weight > max) max = st.weight; });
+      const match = s.exercises.find((e) => e.name === exName);
+      if (match)
+        match.sets.forEach((st) => {
+          if (st.weight > max) max = st.weight;
+        });
     }
     return max > 0 ? max : null;
   };
@@ -1116,69 +2618,280 @@ function HistoryCard({
   const getAllTimePR = (exName: string): number => {
     let max = 0;
     for (const s of allSessions) {
-      const match = s.exercises.find(e => e.name === exName);
-      if (match) match.sets.forEach(st => { if (st.weight > max) max = st.weight; });
+      const match = s.exercises.find((e) => e.name === exName);
+      if (match)
+        match.sets.forEach((st) => {
+          if (st.weight > max) max = st.weight;
+        });
     }
     return max;
   };
 
   return (
     <Card bare className="overflow-hidden mb-3">
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 8, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#E7F7F0' }}>
-        <TouchableOpacity
-          style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-          onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setExpanded(v => !v);
-          }}
-          activeOpacity={0.7}>
-          <Text className="text-sm font-semibold text-text-secondary">
-            {session.exercises.length}종목
-          </Text>
-          <View className="flex-row items-center gap-2">
-            {!!session.caloriesBurned && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <FlameIcon size={11} color="#E76C86" />
-                <Text className="text-xs font-bold text-danger">{session.caloriesBurned} kcal</Text>
-              </View>
-            )}
-            <Text className="text-sm font-bold text-workout">{volume.toLocaleString()}kg</Text>
-            <Text style={{ fontSize: 12, color: '#B4CFC5', fontWeight: '700' }}>{expanded ? '▲' : '▼'}</Text>
+      {/* ── 세션 요약 (항상 표시) ── */}
+      <TouchableOpacity
+        onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setExpanded(v => !v); }}
+        activeOpacity={0.8}
+        style={{ padding: 16 }}>
+        {/* 통계 행 */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
+          {durationText && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Text style={{ fontSize: 12 }}>⏱</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#34514A' }}>{durationText}</Text>
+            </View>
+          )}
+          {!!session.caloriesBurned && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <FlameIcon size={12} color="#E76C86" />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#E76C86' }}>{session.caloriesBurned}kcal</Text>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Text style={{ fontSize: 12 }}>📦</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#2E9E83' }}>{volume.toLocaleString()}kg</Text>
           </View>
+          <Text style={{ fontSize: 11, fontWeight: '600', color: '#B4CFC5', marginLeft: 'auto' as any }}>
+            {session.exercises.length}종목 {expanded ? '▲' : '▼'}
+          </Text>
+        </View>
+        {/* 종목 이름 목록 */}
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#7E9A90', lineHeight: 20 }}>
+          {session.exercises.slice(0, 4).map(ex => ex.name).join(' · ')}
+          {session.exercises.length > 4 ? ` +${session.exercises.length - 4}` : ''}
+        </Text>
+        {/* 부위 태그 */}
+        {bodyParts.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+            {bodyParts.map(bp => (
+              <View key={bp} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>{bp}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* 수정 / 삭제 버튼 */}
+      <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#E7F7F0' }}>
+        <TouchableOpacity
+          onPress={() => { if (editMode) { setEditMode(false); } else { enterHistoryEdit(); setExpanded(true); } }}
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderRightWidth: 1, borderRightColor: '#E7F7F0' }}>
+          <Icon name={editMode ? 'x' : 'pencil'} size={13} color={editMode ? '#E76C86' : '#6FD3B6'} />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: editMode ? '#E76C86' : '#6FD3B6' }}>
+            {editMode ? '취소' : '수정'}
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleMore} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-          <Text style={{ fontSize: 18, color: '#B4CFC5', fontWeight: '900', letterSpacing: 1 }}>···</Text>
+        <TouchableOpacity
+          onPress={handleDelete}
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, backgroundColor: '#FFF5F5' }}>
+          <Icon name="trash" size={13} color="#E76C86" />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#E76C86' }}>삭제</Text>
         </TouchableOpacity>
       </View>
 
+      {/* ── L1 펼친 상태 ── */}
       {expanded && (
-        <View className="px-[18px] pb-1">
-          {session.exercises.map((ex, idx) => (
-            <ExerciseHistoryRow
-              key={ex.id}
-              ex={ex}
-              idx={idx}
-              allPrevMax={getAllTimePrevMax(ex.name)}
-              allTimePR={getAllTimePR(ex.name)}
-            />
-          ))}
-
-          <View className="gap-1 border-t border-surface-alt py-3">
-            {!!session.caloriesBurned && (
-              <View className="flex-row justify-end items-center gap-2">
-                <Text className="text-xs font-semibold text-text-muted">칼로리 소모</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <FlameIcon size={13} color="#E76C86" />
-                  <Text className="text-[15px] font-bold text-danger">{session.caloriesBurned} kcal</Text>
+        editMode ? (
+          <View style={{ paddingHorizontal: 18, paddingBottom: 8 }}>
+            {draftExercises.map((ex, exIdx) => (
+              <View key={ex.id} style={{ paddingVertical: 12, borderTopWidth: exIdx > 0 ? 1 : 0, borderTopColor: '#E7F7F0' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+                  <TextInput
+                    style={{ flex: 1, fontSize: 15, fontWeight: '800', color: '#34514A', backgroundColor: '#E7F7F0', borderRadius: 10, paddingHorizontal: 10, height: 36 }}
+                    value={ex.name}
+                    onChangeText={v => updateDraftExName(exIdx, v)}
+                    placeholder="종목명"
+                    placeholderTextColor="#B4CFC5"
+                  />
+                  <TouchableOpacity onPress={() => removeDraftExercise(exIdx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Icon name="trash" size={16} color="#E76C86" />
+                  </TouchableOpacity>
                 </View>
+                {ex.sets.map((ds, setIdx) => (
+                  <View key={ds.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+                    <TouchableOpacity
+                      style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: ds.completed ? '#6FD3B6' : '#E7F7F0', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                      onPress={() => updateDraftSet(exIdx, setIdx, { completed: !ds.completed })}>
+                      {ds.completed
+                        ? <Icon name="check" size={12} color="#fff" />
+                        : <Text style={{ fontSize: 11, fontWeight: '800', color: '#7E9A90' }}>{setIdx + 1}</Text>}
+                    </TouchableOpacity>
+                    <TextInput
+                      style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 10, height: 36, textAlign: 'center', fontSize: 13, fontWeight: '700', color: '#34514A' }}
+                      value={ds.weight}
+                      onChangeText={v => updateDraftSet(exIdx, setIdx, { weight: v })}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                      placeholderTextColor="#B4CFC5"
+                    />
+                    <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600' }}>kg×</Text>
+                    <TextInput
+                      style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 10, height: 36, textAlign: 'center', fontSize: 13, fontWeight: '700', color: '#34514A' }}
+                      value={ds.reps}
+                      onChangeText={v => updateDraftSet(exIdx, setIdx, { reps: v })}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor="#B4CFC5"
+                    />
+                    <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600' }}>회</Text>
+                    <TouchableOpacity onPress={() => removeDraftSet(exIdx, setIdx)}>
+                      <Icon name="trash" size={14} color="#B4CFC5" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity
+                  style={{ alignItems: 'center', paddingVertical: 7, borderRadius: 12, backgroundColor: '#6FD3B618', marginBottom: 2 }}
+                  onPress={() => addDraftSet(exIdx)}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#2E9E83' }}>+ 세트 추가</Text>
+                </TouchableOpacity>
               </View>
-            )}
-            <View className="flex-row justify-end items-center gap-2">
-              <Text className="text-xs font-semibold text-text-muted">총 볼륨</Text>
-              <Text className="text-[17px] font-extrabold text-workout">{volume.toLocaleString()}kg</Text>
+            ))}
+            <TouchableOpacity
+              style={{ alignItems: 'center', paddingVertical: 9, borderRadius: 12, borderWidth: 1.5, borderColor: '#6FD3B6', marginBottom: 4 }}
+              onPress={addDraftExercise}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#2E9E83' }}>+ 종목 추가</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#6FD3B6', marginVertical: 8 }}
+              onPress={handleSaveEdit}
+              disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>저장하기</Text>}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View>
+            {session.exercises.map((ex, idx) => {
+              const maxW = getExMaxWeight(ex);
+              const exVol = getExVolume(ex);
+              const allTimePR = getAllTimePR(ex.name);
+              const isPR = maxW > 0 && maxW >= allTimePR && allTimePR > 0;
+              const prevInfo = getPrevSessionInfo(ex.name);
+              const isOpen = exExpanded[ex.id] ?? false;
+
+              return (
+                <View key={ex.id} style={{ borderTopWidth: 1, borderTopColor: '#E7F7F0' }}>
+                  {/* L1 종목 요약 행 */}
+                  <TouchableOpacity
+                    onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setExExpanded(prev => ({ ...prev, [ex.id]: !prev[ex.id] })); }}
+                    activeOpacity={0.8}
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 11, gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#34514A' }}>{ex.name}</Text>
+                        {isPR && (
+                          <View style={{ backgroundColor: '#FFF6D9', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <Icon name="trophy" size={9} color="#D9A100" />
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: '#D9A100' }}>PR</Text>
+                          </View>
+                        )}
+                        <View style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#2E9E83' }}>{ex.category}</Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600', marginTop: 2 }}>
+                        {maxW > 0 ? `최고 ${maxW}kg · ` : ''}{ex.sets.length}세트 · {exVol.toLocaleString()}kg
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: '#B4CFC5', fontWeight: '700' }}>{isOpen ? '▲' : '▼'}</Text>
+                  </TouchableOpacity>
+
+                  {/* L2 종목 상세 */}
+                  {isOpen && (
+                    <View style={{ backgroundColor: '#FAFFFE', paddingHorizontal: 16, paddingBottom: 14 }}>
+                      {/* 목표 횟수 · 쉬는시간 */}
+                      {(ex.targetReps?.trim() || (ex.restSeconds && ex.restSeconds > 0)) && (
+                        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8 }}>
+                          {ex.targetReps?.trim() ? (
+                            <Text style={{ fontSize: 12, color: '#7E9A90', fontWeight: '600' }}>🎯 목표 {ex.targetReps}</Text>
+                          ) : null}
+                          {ex.restSeconds && ex.restSeconds > 0 ? (
+                            <Text style={{ fontSize: 12, color: '#7E9A90', fontWeight: '600' }}>⏸ 쉬는시간 {fmtRestSeconds(ex.restSeconds)}</Text>
+                          ) : null}
+                        </View>
+                      )}
+
+                      {/* 기구 설정 태그 */}
+                      {ex.settings && ex.settings.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+                          {ex.settings.map((st, i) => (
+                            <View key={i} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>{st.key}: {st.value}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* 세트 테이블 헤더 */}
+                      <View style={{ flexDirection: 'row', paddingBottom: 6, marginBottom: 2, borderBottomWidth: 1, borderBottomColor: '#E7F7F0' }}>
+                        {['세트', '무게(kg)', '횟수', '볼륨'].map(h => (
+                          <Text key={h} style={{ flex: h === '세트' ? 0.6 : 1, fontSize: 10, fontWeight: '800', color: '#B4CFC5', textAlign: 'center' }}>{h}</Text>
+                        ))}
+                      </View>
+
+                      {/* 세트 행들 */}
+                      {ex.sets.map((st, si) => {
+                        const vol = ex.isSingleArm
+                          ? (ex.differentSides && st.weightR != null ? (st.weight + st.weightR) * st.reps : st.weight * st.reps * 2)
+                          : st.weight * st.reps;
+                        return (
+                          <View key={st.id} style={{ flexDirection: 'row', paddingVertical: 5 }}>
+                            <Text style={{ flex: 0.6, fontSize: 12, textAlign: 'center', color: '#B4CFC5', fontWeight: '700' }}>{si + 1}</Text>
+                            <Text style={{ flex: 1, fontSize: 13, textAlign: 'center', fontWeight: '700', color: '#34514A' }}>
+                              {ex.isSingleArm && ex.differentSides && st.weightR != null ? `${st.weight}/${st.weightR}` : st.weight}
+                            </Text>
+                            <Text style={{ flex: 1, fontSize: 13, textAlign: 'center', fontWeight: '700', color: '#34514A' }}>{st.reps}</Text>
+                            <Text style={{ flex: 1, fontSize: 13, textAlign: 'center', fontWeight: '600', color: '#7E9A90' }}>{vol}</Text>
+                          </View>
+                        );
+                      })}
+
+                      {/* 종목 합계 */}
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E7F7F0' }}>
+                        {maxW > 0 && <Text style={{ fontSize: 12, fontWeight: '700', color: '#34514A' }}>최고 {maxW}kg</Text>}
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#34514A' }}>총 {ex.sets.length}세트</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#2E9E83' }}>볼륨 {exVol.toLocaleString()}kg</Text>
+                      </View>
+
+                      {/* 이전 대비 */}
+                      {prevInfo && maxW > 0 && (() => {
+                        const diff = maxW - prevInfo.maxWeight;
+                        const color = diff > 0 ? '#2E9E83' : diff < 0 ? '#E76C86' : '#7E9A90';
+                        const label = diff > 0 ? `+${diff}kg ↑` : diff < 0 ? `${diff}kg ↓` : '변동없음';
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color }}>이전 대비 {label}</Text>
+                            <Text style={{ fontSize: 10, color: '#B4CFC5' }}>({fmtDate(prevInfo.date)})</Text>
+                          </View>
+                        );
+                      })()}
+
+                      {/* 운동 팁 */}
+                      {!!ex.tip && (
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 5, marginTop: 8, backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10 }}>
+                          <Icon name="bulb" size={12} color="#D9A100" />
+                          <Text style={{ fontSize: 12, color: '#7E9A90', flex: 1, lineHeight: 18 }}>{ex.tip}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+
+            {/* 세션 합계 */}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, padding: 14, borderTopWidth: 1, borderTopColor: '#E7F7F0' }}>
+              {!!session.caloriesBurned && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <FlameIcon size={12} color="#E76C86" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#E76C86' }}>{session.caloriesBurned}kcal</Text>
+                </View>
+              )}
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#2E9E83' }}>총 {volume.toLocaleString()}kg</Text>
             </View>
           </View>
-        </View>
+        )
       )}
     </Card>
   );

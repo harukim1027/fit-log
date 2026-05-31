@@ -13,6 +13,11 @@ export class DietController {
     return this.dietService.getByDate(req.user.id, d);
   }
 
+  @Get('calendar')
+  getCalendar(@Request() req: any, @Query('year') year: string, @Query('month') month: string) {
+    return this.dietService.getCalendar(req.user.id, parseInt(year), parseInt(month));
+  }
+
   @Get('summary')
   getSummary(@Request() req: any, @Query('date') date: string) {
     const d = date || new Date().toISOString().split('T')[0];

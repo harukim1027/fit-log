@@ -24,6 +24,9 @@ export class Routine {
   @Column({ default: 0 })
   copyCount: number;
 
+  @Column({ default: 0 })
+  orderIndex: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

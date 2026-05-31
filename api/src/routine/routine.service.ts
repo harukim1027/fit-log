@@ -10,7 +10,19 @@ export class RoutineService {
   ) {}
 
   findAll(userId: string) {
-    return this.routineRepo.find({ where: { userId }, order: { createdAt: 'ASC' } });
+    return this.routineRepo.find({ where: { userId }, order: { orderIndex: 'ASC', createdAt: 'ASC' } });
+  }
+
+  async combine(userId: string, data: { routineIds: string[]; name: string; exercises: any[] }) {
+    const routine = this.routineRepo.create({ name: data.name, exercises: data.exercises, userId });
+    return this.routineRepo.save(routine);
+  }
+
+  async reorderRoutines(userId: string, ids: string[]) {
+    await Promise.all(
+      ids.map((id, index) => this.routineRepo.update({ id, userId }, { orderIndex: index }))
+    );
+    return this.findAll(userId);
   }
 
   async create(userId: string, data: { name: string; exercises: any[] }) {
