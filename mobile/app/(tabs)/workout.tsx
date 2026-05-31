@@ -153,6 +153,7 @@ export default function WorkoutScreen() {
     fetchPublicRoutines,
     copyRoutine,
     searchByCode,
+    reorderRoutines,
   } = useRoutineStore();
 
   const [tab, setTab] = useState<Tab>("today");
@@ -586,183 +587,191 @@ export default function WorkoutScreen() {
                 </View>
               ) : (
                 <>
-                  {routines.map((routine) => (
-                    <View
-                      key={routine.id}
-                      style={[
-                        {
-                          backgroundColor: "#fff",
-                          borderRadius: 24,
-                          padding: 16,
-                          marginBottom: 10,
-                        },
-                        SHADOW,
-                      ]}>
+                  <SortableList
+                    data={routines}
+                    keyExtractor={(r) => r.id}
+                    itemHeight={136}
+                    onDragEnd={(ordered) => reorderRoutines(ordered.map((r) => r.id))}
+                    renderItem={(routine, _idx, isActive) => (
                       <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 10,
-                        }}>
-                        <View style={{ flex: 1 }}>
-                          <Text
+                        style={[
+                          {
+                            backgroundColor: "#fff",
+                            borderRadius: 24,
+                            padding: 16,
+                            marginBottom: 10,
+                          },
+                          SHADOW,
+                        ]}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 10,
+                          }}>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={{
+                                fontSize: 17,
+                                fontWeight: "900",
+                                color: "#34514A",
+                              }}>
+                              {routine.name}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: "#7E9A90",
+                                fontWeight: "600",
+                                marginTop: 3,
+                              }}>
+                              {routine.exercises.length}종목 · 예상{" "}
+                              {routine.exercises.reduce(
+                                (s, e) => s + e.defaultSets,
+                                0
+                              ) * 3}
+                              분
+                            </Text>
+                          </View>
+                          <View
                             style={{
-                              fontSize: 17,
-                              fontWeight: "900",
-                              color: "#34514A",
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 10,
                             }}>
-                            {routine.name}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: "#7E9A90",
-                              fontWeight: "600",
-                              marginTop: 3,
-                            }}>
-                            {routine.exercises.length}종목 · 예상{" "}
-                            {routine.exercises.reduce(
-                              (s, e) => s + e.defaultSets,
-                              0
-                            ) * 3}
-                            분
-                          </Text>
+                            <View style={{ opacity: isActive ? 1.0 : 0.3 }}>
+                              <Icon name="menu" size={16} color="#7E9A90" />
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => handleShareToggle(routine)}>
+                              <Text style={{ fontSize: 16 }}>
+                                {routine.isPublic ? "🔓" : "🔒"}
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/modal/routine-manage",
+                                  params: { editId: routine.id },
+                                } as any)
+                              }>
+                              <Icon name="pencil" size={17} color="#7E9A90" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() =>
+                                Alert.alert(
+                                  "루틴 삭제",
+                                  `"${routine.name}"을 삭제할까요?`,
+                                  [
+                                    { text: "취소", style: "cancel" },
+                                    {
+                                      text: "삭제",
+                                      style: "destructive",
+                                      onPress: () => deleteRoutine(routine.id),
+                                    },
+                                  ]
+                                )
+                              }>
+                              <Icon name="trash" size={17} color="#B4CFC5" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: "#FFAE96",
+                                borderRadius: 999,
+                                paddingHorizontal: 14,
+                                paddingVertical: 7,
+                              }}
+                              onPress={() => startSessionWithRoutine(routine)}
+                              activeOpacity={0.8}>
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: "800",
+                                  color: "#fff",
+                                }}>
+                                시작
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                         <View
                           style={{
                             flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
+                            flexWrap: "wrap",
+                            gap: 6,
                           }}>
-                          <TouchableOpacity
-                            onPress={() => handleShareToggle(routine)}>
-                            <Text style={{ fontSize: 16 }}>
-                              {routine.isPublic ? "🔓" : "🔒"}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() =>
-                              router.push({
-                                pathname: "/modal/routine-manage",
-                                params: { editId: routine.id },
-                              } as any)
-                            }>
-                            <Icon name="pencil" size={17} color="#7E9A90" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() =>
-                              Alert.alert(
-                                "루틴 삭제",
-                                `"${routine.name}"을 삭제할까요?`,
-                                [
-                                  { text: "취소", style: "cancel" },
-                                  {
-                                    text: "삭제",
-                                    style: "destructive",
-                                    onPress: () => deleteRoutine(routine.id),
-                                  },
-                                ]
-                              )
-                            }>
-                            <Icon name="trash" size={17} color="#B4CFC5" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={{
-                              backgroundColor: "#FFAE96",
-                              borderRadius: 999,
-                              paddingHorizontal: 14,
-                              paddingVertical: 7,
-                            }}
-                            onPress={() => startSessionWithRoutine(routine)}
-                            activeOpacity={0.8}>
-                            <Text
+                          {routine.exercises.slice(0, 5).map((ex, i) => (
+                            <View
+                              key={i}
                               style={{
-                                fontSize: 13,
-                                fontWeight: "800",
-                                color: "#fff",
+                                backgroundColor: "#E7F7F0",
+                                borderRadius: 999,
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
                               }}>
-                              시작
-                            </Text>
-                          </TouchableOpacity>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                  color: "#2E9E83",
+                                }}>
+                                {ex.name}
+                              </Text>
+                            </View>
+                          ))}
+                          {routine.exercises.length > 5 && (
+                            <View
+                              style={{
+                                backgroundColor: "#F0F0F0",
+                                borderRadius: 999,
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                              }}>
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                  color: "#B4CFC5",
+                                }}>
+                                +{routine.exercises.length - 5}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                      </View>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          flexWrap: "wrap",
-                          gap: 6,
-                        }}>
-                        {routine.exercises.slice(0, 5).map((ex, i) => (
-                          <View
-                            key={i}
-                            style={{
-                              backgroundColor: "#E7F7F0",
-                              borderRadius: 999,
-                              paddingHorizontal: 10,
-                              paddingVertical: 4,
-                            }}>
-                            <Text
-                              style={{
-                                fontSize: 11,
-                                fontWeight: "700",
-                                color: "#2E9E83",
-                              }}>
-                              {ex.name}
-                            </Text>
-                          </View>
-                        ))}
-                        {routine.exercises.length > 5 && (
+                        {routine.isPublic && routine.shareCode && (
                           <View
                             style={{
-                              backgroundColor: "#F0F0F0",
-                              borderRadius: 999,
-                              paddingHorizontal: 10,
-                              paddingVertical: 4,
+                              marginTop: 8,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
                             }}>
-                            <Text
+                            <View
                               style={{
-                                fontSize: 11,
-                                fontWeight: "700",
-                                color: "#B4CFC5",
+                                backgroundColor: "#E7F7F0",
+                                borderRadius: 999,
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
                               }}>
-                              +{routine.exercises.length - 5}
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "800",
+                                  color: "#2E9E83",
+                                  letterSpacing: 2,
+                                }}>
+                                🔓 {routine.shareCode}
+                              </Text>
+                            </View>
+                            <Text style={{ fontSize: 11, color: "#7E9A90" }}>
+                              공유 중
                             </Text>
                           </View>
                         )}
                       </View>
-                      {routine.isPublic && routine.shareCode && (
-                        <View
-                          style={{
-                            marginTop: 8,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                          }}>
-                          <View
-                            style={{
-                              backgroundColor: "#E7F7F0",
-                              borderRadius: 999,
-                              paddingHorizontal: 10,
-                              paddingVertical: 4,
-                            }}>
-                            <Text
-                              style={{
-                                fontSize: 11,
-                                fontWeight: "800",
-                                color: "#2E9E83",
-                                letterSpacing: 2,
-                              }}>
-                              🔓 {routine.shareCode}
-                            </Text>
-                          </View>
-                          <Text style={{ fontSize: 11, color: "#7E9A90" }}>
-                            공유 중
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
+                    )}
+                  />
 
                   <TouchableOpacity
                     style={{
@@ -2150,12 +2159,14 @@ export default function WorkoutScreen() {
                 keyExtractor={(ex) => ex.id}
                 itemHeight={72}
                 onDragEnd={reorderSessionExercises}
-                renderItem={(ex) => (
+                renderItem={(ex, _idx, isActive) => (
                   <View style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
-                    backgroundColor: '#F5FBF8', borderRadius: 16, padding: 14, marginBottom: 8,
+                    backgroundColor: isActive ? '#EAF8F2' : '#F5FBF8', borderRadius: 16, padding: 14, marginBottom: 8,
                   }}>
-                    <Icon name="menu" size={20} color="#B4CFC5" />
+                    <View style={{ opacity: isActive ? 1.0 : 0.3 }}>
+                      <Icon name="menu" size={20} color="#2E9E83" />
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '800', color: '#34514A' }}>{ex.name}</Text>
                       <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600', marginTop: 2 }}>

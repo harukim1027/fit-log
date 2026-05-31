@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 export interface SortableListProps<T> {
   data: T[];
   keyExtractor: (item: T) => string;
-  renderItem: (item: T, index: number) => React.ReactNode;
+  renderItem: (item: T, index: number, isActive: boolean) => React.ReactNode;
   onDragEnd: (newData: T[]) => void;
   itemHeight: number;
   style?: ViewStyle;
@@ -67,8 +67,8 @@ export function SortableList<T>({
     dragDy.setValue(0);
     setDragIndex(idx);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    Animated.spring(dragScale, { toValue: 1.05, damping: 15, stiffness: 200, useNativeDriver: true }).start();
-    Animated.timing(dragOpacity, { toValue: 0.9, duration: 100, useNativeDriver: true }).start();
+    Animated.spring(dragScale, { toValue: 1.03, damping: 15, stiffness: 200, useNativeDriver: true }).start();
+    Animated.timing(dragOpacity, { toValue: 0.95, duration: 100, useNativeDriver: true }).start();
   };
 
   const finishDrag = () => {
@@ -86,6 +86,7 @@ export function SortableList<T>({
     shifts.forEach(s => Animated.spring(s, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true }).start());
 
     if (from >= 0 && from !== to) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const next = [...data];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
@@ -137,7 +138,7 @@ export function SortableList<T>({
         const localY = e.nativeEvent.locationY;
         touchStartY.current = localY;
         const idx = clamp(Math.floor(localY / itemHeight));
-        timerRef.current = setTimeout(() => startDrag(idx), 500);
+        timerRef.current = setTimeout(() => startDrag(idx), 400);
       }}
       onTouchMove={(e) => {
         if (isDragging.current) return;
@@ -173,7 +174,7 @@ export function SortableList<T>({
                   },
             ]}
           >
-            {renderItem(item, index)}
+            {renderItem(item, index, isActive)}
           </Animated.View>
         );
       })}
