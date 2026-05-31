@@ -2631,7 +2631,7 @@ function HistoryCard({
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
           {durationText && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Text style={{ fontSize: 12 }}>⏱</Text>
+              <Icon name="timer" size={12} color={c.textPrimary} />
               <Text style={{ fontSize: 13, fontWeight: '700', color: c.textPrimary }}>{durationText}</Text>
             </View>
           )}
