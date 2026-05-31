@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TouchableOpacity, ScrollView, TextInput,
-  Alert, KeyboardAvoidingView, Platform,
+  Alert, KeyboardAvoidingView, Platform, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { Header } from "../../components/ui";
+import { useLocalSearchParams } from "expo-router";
+import { Header, SortableList } from "../../components/ui";
 import { Icon } from "../../components/AppIcons";
 import { useRoutineStore, Routine, RoutineExercise } from "../../store/routineStore";
-import { EXERCISE_CATEGORIES } from "../../constants";
+import ExerciseAdder, { ExerciseAddResult } from "../../components/workout/ExerciseAdder";
 
 const SHADOW = {
   shadowColor: "#4EBFA0",
@@ -18,31 +18,45 @@ const SHADOW = {
   elevation: 3,
 };
 
-const PRESET_EXERCISES = [
-  { name: "벤치프레스", category: "가슴" },
-  { name: "스쿼트", category: "하체" },
-  { name: "데드리프트", category: "등" },
-  { name: "오버헤드프레스", category: "어깨" },
-  { name: "풀업", category: "등" },
-  { name: "바벨 로우", category: "등" },
-  { name: "런지", category: "하체" },
-  { name: "딥스", category: "가슴" },
-];
+const fmtRest = (sec: number): string => {
+  if (sec < 60) return `${sec}초`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s === 0 ? `${m}분` : `${m}분 ${s}초`;
+};
 
-type Mode = 'list' | 'create' | 'edit';
+const fmtMeta = (targetReps?: string, restSeconds?: number): string | null => {
+  const parts: string[] = [];
+  if (targetReps?.trim()) parts.push(targetReps.trim());
+  if (restSeconds && restSeconds > 0) parts.push(fmtRest(restSeconds));
+  return parts.length > 0 ? parts.join(' · ') : null;
+};
+
+type ExerciseDraft = RoutineExercise & { key: string };
+type CombineExercise = ExerciseDraft & { fromRoutineName: string; isDuplicate: boolean };
+type Mode = 'list' | 'create' | 'edit' | 'combine-select' | 'combine-edit';
+type SubMode = 'main' | 'addExercise' | 'editExercise';
+
+// 루틴 목록 아이템 높이 (드래그 계산용)
+const ROUTINE_ITEM_H = 92;
+// 종목 카드 높이
+const EXERCISE_ITEM_H = 72;
 
 export default function RoutineManageModal() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ editId?: string }>();
-  const { routines, loadRoutines, addRoutine, updateRoutine, deleteRoutine } = useRoutineStore();
+  const { routines, loadRoutines, addRoutine, updateRoutine, deleteRoutine, combineRoutines, reorderRoutines } = useRoutineStore();
 
   const [mode, setMode] = useState<Mode>('list');
+  const [subMode, setSubMode] = useState<SubMode>('main');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState('');
-  const [exercises, setExercises] = useState<RoutineExercise[]>([]);
-  const [exName, setExName] = useState('');
-  const [exCat, setExCat] = useState('');
-  const [exSets, setExSets] = useState('3');
+  const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
+  const [editingExIdx, setEditingExIdx] = useState<number | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [combineExercises, setCombineExercises] = useState<CombineExercise[]>([]);
+  const [combineName, setCombineName] = useState('');
+
   const nameRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -62,200 +76,395 @@ export default function RoutineManageModal() {
     }
   }, [mode]);
 
+  const toKey = (ex: RoutineExercise, i: number): ExerciseDraft =>
+    ({ ...ex, key: `${ex.name}-${i}-${Date.now()}` });
+
   const openEdit = (r: Routine) => {
     setEditingId(r.id);
     setRoutineName(r.name);
-    setExercises(r.exercises);
+    setExercises(r.exercises.map((e, i) => toKey(e, i)));
     setMode('edit');
   };
 
-  const addExercise = () => {
-    if (!exName.trim()) return Alert.alert("종목명을 입력해주세요");
-    if (!exCat) return Alert.alert("카테고리를 선택해주세요");
-    const sets = parseInt(exSets) || 3;
-    setExercises(prev => [...prev, { name: exName.trim(), category: exCat, defaultSets: sets }]);
-    setExName('');
-    setExCat('');
-    setExSets('3');
+  const handleExerciseAdd = (data: ExerciseAddResult) => {
+    setExercises(prev => [...prev, {
+      name: data.name, category: data.category,
+      defaultSets: data.defaultSets ?? 3, defaultWeight: data.defaultWeight,
+      restSeconds: data.restSeconds, targetReps: data.targetReps,
+      settings: data.settings, tip: data.tip,
+      targetMuscles: data.targetMuscles, gifUrl: data.gifUrl,
+      key: `${data.name}-${Date.now()}`,
+    }]);
+    setSubMode('main');
   };
 
-  const removeExercise = (idx: number) =>
-    setExercises(prev => prev.filter((_, i) => i !== idx));
+  const handleExerciseEdit = (data: ExerciseAddResult) => {
+    if (editingExIdx === null) return;
+    setExercises(prev => prev.map((ex, i) => i !== editingExIdx ? ex : {
+      ...ex,
+      name: data.name, category: data.category,
+      defaultSets: data.defaultSets ?? ex.defaultSets,
+      defaultWeight: data.defaultWeight ?? ex.defaultWeight,
+      restSeconds: data.restSeconds, targetReps: data.targetReps,
+      settings: data.settings, tip: data.tip,
+      targetMuscles: data.targetMuscles,
+      gifUrl: data.gifUrl ?? ex.gifUrl,
+    }));
+    setEditingExIdx(null);
+    setSubMode('main');
+  };
 
   const handleSave = async () => {
-    if (!routineName.trim()) return Alert.alert("루틴 이름을 입력해주세요");
-    if (exercises.length === 0) return Alert.alert("최소 1개 종목을 추가해주세요");
-    if (mode === 'create') {
-      await addRoutine({ name: routineName.trim(), exercises });
-    } else if (editingId) {
-      await updateRoutine(editingId, { name: routineName.trim(), exercises });
-    }
+    if (!routineName.trim()) return Alert.alert('루틴 이름을 입력해주세요');
+    if (exercises.length === 0) return Alert.alert('최소 1개 종목을 추가해주세요');
+    const payload = exercises.map(({ gifUrl, key, ...rest }) => rest);
+    if (mode === 'create') await addRoutine({ name: routineName.trim(), exercises: payload });
+    else if (editingId) await updateRoutine(editingId, { name: routineName.trim(), exercises: payload });
     setMode('list');
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert("루틴 삭제", `"${name}" 루틴을 삭제할까요?`, [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => deleteRoutine(id) },
+    Alert.alert('루틴 삭제', `"${name}" 루틴을 삭제할까요?`, [
+      { text: '취소', style: 'cancel' },
+      { text: '삭제', style: 'destructive', onPress: () => deleteRoutine(id) },
     ]);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const enterCombineEdit = () => {
+    const selected = routines.filter(r => selectedIds.has(r.id));
+    const seen = new Set<string>();
+    const merged: CombineExercise[] = [];
+    selected.forEach(r => {
+      r.exercises.forEach((ex, i) => {
+        merged.push({
+          ...ex, key: `${r.id}-${i}-${Date.now()}`,
+          fromRoutineName: r.name, isDuplicate: seen.has(ex.name),
+        });
+        seen.add(ex.name);
+      });
+    });
+    setCombineExercises(merged);
+    setCombineName(selected.map(r => r.name).join(' + '));
+    setMode('combine-edit');
+  };
+
+  const handleCombineSave = async () => {
+    if (!combineName.trim()) return Alert.alert('루틴 이름을 입력해주세요');
+    if (combineExercises.length === 0) return Alert.alert('최소 1개 종목이 필요해요');
+    const payload = combineExercises.map(({ gifUrl, key, fromRoutineName, isDuplicate, ...rest }) => rest);
+    await combineRoutines(Array.from(selectedIds), combineName.trim(), payload);
+    setSelectedIds(new Set());
+    setMode('list');
+  };
+
+  // ── 서브모드 ──
+  if (subMode === 'addExercise') {
+    return <ExerciseAdder mode="routine" onAdd={handleExerciseAdd} onClose={() => setSubMode('main')} />;
+  }
+  if (subMode === 'editExercise' && editingExIdx !== null) {
+    const ex = exercises[editingExIdx];
+    return (
+      <ExerciseAdder
+        mode="routine" editMode
+        initialExercise={{
+          name: ex.name, category: ex.category, settings: ex.settings, tip: ex.tip,
+          restSeconds: ex.restSeconds, targetReps: ex.targetReps,
+          targetMuscles: ex.targetMuscles, defaultSets: ex.defaultSets, defaultWeight: ex.defaultWeight,
+        }}
+        onAdd={handleExerciseEdit}
+        onClose={() => { setEditingExIdx(null); setSubMode('main'); }}
+      />
+    );
+  }
+
+  // ── 루틴 목록 ──
   if (mode === 'list') {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#EFFAF4' }} edges={["bottom"]}>
-        <Header title="루틴 관리" showClose />
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-          <TouchableOpacity
-            style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 16, justifyContent: 'center' }, SHADOW]}
-            onPress={() => setMode('create')}
-            activeOpacity={0.8}>
-            <Icon name="plus" size={20} color="#6FD3B6" />
-            <Text style={{ fontSize: 15, fontWeight: '800', color: '#6FD3B6' }}>새 루틴 만들기</Text>
-          </TouchableOpacity>
+      <View style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#EFFAF4' }} edges={['bottom']}>
+          <Header title="루틴 관리" showClose />
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+            <TouchableOpacity
+              style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 10, justifyContent: 'center' }, SHADOW]}
+              onPress={() => setMode('create')} activeOpacity={0.8}>
+              <Icon name="plus" size={20} color="#6FD3B6" />
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#6FD3B6' }}>새 루틴 만들기</Text>
+            </TouchableOpacity>
 
-          {routines.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingTop: 48, gap: 8 }}>
-              <Icon name="dumbbell" size={56} color="#B4CFC5" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#34514A' }}>루틴이 없어요</Text>
-              <Text style={{ fontSize: 13, color: '#7E9A90', textAlign: 'center' }}>
-                위 버튼을 눌러 첫 루틴을 만들어보세요
-              </Text>
-            </View>
-          ) : (
-            routines.map(r => (
-              <View key={r.id} style={[{ backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 10 }, SHADOW]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#34514A' }}>{r.name}</Text>
-                    <Text style={{ fontSize: 12, color: '#7E9A90', marginTop: 3, fontWeight: '600' }}>
-                      {r.exercises.length}종목 · 예상 {r.exercises.reduce((s, e) => s + e.defaultSets, 0) * 3}분
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity onPress={() => openEdit(r)}>
-                      <Icon name="pencil" size={18} color="#7E9A90" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(r.id, r.name)}>
-                      <Icon name="trash" size={18} color="#B4CFC5" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {r.exercises.map((ex, i) => (
-                    <View key={i} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#2E9E83' }}>
-                        {ex.name} {ex.defaultSets}세트
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+            {routines.length >= 2 && (
+              <TouchableOpacity
+                style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 20, padding: 14, marginBottom: 16, justifyContent: 'center' }, SHADOW]}
+                onPress={() => { setSelectedIds(new Set()); setMode('combine-select'); }} activeOpacity={0.8}>
+                <Icon name="merge" size={16} color="#A78BFA" />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#A78BFA' }}>루틴 결합하기</Text>
+              </TouchableOpacity>
+            )}
+
+            {routines.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 48, gap: 8 }}>
+                <Icon name="dumbbell" size={56} color="#B4CFC5" />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#34514A' }}>루틴이 없어요</Text>
+                <Text style={{ fontSize: 13, color: '#7E9A90', textAlign: 'center' }}>위 버튼을 눌러 첫 루틴을 만들어보세요</Text>
               </View>
-            ))
-          )}
+            ) : (
+              <>
+                {routines.length >= 2 && (
+                  <Text style={{ fontSize: 11, color: '#B4CFC5', fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                    ≡ 카드를 꾹 눌러 순서를 변경하세요
+                  </Text>
+                )}
+                <SortableList
+                  data={routines}
+                  keyExtractor={(r) => r.id}
+                  itemHeight={ROUTINE_ITEM_H}
+                  onDragEnd={(ordered) => reorderRoutines(ordered.map(r => r.id))}
+                  renderItem={(r) => (
+                    <View style={[{ backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 10, flex: 1 }, SHADOW]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={{ fontSize: 16, fontWeight: '800', color: '#34514A' }} numberOfLines={1}>{r.name}</Text>
+                          <Text style={{ fontSize: 12, color: '#7E9A90', marginTop: 3, fontWeight: '600' }}>
+                            {r.exercises.length}종목 · 예상 {r.exercises.reduce((s, e) => s + e.defaultSets, 0) * 3}분
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                          <Icon name="menu" size={18} color="#D6E8E0" />
+                          <TouchableOpacity onPress={() => openEdit(r)}><Icon name="pencil" size={18} color="#7E9A90" /></TouchableOpacity>
+                          <TouchableOpacity onPress={() => handleDelete(r.id, r.name)}><Icon name="trash" size={18} color="#B4CFC5" /></TouchableOpacity>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+                        {r.exercises.slice(0, 4).map((ex, i) => (
+                          <View key={i} style={{ backgroundColor: '#E7F7F0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#2E9E83' }}>{ex.name} {ex.defaultSets}s</Text>
+                          </View>
+                        ))}
+                        {r.exercises.length > 4 && (
+                          <View style={{ backgroundColor: '#F0F0F0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#B4CFC5' }}>+{r.exercises.length - 4}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                />
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // ── 루틴 결합 선택 ──
+  if (mode === 'combine-select') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#EFFAF4' }} edges={['bottom']}>
+        <Header title="루틴 결합" showClose onClose={() => setMode('list')} />
+        <Text style={{ fontSize: 13, color: '#7E9A90', fontWeight: '600', textAlign: 'center', paddingVertical: 8 }}>
+          결합할 루틴을 2개 이상 선택하세요
+        </Text>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+          {routines.map(r => (
+            <TouchableOpacity
+              key={r.id}
+              style={[{
+                flexDirection: 'row', alignItems: 'center', gap: 12,
+                backgroundColor: selectedIds.has(r.id) ? '#D6F0E6' : '#fff',
+                borderRadius: 20, padding: 16, marginBottom: 10,
+                borderWidth: selectedIds.has(r.id) ? 2 : 0, borderColor: '#6FD3B6',
+              }, SHADOW]}
+              onPress={() => toggleSelect(r.id)} activeOpacity={0.8}>
+              <View style={{
+                width: 22, height: 22, borderRadius: 11,
+                backgroundColor: selectedIds.has(r.id) ? '#6FD3B6' : '#E7F7F0',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                {selectedIds.has(r.id) && <Icon name="check" size={14} color="#fff" />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#34514A' }}>{r.name}</Text>
+                <Text style={{ fontSize: 12, color: '#7E9A90', fontWeight: '600', marginTop: 2 }}>{r.exercises.length}종목</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
+        {selectedIds.size >= 2 && (
+          <View style={{ position: 'absolute', bottom: 32, left: 20, right: 20 }}>
+            <TouchableOpacity
+              style={{ backgroundColor: '#A78BFA', borderRadius: 999, paddingVertical: 16, alignItems: 'center' }}
+              onPress={enterCombineEdit} activeOpacity={0.8}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>
+                {selectedIds.size}개 루틴 결합하기 →
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFFAF4' }} edges={["bottom"]}>
-      <Header
-        title={mode === 'create' ? '새 루틴' : '루틴 수정'}
-        showClose
-        onClose={() => setMode('list')}
-      />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-          {/* 루틴 이름 */}
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90', marginBottom: 8 }}>루틴 이름</Text>
-          <TextInput
-            ref={nameRef}
-            style={[{ backgroundColor: '#fff', borderRadius: 14, padding: 14, fontSize: 16, fontWeight: '700', color: '#34514A', marginBottom: 20 }, SHADOW]}
-            value={routineName}
-            onChangeText={setRoutineName}
-            placeholder="예: 상체 루틴, 하체 데이"
-            placeholderTextColor="#B4CFC5"
-            returnKeyType="next"
-          />
-
-          {/* 종목 목록 */}
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90', marginBottom: 8 }}>종목 목록</Text>
-          {exercises.map((ex, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E7F7F0', borderRadius: 14, padding: 12, marginBottom: 8, gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#34514A' }}>{ex.name}</Text>
-                <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600' }}>{ex.category} · {ex.defaultSets}세트</Text>
-              </View>
-              <TouchableOpacity onPress={() => removeExercise(i)}>
-                <Icon name="trash" size={16} color="#B4CFC5" />
+  // ── 루틴 결합 편집 ──
+  if (mode === 'combine-edit') {
+    return (
+      <View style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#EFFAF4' }} edges={['bottom']}>
+          <Header title="루틴 결합 편집" showClose onClose={() => setMode('combine-select')} />
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90', marginBottom: 8 }}>새 루틴 이름</Text>
+              <TextInput
+                style={[{ backgroundColor: '#fff', borderRadius: 14, padding: 14, fontSize: 16, fontWeight: '700', color: '#34514A', marginBottom: 20 }, SHADOW]}
+                value={combineName} onChangeText={setCombineName}
+                placeholder="결합된 루틴 이름" placeholderTextColor="#B4CFC5" returnKeyType="done"
+              />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90', marginBottom: 6 }}>
+                종목 목록 ({combineExercises.length}개) — 꾹 눌러 순서 변경
+              </Text>
+              <SortableList
+                data={combineExercises}
+                keyExtractor={(ex) => ex.key}
+                itemHeight={EXERCISE_ITEM_H}
+                onDragEnd={setCombineExercises}
+                renderItem={(ex) => (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: ex.isDuplicate ? '#FFF3CD' : '#E7F7F0',
+                    borderRadius: 16, padding: 12, marginBottom: 8, gap: 10, flex: 1,
+                  }}>
+                    <Icon name="menu" size={16} color="#B4CFC5" />
+                    {ex.gifUrl && (
+                      <Image source={{ uri: ex.gifUrl }} style={{ width: 36, height: 36, borderRadius: 8 }} resizeMode="cover" />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#34514A', flexShrink: 1 }}>{ex.name}</Text>
+                        {ex.isDuplicate && (
+                          <View style={{ backgroundColor: '#FFC107', borderRadius: 999, paddingHorizontal: 5, paddingVertical: 1 }}>
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: '#fff' }}>중복</Text>
+                          </View>
+                        )}
+                        {fmtMeta(ex.targetReps, ex.restSeconds) !== null && (
+                          <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600' }}>
+                            {fmtMeta(ex.targetReps, ex.restSeconds)}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 10, color: '#7E9A90', fontWeight: '600', marginTop: 1 }}>
+                        {ex.fromRoutineName} · {ex.defaultSets}세트
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setCombineExercises(prev => prev.filter(e => e.key !== ex.key))}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Icon name="x" size={15} color="#B4CFC5" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+              <TouchableOpacity
+                style={{ backgroundColor: '#A78BFA', borderRadius: 999, paddingVertical: 16, alignItems: 'center', marginTop: 8 }}
+                onPress={handleCombineSave} activeOpacity={0.8}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>결합 루틴 저장</Text>
               </TouchableOpacity>
-            </View>
-          ))}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
-          {/* 종목 추가 폼 */}
-          <View style={[{ backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 20 }, SHADOW]}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#34514A', marginBottom: 10 }}>종목 추가</Text>
+  // ── 루틴 생성/수정 ──
+  return (
+    <View style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#EFFAF4' }} edges={['bottom']}>
+        <Header
+          title={mode === 'create' ? '새 루틴' : '루틴 수정'}
+          showClose onClose={() => setMode('list')}
+        />
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90', marginBottom: 8 }}>루틴 이름</Text>
             <TextInput
-              style={{ backgroundColor: '#E7F7F0', borderRadius: 12, padding: 12, fontSize: 14, color: '#34514A', marginBottom: 8 }}
-              value={exName}
-              onChangeText={setExName}
-              placeholder="종목명 (예: 벤치프레스)"
-              placeholderTextColor="#B4CFC5"
+              ref={nameRef}
+              style={[{ backgroundColor: '#fff', borderRadius: 14, padding: 14, fontSize: 16, fontWeight: '700', color: '#34514A', marginBottom: 20 }, SHADOW]}
+              value={routineName} onChangeText={setRoutineName}
+              placeholder="예: 상체 루틴, 하체 데이" placeholderTextColor="#B4CFC5" returnKeyType="next"
             />
 
-            {/* 빠른 선택 */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} keyboardShouldPersistTaps="handled">
-              {PRESET_EXERCISES.map(p => (
-                <TouchableOpacity
-                  key={p.name}
-                  style={{ backgroundColor: exName === p.name ? '#6FD3B620' : '#E7F7F0', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 }}
-                  onPress={() => { setExName(p.name); setExCat(p.category); }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: exName === p.name ? '#2E9E83' : '#7E9A90' }}>{p.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90', marginBottom: 8 }}>종목 목록</Text>
 
-            {/* 카테고리 */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} keyboardShouldPersistTaps="handled">
-              {EXERCISE_CATEGORIES.map(c => (
-                <TouchableOpacity
-                  key={c}
-                  style={{ backgroundColor: exCat === c ? '#FF9DB028' : '#E7F7F0', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 }}
-                  onPress={() => setExCat(c)}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: exCat === c ? '#E76C86' : '#7E9A90' }}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* 기본 세트 수 */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Text style={{ fontSize: 13, color: '#7E9A90', fontWeight: '700' }}>기본 세트 수</Text>
-              {[2, 3, 4, 5].map(n => (
-                <TouchableOpacity
-                  key={n}
-                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: exSets === String(n) ? '#6FD3B6' : '#E7F7F0', alignItems: 'center', justifyContent: 'center' }}
-                  onPress={() => setExSets(String(n))}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: exSets === String(n) ? '#fff' : '#7E9A90' }}>{n}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {exercises.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 20, gap: 4 }}>
+                <Text style={{ fontSize: 13, color: '#B4CFC5', fontWeight: '600' }}>아직 종목이 없어요</Text>
+              </View>
+            ) : (
+              <SortableList
+                data={exercises}
+                keyExtractor={(ex) => ex.key}
+                itemHeight={EXERCISE_ITEM_H}
+                onDragEnd={setExercises}
+                renderItem={(ex, idx) => (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => { setEditingExIdx(idx); setSubMode('editExercise'); }}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center',
+                      backgroundColor: '#E7F7F0', borderRadius: 16,
+                      padding: 12, marginBottom: 8, flex: 1, gap: 8,
+                    }}>
+                    <Icon name="menu" size={16} color="#B4CFC5" />
+                    {ex.gifUrl && (
+                      <Image source={{ uri: ex.gifUrl }} style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#D6F0E6' }} resizeMode="cover" />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#34514A', flexShrink: 1 }} numberOfLines={1}>{ex.name}</Text>
+                        {fmtMeta(ex.targetReps, ex.restSeconds) !== null && (
+                          <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600', flexShrink: 0 }}>
+                            {fmtMeta(ex.targetReps, ex.restSeconds)}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 11, color: '#7E9A90', fontWeight: '600', marginTop: 1 }}>
+                        {ex.defaultSets}세트{ex.defaultWeight ? ` · ${ex.defaultWeight}kg` : ''}
+                      </Text>
+                      {ex.tip ? <Text style={{ fontSize: 9, color: '#B4CFC5', marginTop: 1 }} numberOfLines={1}>💡 {ex.tip}</Text> : null}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setExercises(prev => prev.filter(e => e.key !== ex.key))}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Icon name="trash" size={15} color="#B4CFC5" />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
 
             <TouchableOpacity
-              style={{ backgroundColor: '#6FD3B6', borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}
-              onPress={addExercise}
-              activeOpacity={0.8}>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>종목 추가</Text>
+              style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 20 }, SHADOW]}
+              onPress={() => setSubMode('addExercise')} activeOpacity={0.8}>
+              <Icon name="plus" size={18} color="#6FD3B6" />
+              <Text style={{ fontSize: 14, fontWeight: '800', color: '#6FD3B6' }}>종목 추가</Text>
             </TouchableOpacity>
-          </View>
 
-          <TouchableOpacity
-            style={{ backgroundColor: '#FFAE96', borderRadius: 999, paddingVertical: 16, alignItems: 'center' }}
-            onPress={handleSave}
-            activeOpacity={0.8}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>루틴 저장</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <TouchableOpacity
+              style={{ backgroundColor: '#FFAE96', borderRadius: 999, paddingVertical: 16, alignItems: 'center' }}
+              onPress={handleSave} activeOpacity={0.8}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>루틴 저장</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }

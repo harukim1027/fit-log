@@ -11,6 +11,8 @@ interface NutrientSummary {
   meals: { breakfast: number; lunch: number; dinner: number; snack: number };
 }
 
+export interface CalendarDay { date: string; calories: number; }
+
 interface DietStore {
   dailyDiets: DailyDiet[];
   targetCalories: number;
@@ -19,12 +21,14 @@ interface DietStore {
   targetFatRatio: number;
   isLoading: boolean;
   summary: NutrientSummary | null;
+  dietCalendar: CalendarDay[];
   getTodayDiet: () => DailyDiet;
   addFood: (mealType: MealType, food: FoodItem, date?: string, snackCardId?: string) => Promise<void>;
   removeFood: (mealType: MealType, foodId: string, date?: string) => Promise<void>;
   getTotalCalories: (date?: string) => number;
   fetchDiet: (date?: string) => Promise<void>;
   fetchSummary: (date?: string) => Promise<void>;
+  fetchCalendar: (year: number, month: number) => Promise<void>;
   setTargetCalories: (cal: number) => void;
   setMacroRatios: (carbs: number, protein: number, fat: number) => void;
 }
@@ -53,9 +57,19 @@ export const useDietStore = create<DietStore>((set, get) => ({
   targetFatRatio: 20,
   isLoading: false,
   summary: null,
+  dietCalendar: [],
 
   setTargetCalories: (cal) => set({ targetCalories: cal }),
   setMacroRatios: (carbs, protein, fat) => set({ targetCarbsRatio: carbs, targetProteinRatio: protein, targetFatRatio: fat }),
+
+  fetchCalendar: async (year, month) => {
+    try {
+      const res = await apiClient.get('/diet/calendar', { params: { year, month } });
+      set({ dietCalendar: res.data });
+    } catch (e) {
+      console.error('식단 달력 불러오기 실패', e);
+    }
+  },
 
   getTodayDiet: () => {
     const today = todayStr();

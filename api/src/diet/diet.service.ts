@@ -26,6 +26,21 @@ export class DietService {
     await this.dietRepo.delete({ id, user: { id: userId } });
   }
 
+  async getCalendar(userId: string, year: number, month: number) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const start = `${year}-${pad(month)}-01`;
+    const end = `${year}-${pad(month)}-31`;
+    const logs = await this.dietRepo
+      .createQueryBuilder('log')
+      .where('log.userId = :userId', { userId })
+      .andWhere('log.date >= :start', { start })
+      .andWhere('log.date <= :end', { end })
+      .getMany();
+    const map: Record<string, number> = {};
+    logs.forEach(l => { map[l.date] = (map[l.date] ?? 0) + l.calories; });
+    return Object.entries(map).map(([date, calories]) => ({ date, calories: Math.round(calories) }));
+  }
+
   async getSummary(userId: string, date: string) {
     const logs = await this.getByDate(userId, date);
     return {

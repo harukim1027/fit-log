@@ -1,11 +1,19 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../lib/apiClient';
+import type { WorkoutSession } from '../types/workout';
 
 export interface RoutineExercise {
   name: string;
   category: string;
   defaultSets: number;
+  defaultWeight?: number;
+  restSeconds?: number;
+  targetReps?: string;
+  settings?: { key: string; value: string }[];
+  tip?: string;
+  targetMuscles?: string[];
+  gifUrl?: string;
 }
 
 export interface Routine {
@@ -32,6 +40,10 @@ interface RoutineStore {
   fetchPublicRoutines: (sort?: 'latest' | 'popular') => Promise<void>;
   copyRoutine: (id: string) => Promise<void>;
   searchByCode: (code: string) => Promise<Routine>;
+  updateRoutineFromSession: (routineId: string, session: WorkoutSession) => Promise<void>;
+  combineRoutines: (routineIds: string[], name: string, exercises: RoutineExercise[]) => Promise<void>;
+  reorderRoutines: (ids: string[]) => Promise<void>;
+  reorderExercises: (routineId: string, exercises: RoutineExercise[]) => Promise<void>;
 }
 
 const STORAGE_KEY = 'routines:v2';
@@ -130,5 +142,48 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
   searchByCode: async (code) => {
     const res = await apiClient.get(`/routine/code/${code.trim().toUpperCase()}`);
     return res.data as Routine;
+  },
+
+  combineRoutines: async (routineIds, name, exercises) => {
+    const payload = exercises.map(({ gifUrl, ...rest }) => rest);
+    try {
+      const res = await apiClient.post('/routine/combine', { routineIds, name, exercises: payload });
+      const routine: Routine = res.data;
+      const next = [...get().routines, routine];
+      set({ routines: next });
+      await persist(next);
+    } catch {
+      const routine: Routine = { id: Date.now().toString(), name, exercises, createdAt: new Date().toISOString() };
+      const next = [...get().routines, routine];
+      set({ routines: next });
+      await persist(next);
+    }
+  },
+
+  reorderRoutines: async (ids) => {
+    const currentRoutines = get().routines;
+    const reordered = ids.map(id => currentRoutines.find(r => r.id === id)!).filter(Boolean);
+    set({ routines: reordered });
+    await persist(reordered);
+    apiClient.patch('/routine/reorder', { ids }).catch(() => {});
+  },
+
+  reorderExercises: async (routineId, exercises) => {
+    await get().updateRoutine(routineId, { exercises: exercises.map(({ gifUrl, ...rest }) => rest) });
+  },
+
+  updateRoutineFromSession: async (routineId, session) => {
+    const exercises: RoutineExercise[] = session.exercises.map(ex => ({
+      name: ex.name,
+      category: ex.category,
+      defaultSets: ex.sets.length || 3,
+      defaultWeight: ex.sets.length > 0 ? Math.max(...ex.sets.map(s => s.weight)) : 0,
+      restSeconds: ex.restSeconds,
+      targetReps: ex.targetReps,
+      settings: ex.settings,
+      tip: ex.tip,
+      targetMuscles: ex.targetMuscles,
+    }));
+    await get().updateRoutine(routineId, { exercises });
   },
 }));

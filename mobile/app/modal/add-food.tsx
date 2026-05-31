@@ -8,12 +8,15 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Header, Card, Input, Button } from "../../components/ui";
 import { Stepper } from "../../components/ui/Stepper";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
@@ -31,11 +34,26 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "manual", label: "직접 입력" },
 ];
 
+interface CustomFood {
+  id: string;
+  foodName: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  amount: number;
+  unit: string;
+  isPublic: boolean;
+  copyCount: number;
+  createdAt: string;
+}
+
 export default function AddFoodModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ mealType: MealType; snackCardId?: string }>();
+  const params = useLocalSearchParams<{ mealType: MealType; snackCardId?: string; date?: string }>();
   const mealType = params.mealType ?? "breakfast";
   const snackCardId = params.snackCardId;
+  const date = params.date;
   const { addFood } = useDietStore();
   const { favorites, fetchFavorites, addFavorite, removeFavorite, isFavorite } =
     useFavoriteStore();
@@ -46,6 +64,7 @@ export default function AddFoodModal() {
   const [selected, setSelected] = useState<any | null>(null);
   const [amount, setAmount] = useState("100");
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
@@ -57,19 +76,54 @@ export default function AddFoodModal() {
   const [manualCarbs, setManualCarbs] = useState("");
   const [manualFat, setManualFat] = useState("");
   const [manualAmount, setManualAmount] = useState("100");
+  const [manualIsPublic, setManualIsPublic] = useState(false);
+
+  const [myCustomFoods, setMyCustomFoods] = useState<CustomFood[]>([]);
+  const [customFoodsLoading, setCustomFoodsLoading] = useState(false);
 
   useEffect(() => {
     fetchFavorites();
   }, []);
 
-  const handleSearch = async () => {
-    if (!search.trim()) return;
-    setLoading(true);
+  const loadMyCustomFoods = useCallback(async () => {
+    setCustomFoodsLoading(true);
     try {
-      const res = await apiClient.get("/food/search", { params: { q: search } });
-      setResults(res.data);
+      const res = await apiClient.get('/food/custom');
+      setMyCustomFoods(res.data ?? []);
     } catch {
-      Alert.alert("검색 실패", "잠시 후 다시 시도해주세요");
+      // silent — favorites tab still shows
+    } finally {
+      setCustomFoodsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'favorites') loadMyCustomFoods();
+  }, [tab]);
+
+  const handleSearch = async () => {
+    const q = search.trim();
+    if (!q) return;
+    setLoading(true);
+    setResults([]);
+    setSelected(null);
+    setHasSearched(false);
+    try {
+      const res = await apiClient.get("/food/search", { params: { q } });
+      setResults(res.data ?? []);
+      setHasSearched(true);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      console.error('[식품검색]', status, msg, e);
+      if (status === 401) {
+        Alert.alert("인증 오류", "다시 로그인해주세요");
+      } else if (!e?.response) {
+        Alert.alert("서버 연결 실패", "서버가 실행 중인지 확인해주세요");
+      } else {
+        Alert.alert("검색 실패", msg);
+      }
+      setHasSearched(true);
     } finally {
       setLoading(false);
     }
@@ -87,7 +141,7 @@ export default function AddFoodModal() {
       amount: amt,
       unit: "g",
     };
-    addFood(mealType, item, undefined, snackCardId);
+    addFood(mealType, item, date, snackCardId);
     router.back();
   };
 
@@ -115,6 +169,42 @@ export default function AddFoodModal() {
         unit: "g",
       });
     }
+  };
+
+  const handleCopyCustomFood = async (customFoodId: string, foodName: string) => {
+    try {
+      await apiClient.post(`/food/custom/${customFoodId}/copy`);
+      Alert.alert('완료', `"${foodName}"을(를) 내 식품에 추가했어요`);
+      if (tab === 'favorites') loadMyCustomFoods();
+    } catch {
+      Alert.alert('실패', '가져오기에 실패했어요');
+    }
+  };
+
+  const handleToggleCustomFoodPublic = async (food: CustomFood) => {
+    try {
+      const updated = await apiClient.patch(`/food/custom/${food.id}`, { isPublic: !food.isPublic });
+      setMyCustomFoods(prev => prev.map(f => f.id === food.id ? { ...f, isPublic: updated.data.isPublic } : f));
+    } catch {
+      Alert.alert('실패', '공개 설정 변경에 실패했어요');
+    }
+  };
+
+  const handleDeleteCustomFood = (food: CustomFood) => {
+    Alert.alert('삭제', `"${food.foodName}"을(를) 삭제할까요?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제', style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/food/custom/${food.id}`);
+            setMyCustomFoods(prev => prev.filter(f => f.id !== food.id));
+          } catch {
+            Alert.alert('실패', '삭제에 실패했어요');
+          }
+        },
+      },
+    ]);
   };
 
   const pickImageFromGallery = async () => {
@@ -170,15 +260,14 @@ export default function AddFoodModal() {
       amount: parseFloat(photoResult.amount) || 100,
       unit: photoResult.unit || 'g',
     };
-    addFood(mealType, food);
+    addFood(mealType, food, date);
     router.back();
   };
 
-  const handleAddManual = () => {
+  const handleAddManual = async () => {
     if (!manualName.trim()) return Alert.alert("식품명을 입력해주세요");
     const cal = parseFloat(manualCalories);
-    if (isNaN(cal) || cal < 0)
-      return Alert.alert("올바른 칼로리를 입력해주세요");
+    if (isNaN(cal) || cal < 0) return Alert.alert("올바른 칼로리를 입력해주세요");
     const food: FoodItem = {
       id: Date.now().toString(),
       name: manualName,
@@ -189,7 +278,18 @@ export default function AddFoodModal() {
       amount: parseFloat(manualAmount) || 100,
       unit: "g",
     };
-    addFood(mealType, food);
+    addFood(mealType, food, date);
+    // Save to custom foods in background
+    apiClient.post('/food/custom', {
+      foodName: manualName,
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      amount: food.amount,
+      unit: food.unit,
+      isPublic: manualIsPublic,
+    }).catch(() => {});
     router.back();
   };
 
@@ -197,7 +297,7 @@ export default function AddFoodModal() {
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Header
         title="식품 추가"
-        subtitle={MEAL_LABELS[mealType] + "에 추가"}
+        subtitle={date ? `${date} · ${MEAL_LABELS[mealType]}` : MEAL_LABELS[mealType] + "에 추가"}
         showClose
         rightElement={
           <TouchableOpacity
@@ -214,6 +314,10 @@ export default function AddFoodModal() {
         }
       />
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
       <View className="px-5 flex-1">
         {/* 탭 */}
         <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
@@ -237,17 +341,18 @@ export default function AddFoodModal() {
 
         {tab === "search" && (
           <>
-            <View className="flex-row gap-2 mb-3">
-              <Input
+            <View className="flex-row gap-2 mb-3 items-center">
+              <RNTextInput
+                className="flex-1 bg-surface border border-border rounded-2xl px-4 py-3 text-text-primary text-[15px]"
                 placeholder="식품명 검색..."
+                placeholderTextColor={Colors.textMuted}
                 value={search}
                 onChangeText={setSearch}
                 onSubmitEditing={handleSearch}
                 returnKeyType="search"
-                className="flex-1"
               />
               <TouchableOpacity
-                className="bg-diet rounded-2xl px-[18px] justify-center mb-4"
+                className="bg-diet rounded-2xl px-[18px] py-3 justify-center"
                 onPress={handleSearch}>
                 {loading ? (
                   <ActivityIndicator color="#fff" size="small" />
@@ -260,11 +365,25 @@ export default function AddFoodModal() {
               keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
               className="flex-1">
-              {results.length === 0 && !loading && (
+              {!hasSearched && !loading && (
                 <View className="items-center mt-10 gap-3">
                   <BowlMascot size={64} />
                   <Text className="text-center text-text-muted text-sm leading-6">
                     먹은 걸 검색해볼까요?{"\n"}한글은 닭가슴살, 영어는 chicken
+                  </Text>
+                </View>
+              )}
+              {loading && (
+                <View className="items-center mt-10 gap-3">
+                  <ActivityIndicator size="large" color="#6FD3B6" />
+                  <Text className="text-sm text-text-muted">검색 중...</Text>
+                </View>
+              )}
+              {hasSearched && !loading && results.length === 0 && (
+                <View className="items-center mt-10 gap-3">
+                  <EmptyMascot size={64} />
+                  <Text className="text-center text-text-muted text-sm leading-6">
+                    검색 결과가 없어요{"\n"}다른 이름으로 검색해보세요
                   </Text>
                 </View>
               )}
@@ -275,31 +394,53 @@ export default function AddFoodModal() {
                   activeOpacity={0.7}>
                   <Card
                     className={[
-                      "flex-row justify-between items-center mb-2",
+                      "mb-2",
                       selected?.id === food.id ? "bg-diet/10" : "",
                     ].join(" ")}>
-                    <View className="flex-1">
-                      <Text className="text-[15px] font-semibold text-text-primary">
-                        {food.name}
-                      </Text>
-                      {food.brand ? (
-                        <Text className="text-xs text-primary mt-0.5">{food.brand}</Text>
-                      ) : null}
-                      <Text className="text-xs text-text-secondary mt-0.5">
-                        단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g
-                      </Text>
-                    </View>
-                    <View className="items-end gap-1">
-                      <Text className="text-sm font-bold text-diet">
-                        {food.calories}kcal
-                      </Text>
-                      <TouchableOpacity onPress={() => handleToggleFavorite(food)}>
-                        <HeartIcon
-                          filled={isFavorite(food.name)}
-                          size={20}
-                          color={isFavorite(food.name) ? Colors.secondary : Colors.textMuted}
-                        />
-                      </TouchableOpacity>
+                    <View className="flex-row justify-between items-start">
+                      <View className="flex-1">
+                        <View className="flex-row items-center gap-2 flex-wrap mb-0.5">
+                          <Text className="text-[15px] font-semibold text-text-primary">
+                            {food.name}
+                          </Text>
+                          {food.source === 'my' && (
+                            <View style={{ backgroundColor: '#E7F7F0', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#2E9E83' }}>내 식품</Text>
+                            </View>
+                          )}
+                          {food.source === 'custom' && (
+                            <View style={{ backgroundColor: '#EDE9F8', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#7C5CBF' }}>공유 식품</Text>
+                            </View>
+                          )}
+                        </View>
+                        {food.brand ? (
+                          <Text className="text-xs text-primary mt-0.5">{food.brand}</Text>
+                        ) : null}
+                        <Text className="text-xs text-text-secondary mt-0.5">
+                          단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g
+                        </Text>
+                      </View>
+                      <View className="items-end gap-1 ml-2">
+                        <Text className="text-sm font-bold text-diet">
+                          {food.calories}kcal
+                        </Text>
+                        {food.source === 'custom' ? (
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#EDE9F8', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
+                            onPress={() => handleCopyCustomFood(food.customFoodId, food.name)}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#7C5CBF' }}>가져오기</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity onPress={() => handleToggleFavorite(food)}>
+                            <HeartIcon
+                              filled={isFavorite(food.name)}
+                              size={20}
+                              color={isFavorite(food.name) ? Colors.secondary : Colors.textMuted}
+                            />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </Card>
                 </TouchableOpacity>
@@ -347,7 +488,6 @@ export default function AddFoodModal() {
 
         {tab === "photo" && (
           <ScrollView keyboardShouldPersistTaps="handled" className="flex-1">
-            {/* 촬영/갤러리 버튼 */}
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
@@ -428,8 +568,77 @@ export default function AddFoodModal() {
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             className="flex-1">
+            {/* 내가 등록한 식품 섹션 */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 10 }}>
+                내가 등록한 식품
+              </Text>
+              {customFoodsLoading ? (
+                <ActivityIndicator size="small" color="#6FD3B6" />
+              ) : myCustomFoods.length === 0 ? (
+                <Text style={{ fontSize: 13, color: '#B4CFC5', fontWeight: '600' }}>
+                  직접 입력한 식품이 없어요
+                </Text>
+              ) : (
+                myCustomFoods.map((food) => (
+                  <Card key={food.id} className="mb-2">
+                    <View className="flex-row justify-between items-start">
+                      <View className="flex-1">
+                        <View className="flex-row items-center gap-2 mb-0.5">
+                          <Text className="text-[15px] font-semibold text-text-primary">
+                            {food.foodName}
+                          </Text>
+                          {food.isPublic && (
+                            <View style={{ backgroundColor: '#EDE9F8', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#7C5CBF' }}>
+                                공개 · {food.copyCount}명 가져감
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text className="text-xs text-text-secondary">
+                          단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#7E9A90' }}>
+                            {food.isPublic ? '공개 중' : '나만 보기'}
+                          </Text>
+                          <Switch
+                            value={food.isPublic}
+                            onValueChange={() => handleToggleCustomFoodPublic(food)}
+                            trackColor={{ false: '#E7F0EE', true: '#A8D5C4' }}
+                            thumbColor={food.isPublic ? '#2E9E83' : '#B4CFC5'}
+                            style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                          />
+                        </View>
+                      </View>
+                      <View className="items-end gap-2 ml-2">
+                        <Text className="text-sm font-bold text-diet">{food.calories}kcal</Text>
+                        <View className="flex-row gap-2">
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#E7F7F0', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
+                            onPress={() => handleAddFood({ name: food.foodName, ...food }, food.amount)}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>추가</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#FFE8E8', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
+                            onPress={() => handleDeleteCustomFood(food)}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#E05C5C' }}>삭제</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  </Card>
+                ))
+              )}
+            </View>
+
+            {/* 즐겨찾기 섹션 */}
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 10 }}>
+              즐겨찾기
+            </Text>
             {favorites.length === 0 ? (
-              <View className="items-center mt-10 gap-3">
+              <View className="items-center mt-4 gap-3">
                 <EmptyMascot size={64} />
                 <Text className="text-center text-text-muted text-sm leading-6">
                   즐겨찾기한 식품이 아직 없어요{"\n"}검색 후 하트를 눌러 담아보세요
@@ -516,11 +725,30 @@ export default function AddFoodModal() {
                 placeholder="100"
                 keyboardType="numeric"
               />
+
+              {/* 공개 설정 */}
+              <View style={{ backgroundColor: '#F5FBF8', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#34514A' }}>
+                    {manualIsPublic ? '다른 사람과 공유' : '나만 보기'}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#7E9A90', marginTop: 2 }}>
+                    {manualIsPublic ? '검색에서 다른 사용자도 볼 수 있어요' : '내 식품 목록에만 저장돼요'}
+                  </Text>
+                </View>
+                <Switch
+                  value={manualIsPublic}
+                  onValueChange={setManualIsPublic}
+                  trackColor={{ false: '#E7F0EE', true: '#A8D5C4' }}
+                  thumbColor={manualIsPublic ? '#2E9E83' : '#B4CFC5'}
+                />
+              </View>
             </View>
             <Button title="추가하기" onPress={handleAddManual} fullWidth className="mb-2" />
           </ScrollView>
         )}
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -2,12 +2,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorkoutSession } from './workout-session.entity';
+import { WorkoutExercise } from './workout-exercise.entity';
+import { WorkoutSet } from './workout-set.entity';
 
 @Injectable()
 export class WorkoutService {
   constructor(
     @InjectRepository(WorkoutSession)
     private sessionRepo: Repository<WorkoutSession>,
+    @InjectRepository(WorkoutExercise)
+    private exerciseRepo: Repository<WorkoutExercise>,
+    @InjectRepository(WorkoutSet)
+    private setRepo: Repository<WorkoutSet>,
   ) {}
 
   async create(userId: string, data: any): Promise<WorkoutSession> {
@@ -115,7 +121,7 @@ export class WorkoutService {
     };
   }
 
-  async update(id: string, userId: string, data: { note?: string; durationMinutes?: number }): Promise<WorkoutSession> {
+  async update(id: string, userId: string, data: any): Promise<WorkoutSession> {
     const session = await this.sessionRepo.findOne({
       where: { id, user: { id: userId } },
       relations: { exercises: { sets: true } },
@@ -123,7 +129,39 @@ export class WorkoutService {
     if (!session) throw new NotFoundException('운동 기록을 찾을 수 없어요');
     if (data.note !== undefined) session.note = data.note;
     if (data.durationMinutes !== undefined) session.durationMinutes = data.durationMinutes;
-    return this.sessionRepo.save(session);
+
+    if (Array.isArray(data.exercises)) {
+      // Delete existing exercises (cascades to sets)
+      await this.exerciseRepo.delete({ session: { id } });
+
+      // Re-create exercises with sets
+      for (const exData of data.exercises) {
+        const exercise = this.exerciseRepo.create({
+          name: exData.name ?? '',
+          category: exData.category ?? '',
+          settings: exData.settings ?? [],
+          tip: exData.tip ?? '',
+          session,
+        });
+        const savedEx = await this.exerciseRepo.save(exercise);
+        if (Array.isArray(exData.sets)) {
+          for (const setData of exData.sets) {
+            const set = this.setRepo.create({
+              weight: setData.weight ?? 0,
+              reps: setData.reps ?? 0,
+              completed: setData.completed ?? false,
+              exercise: savedEx,
+            });
+            await this.setRepo.save(set);
+          }
+        }
+      }
+    }
+
+    return this.sessionRepo.findOne({
+      where: { id },
+      relations: { exercises: { sets: true } },
+    }) as Promise<WorkoutSession>;
   }
 
   async remove(id: string, userId: string): Promise<void> {

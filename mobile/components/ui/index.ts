@@ -23,3 +23,6 @@ export { Divider } from "./Divider";
 export type { DividerProps } from "./Divider";
 
 export { Stepper } from "./Stepper";
+
+export { SortableList } from "./SortableList";
+export type { SortableListProps } from "./SortableList";

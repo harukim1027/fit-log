@@ -19,6 +19,21 @@ export class WorkoutExercise {
   @Column({ nullable: true })
   tip: string;
 
+  @Column({ default: false })
+  isSingleArm: boolean;
+
+  @Column({ default: false })
+  differentSides: boolean;
+
+  @Column({ type: 'simple-json', nullable: true })
+  targetMuscles: string[];
+
+  @Column({ type: 'int', nullable: true })
+  restSeconds: number;
+
+  @Column({ nullable: true })
+  targetReps: string;
+
   @ManyToOne(() => WorkoutSession, session => session.exercises)
   session: WorkoutSession;
 

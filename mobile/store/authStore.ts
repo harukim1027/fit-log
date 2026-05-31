@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../constants/api';
 import apiClient from '../lib/apiClient';
+import { useDietStore } from './dietStore';
 
 export interface User {
   id: string;
@@ -52,6 +53,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           const updated = res.data;
           set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
           await saveUser(updated);
+          if (updated.targetCalories) {
+            useDietStore.getState().setTargetCalories(updated.targetCalories);
+          }
+          const { targetCarbsRatio, targetProteinRatio, targetFatRatio } = updated as any;
+          if (targetCarbsRatio && targetProteinRatio && targetFatRatio) {
+            useDietStore.getState().setMacroRatios(targetCarbsRatio, targetProteinRatio, targetFatRatio);
+          }
         } catch (e: any) {
           if (e.response?.status === 401) {
             await AsyncStorage.multiRemove(['token', 'user']);
@@ -105,6 +113,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const updated = res.data;
     set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));
     await saveUser(updated);
+    if (updated.targetCalories) {
+      useDietStore.getState().setTargetCalories(updated.targetCalories);
+    }
+    const { targetCarbsRatio, targetProteinRatio, targetFatRatio } = updated as any;
+    if (targetCarbsRatio && targetProteinRatio && targetFatRatio) {
+      useDietStore.getState().setMacroRatios(targetCarbsRatio, targetProteinRatio, targetFatRatio);
+    }
   },
 
   updateProfile: async (data: Partial<User>) => {

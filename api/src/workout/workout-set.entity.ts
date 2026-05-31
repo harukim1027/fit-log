@@ -12,6 +12,9 @@ export class WorkoutSet {
   @Column('int')
   reps: number;
 
+  @Column({ type: 'float', nullable: true })
+  weightR: number;
+
   @Column({ default: true })
   completed: boolean;
 
