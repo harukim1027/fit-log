@@ -20,7 +20,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
-import { Colors, MEAL_LABELS } from "../../constants";
+import { MEAL_LABELS } from "../../constants";
+import { useColors } from "../../constants/colors";
+import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
 import * as ImagePicker from 'expo-image-picker';
@@ -49,6 +51,7 @@ interface CustomFood {
 }
 
 export default function AddFoodModal() {
+  const c = useColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ mealType: MealType; snackCardId?: string; date?: string }>();
   const mealType = params.mealType ?? "breakfast";
@@ -295,6 +298,7 @@ export default function AddFoodModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
+      <BackgroundBlobs />
       <Header
         title="식품 추가"
         subtitle={date ? `${date} · ${MEAL_LABELS[mealType]}` : MEAL_LABELS[mealType] + "에 추가"}
@@ -308,7 +312,7 @@ export default function AddFoodModal() {
                 params: { mealType },
               } as any)
             }>
-            <Icon name="barcode" size={20} color={Colors.primary} />
+            <Icon name="barcode" size={20} color={c.primary} />
             <Text className="text-sm font-bold text-primary">바코드</Text>
           </TouchableOpacity>
         }
@@ -320,7 +324,7 @@ export default function AddFoodModal() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
       <View className="px-5 flex-1">
         {/* 탭 */}
-        <View style={{ flexDirection: 'row', backgroundColor: '#E7F7F0', borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
+        <View style={{ flexDirection: 'row', backgroundColor: c.surfaceAlt, borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
           {TABS.map((t) => {
             const isActive = tab === t.key;
             return (
@@ -328,10 +332,10 @@ export default function AddFoodModal() {
                 key={t.key}
                 style={[
                   { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 },
-                  isActive ? { backgroundColor: '#fff', shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
+                  isActive ? { backgroundColor: c.surface, shadowColor: c.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
                 ]}
                 onPress={() => setTab(t.key)}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? '#2E9E83' : '#B4CFC5' }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? c.success : c.textMuted }}>
                   {t.label}
                 </Text>
               </TouchableOpacity>
@@ -345,7 +349,7 @@ export default function AddFoodModal() {
               <RNTextInput
                 className="flex-1 bg-surface border border-border rounded-2xl px-4 py-3 text-text-primary text-[15px]"
                 placeholder="식품명 검색..."
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={c.textMuted}
                 value={search}
                 onChangeText={setSearch}
                 onSubmitEditing={handleSearch}
@@ -355,7 +359,7 @@ export default function AddFoodModal() {
                 className="bg-diet rounded-2xl px-[18px] py-3 justify-center"
                 onPress={handleSearch}>
                 {loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={c.surface} size="small" />
                 ) : (
                   <Text className="text-white font-bold text-sm">검색</Text>
                 )}
@@ -375,7 +379,7 @@ export default function AddFoodModal() {
               )}
               {loading && (
                 <View className="items-center mt-10 gap-3">
-                  <ActivityIndicator size="large" color="#6FD3B6" />
+                  <ActivityIndicator size="large" color={c.primary} />
                   <Text className="text-sm text-text-muted">검색 중...</Text>
                 </View>
               )}
@@ -404,8 +408,8 @@ export default function AddFoodModal() {
                             {food.name}
                           </Text>
                           {food.source === 'my' && (
-                            <View style={{ backgroundColor: '#E7F7F0', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#2E9E83' }}>내 식품</Text>
+                            <View style={{ backgroundColor: c.surfaceAlt, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: c.success }}>내 식품</Text>
                             </View>
                           )}
                           {food.source === 'custom' && (
@@ -436,7 +440,7 @@ export default function AddFoodModal() {
                             <HeartIcon
                               filled={isFavorite(food.name)}
                               size={20}
-                              color={isFavorite(food.name) ? Colors.secondary : Colors.textMuted}
+                              color={isFavorite(food.name) ? c.secondary : c.textMuted}
                             />
                           </TouchableOpacity>
                         )}
@@ -490,39 +494,39 @@ export default function AddFoodModal() {
           <ScrollView keyboardShouldPersistTaps="handled" className="flex-1">
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
               <TouchableOpacity
-                style={{ flex: 1, backgroundColor: '#E7F7F0', borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
+                style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
                 onPress={pickImageFromCamera}
                 activeOpacity={0.8}>
-                <Icon name="camera" size={28} color="#2E9E83" />
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#2E9E83' }}>촬영하기</Text>
+                <Icon name="camera" size={28} color={c.success} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: c.success }}>촬영하기</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ flex: 1, backgroundColor: '#FFF1E3', borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
+                style={{ flex: 1, backgroundColor: c.warning + '18', borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
                 onPress={pickImageFromGallery}
                 activeOpacity={0.8}>
-                <Icon name="gallery" size={28} color="#E6932F" />
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#E6932F' }}>갤러리</Text>
+                <Icon name="gallery" size={28} color={c.warning} />
+                <Text style={{ fontSize: 13, fontWeight: '800', color: c.warning }}>갤러리</Text>
               </TouchableOpacity>
             </View>
 
             {photoUri && (
               <Image
                 source={{ uri: photoUri }}
-                style={{ width: '100%', height: 200, borderRadius: 20, marginBottom: 16, backgroundColor: '#E7F7F0' }}
+                style={{ width: '100%', height: 200, borderRadius: 20, marginBottom: 16, backgroundColor: c.surfaceAlt }}
                 resizeMode="cover"
               />
             )}
 
             {photoAnalyzing && (
               <View style={{ alignItems: 'center', paddingVertical: 32, gap: 10 }}>
-                <ActivityIndicator size="large" color="#6FD3B6" />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#7E9A90' }}>AI가 음식을 분석 중이에요...</Text>
+                <ActivityIndicator size="large" color={c.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>AI가 음식을 분석 중이에요...</Text>
               </View>
             )}
 
             {photoResult && !photoAnalyzing && (
-              <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 18, shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.13, shadowRadius: 14, elevation: 3 }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>분석 결과 (수정 가능)</Text>
+              <View style={{ backgroundColor: c.surface, borderRadius: 20, padding: 18, shadowColor: c.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.13, shadowRadius: 14, elevation: 3 }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: c.textSecondary, marginBottom: 12 }}>분석 결과 (수정 가능)</Text>
 
                 {[
                   { label: '음식명', key: 'name', keyboard: 'default' as const },
@@ -533,9 +537,9 @@ export default function AddFoodModal() {
                   { label: '양 (g)', key: 'amount', keyboard: 'numeric' as const },
                 ].map(({ label, key, keyboard }) => (
                   <View key={key} style={{ marginBottom: 10 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#B4CFC5', marginBottom: 4 }}>{label}</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: c.textMuted, marginBottom: 4 }}>{label}</Text>
                     <RNTextInput
-                      style={{ backgroundColor: '#E7F7F0', borderRadius: 12, padding: 12, fontSize: 15, fontWeight: '700', color: '#34514A' }}
+                      style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, fontSize: 15, fontWeight: '700', color: c.textPrimary }}
                       value={String(photoResult[key] ?? '')}
                       onChangeText={v => setPhotoResult((p: any) => ({ ...p, [key]: v }))}
                       keyboardType={keyboard}
@@ -544,18 +548,18 @@ export default function AddFoodModal() {
                 ))}
 
                 <TouchableOpacity
-                  style={{ backgroundColor: '#6FD3B6', borderRadius: 999, paddingVertical: 14, alignItems: 'center', marginTop: 4 }}
+                  style={{ backgroundColor: c.primary, borderRadius: 999, paddingVertical: 14, alignItems: 'center', marginTop: 4 }}
                   onPress={handleAddPhotoResult}
                   activeOpacity={0.8}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#fff' }}>추가하기</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: c.onAccent }}>추가하기</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {!photoUri && !photoAnalyzing && (
               <View style={{ alignItems: 'center', paddingTop: 40, gap: 10 }}>
-                <Icon name="camera" size={56} color="#B4CFC5" />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#B4CFC5', textAlign: 'center' }}>
+                <Icon name="camera" size={56} color={c.textMuted} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: c.textMuted, textAlign: 'center' }}>
                   음식 사진을 찍거나 갤러리에서{'\n'}선택하면 AI가 영양성분을 분석해요
                 </Text>
               </View>
@@ -570,13 +574,13 @@ export default function AddFoodModal() {
             className="flex-1">
             {/* 내가 등록한 식품 섹션 */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 10 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary, marginBottom: 10 }}>
                 내가 등록한 식품
               </Text>
               {customFoodsLoading ? (
-                <ActivityIndicator size="small" color="#6FD3B6" />
+                <ActivityIndicator size="small" color={c.primary} />
               ) : myCustomFoods.length === 0 ? (
-                <Text style={{ fontSize: 13, color: '#B4CFC5', fontWeight: '600' }}>
+                <Text style={{ fontSize: 13, color: c.textMuted, fontWeight: '600' }}>
                   직접 입력한 식품이 없어요
                 </Text>
               ) : (
@@ -600,14 +604,14 @@ export default function AddFoodModal() {
                           단백질 {food.protein}g · 탄수 {food.carbs}g · 지방 {food.fat}g
                         </Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#7E9A90' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>
                             {food.isPublic ? '공개 중' : '나만 보기'}
                           </Text>
                           <Switch
                             value={food.isPublic}
                             onValueChange={() => handleToggleCustomFoodPublic(food)}
                             trackColor={{ false: '#E7F0EE', true: '#A8D5C4' }}
-                            thumbColor={food.isPublic ? '#2E9E83' : '#B4CFC5'}
+                            thumbColor={food.isPublic ? c.success : c.textMuted}
                             style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
                           />
                         </View>
@@ -616,9 +620,9 @@ export default function AddFoodModal() {
                         <Text className="text-sm font-bold text-diet">{food.calories}kcal</Text>
                         <View className="flex-row gap-2">
                           <TouchableOpacity
-                            style={{ backgroundColor: '#E7F7F0', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
+                            style={{ backgroundColor: c.surfaceAlt, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
                             onPress={() => handleAddFood({ name: food.foodName, ...food }, food.amount)}>
-                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#2E9E83' }}>추가</Text>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: c.success }}>추가</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={{ backgroundColor: '#FFE8E8', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
@@ -634,7 +638,7 @@ export default function AddFoodModal() {
             </View>
 
             {/* 즐겨찾기 섹션 */}
-            <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 10 }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary, marginBottom: 10 }}>
               즐겨찾기
             </Text>
             {favorites.length === 0 ? (
@@ -668,7 +672,7 @@ export default function AddFoodModal() {
                         <Text className="text-xs text-diet font-bold">추가</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => removeFavorite(food.id)}>
-                        <HeartIcon filled size={20} color={Colors.secondary} />
+                        <HeartIcon filled size={20} color={c.secondary} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -727,12 +731,12 @@ export default function AddFoodModal() {
               />
 
               {/* 공개 설정 */}
-              <View style={{ backgroundColor: '#F5FBF8', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#34514A' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: c.textPrimary }}>
                     {manualIsPublic ? '다른 사람과 공유' : '나만 보기'}
                   </Text>
-                  <Text style={{ fontSize: 11, color: '#7E9A90', marginTop: 2 }}>
+                  <Text style={{ fontSize: 11, color: c.textSecondary, marginTop: 2 }}>
                     {manualIsPublic ? '검색에서 다른 사용자도 볼 수 있어요' : '내 식품 목록에만 저장돼요'}
                   </Text>
                 </View>
@@ -740,7 +744,7 @@ export default function AddFoodModal() {
                   value={manualIsPublic}
                   onValueChange={setManualIsPublic}
                   trackColor={{ false: '#E7F0EE', true: '#A8D5C4' }}
-                  thumbColor={manualIsPublic ? '#2E9E83' : '#B4CFC5'}
+                  thumbColor={manualIsPublic ? c.success : c.textMuted}
                 />
               </View>
             </View>

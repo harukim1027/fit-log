@@ -17,12 +17,16 @@ import { useAuthStore } from "../../store/authStore";
 import { Header, Button } from "../../components/ui";
 import { Stepper } from "../../components/ui/Stepper";
 import { Icon } from "../../components/AppIcons";
+import { useColors, ThemeColors } from "../../constants/colors";
+import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
-const MACRO_COLORS = {
-  carbs: { bar: "#FFC078", text: "#E6932F", bg: "#FFF1E3" },
-  protein: { bar: "#6FD3B6", text: "#2E9E83", bg: "#E7F7F0" },
-  fat: { bar: "#FF9DB0", text: "#E76C86", bg: "#FFE8EF" },
-};
+function getMacroColors(c: ThemeColors) {
+  return {
+    carbs: { bar: c.warning, text: c.warning, bg: c.warning + '18' },
+    protein: { bar: c.primary, text: c.success, bg: c.surfaceAlt },
+    fat: { bar: c.danger, text: c.danger, bg: c.danger + '18' },
+  };
+}
 
 function MacroRow({
   label,
@@ -36,13 +40,14 @@ function MacroRow({
 }: {
   label: string;
   ratio: number;
-  color: typeof MACRO_COLORS.carbs;
+  color: { bar: string; text: string; bg: string };
   onInc: () => void;
   onDec: () => void;
   onRatioChange: (r: number) => void;
   targetCal: number;
   kcalPer: number;
 }) {
+  const c = useColors();
   const grams = Math.round((targetCal * ratio) / 100 / kcalPer);
   const [gramText, setGramText] = useState(String(grams));
   const [ratioText, setRatioText] = useState(String(ratio));
@@ -90,7 +95,7 @@ function MacroRow({
           style={{
             fontSize: 14,
             fontWeight: "700",
-            color: "#34514A",
+            color: c.textPrimary,
             flex: 1,
           }}>
           {label}
@@ -100,7 +105,7 @@ function MacroRow({
       <View
         style={{
           height: 8,
-          backgroundColor: "#E7F7F0",
+          backgroundColor: c.surfaceAlt,
           borderRadius: 999,
           overflow: "hidden",
           marginBottom: 10,
@@ -128,7 +133,7 @@ function MacroRow({
             width: 34,
             height: 34,
             borderRadius: 17,
-            backgroundColor: "#E7F7F0",
+            backgroundColor: c.surfaceAlt,
             alignItems: "center",
             justifyContent: "center",
           }}>
@@ -136,7 +141,7 @@ function MacroRow({
             style={{
               fontSize: 18,
               fontWeight: "800",
-              color: "#7E9A90",
+              color: c.textSecondary,
               marginTop: -2,
             }}>
             −
@@ -184,7 +189,7 @@ function MacroRow({
             style={{
               fontSize: 18,
               fontWeight: "800",
-              color: "#fff",
+              color: c.onAccent,
               marginTop: -2,
             }}>
             +
@@ -196,7 +201,7 @@ function MacroRow({
         <Text
           style={{
             fontSize: 12,
-            color: "#7E9A90",
+            color: c.textSecondary,
             fontWeight: "700",
             width: 60,
           }}>
@@ -205,13 +210,13 @@ function MacroRow({
         <TextInput
           style={{
             flex: 1,
-            backgroundColor: "#E7F7F0",
+            backgroundColor: c.surfaceAlt,
             borderRadius: 10,
             paddingVertical: 6,
             paddingHorizontal: 12,
             fontSize: 14,
             fontWeight: "700",
-            color: "#34514A",
+            color: c.textPrimary,
             textAlign: "center",
           }}
           value={gramText}
@@ -219,7 +224,7 @@ function MacroRow({
           keyboardType="numeric"
           selectTextOnFocus
         />
-        <Text style={{ fontSize: 12, color: "#7E9A90", fontWeight: "700" }}>
+        <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700" }}>
           g
         </Text>
         <Text
@@ -238,6 +243,8 @@ function MacroRow({
 }
 
 export default function SetTargetModal() {
+  const c = useColors();
+  const MACRO_COLORS = getMacroColors(c);
   const router = useRouter();
   const {
     targetCalories,
@@ -333,6 +340,7 @@ export default function SetTargetModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
+      <BackgroundBlobs />
       <Header title="목표 설정" showClose />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -398,7 +406,7 @@ export default function SetTargetModal() {
             style={{
               fontSize: 13,
               fontWeight: "800",
-              color: total === 100 ? "#2E9E83" : "#E76C86",
+              color: total === 100 ? c.success : c.danger,
             }}>
             합계 {total}%
           </Text>
@@ -407,7 +415,7 @@ export default function SetTargetModal() {
         {total !== 100 && (
           <View
             style={{
-              backgroundColor: "#FFE8EF",
+              backgroundColor: c.danger + '18',
               borderRadius: 12,
               padding: 10,
               marginBottom: 10,
@@ -415,8 +423,8 @@ export default function SetTargetModal() {
               alignItems: "center",
               gap: 8,
             }}>
-            <Icon name="info" size={14} color="#E76C86" />
-            <Text style={{ fontSize: 12, fontWeight: "700", color: "#E76C86" }}>
+            <Icon name="info" size={14} color={c.danger} />
+            <Text style={{ fontSize: 12, fontWeight: "700", color: c.danger }}>
               합계가 {total}%예요. 저장하려면 합계를 100%로 맞춰주세요.
             </Text>
           </View>

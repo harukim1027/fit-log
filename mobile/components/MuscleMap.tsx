@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import Body, { ExtendedBodyPart, Slug } from 'react-native-body-highlighter';
-import { Colors } from '../constants/colors';
+import { useColors } from '../constants/colors';
 
 // ── Labels (Korean) ─────────────────────────────────────────
 export const MUSCLE_LABELS: Partial<Record<Slug, string>> = {
@@ -41,16 +41,9 @@ export const MUSCLE_MAP: Record<string, Slug[]> = {
   '크런치':             ['abs'],
 };
 
-// ── Design tokens ───────────────────────────────────────────
 const HIGHLIGHT = '#FF8C7A';
 const HIGHLIGHT_BG = '#FF8C7A28';
-const BODY_FILL   = '#EDE8F8';   // inactive muscle fill
-const BODY_BORDER = Colors.textMuted;
-
-const CARD_SHADOW = {
-  shadowColor: '#4EBFA0', shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
-};
+const BODY_FILL   = '#EDE8F8';
 
 // ── Component ───────────────────────────────────────────────
 interface Props {
@@ -60,7 +53,13 @@ interface Props {
 }
 
 export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
+  const c = useColors();
   const [side, setSide] = useState<'front' | 'back'>('front');
+
+  const cardShadow = {
+    shadowColor: c.primary, shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+  };
 
   const data: ExtendedBodyPart[] = muscles.map(slug => ({
     slug: slug as Slug,
@@ -69,7 +68,7 @@ export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
   }));
 
   return (
-    <View style={st.row}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
       {/* Body SVG */}
       <Body
         data={data}
@@ -77,20 +76,26 @@ export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
         scale={scale}
         colors={[HIGHLIGHT]}
         defaultFill={BODY_FILL}
-        border={BODY_BORDER}
+        border={c.textMuted}
       />
 
       {/* Right panel */}
-      <View style={st.panel}>
+      <View style={{ flex: 1, paddingLeft: 12, paddingTop: 2 }}>
         {/* Front / Back toggle */}
-        <View style={st.tabRow}>
+        <View style={{ flexDirection: 'row', backgroundColor: c.surfaceAlt, borderRadius: 10, padding: 3, marginBottom: 14, alignSelf: 'flex-start' }}>
           {(['front', 'back'] as const).map(v => (
             <TouchableOpacity
               key={v}
-              style={[st.tab, side === v && st.tabActive]}
+              style={[
+                { paddingHorizontal: 11, paddingVertical: 4, borderRadius: 8 },
+                side === v ? { backgroundColor: c.surface, ...cardShadow } : undefined,
+              ]}
               onPress={() => setSide(v)}
             >
-              <Text style={[st.tabText, side === v && st.tabTextActive]}>
+              <Text style={[
+                { fontSize: 11, fontWeight: '500', color: c.textMuted },
+                side === v ? { fontWeight: '700', color: c.textPrimary } : undefined,
+              ]}>
                 {v === 'front' ? '앞면' : '뒷면'}
               </Text>
             </TouchableOpacity>
@@ -98,11 +103,11 @@ export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
         </View>
 
         {/* Muscle tags */}
-        <Text style={st.panelLabel}>자극 근육</Text>
-        <View style={st.tagsWrap}>
+        <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary, marginBottom: 8 }}>자극 근육</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {muscles.map(m => (
-            <View key={m} style={st.tag}>
-              <Text style={st.tagText}>
+            <View key={m} style={{ backgroundColor: HIGHLIGHT_BG, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: HIGHLIGHT }}>
                 {MUSCLE_LABELS[m as Slug] ?? m}
               </Text>
             </View>
@@ -112,27 +117,3 @@ export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
     </View>
   );
 }
-
-const st = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start' },
-
-  // Right info panel
-  panel: { flex: 1, paddingLeft: 12, paddingTop: 2 },
-  tabRow: {
-    flexDirection: 'row', backgroundColor: Colors.surfaceAlt,
-    borderRadius: 10, padding: 3, marginBottom: 14, alignSelf: 'flex-start',
-  },
-  tab: { paddingHorizontal: 11, paddingVertical: 4, borderRadius: 8 },
-  tabActive: { backgroundColor: Colors.surface, ...CARD_SHADOW },
-  tabText: { fontSize: 11, fontWeight: '500', color: Colors.textMuted },
-  tabTextActive: { fontSize: 11, fontWeight: '700', color: Colors.textPrimary },
-  panelLabel: {
-    fontSize: 11, fontWeight: '700', color: Colors.textSecondary, marginBottom: 8,
-  },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: {
-    backgroundColor: HIGHLIGHT_BG, borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-  },
-  tagText: { fontSize: 12, fontWeight: '700', color: HIGHLIGHT },
-});

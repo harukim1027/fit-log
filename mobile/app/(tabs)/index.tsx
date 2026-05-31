@@ -8,28 +8,32 @@ import CalorieRing from "../../components/CalorieRing";
 import WaterTracker from "../../components/WaterTracker";
 import { useWaterStore } from "../../store/waterStore";
 import { Icon, BoltIcon, FlameIcon, SaladIcon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
-
-const SHADOW = {
-  shadowColor: "#4EBFA0",
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.20,
-  shadowRadius: 24,
-  elevation: 4,
-};
-const SHADOW_SM = {
-  shadowColor: "#4EBFA0",
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.16,
-  shadowRadius: 14,
-  elevation: 3,
-};
+import { useColors } from "../../constants/colors";
+import { BackgroundBlobs } from "../../components/BackgroundBlobs";
+import { ThemeToggle } from "../../components/ui";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const c = useColors();
   const { getTotalCalories, targetCalories, getTodayDiet, fetchDiet, summary } = useDietStore();
   const { activeSession, sessionStartTime, getTodaySession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore();
   const { user } = useAuthStore();
   const { fetchTotal } = useWaterStore();
+
+  const SHADOW = {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.20,
+    shadowRadius: 24,
+    elevation: 4,
+  };
+  const SHADOW_SM = {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 3,
+  };
 
   const fadeAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(24))).current;
@@ -71,28 +75,28 @@ export default function HomeScreen() {
   const today = new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#EFFAF4' }}>
-      {/* 배경 블롭 */}
-      <View style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: '#CFF3E7', top: -50, right: -40, opacity: 0.5 }} />
-      <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: '#FFE6CC', bottom: 260, left: -50, opacity: 0.45 }} />
-      <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: '#DCEEFF', top: 330, right: -30, opacity: 0.4 }} />
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <BackgroundBlobs />
 
       {/* 헤더 */}
       <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-            <SparkIcon size={13} color="#7E9A90" />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#7E9A90' }}>{today}</Text>
+            <SparkIcon size={13} color={c.textSecondary} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: c.textSecondary }}>{today}</Text>
           </View>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: '#34514A', letterSpacing: -0.5, lineHeight: 28 }}>
+          <Text style={{ fontSize: 22, fontWeight: '900', color: c.textPrimary, letterSpacing: -0.5, lineHeight: 28 }}>
             {user?.name ? `${user.name}님,` : '안녕하세요,'}{'\n'}오늘도 토닥토닥!
           </Text>
         </View>
-        <TouchableOpacity
-          style={[{ width: 50, height: 50, borderRadius: 18, backgroundColor: '#6FD3B6', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '6deg' }] }, SHADOW_SM]}
-          onPress={() => router.push("/modal/set-target" as any)}>
-          <FaceAvatar size={30} color="#fff" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <ThemeToggle size={38} />
+          <TouchableOpacity
+            style={[{ width: 50, height: 50, borderRadius: 18, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '6deg' }] }, SHADOW_SM]}
+            onPress={() => router.push("/modal/set-target" as any)}>
+            <FaceAvatar size={30} color={c.onAccent} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -103,42 +107,37 @@ export default function HomeScreen() {
 
         {/* ── 칼로리 히어로 카드 ── */}
         <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
-          <View style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 18 }, SHADOW]}>
-            {/* 상단: 제목 + 목표수정 */}
+          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18 }, SHADOW]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90' }}>오늘의 칼로리</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary }}>오늘의 칼로리</Text>
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E7F7F0', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999 }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.surfaceAlt, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999 }}
                 onPress={() => router.push("/modal/set-target" as any)}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>목표 수정</Text>
-                <Icon name="chevronRight" size={12} color="#2E9E83" />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: c.success }}>목표 수정</Text>
+                <Icon name="chevronRight" size={12} color={c.success} />
               </TouchableOpacity>
             </View>
 
-            {/* 링 + 영양소 */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {/* 링 박스 */}
               <View style={{ position: 'relative', width: 150, height: 150, flexShrink: 0 }}>
                 <CalorieRing consumed={consumed} target={target} size={150} />
-                {/* 말풍선 배지 */}
                 <View style={{
                   position: 'absolute', top: 6, right: -4,
-                  backgroundColor: '#FFC078', borderRadius: 14,
+                  backgroundColor: c.warning, borderRadius: 14,
                   paddingHorizontal: 10, paddingVertical: 6,
                   transform: [{ rotate: '7deg' }],
-                  shadowColor: 'rgba(255,170,90,0.35)', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 12, elevation: 3,
+                  shadowColor: c.warning, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 3,
                   flexDirection: 'row', alignItems: 'center', gap: 4,
                 }}>
-                  <FlameIcon size={12} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{remaining} 남음</Text>
+                  <FlameIcon size={12} color={c.onAccent} />
+                  <Text style={{ color: c.onAccent, fontSize: 11, fontWeight: '800' }}>{remaining} 남음</Text>
                 </View>
               </View>
 
-              {/* 영양소 3줄 */}
               <View style={{ flex: 1, paddingLeft: 6, gap: 9 }}>
-                <MacroRow label="탄수화물" value={carbs} max={totalMacro} color="#FFC078" iconColor="#E6932F" />
-                <MacroRow label="단백질" value={protein} max={totalMacro} color="#6FD3B6" iconColor="#2E9E83" />
-                <MacroRow label="지방" value={fat} max={totalMacro} color="#FF9DB0" iconColor="#E76C86" />
+                <MacroRow label="탄수화물" value={carbs} max={totalMacro} color={c.carb} iconColor={c.warning} />
+                <MacroRow label="단백질" value={protein} max={totalMacro} color={c.protein} iconColor={c.primary} />
+                <MacroRow label="지방" value={fat} max={totalMacro} color={c.fat} iconColor={c.danger} />
               </View>
             </View>
           </View>
@@ -146,50 +145,48 @@ export default function HomeScreen() {
 
         {/* ── 오늘의 운동 카드 ── */}
         <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
-          <View style={[{ backgroundColor: '#fff', borderRadius: 30, padding: 18 }, SHADOW]}>
-            <Text style={{ fontSize: 13, fontWeight: '800', color: '#7E9A90', marginBottom: 12 }}>오늘의 운동</Text>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18 }, SHADOW]}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary, marginBottom: 12 }}>오늘의 운동</Text>
             {todaySession || activeSession ? (
               <View>
-                {/* 시간 + 동기부여 */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-                  <View style={[{ width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFF1E3', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], flexShrink: 0 }, SHADOW_SM]}>
-                    <Icon name="dumbbell" size={28} color="#E6932F" />
+                  <View style={[{ width: 60, height: 60, borderRadius: 20, backgroundColor: c.warning + '18', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], flexShrink: 0 }, SHADOW_SM]}>
+                    <Icon name="dumbbell" size={28} color={c.warning} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 32, fontWeight: '900', color: '#34514A', letterSpacing: -1 }}>
-                      {sessionDuration}<Text style={{ fontSize: 16, fontWeight: '700', color: '#7E9A90' }}>분</Text>
+                    <Text style={{ fontSize: 32, fontWeight: '900', color: c.textPrimary, letterSpacing: -1 }}>
+                      {sessionDuration}<Text style={{ fontSize: 16, fontWeight: '700', color: c.textSecondary }}>분</Text>
                     </Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#2E9E83', marginTop: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: c.success, marginTop: 1 }}>
                       {getMotivation(sessionDuration)}
                     </Text>
                   </View>
                 </View>
-                {/* 볼륨 + 칼로리 */}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {sessionVolume > 0 && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#E7F7F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <Icon name="dumbbell" size={12} color="#2E9E83" />
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#2E9E83' }}>{sessionVolume.toLocaleString()}kg</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                      <Icon name="dumbbell" size={12} color={c.success} />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: c.success }}>{sessionVolume.toLocaleString()}kg</Text>
                     </View>
                   )}
                   {(todaySession?.caloriesBurned ?? 0) > 0 && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FFEBE2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <FlameIcon size={12} color="#E6932F" />
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#E6932F' }}>{todaySession!.caloriesBurned} kcal</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.warning + '20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                      <FlameIcon size={12} color={c.warning} />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: c.warning }}>{todaySession!.caloriesBurned} kcal</Text>
                     </View>
                   )}
                   {activeSession && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#E7F7F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <Icon name="clock" size={12} color="#7E9A90" />
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#7E9A90' }}>진행 중</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                      <Icon name="clock" size={12} color={c.textSecondary} />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: c.textSecondary }}>진행 중</Text>
                     </View>
                   )}
                 </View>
               </View>
             ) : (
               <View style={{ alignItems: 'center', paddingVertical: 10, gap: 6 }}>
-                <Icon name="dumbbell" size={38} color="#B4CFC5" />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#B4CFC5' }}>오늘 운동 기록이 없어요</Text>
+                <Icon name="dumbbell" size={38} color={c.textMuted} />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.textMuted }}>오늘 운동 기록이 없어요</Text>
               </View>
             )}
           </View>
@@ -203,27 +200,27 @@ export default function HomeScreen() {
         {/* ── 빠른 기록 ── */}
         <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, marginLeft: 2 }}>
-            <BoltIcon size={15} color="#FFD36E" />
-            <Text style={{ fontSize: 14, fontWeight: '900', color: '#34514A' }}>빠른 기록</Text>
+            <BoltIcon size={15} color={c.stats} />
+            <Text style={{ fontSize: 14, fontWeight: '900', color: c.textPrimary }}>빠른 기록</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 13 }}>
             <TouchableOpacity
-              style={[{ flex: 1, backgroundColor: '#fff', borderRadius: 26, padding: 18, alignItems: 'center', gap: 9, transform: [{ rotate: '-2deg' }] }, SHADOW]}
+              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 26, padding: 18, alignItems: 'center', gap: 9, transform: [{ rotate: '-2deg' }] }, SHADOW]}
               onPress={() => router.push("/modal/add-food")}
               activeOpacity={0.8}>
-              <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: '#E7F7F0', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
                 <SaladIcon size={32} />
               </View>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#34514A' }}>식단 추가</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textPrimary }}>식단 추가</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[{ flex: 1, backgroundColor: '#fff', borderRadius: 26, padding: 18, alignItems: 'center', gap: 9, transform: [{ rotate: '2deg' }] }, SHADOW]}
+              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 26, padding: 18, alignItems: 'center', gap: 9, transform: [{ rotate: '2deg' }] }, SHADOW]}
               onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
               activeOpacity={0.8}>
-              <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: '#FFF1E3', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="dumbbell" size={30} color="#E6932F" />
+              <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: c.warning + '18', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="dumbbell" size={30} color={c.warning} />
               </View>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#34514A' }}>운동 시작</Text>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textPrimary }}>운동 시작</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -234,6 +231,7 @@ export default function HomeScreen() {
 }
 
 function MacroRow({ label, value, max, color, iconColor }: { label: string; value: number; max: number; color: string; iconColor: string }) {
+  const c = useColors();
   const pct = Math.min(value / max, 1);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
@@ -242,10 +240,10 @@ function MacroRow({ label, value, max, color, iconColor }: { label: string; valu
       </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#7E9A90' }}>{label}</Text>
-          <Text style={{ fontSize: 12, fontWeight: '900', color: '#34514A' }}>{value}g</Text>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{label}</Text>
+          <Text style={{ fontSize: 12, fontWeight: '900', color: c.textPrimary }}>{value}g</Text>
         </View>
-        <View style={{ height: 7, borderRadius: 999, backgroundColor: '#E7F7F0', overflow: 'hidden' }}>
+        <View style={{ height: 7, borderRadius: 999, backgroundColor: c.surfaceAlt, overflow: 'hidden' }}>
           <View style={{ height: '100%', borderRadius: 999, backgroundColor: color, width: `${pct * 100}%` as `${number}%` }} />
         </View>
       </View>

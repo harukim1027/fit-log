@@ -14,14 +14,29 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.fitlog.app",
       "infoPlist": {
         "NSHealthShareUsageDescription": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
         "NSHealthUpdateUsageDescription": "운동 및 신체 데이터를 Apple Health에 저장합니다.",
         "NSCameraUsageDescription": "음식 사진을 찍어 칼로리를 분석합니다.",
-        "NSPhotoLibraryUsageDescription": "갤러리에서 음식 사진을 선택해 칼로리를 분석합니다."
+        "NSPhotoLibraryUsageDescription": "갤러리에서 음식 사진을 선택해 칼로리를 분석합니다.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.6407997968-nlvadp68cnca0o3rf6a420ms3d1a8lpp"
+            ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.6407997968-nlvadp68cnca0o3rf6a420ms3d1a8lpp"
+            ]
+          }
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "com.fitlog.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -32,7 +47,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -47,8 +63,16 @@
           "healthSharePermission": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
           "healthUpdatePermission": "운동 및 신체 데이터를 Apple Health에 저장합니다."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
-    "scheme": "fitlog"
+    "scheme": "fitlog",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d1dd85f4-b4bf-410f-8756-e9af669b078f"
+      }
+    },
+    "owner": "yoonakim1027"
   }
 }

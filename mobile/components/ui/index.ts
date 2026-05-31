@@ -26,3 +26,5 @@ export { Stepper } from "./Stepper";
 
 export { SortableList } from "./SortableList";
 export type { SortableListProps } from "./SortableList";
+
+export { ThemeToggle } from "./ThemeToggle";

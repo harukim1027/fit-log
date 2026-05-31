@@ -7,6 +7,7 @@ import {
   View,
   Animated,
 } from "react-native";
+import { useColors } from "../../constants/colors";
 
 export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -49,13 +50,6 @@ const fontSize: Record<ButtonSize, string> = {
   lg: "text-base",
 };
 
-const spinnerColor: Record<ButtonVariant, string> = {
-  primary: "#FFFFFF",
-  secondary: "#6FD3B6",
-  danger: "#FF9DB0",
-  ghost: "#6FD3B6",
-};
-
 export function Button({
   title,
   variant = "primary",
@@ -71,6 +65,14 @@ export function Button({
   horizontalMargin,
   ...props
 }: ButtonProps) {
+  const c = useColors();
+  const spinnerColor: Record<ButtonVariant, string> = {
+    primary: "#FFFFFF",
+    secondary: c.primary,
+    danger: c.danger,
+    ghost: c.primary,
+  };
+
   const isDisabled = disabled || loading;
   const scale = useRef(new Animated.Value(1)).current;
 

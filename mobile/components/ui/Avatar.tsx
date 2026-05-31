@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Image, ImageSourcePropType, ViewProps } from "react-native";
+import { useColors } from "../../constants/colors";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -50,13 +51,15 @@ export function Avatar({
   source,
   size = "md",
   badge = false,
-  badgeColor = "#6FD3B6",
+  badgeColor,
   className,
   style,
   ...props
 }: AvatarProps) {
+  const c = useColors();
   const px = sizePx[size];
   const badgePx = badgeSizePx[size];
+  const resolvedBadgeColor = badgeColor ?? c.primary;
 
   return (
     <View
@@ -85,7 +88,7 @@ export function Avatar({
           style={{
             width: badgePx,
             height: badgePx,
-            backgroundColor: badgeColor,
+            backgroundColor: resolvedBadgeColor,
           }}
         />
       )}

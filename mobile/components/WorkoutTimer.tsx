@@ -1,13 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Icon } from "./AppIcons";
-
-const SHADOW = {
-  shadowColor: "#4EBFA0",
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.2,
-  shadowRadius: 24,
-  elevation: 4,
-};
+import { useColors } from "../constants/colors";
 
 const formatElapsed = (s: number) => {
   const h = Math.floor(s / 3600);
@@ -37,11 +30,19 @@ export default function WorkoutTimer({
   onReset,
   onEnd,
 }: Props) {
+  const c = useColors();
+  const SHADOW = {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 4,
+  };
   return (
     <View
       style={[
         {
-          backgroundColor: "#fff",
+          backgroundColor: c.surface,
           borderRadius: 30,
           padding: 18,
           marginBottom: 12,
@@ -56,14 +57,14 @@ export default function WorkoutTimer({
           alignItems: "center",
         }}>
         <View>
-          <Text style={{ fontSize: 20, fontWeight: "900", color: "#34514A" }}>
+          <Text style={{ fontSize: 20, fontWeight: "900", color: c.textPrimary }}>
             운동 중
           </Text>
           <Text
             style={{
               fontSize: 12,
               fontWeight: "700",
-              color: "#7E9A90",
+              color: c.textSecondary,
               marginTop: 3,
             }}>
             {exerciseCount}종목 · 총 볼륨 {totalVolume.toLocaleString()}kg
@@ -71,14 +72,14 @@ export default function WorkoutTimer({
         </View>
         <TouchableOpacity
           style={{
-            backgroundColor: "#E7F7F0",
+            backgroundColor: c.surfaceAlt,
             borderRadius: 999,
             paddingHorizontal: 14,
             paddingVertical: 9,
           }}
           onPress={onEnd}
           activeOpacity={0.8}>
-          <Text style={{ fontSize: 12, fontWeight: "800", color: "#2E9E83" }}>
+          <Text style={{ fontSize: 12, fontWeight: "800", color: c.success }}>
             저장 및 종료
           </Text>
         </TouchableOpacity>
@@ -86,7 +87,7 @@ export default function WorkoutTimer({
 
       {/* 구분선 */}
       <View
-        style={{ height: 1, backgroundColor: "#E7F7F0", marginVertical: 12 }}
+        style={{ height: 1, backgroundColor: c.surfaceAlt, marginVertical: 12 }}
       />
 
       {/* 하단: 경과 시간 + 컨트롤 */}
@@ -98,7 +99,7 @@ export default function WorkoutTimer({
             fontWeight: "900",
             letterSpacing: -1,
             flex: 1,
-            color: paused ? "#B4CFC5" : "#34514A",
+            color: paused ? c.textMuted : c.textPrimary,
           }}>
           {formatElapsed(elapsed)}
         </Text>
@@ -108,8 +109,8 @@ export default function WorkoutTimer({
           style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
           onPress={onReset}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Icon name="refresh" size={16} color="#E76C86" />
-          <Text style={{ fontSize: 11, fontWeight: "700", color: "#E76C86" }}>
+          <Icon name="refresh" size={16} color={c.danger} />
+          <Text style={{ fontSize: 11, fontWeight: "700", color: c.danger }}>
             리셋
           </Text>
         </TouchableOpacity>
@@ -121,7 +122,7 @@ export default function WorkoutTimer({
             alignItems: "center",
             justifyContent: "center",
             gap: 5,
-            backgroundColor: paused ? "#6FD3B6" : "#FFF1E3",
+            backgroundColor: paused ? c.primary : c.warning + '18',
             borderRadius: 999,
             paddingVertical: 8,
             paddingHorizontal: 16,
@@ -133,7 +134,7 @@ export default function WorkoutTimer({
             style={{
               fontSize: 12,
               fontWeight: "800",
-              color: paused ? "#fff" : "#E6932F",
+              color: paused ? c.surface : c.warning,
             }}>
             {paused ? "재개" : "일시정지"}
           </Text>

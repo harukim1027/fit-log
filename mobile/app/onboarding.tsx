@@ -17,6 +17,8 @@ import { Icon, GoalIcon, HeartIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
 import { useHealthStore } from "../store/healthStore";
+import { useColors } from "../constants/colors";
+import { BackgroundBlobs } from "../components/BackgroundBlobs";
 
 const GOALS = [
   { key: "체중감량", desc: "체지방 줄이기" },
@@ -70,6 +72,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 }
 
 export default function OnboardingScreen() {
+  const c = useColors();
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
@@ -157,6 +160,7 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
+      <BackgroundBlobs />
       <Header
         title=""
         showBack={step > 0}
@@ -195,7 +199,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: "#4EBFA0",
+                        shadowColor: c.primary,
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.08,
                         shadowRadius: 10,
@@ -276,7 +280,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: "#4EBFA0",
+                        shadowColor: c.primary,
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.08,
                         shadowRadius: 10,
@@ -284,7 +288,7 @@ export default function OnboardingScreen() {
                       }}
                       onPress={() => setGender(g)}
                       activeOpacity={0.8}>
-                      <Icon name="person" size={32} color="#B4CFC5" />
+                      <Icon name="person" size={32} color={c.textMuted} />
                       <Text
                         className={[
                           "text-base font-bold",
@@ -361,7 +365,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: "#4EBFA0",
+                        shadowColor: c.primary,
                         shadowOffset: { width: 0, height: 1 },
                         shadowOpacity: 0.07,
                         shadowRadius: 8,
@@ -396,7 +400,7 @@ export default function OnboardingScreen() {
                   onChangeText={setTargetCal}
                   keyboardType="numeric"
                   selectTextOnFocus
-                  placeholderTextColor="#B4CFC5"
+                  placeholderTextColor={c.textMuted}
                 />
                 <Text className="text-sm font-semibold text-text-muted">kcal / 일</Text>
               </View>
@@ -412,7 +416,7 @@ export default function OnboardingScreen() {
           {step < 2 ? (
             <Button
               title="다음"
-              rightIcon={<Icon name="chevronRight" size={20} color="#fff" />}
+              rightIcon={<Icon name="chevronRight" size={20} color={c.surface} />}
               onPress={goNext}
               fullWidth
             />

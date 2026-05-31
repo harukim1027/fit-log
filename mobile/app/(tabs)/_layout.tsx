@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Tabs } from "expo-router";
 import { Animated, View } from "react-native";
-import { Colors } from "../../constants/colors";
+import { useColors } from "../../constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "../../components/AppIcons";
 
@@ -15,6 +15,7 @@ const TABS: { name: string; title: string; icon: TabIconName }[] = [
 ];
 
 function AnimatedTabIcon({ icon, focused }: { icon: TabIconName; focused: boolean }) {
+  const c = useColors();
   const scale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
   useEffect(() => {
     Animated.spring(scale, {
@@ -29,18 +30,19 @@ function AnimatedTabIcon({ icon, focused }: { icon: TabIconName; focused: boolea
     <Animated.View
       style={[
         { transform: [{ scale }], borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5 },
-        focused && { backgroundColor: Colors.surfaceAlt },
+        focused && { backgroundColor: c.surfaceAlt },
       ]}>
       <Icon
         name={icon}
         size={22}
-        color={focused ? Colors.mintInk : Colors.textMuted}
+        color={focused ? c.primary : c.textMuted}
       />
     </Animated.View>
   );
 }
 
 export default function TabLayout() {
+  const c = useColors();
   const insets = useSafeAreaInsets();
 
   return (
@@ -48,20 +50,20 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: Colors.surface,
+          backgroundColor: c.surface,
           borderTopWidth: 1,
-          borderTopColor: Colors.border,
+          borderTopColor: c.border,
           height: 72 + insets.bottom,
           paddingBottom: insets.bottom + 8,
           paddingTop: 10,
-          shadowColor: "#4EBFA0",
+          shadowColor: c.primary,
           shadowOffset: { width: 0, height: -6 },
           shadowOpacity: 0.08,
           shadowRadius: 18,
           elevation: 10,
         },
-        tabBarActiveTintColor: Colors.mintInk,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: c.primary,
+        tabBarInactiveTintColor: c.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700", marginTop: 2 },
       }}>
       {TABS.map((tab) => (
