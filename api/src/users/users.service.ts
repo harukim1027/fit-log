@@ -27,6 +27,28 @@ export class UsersService {
     return this.usersRepo.findOne({ where: { id } });
   }
 
+  async findOrCreateSocialUser(
+    email: string,
+    name: string,
+    provider: string,
+    providerId: string,
+  ): Promise<User> {
+    // Check by provider + providerId first (returning social user).
+    let user = await this.usersRepo.findOne({ where: { provider, providerId } });
+    if (user) return user;
+
+    // Same email already exists → link social account to existing user.
+    user = await this.usersRepo.findOne({ where: { email } });
+    if (user) {
+      await this.usersRepo.update(user.id, { provider, providerId });
+      return (await this.findById(user.id))!;
+    }
+
+    // Brand-new social sign-up (no password).
+    const newUser = this.usersRepo.create({ email, name, provider, providerId });
+    return this.usersRepo.save(newUser);
+  }
+
   async updateProfile(id: string, data: Partial<User>): Promise<User> {
     await this.usersRepo.update(id, data);
     const user = await this.findById(id);
