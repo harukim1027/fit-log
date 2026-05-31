@@ -34,7 +34,7 @@ export class WorkoutExercise {
   @Column({ nullable: true })
   targetReps: string;
 
-  @ManyToOne(() => WorkoutSession, session => session.exercises)
+  @ManyToOne(() => WorkoutSession, session => session.exercises, { onDelete: 'CASCADE' })
   session: WorkoutSession;
 
   @OneToMany(() => WorkoutSet, set => set.exercise, { cascade: true })

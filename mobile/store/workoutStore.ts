@@ -365,6 +365,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   },
 
   updateSession: async (sessionId, exercises) => {
+    // Optimistic local update — avoids full re-render of all HistoryCards
+    set(s => ({
+      sessions: s.sessions.map(sess =>
+        sess.id === sessionId ? { ...sess, exercises } : sess
+      ),
+    }));
     try {
       await apiClient.patch(`/workout/${sessionId}`, {
         exercises: exercises.map(ex => ({
@@ -385,8 +391,9 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           })),
         })),
       });
-      await get().fetchSessions();
     } catch (e) {
+      // Revert optimistic update on failure
+      await get().fetchSessions();
       console.error('운동 기록 수정 실패', e);
       throw e;
     }

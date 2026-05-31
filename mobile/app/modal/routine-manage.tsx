@@ -85,6 +85,9 @@ export default function RoutineManageModal() {
   const [combineName, setCombineName] = useState("");
 
   const nameRef = useRef<TextInput>(null);
+  const listScrollRef = useRef<ScrollView>(null);
+  const editScrollRef = useRef<ScrollView>(null);
+  const combineScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadRoutines().then(() => {
@@ -282,6 +285,7 @@ export default function RoutineManageModal() {
           <BackgroundBlobs />
           <Header title="루틴 관리" showClose />
           <ScrollView
+            ref={listScrollRef}
             contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
             <TouchableOpacity
               style={[
@@ -368,6 +372,8 @@ export default function RoutineManageModal() {
                   data={routines}
                   keyExtractor={(r) => r.id}
                   itemHeight={ROUTINE_ITEM_H}
+                  onDragStart={() => listScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+                  onDragRelease={() => listScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                   onDragEnd={(ordered) =>
                     reorderRoutines(ordered.map((r) => r.id))
                   }
@@ -595,6 +601,7 @@ export default function RoutineManageModal() {
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
             <ScrollView
+              ref={combineScrollRef}
               contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
               keyboardShouldPersistTaps="handled">
               <Text
@@ -638,6 +645,8 @@ export default function RoutineManageModal() {
                 data={combineExercises}
                 keyExtractor={(ex) => ex.key}
                 itemHeight={EXERCISE_ITEM_H}
+                onDragStart={() => combineScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+                onDragRelease={() => combineScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                 onDragEnd={setCombineExercises}
                 renderItem={(ex) => (
                   <View
@@ -766,6 +775,7 @@ export default function RoutineManageModal() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
           <ScrollView
+            ref={editScrollRef}
             contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled">
             <Text
@@ -821,6 +831,8 @@ export default function RoutineManageModal() {
                 data={exercises}
                 keyExtractor={(ex) => ex.key}
                 itemHeight={EXERCISE_ITEM_H}
+                onDragStart={() => editScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+                onDragRelease={() => editScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                 onDragEnd={setExercises}
                 renderItem={(ex, idx) => (
                   <TouchableOpacity
