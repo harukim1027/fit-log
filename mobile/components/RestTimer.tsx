@@ -306,9 +306,7 @@ export default function RestTimer({
               onPress={pinned ? onUnpin : onPin}
               style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ fontSize: 14, opacity: pinned ? 1 : 0.5 }}>
-                📌
-              </Text>
+              <Icon name="target" size={14} color={pinned ? c.warning : c.textSecondary} style={{ opacity: pinned ? 1 : 0.5 }} />
               <Text
                 style={{
                   fontSize: 11,
@@ -389,7 +387,10 @@ export default function RestTimer({
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
                 onPress={restartTimer} activeOpacity={0.8}>
-                <Text style={{ fontSize: 12, fontWeight: '900', color: c.onAccent }}>🔄 다시시작</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Icon name="refresh" size={12} color={c.onAccent} />
+                  <Text style={{ fontSize: 12, fontWeight: '900', color: c.onAccent }}>다시시작</Text>
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -514,7 +515,7 @@ export default function RestTimer({
 
           {timerState === 'completed' && (
             <View style={{ alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 48, fontWeight: '900', letterSpacing: -2, color: c.primary }}>완료! 🎉</Text>
+              <Text style={{ fontSize: 48, fontWeight: '900', letterSpacing: -2, color: c.primary }}>완료!</Text>
             </View>
           )}
 
@@ -566,7 +567,7 @@ export default function RestTimer({
               }}>
                 {timerState === 'running' ? '⏸ 일시정지' :
                  timerState === 'paused' ? '▶ 재개' :
-                 timerState === 'completed' ? '🔄 다시' :
+                 timerState === 'completed' ? '다시' :
                  seconds === 0 ? '시간 설정' : '▶ 시작'}
               </Text>
             </TouchableOpacity>

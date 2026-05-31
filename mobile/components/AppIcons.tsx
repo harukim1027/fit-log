@@ -71,6 +71,8 @@ const LINE_PATHS: Record<string, string> = {
   merge: "M8 5H5v3M5 8v4a4 4 0 0 0 4 4h2m5-11h3v3m0 0v4a4 4 0 0 1-4 4h-2M12 16v3",
   play: "M8 5l12 7-12 7Z",
   list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+  lock: "M8 11V7a4 4 0 0 1 8 0v4M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1ZM12 15v2",
+  unlock: "M8 11V7a4 4 0 1 1 7.93 0.88M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1ZM12 15v2",
 };
 
 export function Icon({ name, size = 22, color = MINT.mintInk }: IconProps & { name: keyof typeof LINE_PATHS | string }) {

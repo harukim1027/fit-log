@@ -550,7 +550,7 @@ export default function WorkoutScreen() {
                     paddingBottom: 20,
                     gap: 8,
                   }}>
-                  <Text style={{ fontSize: 28 }}>🏋️</Text>
+                  <Icon name="dumbbell" size={28} color={c.textMuted} />
                   <Text
                     style={{
                       fontSize: 20,
@@ -654,9 +654,7 @@ export default function WorkoutScreen() {
                             </View>
                             <TouchableOpacity
                               onPress={() => handleShareToggle(routine)}>
-                              <Text style={{ fontSize: 16 }}>
-                                {routine.isPublic ? "🔓" : "🔒"}
-                              </Text>
+                              <Icon name={routine.isPublic ? "unlock" : "lock"} size={16} color={c.textSecondary} />
                             </TouchableOpacity>
                             <TouchableOpacity
                               onPress={() =>
@@ -763,15 +761,18 @@ export default function WorkoutScreen() {
                                 paddingHorizontal: 10,
                                 paddingVertical: 4,
                               }}>
-                              <Text
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: "800",
-                                  color: c.success,
-                                  letterSpacing: 2,
-                                }}>
-                                🔓 {routine.shareCode}
-                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Icon name="unlock" size={11} color={c.success} />
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "800",
+                                    color: c.success,
+                                    letterSpacing: 2,
+                                  }}>
+                                  {routine.shareCode}
+                                </Text>
+                              </View>
                             </View>
                             <Text style={{ fontSize: 11, color: c.textSecondary }}>
                               공유 중
@@ -1168,7 +1169,10 @@ export default function WorkoutScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, paddingHorizontal: 4 }}>
                     <Text style={{ fontSize: 12, color: c.textMuted, fontWeight: '600' }}>기반 루틴:</Text>
                     <View style={{ backgroundColor: c.surfaceAlt, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: c.success }}>📋 {rn.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Icon name="list" size={11} color={c.success} />
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.success }}>{rn.name}</Text>
+                      </View>
                     </View>
                   </View>
                 ) : null;
@@ -1214,7 +1218,7 @@ export default function WorkoutScreen() {
                       setShowRoutineSheet(true);
                     }}
                     activeOpacity={0.8}>
-                    <Text style={{ fontSize: 14 }}>📋</Text>
+                    <Icon name="list" size={14} color={c.warning} />
                     <Text style={{ fontSize: 13, fontWeight: "800", color: c.warning }}>
                       루틴에서 가져오기
                     </Text>
@@ -2371,9 +2375,10 @@ function ExerciseHistoryRow({
       )}
 
       {delta != null && delta > 0 && (
-        <Animated.View style={{ opacity: growthOp, marginBottom: 6 }}>
+        <Animated.View style={{ opacity: growthOp, marginBottom: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Icon name="dumbbell" size={12} color={c.success} />
           <Text style={{ fontSize: 12, fontWeight: "800", color: c.success }}>
-            💪 +{delta}kg 성장했어요!
+            +{delta}kg 성장했어요!
           </Text>
         </Animated.View>
       )}
@@ -2637,7 +2642,7 @@ function HistoryCard({
             </View>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-            <Text style={{ fontSize: 12 }}>📦</Text>
+            <Icon name="dumbbell" size={12} color={c.success} />
             <Text style={{ fontSize: 13, fontWeight: '700', color: c.success }}>{volume.toLocaleString()}kg</Text>
           </View>
           <Text style={{ fontSize: 11, fontWeight: '600', color: c.textMuted, marginLeft: 'auto' as any }}>
@@ -2666,7 +2671,7 @@ function HistoryCard({
         <TouchableOpacity
           onPress={() => { if (editMode) { setEditMode(false); } else { enterHistoryEdit(); setExpanded(true); } }}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderRightWidth: 1, borderRightColor: c.surfaceAlt }}>
-          <Icon name={editMode ? 'x' : 'pencil'} size={13} color={editMode ? c.danger : c.primary} />
+          <Icon name={editMode ? 'close' : 'pencil'} size={13} color={editMode ? c.danger : c.primary} />
           <Text style={{ fontSize: 13, fontWeight: '700', color: editMode ? c.danger : c.primary }}>
             {editMode ? '취소' : '수정'}
           </Text>
@@ -2798,10 +2803,16 @@ function HistoryCard({
                       {(ex.targetReps?.trim() || (ex.restSeconds && ex.restSeconds > 0)) && (
                         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8 }}>
                           {ex.targetReps?.trim() ? (
-                            <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: '600' }}>🎯 목표 {ex.targetReps}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Icon name="target" size={12} color={c.textSecondary} />
+                              <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: '600' }}>목표 {ex.targetReps}</Text>
+                            </View>
                           ) : null}
                           {ex.restSeconds && ex.restSeconds > 0 ? (
-                            <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: '600' }}>⏸ 쉬는시간 {fmtRestSeconds(ex.restSeconds)}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Icon name="timer" size={12} color={c.textSecondary} />
+                              <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: '600' }}>쉬는시간 {fmtRestSeconds(ex.restSeconds)}</Text>
+                            </View>
                           ) : null}
                         </View>
                       )}

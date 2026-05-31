@@ -120,7 +120,7 @@ export default function EditProfileModal() {
           }}
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={{ fontSize: 18, color: c.textPrimary, fontWeight: '700' }}>✕</Text>
+          <Icon name="close" size={18} color={c.textPrimary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 17, fontWeight: "700", color: c.textPrimary }}>프로필 편집</Text>
         <View style={{ width: 36 }} />

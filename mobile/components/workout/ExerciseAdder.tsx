@@ -616,7 +616,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 />
                 {searchQuery ? (
                   <TouchableOpacity onPress={() => setSearchQuery("")}>
-                    <Text style={{ fontSize: 16, color: c.textMuted, fontWeight: "600" }}>✕</Text>
+                    <Icon name="close" size={16} color={c.textMuted} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -648,7 +648,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>직접 추가</Text>
                     <TouchableOpacity onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}>
-                      <Text style={{ fontSize: 16, color: c.textMuted, fontWeight: "600" }}>✕</Text>
+                      <Icon name="close" size={16} color={c.textMuted} />
                     </TouchableOpacity>
                   </View>
 
@@ -1192,7 +1192,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       onPress={() => removeSetting(i)}
                       activeOpacity={0.7}>
                       <Text style={{ fontSize: 12, fontWeight: "600", color: c.primary }}>{s.key}: {s.value}</Text>
-                      <Text style={{ fontSize: 11, color: c.primary, fontWeight: "700" }}>✕</Text>
+                      <Icon name="close" size={11} color={c.primary} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -1294,7 +1294,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         style={{ marginLeft: -6, marginTop: -8 }}
                         onPress={() => deleteCustomKey(k.id)}
                         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                        <Text style={{ fontSize: 13, color: c.textMuted, fontWeight: "600" }}>✕</Text>
+                        <Icon name="close" size={13} color={c.textMuted} />
                       </TouchableOpacity>
                     </View>
                   );

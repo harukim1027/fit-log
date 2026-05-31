@@ -731,7 +731,7 @@ export default function RoutineManageModal() {
                         )
                       }
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Icon name="x" size={15} color={c.textMuted} />
+                      <Icon name="close" size={15} color={c.textMuted} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -904,15 +904,14 @@ export default function RoutineManageModal() {
                         {ex.defaultWeight ? ` · ${ex.defaultWeight}kg` : ""}
                       </Text>
                       {ex.tip ? (
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            color: c.textMuted,
-                            marginTop: 1,
-                          }}
-                          numberOfLines={1}>
-                          💡 {ex.tip}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 1 }}>
+                          <Icon name="bulb" size={9} color={c.textMuted} />
+                          <Text
+                            style={{ fontSize: 9, color: c.textMuted }}
+                            numberOfLines={1}>
+                            {ex.tip}
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
                     <TouchableOpacity

@@ -6,7 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useAuthStore } from "../../store/authStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input, Button } from "../../components/ui";
-import { LogoMark } from "../../components/AppIcons";
+import { LogoMark, Icon } from "../../components/AppIcons";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -185,7 +185,7 @@ function GoogleIcon() {
 }
 
 function KakaoIcon() {
-  return <Text style={{ fontSize: 18 }}>💬</Text>;
+  return <Icon name="chat" size={18} color="#3A1D1D" />;
 }
 
 function NaverIcon() {
