@@ -2,7 +2,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   AppState,
   Vibration,
   Animated,
@@ -12,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { Icon, PlayIcon } from "./AppIcons";
 import { useColors } from "../constants/colors";
+import { NumberPad } from "./ui/NumberPad";
 
 const PRESETS = [
   { label: "5초", seconds: 5 },
@@ -66,6 +66,7 @@ export default function RestTimer({
   const [_running, _setRunning] = useState(externalRunning ?? false);
   const [_paused, _setPaused] = useState(externalPaused ?? false);
   const [inputText, setInputText] = useState("");
+  const [timerPadVisible, setTimerPadVisible] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
   const [completed, setCompleted] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -245,9 +246,10 @@ export default function RestTimer({
 
   const progress = remaining > 0 && seconds > 0 ? ((seconds - remaining) / seconds) * 100 : 0;
 
+  // paused를 먼저 체크: running=true,paused=true 케이스도 'paused'로 처리
   const timerState =
-    running && !paused ? 'running' as const :
-    !running && paused ? 'paused' as const :
+    paused ? 'paused' as const :
+    running ? 'running' as const :
     completed ? 'completed' as const :
     'waiting' as const;
 
@@ -517,27 +519,25 @@ export default function RestTimer({
           )}
 
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <TextInput
-              value={inputText}
-              onChangeText={handleInput}
-              keyboardType="numeric"
-              selectTextOnFocus
-              returnKeyType="done"
-              blurOnSubmit
-              placeholder="직접 입력 (초)"
+            <TouchableOpacity
+              onPress={() => setTimerPadVisible(true)}
               style={{
                 flex: 1,
                 backgroundColor: c.surfaceAlt,
                 borderRadius: 16,
                 paddingVertical: 12,
                 paddingHorizontal: 14,
+                alignItems: 'center',
+              }}>
+              <Text style={{
                 fontSize: 15,
                 fontWeight: "800",
-                color: c.textPrimary,
+                color: inputText ? c.textPrimary : c.textMuted,
                 textAlign: "center",
-              }}
-              placeholderTextColor={c.textMuted}
-            />
+              }}>
+                {inputText || '직접 입력 (초)'}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={{
                 borderRadius: 16,
@@ -573,6 +573,16 @@ export default function RestTimer({
           </View>
         </>
       )}
+
+      <NumberPad
+        visible={timerPadVisible}
+        value={inputText}
+        decimal={false}
+        suffix="초"
+        max={3600}
+        onConfirm={(v) => { handleInput(v); setTimerPadVisible(false); }}
+        onCancel={() => setTimerPadVisible(false)}
+      />
     </View>
   );
 }

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Alert,
-  Keyboard, KeyboardAvoidingView, Platform, Modal, LayoutAnimation,
+  KeyboardAvoidingView, Platform, Modal, LayoutAnimation,
   UIManager, Image, ActivityIndicator, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Header } from "../ui";
+import { Header, NumberPad } from "../ui";
 import { BackgroundBlobs } from "../BackgroundBlobs";
 import { Icon, FlameIcon } from "../AppIcons";
 import apiClient from "../../lib/apiClient";
@@ -30,7 +30,6 @@ const BODYPART_TO_CATEGORY: Record<string, string> = {
 
 const BODY_PARTS = ["가슴", "등", "어깨", "팔", "하체", "복근", "유산소", "전신"];
 
-const WEIGHT_PRESETS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100];
 
 const PRESET_SETTING_KEYS = [
   "시트높이", "등받이각도", "그립종류", "발판위치", "바높이", "인클라인각도", "기타",
@@ -127,6 +126,8 @@ export type ExerciseAddResult = {
   // routine mode
   defaultSets?: number;
   defaultWeight?: number;
+  defaultReps?: number;
+  routineSets?: Array<{ setNumber: number; targetWeight: number; targetReps: number; unit: 'kg' | 'lbs' }>;
 };
 
 type ExerciseAdderProps = {
@@ -147,6 +148,8 @@ type ExerciseAdderProps = {
     sets?: Array<{ weight: number; reps: number; weightR?: number }>;
     defaultSets?: number;
     defaultWeight?: number;
+    defaultReps?: number;
+    routineSets?: Array<{ setNumber: number; targetWeight: number; targetReps: number; unit: 'kg' | 'lbs' }>;
   };
 };
 
@@ -170,13 +173,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const scrollRef = useRef<ScrollView>(null);
   const setsSectionY = useRef(0);
   const customFormY = useRef(0);
-  const setWeightRefs = useRef<(TextInput | null)[]>([]);
   const customKeyInputRef = useRef<TextInput>(null);
   const customNameRef = useRef<TextInput>(null);
   const tipRef = useRef<TextInput>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchIdRef = useRef(0);
-  const lastFocusedSetIndex = useRef(0);
 
   // Exercise selection
   const [searchQuery, setSearchQuery] = useState("");
@@ -201,6 +202,15 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // Routine mode state
   const [defaultSets, setDefaultSets] = useState("3");
   const [defaultWeight, setDefaultWeight] = useState("");
+  const [defaultReps, setDefaultReps] = useState("");
+  const [perSetMode, setPerSetMode] = useState(false);
+  const [routineSets, setRoutineSets] = useState<Array<{ weight: string; reps: string }>>([]);
+
+  // Number pad
+  type PadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
+  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
+    setPadConfig({ value, decimal, suffix, onConfirm });
 
   // Common settings
   const [settings, setSettings] = useState<ExerciseSetting[]>([]);
@@ -245,6 +255,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       } else if (mode === 'routine') {
         if (ex.defaultSets) setDefaultSets(String(ex.defaultSets));
         if (ex.defaultWeight) setDefaultWeight(String(ex.defaultWeight));
+        if (ex.defaultReps) setDefaultReps(String(ex.defaultReps));
+        setIsSingleArm(ex.isSingleArm ?? false);
+        setDifferentSides(ex.differentSides ?? false);
+        if (ex.routineSets && ex.routineSets.length > 0) {
+          setPerSetMode(true);
+          setRoutineSets(ex.routineSets.map(s => ({ weight: String(s.targetWeight), reps: String(s.targetReps) })));
+        }
       }
     }
   }, []);
@@ -316,9 +333,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     setTimeout(() => {
       scrollRef.current?.scrollTo({ y: setsSectionY.current, animated: true });
     }, 320);
-    if (mode === "session") {
-      setTimeout(() => setWeightRefs.current[0]?.focus(), 520);
-    }
   };
 
   const handleChangeExercise = () => {
@@ -334,7 +348,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     setDefaultWeight("");
     setIsSingleArm(false);
     setDifferentSides(false);
-    setWeightRefs.current = [];
+    setPerSetMode(false);
+    setRoutineSets([]);
     setShowCustomForm(false);
   };
 
@@ -360,14 +375,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // ─── Session mode set handlers ────────────────────────────────────────────
 
   const handleAddSet = () => {
-    const newIndex = sets.length;
-    setSets(prev => [...prev, { weight: "", weightR: "", reps: "" }]);
-    setTimeout(() => setWeightRefs.current[newIndex]?.focus(), 100);
-  };
-
-  const applyWeightPreset = (w: number) => {
-    const idx = lastFocusedSetIndex.current;
-    setSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: String(w) } : s));
+    const last = sets[sets.length - 1] ?? { weight: '', weightR: '', reps: '' };
+    setSets(prev => [...prev, { weight: last.weight, weightR: last.weightR, reps: last.reps }]);
   };
 
   const adjustWeight = (idx: number, delta: number) => {
@@ -385,6 +394,31 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       const cur = parseInt(s.reps) || 0;
       return { ...s, reps: String(Math.max(0, cur + delta)) };
     }));
+  };
+
+  const adjustRoutineSetWeight = (idx: number, delta: number) => {
+    setRoutineSets(prev => prev.map((s, i) => {
+      if (i !== idx) return s;
+      const cur = parseFloat(s.weight) || 0;
+      const next = Math.max(0, cur + delta);
+      return { ...s, weight: String(next % 1 === 0 ? next : next.toFixed(1)) };
+    }));
+  };
+
+  const adjustRoutineSetReps = (idx: number, delta: number) => {
+    setRoutineSets(prev => prev.map((s, i) => {
+      if (i !== idx) return s;
+      const cur = parseInt(s.reps) || 0;
+      return { ...s, reps: String(Math.max(0, cur + delta)) };
+    }));
+  };
+
+  const togglePerSetMode = () => {
+    if (!perSetMode) {
+      const count = Math.max(1, parseInt(defaultSets) || 3);
+      setRoutineSets(Array.from({ length: count }, () => ({ weight: defaultWeight, reps: defaultReps })));
+    }
+    setPerSetMode(v => !v);
   };
 
   const toKg = (val: string) => {
@@ -474,8 +508,17 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         tip: tip.trim() || undefined,
         restSeconds: parseInt(restSeconds) || undefined,
         targetReps: targetReps.trim() || undefined,
-        defaultSets: Math.max(1, parseInt(defaultSets) || 3),
-        defaultWeight: parseFloat(defaultWeight) || undefined,
+        isSingleArm,
+        differentSides: isSingleArm ? differentSides : false,
+        defaultSets: perSetMode ? routineSets.length : Math.max(1, parseInt(defaultSets) || 3),
+        defaultWeight: perSetMode ? undefined : (parseFloat(defaultWeight) || undefined),
+        defaultReps: perSetMode ? undefined : (parseInt(defaultReps) || undefined),
+        routineSets: perSetMode && routineSets.length > 0 ? routineSets.map((s, i) => ({
+          setNumber: i + 1,
+          targetWeight: parseFloat(s.weight) || 0,
+          targetReps: parseInt(s.reps) || 0,
+          unit,
+        })) : undefined,
       });
     }
   };
@@ -791,101 +834,75 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     </TouchableOpacity>
                   )}
 
-                  {/* Weight presets */}
-                  <View style={{ marginBottom: 10 }}>
-                    <Text style={{ fontSize: 11, fontWeight: "700", color: c.textMuted, marginBottom: 6 }}>무게 프리셋 ({unit})</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                      {WEIGHT_PRESETS.map(w => (
-                        <TouchableOpacity key={w}
-                          onPress={() => applyWeightPreset(w)}
-                          style={{ backgroundColor: c.surfaceAlt, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, marginRight: 6 }}>
-                          <Text style={{ fontSize: 12, fontWeight: "800", color: c.primary }}>{w}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-
-                  {/* Column headers */}
-                  <View style={{ flexDirection: "row", marginBottom: 8 }}>
-                    <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "600", textAlign: "center", flex: 0.4 }}>세트</Text>
-                    {isSingleArm && differentSides ? (
-                      <>
-                        <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "600", textAlign: "center", flex: 1.2 }}>L ({unit})</Text>
-                        <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "600", textAlign: "center", flex: 1.2 }}>R ({unit})</Text>
-                      </>
-                    ) : (
-                      <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "600", textAlign: "center", flex: 1.2 }}>
-                        무게({unit}){isSingleArm ? " · 한팔" : ""}
-                      </Text>
-                    )}
-                    <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "600", textAlign: "center", flex: 1.2 }}>횟수</Text>
-                  </View>
-
-                  {/* Set rows */}
+                  {/* Set rows — single line per set */}
                   {sets.map((st, i) => (
-                    <View key={i} style={{ marginBottom: 10 }}>
+                    <View key={i} style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6, marginBottom: 6 }}>
+                      {/* Main row */}
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: c.textSecondary, textAlign: "center", flex: 0.4 }}>{i + 1}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, width: 32, textAlign: "center" }}>{i + 1}세트</Text>
 
-                        <View style={{ flex: 1.2, flexDirection: "row", alignItems: "center", gap: 3 }}>
-                          <TouchableOpacity
-                            onPress={() => adjustWeight(i, -5)}
-                            style={{ width: 30, height: 44, borderRadius: 999, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ fontSize: 16, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
-                          </TouchableOpacity>
-                          <TextInput
-                            ref={el => { setWeightRefs.current[i] = el; }}
-                            style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, height: 44, textAlign: "center", fontSize: 15, fontWeight: "700", color: c.textPrimary }}
-                            value={st.weight}
-                            onFocus={() => { lastFocusedSetIndex.current = i; }}
-                            onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weight: v } : s))}
-                            keyboardType="numeric"
-                            placeholder="0"
-                            placeholderTextColor={c.textMuted}
-                            returnKeyType="next"
-                          />
-                          <TouchableOpacity
-                            onPress={() => adjustWeight(i, 5)}
-                            style={{ width: 30, height: 44, borderRadius: 999, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ fontSize: 16, fontWeight: "800", color: c.surface, marginTop: -2 }}>+</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={() => adjustWeight(i, -5)}
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−5</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => openPad(st.weight, true, unit, v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weight: v } : s)))}
+                          style={{ flex: 1, height: 36, backgroundColor: c.surface, borderRadius: 10, alignItems: "center", justifyContent: "center", minWidth: 56 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+                            {st.weight || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}{unit}</Text>
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => adjustWeight(i, 5)}
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+5</Text>
+                        </TouchableOpacity>
 
-                        {isSingleArm && differentSides && (
-                          <TextInput
-                            style={{ flex: 1.2, backgroundColor: c.surfaceAlt, borderRadius: 12, height: 44, textAlign: "center", fontSize: 15, fontWeight: "700", color: c.textPrimary, borderWidth: 1.5, borderColor: c.warning + "40" }}
-                            value={st.weightR}
-                            onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: v } : s))}
-                            keyboardType="numeric"
-                            placeholder="0"
-                            placeholderTextColor={c.textMuted}
-                            returnKeyType="next"
-                          />
-                        )}
+                        <Text style={{ fontSize: 15, color: c.textMuted, fontWeight: "300", marginHorizontal: 1 }}>·</Text>
 
-                        <View style={{ flex: 1.2, flexDirection: "row", alignItems: "center", gap: 3 }}>
-                          <TouchableOpacity
-                            onPress={() => adjustReps(i, -1)}
-                            style={{ width: 30, height: 44, borderRadius: 999, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ fontSize: 16, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
-                          </TouchableOpacity>
-                          <TextInput
-                            style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, height: 44, textAlign: "center", fontSize: 15, fontWeight: "700", color: c.textPrimary }}
-                            value={st.reps}
-                            onChangeText={v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s))}
-                            keyboardType="numeric"
-                            placeholder="0"
-                            placeholderTextColor={c.textMuted}
-                            returnKeyType={i === sets.length - 1 ? "done" : "next"}
-                            onSubmitEditing={i === sets.length - 1 ? Keyboard.dismiss : undefined}
-                          />
-                          <TouchableOpacity
-                            onPress={() => adjustReps(i, 1)}
-                            style={{ width: 30, height: 44, borderRadius: 999, backgroundColor: c.danger, alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ fontSize: 16, fontWeight: "800", color: c.surface, marginTop: -2 }}>+</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity onPress={() => adjustReps(i, -1)}
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−1</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => openPad(st.reps, false, '회', v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s)))}
+                          style={{ flex: 0.75, height: 36, backgroundColor: c.surface, borderRadius: 10, alignItems: "center", justifyContent: "center", minWidth: 48 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+                            {st.reps || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}회</Text>
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => adjustReps(i, 1)}
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.danger, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+1</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={{ width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", opacity: sets.length > 1 ? 0.7 : 0.2 }}
+                          onPress={() => { if (sets.length > 1) setSets(prev => prev.filter((_, idx) => idx !== i)); }}>
+                          <Icon name="trash" size={13} color={c.textMuted} />
+                        </TouchableOpacity>
                       </View>
+
+                      {/* R arm row (only when differentSides) */}
+                      {isSingleArm && differentSides && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, paddingLeft: 36 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: c.warning, width: 20, textAlign: "center" }}>R</Text>
+                          <TouchableOpacity
+                            onPress={() => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: String(Math.max(0, (parseFloat(s.weightR ?? '') || 0) - 5)) } : s))}
+                            style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" }}>
+                            <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−5</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => openPad(st.weightR ?? '', true, unit, v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: v } : s)))}
+                            style={{ flex: 1, height: 36, backgroundColor: c.surface, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: c.warning + "40" }}>
+                            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+                              {st.weightR || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}{unit}</Text>
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: String((parseFloat(s.weightR ?? '') || 0) + 5) } : s))}
+                            style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.warning + "80", alignItems: "center", justifyContent: "center" }}>
+                            <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+5</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   ))}
                   <TouchableOpacity
@@ -899,50 +916,224 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
               {/* ── ROUTINE MODE: Target setting ── */}
               {mode === "routine" && (
                 <>
-                  <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, marginBottom: 12 }}>목표 설정</Text>
+                  {/* 헤더 + kg/lbs 토글 */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>목표 설정</Text>
+                    <View style={{ flexDirection: "row", gap: 4 }}>
+                      {(["kg", "lbs"] as const).map(u => (
+                        <TouchableOpacity key={u}
+                          style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: unit === u ? c.primary : c.surfaceAlt }}
+                          onPress={() => setUnit(u)}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: unit === u ? c.surface : c.textSecondary }}>{u}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
 
+                  {/* 한팔 토글 */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: c.textSecondary }}>한팔 기준</Text>
+                    <TouchableOpacity
+                      style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: isSingleArm ? c.primary : c.surfaceAlt, justifyContent: "center", paddingHorizontal: 2 }}
+                      onPress={() => { setIsSingleArm(v => !v); setDifferentSides(false); }}
+                      activeOpacity={0.8}>
+                      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.surface, transform: [{ translateX: isSingleArm ? 20 : 0 }], shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 }} />
+                    </TouchableOpacity>
+                  </View>
+                  {isSingleArm && (
+                    <TouchableOpacity
+                      style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-end", marginBottom: 10 }}
+                      onPress={() => setDifferentSides(v => !v)}>
+                      <View style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: differentSides ? c.primary : c.border, backgroundColor: differentSides ? c.primary : "transparent", alignItems: "center", justifyContent: "center" }}>
+                        {differentSides && <Icon name="check" size={10} color={c.surface} />}
+                      </View>
+                      <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "600" }}>좌우 다른 무게</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* 목표 세트 수 */}
                   <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>목표 세트 수</Text>
                   <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
                     {["2", "3", "4", "5"].map(n => (
                       <TouchableOpacity
                         key={n}
                         style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: defaultSets === n ? c.primary : c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
-                        onPress={() => setDefaultSets(n)}>
+                        onPress={() => {
+                          setDefaultSets(n);
+                          if (perSetMode) {
+                            const count = parseInt(n);
+                            setRoutineSets(prev => {
+                              if (prev.length < count) {
+                                const last = prev[prev.length - 1] ?? { weight: defaultWeight, reps: defaultReps };
+                                return [...prev, ...Array.from({ length: count - prev.length }, () => ({ ...last }))];
+                              }
+                              return prev.slice(0, count);
+                            });
+                          }
+                        }}>
                         <Text style={{ fontSize: 16, fontWeight: "800", color: defaultSets === n ? c.surface : c.textSecondary }}>{n}</Text>
                       </TouchableOpacity>
                     ))}
-                    <TextInput
-                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, height: 44, textAlign: "center", fontSize: 15, fontWeight: "700", color: c.textPrimary }}
-                      value={!["2", "3", "4", "5"].includes(defaultSets) ? defaultSets : ""}
-                      onChangeText={v => setDefaultSets(v)}
-                      keyboardType="number-pad"
-                      placeholder="직접"
-                      placeholderTextColor={c.textMuted}
-                    />
+                    <TouchableOpacity
+                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, height: 44, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => openPad(defaultSets, false, '세트', v => {
+                        setDefaultSets(v);
+                        if (perSetMode) {
+                          const count = Math.max(1, parseInt(v) || 1);
+                          setRoutineSets(prev => {
+                            if (prev.length < count) {
+                              const last = prev[prev.length - 1] ?? { weight: defaultWeight, reps: defaultReps };
+                              return [...prev, ...Array.from({ length: count - prev.length }, () => ({ ...last }))];
+                            }
+                            return prev.slice(0, count);
+                          });
+                        }
+                      })}>
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: !["2", "3", "4", "5"].includes(defaultSets) && defaultSets ? c.primary : c.textMuted }}>
+                        {!["2", "3", "4", "5"].includes(defaultSets) && defaultSets ? defaultSets : '직접'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>기본 무게 (kg, 선택)</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                  {/* 세트별 개별 설정 토글 */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 12, marginBottom: 14 }}>
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: c.textPrimary }}>세트별 개별 설정</Text>
+                      <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>각 세트마다 다른 목표 무게/횟수</Text>
+                    </View>
                     <TouchableOpacity
-                      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
-                      onPress={() => setDefaultWeight(w => String(Math.max(0, (parseFloat(w) || 0) - 5)))}>
-                      <Text style={{ fontSize: 16, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
-                    </TouchableOpacity>
-                    <TextInput
-                      style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, fontSize: 15, fontWeight: "700", color: c.textPrimary, textAlign: "center" }}
-                      value={defaultWeight}
-                      onChangeText={setDefaultWeight}
-                      keyboardType="decimal-pad"
-                      placeholder="0"
-                      placeholderTextColor={c.textMuted}
-                    />
-                    <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700" }}>kg</Text>
-                    <TouchableOpacity
-                      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}
-                      onPress={() => setDefaultWeight(w => String((parseFloat(w) || 0) + 5))}>
-                      <Text style={{ fontSize: 16, fontWeight: "800", color: c.surface, marginTop: -2 }}>+</Text>
+                      style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: perSetMode ? c.primary : c.surfaceHigh, justifyContent: "center", paddingHorizontal: 2 }}
+                      onPress={togglePerSetMode}
+                      activeOpacity={0.8}>
+                      <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.surface, transform: [{ translateX: perSetMode ? 20 : 0 }], shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 }} />
                     </TouchableOpacity>
                   </View>
+
+                  {!perSetMode ? (
+                    <>
+                      {/* 기본무게 · 목표횟수 */}
+                      <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>기본무게 · 목표횟수 (선택)</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 14 }}>
+                        <TouchableOpacity
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
+                          onPress={() => setDefaultWeight(w => String(Math.max(0, (parseFloat(w) || 0) - 5)))}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−5</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, alignItems: "center", justifyContent: "center" }}
+                          onPress={() => openPad(defaultWeight, true, unit, setDefaultWeight)}>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: defaultWeight ? c.textPrimary : c.textMuted }}>
+                            {defaultWeight || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}{unit}</Text>
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}
+                          onPress={() => setDefaultWeight(w => String((parseFloat(w) || 0) + 5))}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+5</Text>
+                        </TouchableOpacity>
+
+                        <Text style={{ fontSize: 15, color: c.textMuted, fontWeight: "300", marginHorizontal: 1 }}>·</Text>
+
+                        <TouchableOpacity
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
+                          onPress={() => setDefaultReps(r => String(Math.max(0, (parseInt(r) || 0) - 1)))}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−1</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ flex: 0.75, backgroundColor: c.surfaceAlt, borderRadius: 10, height: 36, alignItems: "center", justifyContent: "center", minWidth: 48 }}
+                          onPress={() => openPad(defaultReps, false, '회', setDefaultReps)}>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: defaultReps ? c.textPrimary : c.textMuted }}>
+                            {defaultReps || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}회</Text>
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.danger, alignItems: "center", justifyContent: "center" }}
+                          onPress={() => setDefaultReps(r => String((parseInt(r) || 0) + 1))}>
+                          <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+1</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      {/* 세트별 목표 리스트 */}
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: c.textPrimary }}>세트별 목표</Text>
+                        {routineSets.length > 0 && (
+                          <TouchableOpacity
+                            style={{ backgroundColor: c.primary + "18", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}
+                            onPress={() => {
+                              const first = routineSets[0];
+                              setRoutineSets(prev => prev.map(() => ({ ...first })));
+                            }}>
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: c.primary }}>1세트 값 전체 적용</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {routineSets.map((rs, i) => (
+                        <View key={i} style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6, marginBottom: 6 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, width: 32, textAlign: "center" }}>{i + 1}세트</Text>
+
+                            <TouchableOpacity onPress={() => adjustRoutineSetWeight(i, -5)}
+                              style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" }}>
+                              <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−5</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => openPad(rs.weight, true, unit, v => setRoutineSets(prev => prev.map((s, idx) => idx === i ? { ...s, weight: v } : s)))}
+                              style={{ flex: 1, height: 36, backgroundColor: c.surface, borderRadius: 10, alignItems: "center", justifyContent: "center", minWidth: 56 }}>
+                              <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+                                {rs.weight || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}{unit}</Text>
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => adjustRoutineSetWeight(i, 5)}
+                              style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}>
+                              <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+5</Text>
+                            </TouchableOpacity>
+
+                            <Text style={{ fontSize: 15, color: c.textMuted, fontWeight: "300", marginHorizontal: 1 }}>·</Text>
+
+                            <TouchableOpacity onPress={() => adjustRoutineSetReps(i, -1)}
+                              style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" }}>
+                              <Text style={{ fontSize: 13, fontWeight: "800", color: c.textSecondary }}>−1</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => openPad(rs.reps, false, '회', v => setRoutineSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s)))}
+                              style={{ flex: 0.75, height: 36, backgroundColor: c.surface, borderRadius: 10, alignItems: "center", justifyContent: "center", minWidth: 48 }}>
+                              <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+                                {rs.reps || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}회</Text>
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => adjustRoutineSetReps(i, 1)}
+                              style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.danger, alignItems: "center", justifyContent: "center" }}>
+                              <Text style={{ fontSize: 13, fontWeight: "800", color: c.surface }}>+1</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={{ width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", opacity: routineSets.length > 1 ? 0.7 : 0.2 }}
+                              onPress={() => {
+                                if (routineSets.length > 1) {
+                                  const next = routineSets.filter((_, idx) => idx !== i);
+                                  setRoutineSets(next);
+                                  setDefaultSets(String(next.length));
+                                }
+                              }}>
+                              <Icon name="trash" size={13} color={c.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+
+                      <TouchableOpacity
+                        style={{ alignItems: "center", padding: 10, borderRadius: 14, marginBottom: 4, backgroundColor: c.primary + "18" }}
+                        onPress={() => {
+                          const last = routineSets[routineSets.length - 1] ?? { weight: "", reps: "" };
+                          const next = [...routineSets, { ...last }];
+                          setRoutineSets(next);
+                          setDefaultSets(String(next.length));
+                        }}>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: c.primary }}>+ 세트 추가</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </>
               )}
 
@@ -956,15 +1147,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   onPress={() => setRestSeconds(s => String(Math.max(0, parseInt(s) - 15)))}>
                   <Text style={{ fontSize: 16, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
                 </TouchableOpacity>
-                <TextInput
-                  style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, fontSize: 15, fontWeight: "700", color: c.textPrimary, textAlign: "center" }}
-                  value={restSeconds}
-                  onChangeText={setRestSeconds}
-                  keyboardType="numeric"
-                  placeholder="60"
-                  placeholderTextColor={c.textMuted}
-                />
-                <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700" }}>초</Text>
+                <TouchableOpacity
+                  style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, paddingVertical: 10, alignItems: "center", justifyContent: "center" }}
+                  onPress={() => openPad(restSeconds, false, '초', setRestSeconds)}>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>
+                    {restSeconds || '60'}<Text style={{ fontSize: 12, fontWeight: "600", color: c.textMuted }}>{' '}초</Text>
+                  </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}
                   onPress={() => setRestSeconds(s => String(parseInt(s) + 15))}>
@@ -1058,6 +1247,16 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Number pad */}
+      <NumberPad
+        visible={padConfig !== null}
+        value={padConfig?.value ?? '0'}
+        decimal={padConfig?.decimal ?? true}
+        suffix={padConfig?.suffix}
+        onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
+        onCancel={() => setPadConfig(null)}
+      />
 
       {/* Equipment settings modal */}
       <Modal visible={showSettingsSheet} transparent animationType="slide" onRequestClose={closeSettingsSheet}>

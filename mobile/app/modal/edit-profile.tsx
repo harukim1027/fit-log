@@ -20,6 +20,7 @@ import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { GoalIcon, Icon } from "../../components/AppIcons";
+import { NumberPad } from "../../components/ui";
 
 const GOALS = [
   { key: "체중감량" },
@@ -48,6 +49,11 @@ export default function EditProfileModal() {
     String(user?.targetCalories ?? "")
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  type PadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
+  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
+    setPadConfig({ value, decimal, suffix, onConfirm });
 
   const cardShadow = {
     shadowColor: c.primary,
@@ -163,39 +169,22 @@ export default function EditProfileModal() {
           {/* 신체 정보 */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>신체 정보</Text>
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted, marginBottom: 6 }}>나이</Text>
-              <TextInput
-                style={inputStyle}
-                value={age}
-                onChangeText={setAge}
-                keyboardType="number-pad"
-                placeholder="세"
-                placeholderTextColor={c.textMuted}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted, marginBottom: 6 }}>신장</Text>
-              <TextInput
-                style={inputStyle}
-                value={height}
-                onChangeText={setHeight}
-                keyboardType="decimal-pad"
-                placeholder="cm"
-                placeholderTextColor={c.textMuted}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted, marginBottom: 6 }}>체중</Text>
-              <TextInput
-                style={inputStyle}
-                value={weight}
-                onChangeText={setWeight}
-                keyboardType="decimal-pad"
-                placeholder="kg"
-                placeholderTextColor={c.textMuted}
-              />
-            </View>
+            {([
+              { label: '나이', value: age, set: setAge, decimal: false, suffix: '세', max: 120 },
+              { label: '신장', value: height, set: setHeight, decimal: true, suffix: 'cm', max: 250 },
+              { label: '체중', value: weight, set: setWeight, decimal: true, suffix: 'kg', max: 300 },
+            ] as const).map(({ label, value, set, decimal, suffix, max }) => (
+              <View key={label} style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted, marginBottom: 6 }}>{label}</Text>
+                <TouchableOpacity
+                  style={[inputStyle, { alignItems: 'center' }]}
+                  onPress={() => openPad(value, decimal, suffix, set)}>
+                  <Text style={{ fontSize: 15, color: value ? c.textPrimary : c.textMuted }}>
+                    {value || suffix}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
 
           {/* 목표 */}
@@ -225,14 +214,13 @@ export default function EditProfileModal() {
           {/* 목표 칼로리 */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>목표 칼로리</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TextInput
-              style={[inputStyle, { flex: 1 }]}
-              value={targetCal}
-              onChangeText={setTargetCal}
-              keyboardType="number-pad"
-              placeholder="2000"
-              placeholderTextColor={c.textMuted}
-            />
+            <TouchableOpacity
+              style={[inputStyle, { flex: 1, alignItems: 'center' }]}
+              onPress={() => openPad(targetCal, false, 'kcal', setTargetCal)}>
+              <Text style={{ fontSize: 15, color: targetCal ? c.textPrimary : c.textMuted }}>
+                {targetCal || '2000'}
+              </Text>
+            </TouchableOpacity>
             <Text style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>kcal / 일</Text>
           </View>
 
@@ -302,6 +290,15 @@ export default function EditProfileModal() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <NumberPad
+        visible={padConfig !== null}
+        value={padConfig?.value ?? '0'}
+        decimal={padConfig?.decimal ?? false}
+        suffix={padConfig?.suffix}
+        onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
+        onCancel={() => setPadConfig(null)}
+      />
     </SafeAreaView>
   );
 }
