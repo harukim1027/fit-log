@@ -11,7 +11,7 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Header } from "../../components/ui";
+import { Header, SortableList } from "../../components/ui";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Calendar } from "react-native-calendars";
 import { useDietStore } from "../../store/dietStore";
@@ -91,6 +91,7 @@ export default function DietScreen() {
   } = useDietStore();
 
   const [snackCardNames, setSnackCardNames] = useLocalState<Record<string, string>>({});
+  const [orderedSnackCards, setOrderedSnackCards] = useLocalState<NonNullable<typeof diet>['snackCards']>([]);
   const [calVisibleMonth, setCalVisibleMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
@@ -110,6 +111,11 @@ export default function DietScreen() {
   useEffect(() => {
     fetchDiet(dateStr(currentDate));
   }, [currentDate]);
+
+  useEffect(() => {
+    const d = dailyDiets.find(x => x.date === dateStr(currentDate));
+    setOrderedSnackCards(d?.snackCards ?? [{ id: 'snack-default', name: '간식', foods: [] }]);
+  }, [dailyDiets, currentDate]);
 
   const navigate = useCallback((direction: "prev" | "next") => {
     if (isAnimating.current) return;
@@ -624,162 +630,166 @@ export default function DietScreen() {
             })}
 
             {/* 간식 카드들 */}
-            {(
-              diet?.snackCards ?? [
-                { id: "snack-default", name: "간식", foods: [] },
-              ]
-            ).map((card, cardIdx) => {
-              const cardCal = card.foods.reduce((s, f) => s + f.calories, 0);
-              const cardName = snackCardNames[card.id] ?? card.name;
-              return (
-                <View
-                  key={card.id}
-                  style={[
-                    {
-                      backgroundColor: "#fff",
-                      borderRadius: 30,
-                      padding: 16,
-                      marginBottom: 10,
-                    },
-                    SHADOW,
-                  ]}>
+            <SortableList
+              data={orderedSnackCards.length > 0 ? orderedSnackCards : (diet?.snackCards ?? [{ id: 'snack-default', name: '간식', foods: [] }])}
+              keyExtractor={(card) => card.id}
+              itemHeight={130}
+              onDragEnd={setOrderedSnackCards}
+              renderItem={(card, cardIdx, isActive) => {
+                const cardCal = card.foods.reduce((s, f) => s + f.calories, 0);
+                const cardName = snackCardNames[card.id] ?? card.name;
+                return (
                   <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 10,
-                    }}>
+                    style={[
+                      {
+                        backgroundColor: "#fff",
+                        borderRadius: 30,
+                        padding: 16,
+                        marginBottom: 10,
+                      },
+                      SHADOW,
+                    ]}>
                     <View
                       style={{
                         flexDirection: "row",
+                        justifyContent: "space-between",
                         alignItems: "center",
-                        gap: 10,
+                        marginBottom: 10,
                       }}>
                       <View
                         style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 13,
-                          backgroundColor: MEAL_BG["snack"],
+                          flexDirection: "row",
                           alignItems: "center",
-                          justifyContent: "center",
+                          gap: 10,
                         }}>
-                        {MEAL_ICONS["snack"]}
-                      </View>
-                      <View>
-                        <Text
+                        <View style={{ opacity: isActive ? 1.0 : 0.3 }}>
+                          <Icon name="menu" size={16} color="#7E9A90" />
+                        </View>
+                        <View
                           style={{
-                            fontSize: 15,
-                            fontWeight: "900",
-                            color: "#34514A",
+                            width: 34,
+                            height: 34,
+                            borderRadius: 13,
+                            backgroundColor: MEAL_BG["snack"],
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}>
-                          {cardName}
-                        </Text>
+                          {MEAL_ICONS["snack"]}
+                        </View>
+                        <View>
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              fontWeight: "900",
+                              color: "#34514A",
+                            }}>
+                            {cardName}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              fontWeight: "700",
+                              color: "#7E9A90",
+                            }}>
+                            {cardCal} kcal
+                          </Text>
+                        </View>
+                      </View>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                        }}>
+                        {cardIdx > 0 && (
+                          <TouchableOpacity
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 10,
+                              backgroundColor: "#FFE8EF",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            onPress={() => {
+                              if (card.foods.length > 0) {
+                                Alert.alert(
+                                  "간식 카드 삭제",
+                                  "이 간식 카드의 모든 기록이 삭제돼요. 계속할까요?",
+                                  [
+                                    { text: "취소", style: "cancel" },
+                                    {
+                                      text: "삭제",
+                                      style: "destructive",
+                                      onPress: () =>
+                                        card.foods.forEach((f) =>
+                                          removeFood(
+                                            "snack",
+                                            f.id,
+                                            dateStr(currentDate)
+                                          )
+                                        ),
+                                    },
+                                  ]
+                                );
+                              }
+                            }}>
+                            <Icon name="close" size={13} color="#E76C86" />
+                          </TouchableOpacity>
+                        )}
+                        <TouchableOpacity
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 12,
+                              backgroundColor: "#E7F7F0",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            onPress={() =>
+                              router.push({
+                                pathname: "/modal/add-food",
+                                params: {
+                                  mealType: "snack",
+                                  snackCardId: card.id,
+                                  date: dateStr(currentDate),
+                                },
+                              })
+                            }>
+                            <Icon name="plus" size={18} color="#2E9E83" />
+                          </TouchableOpacity>
+                      </View>
+                    </View>
+                    {card.foods.length === 0 ? (
+                      <View
+                        style={{
+                          alignItems: "center",
+                          paddingVertical: 10,
+                          gap: 4,
+                        }}>
+                        <SaladIcon size={28} />
                         <Text
                           style={{
                             fontSize: 12,
                             fontWeight: "700",
-                            color: "#7E9A90",
+                            color: "#B4CFC5",
                           }}>
-                          {cardCal} kcal
+                          아직 기록이 없어요
                         </Text>
                       </View>
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}>
-                      {cardIdx > 0 && (
-                        <TouchableOpacity
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 10,
-                            backgroundColor: "#FFE8EF",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          onPress={() => {
-                            if (card.foods.length > 0) {
-                              Alert.alert(
-                                "간식 카드 삭제",
-                                "이 간식 카드의 모든 기록이 삭제돼요. 계속할까요?",
-                                [
-                                  { text: "취소", style: "cancel" },
-                                  {
-                                    text: "삭제",
-                                    style: "destructive",
-                                    onPress: () =>
-                                      card.foods.forEach((f) =>
-                                        removeFood(
-                                          "snack",
-                                          f.id,
-                                          dateStr(currentDate)
-                                        )
-                                      ),
-                                  },
-                                ]
-                              );
-                            }
-                          }}>
-                          <Icon name="close" size={13} color="#E76C86" />
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 12,
-                            backgroundColor: "#E7F7F0",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/modal/add-food",
-                              params: {
-                                mealType: "snack",
-                                snackCardId: card.id,
-                                date: dateStr(currentDate),
-                              },
-                            })
-                          }>
-                          <Icon name="plus" size={18} color="#2E9E83" />
-                        </TouchableOpacity>
-                    </View>
+                    ) : (
+                      <DraggableFoodList
+                        foods={card.foods}
+                        mealType="snack"
+                        date={dateStr(currentDate)}
+                        isToday={true}
+                        onRemove={removeFood}
+                      />
+                    )}
                   </View>
-                  {card.foods.length === 0 ? (
-                    <View
-                      style={{
-                        alignItems: "center",
-                        paddingVertical: 10,
-                        gap: 4,
-                      }}>
-                      <SaladIcon size={28} />
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontWeight: "700",
-                          color: "#B4CFC5",
-                        }}>
-                        아직 기록이 없어요
-                      </Text>
-                    </View>
-                  ) : (
-                    <DraggableFoodList
-                      foods={card.foods}
-                      mealType="snack"
-                      date={dateStr(currentDate)}
-                      isToday={true}
-                      onRemove={removeFood}
-                    />
-                  )}
-                </View>
-              );
-            })}
+                );
+              }}
+            />
 
             {/* 간식 추가 + */}
             <TouchableOpacity
