@@ -18,6 +18,6 @@ export class WorkoutSet {
   @Column({ default: true })
   completed: boolean;
 
-  @ManyToOne(() => WorkoutExercise, exercise => exercise.sets)
+  @ManyToOne(() => WorkoutExercise, exercise => exercise.sets, { onDelete: 'CASCADE' })
   exercise: WorkoutExercise;
 }

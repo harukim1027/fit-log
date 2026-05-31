@@ -2463,8 +2463,12 @@ function HistoryCard({
   const [exExpanded, setExExpanded] = useState<Record<string, boolean>>({});
   const [orderedExercises, setOrderedExercises] = useState(session.exercises);
   const [editMode, setEditMode] = useState(false);
+  const skipNextSync = useRef(false);
 
-  useEffect(() => { setOrderedExercises(session.exercises); }, [session.exercises]);
+  useEffect(() => {
+    if (skipNextSync.current) { skipNextSync.current = false; return; }
+    setOrderedExercises(session.exercises);
+  }, [session.exercises]);
   const [saving, setSaving] = useState(false);
   const [draftExercises, setDraftExercises] = useState<DraftExercise[]>([]);
   type HistoryPadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
@@ -2550,6 +2554,7 @@ function HistoryCard({
           reps: parseInt(s.reps) || 0,
         })),
       }));
+      skipNextSync.current = true;
       await onUpdate(exercises);
       setEditMode(false);
     } catch {
@@ -2746,6 +2751,7 @@ function HistoryCard({
               onDragStart={() => { setExExpanded({}); onExerciseDragStart?.(); }}
               onDragRelease={() => { onExerciseDragRelease?.(); }}
               onDragEnd={(reordered) => {
+                skipNextSync.current = true;
                 setOrderedExercises(reordered);
                 onUpdate(reordered);
               }}
