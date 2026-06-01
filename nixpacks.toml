@@ -1,8 +1,0 @@
-[phases.install]
-cmds = ["cd api && npm ci"]
-
-[phases.build]
-cmds = ["cd api && npm run build"]
-
-[start]
-cmd = "node api/dist/main.js"
