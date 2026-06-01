@@ -60,6 +60,7 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
   requestPermissions: () =>
     new Promise<boolean>((resolve) => {
       if (!isHealthKitAvailable) { resolve(false); return; }
+      if (!AppleHealthKit || typeof AppleHealthKit.initHealthKit !== 'function') { resolve(false); return; }
       try {
         AppleHealthKit.initHealthKit(buildPermissions(), (err: any) => {
           if (err) {
