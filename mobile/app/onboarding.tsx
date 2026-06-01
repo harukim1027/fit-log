@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Header, Button, Input } from "../components/ui";
+import { Header, Button, Input, NumberPad } from "../components/ui";
 import { Icon, GoalIcon, HeartIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
@@ -89,6 +89,11 @@ export default function OnboardingScreen() {
   const [weight, setWeight] = useState("");
   const [activityKey, setActivityKey] = useState("보통");
   const [targetCal, setTargetCal] = useState("");
+
+  type PadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
+  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
+    setPadConfig({ value, decimal, suffix, onConfirm });
 
   const activityMultiplier =
     ACTIVITY_LEVELS.find((a) => a.key === activityKey)?.multiplier ?? 1.375;
@@ -301,33 +306,23 @@ export default function OnboardingScreen() {
                 })}
               </View>
 
-              <Input
-                label="나이"
-                value={age}
-                onChangeText={setAge}
-                keyboardType="numeric"
-                placeholder="예: 25"
-                rightElement={<Text className="text-sm font-semibold text-text-muted">세</Text>}
-                returnKeyType="next"
-              />
-              <Input
-                label="키"
-                value={height}
-                onChangeText={setHeight}
-                keyboardType="decimal-pad"
-                placeholder="예: 170"
-                rightElement={<Text className="text-sm font-semibold text-text-muted">cm</Text>}
-                returnKeyType="next"
-              />
-              <Input
-                label="몸무게"
-                value={weight}
-                onChangeText={setWeight}
-                keyboardType="decimal-pad"
-                placeholder="예: 70"
-                rightElement={<Text className="text-sm font-semibold text-text-muted">kg</Text>}
-                returnKeyType="done"
-              />
+              {([
+                { label: '나이', value: age, set: setAge, decimal: false, suffix: '세', placeholder: '예: 25', max: 120 },
+                { label: '키', value: height, set: setHeight, decimal: true, suffix: 'cm', placeholder: '예: 170', max: 250 },
+                { label: '몸무게', value: weight, set: setWeight, decimal: true, suffix: 'kg', placeholder: '예: 70', max: 300 },
+              ] as const).map(({ label, value, set, decimal, suffix, placeholder, max }) => (
+                <View key={label} style={{ marginBottom: 16 }}>
+                  <Text className="text-text-secondary text-xs font-bold mb-1.5">{label}</Text>
+                  <TouchableOpacity
+                    className="flex-row items-center bg-surface-alt rounded-2xl px-3"
+                    onPress={() => openPad(value, decimal, suffix, set)}>
+                    <Text className="flex-1 py-3 text-base" style={{ color: value ? c.textPrimary : c.textMuted }}>
+                      {value || placeholder}
+                    </Text>
+                    <Text className="text-sm font-semibold text-text-muted">{suffix}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
@@ -392,18 +387,16 @@ export default function OnboardingScreen() {
               <Text className="text-xs font-bold text-text-secondary mb-2">
                 목표 칼로리 (수정 가능)
               </Text>
-              <View className="flex-row items-center bg-surface rounded-2xl px-4 mb-2 border border-primary/60">
-                <TextInput
+              <TouchableOpacity
+                className="flex-row items-center bg-surface rounded-2xl px-4 mb-2 border border-primary/60"
+                onPress={() => openPad(targetCal, false, 'kcal', setTargetCal)}>
+                <Text
                   className="flex-1 text-primary font-extrabold text-center"
-                  style={{ fontSize: 32, paddingVertical: 14 }}
-                  value={targetCal}
-                  onChangeText={setTargetCal}
-                  keyboardType="numeric"
-                  selectTextOnFocus
-                  placeholderTextColor={c.textMuted}
-                />
+                  style={{ fontSize: 32, paddingVertical: 14 }}>
+                  {targetCal || '—'}
+                </Text>
                 <Text className="text-sm font-semibold text-text-muted">kcal / 일</Text>
-              </View>
+              </TouchableOpacity>
               <Text className="text-xs text-text-muted text-center mb-2">
                 {goal} 목표 기준으로 계산됐어요 · 직접 수정도 가능해요
               </Text>
@@ -431,6 +424,15 @@ export default function OnboardingScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      <NumberPad
+        visible={padConfig !== null}
+        value={padConfig?.value ?? '0'}
+        decimal={padConfig?.decimal ?? false}
+        suffix={padConfig?.suffix}
+        onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
+        onCancel={() => setPadConfig(null)}
+      />
     </SafeAreaView>
   );
 }

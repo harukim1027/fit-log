@@ -24,14 +24,17 @@ export type ThemeColors = {
   carb: string;
   protein: string;
   fat: string;
+  tagCoral: string;
+  tagMint: string;
+  tagSun: string;
 };
 
 export const lightColors: ThemeColors = {
-  primary:   '#3D8BE0',
+  primary:   '#1E7AEA',
   secondary: '#5B9BD9',
   success:   '#2E9E83',
-  warning:   '#C57F1C',
-  danger:    '#E06A86',
+  warning:   '#E0950F',
+  danger:    '#EF5E80',
   onAccent:  '#FFFFFF',
   background: '#F2F6FB',
   surface:    '#FFFFFF',
@@ -41,21 +44,24 @@ export const lightColors: ThemeColors = {
   textPrimary:   '#16202B',
   textSecondary: '#5A6675',
   textMuted:     '#9AA6B4',
-  diet:    '#3D8BE0',
+  diet:    '#1E7AEA',
   workout: '#5B9BD9',
-  stats:   '#C57F1C',
-  water:   '#3D8BE0',
-  carb:    '#D99A2B',
-  protein: '#3D8BE0',
-  fat:     '#E06A86',
+  stats:   '#E0950F',
+  water:   '#1E7AEA',
+  carb:    '#E0950F',
+  protein: '#1E7AEA',
+  fat:     '#EF5E80',
+  tagCoral: '#FF6B47',
+  tagMint:  '#12B07A',
+  tagSun:   '#EC9A09',
 };
 
 export const darkColors: ThemeColors = {
-  primary:   '#3D8BE0',
+  primary:   '#2E82F0',
   secondary: '#5B9BD9',
   success:   '#4FA98C',
-  warning:   '#CDB178',
-  danger:    '#D58D9C',
+  warning:   '#E8A93C',
+  danger:    '#F07A95',
   onAccent:  '#021526',
   background: '#171B21',
   surface:    '#21272F',
@@ -65,13 +71,16 @@ export const darkColors: ThemeColors = {
   textPrimary:   '#E0E6EC',
   textSecondary: '#909AA6',
   textMuted:     '#646E7A',
-  diet:    '#3D8BE0',
+  diet:    '#2E82F0',
   workout: '#5B9BD9',
-  stats:   '#CDB178',
-  water:   '#3D8BE0',
-  carb:    '#CDB178',
-  protein: '#3D8BE0',
-  fat:     '#D58D9C',
+  stats:   '#E8A93C',
+  water:   '#2E82F0',
+  carb:    '#E8A93C',
+  protein: '#2E82F0',
+  fat:     '#F07A95',
+  tagCoral: '#FF6B47',
+  tagMint:  '#22C58B',
+  tagSun:   '#F5A623',
 };
 
 import { useThemeStore } from '../store/themeStore';
