@@ -12,6 +12,34 @@ import { setUnauthorizedHandler } from "../lib/apiClient";
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+if (!__DEV__) {
+  ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+    console.error('Global error:', error, isFatal);
+  });
+}
+
+interface ErrorBoundaryState { hasError: boolean }
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('앱 크래시:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children as React.ReactElement;
+  }
+}
+
 // NativeWind v4: CSS 변수는 컴파일 타임에 :root 값으로 고정되므로
 // vars()로 런타임에 주입해야 dark mode CSS 변수가 실제로 교체됩니다.
 const lightVars = vars({
@@ -125,6 +153,7 @@ export default function RootLayout() {
   const colors = useColors();
 
   return (
+    <ErrorBoundary>
     <SafeAreaProvider>
       {/* vars()로 NativeWind CSS 변수를 런타임에 교체 — bg-surface, bg-background 등 모든 클래스가 여기서 동적으로 해결됩니다 */}
       <View style={[{ flex: 1 }, mode === "dark" ? darkVars : lightVars]}>
@@ -168,5 +197,6 @@ export default function RootLayout() {
         </AuthGate>
       </View>
     </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
