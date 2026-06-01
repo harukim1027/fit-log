@@ -38,6 +38,7 @@ import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import RestTimer from "../../components/RestTimer";
 import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
+import { SetInputRow } from "../../components/workout/SetInputRow";
 import { WorkoutSession } from "../../types/workout";
 import WorkoutTimer from "../../components/WorkoutTimer";
 
@@ -1551,22 +1552,15 @@ export default function WorkoutScreen() {
                                 </TouchableOpacity>
                               )}
                               <TouchableOpacity
+                                style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: activeEditExId === ex.id ? c.primary + '22' : c.primary + '15', alignItems: 'center', justifyContent: 'center' }}
                                 onPress={() => {
                                   if (activeEditExId === ex.id) commitEdit(ex);
                                   else enterEdit(ex);
                                 }}>
                                 <Icon
-                                  name={
-                                    activeEditExId === ex.id
-                                      ? "check"
-                                      : "pencil"
-                                  }
-                                  size={15}
-                                  color={
-                                    activeEditExId === ex.id
-                                      ? c.primary
-                                      : c.textMuted
-                                  }
+                                  name={activeEditExId === ex.id ? "check" : "pencil"}
+                                  size={20}
+                                  color={c.primary}
                                 />
                               </TouchableOpacity>
                               {!isExpanded &&
@@ -1604,143 +1598,63 @@ export default function WorkoutScreen() {
                             {/* EDIT MODE */}
                             {activeEditExId === ex.id ? (
                               <View style={{ marginTop: 4 }}>
+                                {/* 컬럼 헤더 — 한 번만 */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 4 }}>
+                                  <View style={{ width: 34 }} />
+                                  <Text style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>무게</Text>
+                                  <View style={{ width: 16 }} />
+                                  <Text style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>횟수</Text>
+                                  <View style={{ width: 24 }} />
+                                </View>
+                                <View style={{ width: '100%', height: 1, backgroundColor: c.border, marginBottom: 6 }} />
                                 {draftSets.map((ds, idx) => (
                                   <View
                                     key={ds.id}
-                                    style={{
-                                      flexDirection: "row",
-                                      alignItems: "center",
-                                      gap: 5,
-                                      marginBottom: 8,
-                                    }}>
-                                    <TouchableOpacity
-                                      style={{
-                                        width: 28,
-                                        height: 28,
-                                        borderRadius: 999,
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        backgroundColor: ds.completed
-                                          ? c.primary
-                                          : c.surfaceAlt,
-                                        flexShrink: 0,
-                                      }}
-                                      onPress={() =>
-                                        setDraftSets((prev) =>
-                                          prev.map((s, i) =>
-                                            i === idx
-                                              ? {
-                                                  ...s,
-                                                  completed: !s.completed,
-                                                }
-                                              : s
-                                          )
-                                        )
-                                      }>
-                                      {ds.completed ? (
-                                        <Icon
-                                          name="check"
-                                          size={13}
-                                          color={c.surface}
-                                        />
-                                      ) : (
-                                        <Text
-                                          style={{
-                                            fontSize: 11,
-                                            fontWeight: "800",
-                                            color: c.textSecondary,
-                                          }}>
-                                          {idx + 1}
+                                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6 }}>
+                                    <Text style={{ fontSize: 11, fontWeight: '700', color: c.textMuted, width: 34 }}>{idx + 1}세트</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                      <TouchableOpacity
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
+                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: String(Math.max(0, (parseFloat(s.weight) || 0) - 5)) } : s))}>
+                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>-5</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 54 }}
+                                        onPress={() => openPad(ds.weight, true, 'kg', v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: v } : s)))}>
+                                        <Text style={{ fontSize: 13, fontWeight: '900', color: ds.weight ? c.textPrimary : c.textMuted }}>
+                                          {ds.weight || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> kg</Text>
                                         </Text>
-                                      )}
-                                    </TouchableOpacity>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
+                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: String((parseFloat(s.weight) || 0) + 5) } : s))}>
+                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>+5</Text>
+                                      </TouchableOpacity>
+                                    </View>
+                                    <Text style={{ fontSize: 12, color: c.textMuted }}>·</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                      <TouchableOpacity
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
+                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: String(Math.max(0, (parseInt(s.reps) || 0) - 1)) } : s))}>
+                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>-1</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 46 }}
+                                        onPress={() => openPad(ds.reps, false, '회', v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: v } : s)))}>
+                                        <Text style={{ fontSize: 13, fontWeight: '900', color: ds.reps ? c.textPrimary : c.textMuted }}>
+                                          {ds.reps || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> 회</Text>
+                                        </Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}
+                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: String((parseInt(s.reps) || 0) + 1) } : s))}>
+                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>+1</Text>
+                                      </TouchableOpacity>
+                                    </View>
                                     <TouchableOpacity
-                                      style={{
-                                        flex: 1,
-                                        backgroundColor: c.surfaceAlt,
-                                        borderRadius: 10,
-                                        height: 38,
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                      }}
-                                      onPress={() =>
-                                        openPad(ds.weight, true, "kg", (v) =>
-                                          setDraftSets((prev) =>
-                                            prev.map((s, i) =>
-                                              i === idx
-                                                ? { ...s, weight: v }
-                                                : s
-                                            )
-                                          )
-                                        )
-                                      }>
-                                      <Text
-                                        style={{
-                                          fontSize: 14,
-                                          fontWeight: "700",
-                                          color: ds.weight
-                                            ? c.textPrimary
-                                            : c.textMuted,
-                                        }}>
-                                        {ds.weight || "0"}
-                                      </Text>
-                                    </TouchableOpacity>
-                                    <Text
-                                      style={{
-                                        fontSize: 11,
-                                        color: c.textSecondary,
-                                        fontWeight: "600",
-                                      }}>
-                                      kg×
-                                    </Text>
-                                    <TouchableOpacity
-                                      style={{
-                                        flex: 1,
-                                        backgroundColor: c.surfaceAlt,
-                                        borderRadius: 10,
-                                        height: 38,
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                      }}
-                                      onPress={() =>
-                                        openPad(ds.reps, false, "회", (v) =>
-                                          setDraftSets((prev) =>
-                                            prev.map((s, i) =>
-                                              i === idx ? { ...s, reps: v } : s
-                                            )
-                                          )
-                                        )
-                                      }>
-                                      <Text
-                                        style={{
-                                          fontSize: 14,
-                                          fontWeight: "700",
-                                          color: ds.reps
-                                            ? c.textPrimary
-                                            : c.textMuted,
-                                        }}>
-                                        {ds.reps || "0"}
-                                      </Text>
-                                    </TouchableOpacity>
-                                    <Text
-                                      style={{
-                                        fontSize: 11,
-                                        color: c.textSecondary,
-                                        fontWeight: "600",
-                                      }}>
-                                      회
-                                    </Text>
-                                    <TouchableOpacity
-                                      onPress={() =>
-                                        setDraftSets((prev) =>
-                                          prev.filter((_, i) => i !== idx)
-                                        )
-                                      }>
-                                      <Icon
-                                        name="trash"
-                                        size={14}
-                                        color={c.textMuted}
-                                      />
+                                      style={{ paddingLeft: 8 }}
+                                      onPress={() => setDraftSets(prev => prev.filter((_, i) => i !== idx))}>
+                                      <Icon name="trash" size={16} color={c.danger} />
                                     </TouchableOpacity>
                                   </View>
                                 ))}
@@ -1853,269 +1767,15 @@ export default function WorkoutScreen() {
                                     ) : (
                                       <>
                                         {/* Weight + Reps side by side */}
-                                        <View
-                                          style={{
-                                            flexDirection: "row",
-                                            alignItems: "flex-start",
-                                            justifyContent: "space-between",
-                                            paddingHorizontal: 8,
-                                            marginBottom: 14,
-                                          }}>
-                                          <View
-                                            style={{
-                                              alignItems: "flex-start",
-                                            }}>
-                                            <Text
-                                              style={{
-                                                fontSize: 10,
-                                                fontWeight: "700",
-                                                color: c.textMuted,
-                                                marginBottom: 6,
-                                              }}>
-                                              무게
-                                            </Text>
-                                            <View
-                                              style={{
-                                                flexDirection: "row",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}>
-                                              <TouchableOpacity
-                                                style={{
-                                                  width: 32,
-                                                  height: 32,
-                                                  borderRadius: 10,
-                                                  backgroundColor: c.surfaceAlt,
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                }}
-                                                onPress={() =>
-                                                  currentSet &&
-                                                  updateSet(
-                                                    ex.id,
-                                                    currentSet.id,
-                                                    {
-                                                      weight: Math.max(
-                                                        0,
-                                                        currentSet.weight - 5
-                                                      ),
-                                                    }
-                                                  )
-                                                }>
-                                                <Text
-                                                  style={{
-                                                    fontSize: 12,
-                                                    fontWeight: "800",
-                                                    color: c.textSecondary,
-                                                  }}>
-                                                  -5
-                                                </Text>
-                                              </TouchableOpacity>
-                                              <TouchableOpacity
-                                                style={{
-                                                  paddingHorizontal: 10,
-                                                  height: 36,
-                                                  backgroundColor: c.surfaceAlt,
-                                                  borderRadius: 12,
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                  minWidth: 70,
-                                                }}
-                                                onPress={() =>
-                                                  currentSet &&
-                                                  openPad(
-                                                    String(currentSet.weight),
-                                                    true,
-                                                    "kg",
-                                                    (v) =>
-                                                      updateSet(
-                                                        ex.id,
-                                                        currentSet.id,
-                                                        {
-                                                          weight:
-                                                            parseFloat(v) || 0,
-                                                        }
-                                                      )
-                                                  )
-                                                }>
-                                                <Text
-                                                  style={{
-                                                    fontSize: 14,
-                                                    fontWeight: "900",
-                                                    color: c.textPrimary,
-                                                  }}>
-                                                  {currentSet?.weight ?? 0}
-                                                  <Text
-                                                    style={{
-                                                      fontSize: 11,
-                                                      fontWeight: "600",
-                                                      color: c.textMuted,
-                                                    }}>
-                                                    {" "}
-                                                    kg
-                                                  </Text>
-                                                </Text>
-                                              </TouchableOpacity>
-                                              <TouchableOpacity
-                                                style={{
-                                                  width: 32,
-                                                  height: 32,
-                                                  borderRadius: 10,
-                                                  backgroundColor: c.primary,
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                }}
-                                                onPress={() =>
-                                                  currentSet &&
-                                                  updateSet(
-                                                    ex.id,
-                                                    currentSet.id,
-                                                    {
-                                                      weight:
-                                                        (currentSet.weight ??
-                                                          0) + 5,
-                                                    }
-                                                  )
-                                                }>
-                                                <Text
-                                                  style={{
-                                                    fontSize: 12,
-                                                    fontWeight: "800",
-                                                    color: c.surface,
-                                                  }}>
-                                                  +5
-                                                </Text>
-                                              </TouchableOpacity>
-                                            </View>
-                                          </View>
-                                          <View
-                                            style={{
-                                              alignItems: "flex-start",
-                                            }}>
-                                            <Text
-                                              style={{
-                                                fontSize: 10,
-                                                fontWeight: "700",
-                                                color: c.textMuted,
-                                                marginBottom: 6,
-                                              }}>
-                                              횟수
-                                            </Text>
-                                            <View
-                                              style={{
-                                                flexDirection: "row",
-                                                alignItems: "center",
-                                                gap: 4,
-                                              }}>
-                                              <TouchableOpacity
-                                                style={{
-                                                  width: 32,
-                                                  height: 32,
-                                                  borderRadius: 10,
-                                                  backgroundColor: c.surfaceAlt,
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                }}
-                                                onPress={() =>
-                                                  currentSet &&
-                                                  updateSet(
-                                                    ex.id,
-                                                    currentSet.id,
-                                                    {
-                                                      reps: Math.max(
-                                                        0,
-                                                        currentSet.reps - 1
-                                                      ),
-                                                    }
-                                                  )
-                                                }>
-                                                <Text
-                                                  style={{
-                                                    fontSize: 12,
-                                                    fontWeight: "800",
-                                                    color: c.textSecondary,
-                                                  }}>
-                                                  -1
-                                                </Text>
-                                              </TouchableOpacity>
-                                              <TouchableOpacity
-                                                style={{
-                                                  paddingHorizontal: 10,
-                                                  height: 36,
-                                                  backgroundColor: c.surfaceAlt,
-                                                  borderRadius: 12,
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                  minWidth: 70,
-                                                }}
-                                                onPress={() =>
-                                                  currentSet &&
-                                                  openPad(
-                                                    String(currentSet.reps),
-                                                    false,
-                                                    "회",
-                                                    (v) =>
-                                                      updateSet(
-                                                        ex.id,
-                                                        currentSet.id,
-                                                        {
-                                                          reps:
-                                                            parseInt(v) || 0,
-                                                        }
-                                                      )
-                                                  )
-                                                }>
-                                                <Text
-                                                  style={{
-                                                    fontSize: 14,
-                                                    fontWeight: "900",
-                                                    color: c.textPrimary,
-                                                  }}>
-                                                  {currentSet?.reps ?? 0}
-                                                  <Text
-                                                    style={{
-                                                      fontSize: 11,
-                                                      fontWeight: "600",
-                                                      color: c.textMuted,
-                                                    }}>
-                                                    {" "}
-                                                    회
-                                                  </Text>
-                                                </Text>
-                                              </TouchableOpacity>
-                                              <TouchableOpacity
-                                                style={{
-                                                  width: 32,
-                                                  height: 32,
-                                                  borderRadius: 10,
-                                                  backgroundColor: c.danger,
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                }}
-                                                onPress={() =>
-                                                  currentSet &&
-                                                  updateSet(
-                                                    ex.id,
-                                                    currentSet.id,
-                                                    {
-                                                      reps:
-                                                        (currentSet.reps ?? 0) +
-                                                        1,
-                                                    }
-                                                  )
-                                                }>
-                                                <Text
-                                                  style={{
-                                                    fontSize: 12,
-                                                    fontWeight: "800",
-                                                    color: c.surface,
-                                                  }}>
-                                                  +1
-                                                </Text>
-                                              </TouchableOpacity>
-                                            </View>
-                                          </View>
-                                        </View>
+                                        <SetInputRow
+                                          weight={String(currentSet?.weight ?? 0)}
+                                          reps={String(currentSet?.reps ?? 0)}
+                                          onWeightStep={delta => currentSet && updateSet(ex.id, currentSet.id, { weight: Math.max(0, currentSet.weight + delta) })}
+                                          onRepsStep={delta => currentSet && updateSet(ex.id, currentSet.id, { reps: Math.max(0, currentSet.reps + delta) })}
+                                          onWeightPad={() => currentSet && openPad(String(currentSet.weight), true, 'kg', v => updateSet(ex.id, currentSet.id, { weight: parseFloat(v) || 0 }))}
+                                          onRepsPad={() => currentSet && openPad(String(currentSet.reps), false, '회', v => updateSet(ex.id, currentSet.id, { reps: parseInt(v) || 0 }))}
+                                          containerStyle={{ marginBottom: 14 }}
+                                        />
 
                                         {/* R arm */}
                                         {ex.isSingleArm &&
@@ -3847,6 +3507,11 @@ function HistoryCard({
         <View
           style={{
             flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 8,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
             borderTopWidth: 1,
             borderTopColor: c.surfaceAlt,
           }}>
@@ -3860,44 +3525,38 @@ function HistoryCard({
               }
             }}
             style={{
-              flex: 1,
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              gap: 5,
-              paddingVertical: 10,
-              borderRightWidth: 1,
-              borderRightColor: c.surfaceAlt,
+              gap: 6,
+              minHeight: 44,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: editMode ? c.danger + '15' : c.primary + '15',
             }}>
             <Icon
               name={editMode ? "close" : "pencil"}
-              size={13}
+              size={18}
               color={editMode ? c.danger : c.primary}
             />
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: "700",
-                color: editMode ? c.danger : c.primary,
-              }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: editMode ? c.danger : c.primary }}>
               {editMode ? "취소" : "수정"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleDelete}
             style={{
-              flex: 1,
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              gap: 5,
-              paddingVertical: 10,
-              backgroundColor: c.danger + "0A",
+              gap: 6,
+              minHeight: 44,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: c.danger + '15',
             }}>
-            <Icon name="trash" size={13} color={c.danger} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>
-              삭제
-            </Text>
+            <Icon name="trash" size={18} color={c.danger} />
+            <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>삭제</Text>
           </TouchableOpacity>
         </View>
 
@@ -3946,107 +3605,38 @@ function HistoryCard({
                     <View
                       key={ds.id}
                       style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 5,
+                        backgroundColor: ds.completed ? c.success + '14' : c.surfaceAlt,
+                        borderRadius: 12,
+                        padding: 10,
                         marginBottom: 8,
                       }}>
-                      <TouchableOpacity
-                        style={{
-                          width: 26,
-                          height: 26,
-                          borderRadius: 999,
-                          backgroundColor: ds.completed
-                            ? c.primary
-                            : c.surfaceAlt,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                        onPress={() =>
-                          updateDraftSet(exIdx, setIdx, {
-                            completed: !ds.completed,
-                          })
-                        }>
-                        {ds.completed ? (
-                          <Icon name="check" size={12} color={c.surface} />
-                        ) : (
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontWeight: "800",
-                              color: c.textSecondary,
-                            }}>
-                            {setIdx + 1}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={{
-                          flex: 1,
-                          backgroundColor: c.surfaceAlt,
-                          borderRadius: 10,
-                          height: 36,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onPress={() =>
-                          openPad(ds.weight, true, "kg", (v) =>
-                            updateDraftSet(exIdx, setIdx, { weight: v })
-                          )
-                        }>
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: "700",
-                            color: ds.weight ? c.textPrimary : c.textMuted,
-                          }}>
-                          {ds.weight || "0"}
-                        </Text>
-                      </TouchableOpacity>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          color: c.textSecondary,
-                          fontWeight: "600",
-                        }}>
-                        kg×
-                      </Text>
-                      <TouchableOpacity
-                        style={{
-                          flex: 1,
-                          backgroundColor: c.surfaceAlt,
-                          borderRadius: 10,
-                          height: 36,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onPress={() =>
-                          openPad(ds.reps, false, "회", (v) =>
-                            updateDraftSet(exIdx, setIdx, { reps: v })
-                          )
-                        }>
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: "700",
-                            color: ds.reps ? c.textPrimary : c.textMuted,
-                          }}>
-                          {ds.reps || "0"}
-                        </Text>
-                      </TouchableOpacity>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          color: c.textSecondary,
-                          fontWeight: "600",
-                        }}>
-                        회
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => removeDraftSet(exIdx, setIdx)}>
-                        <Icon name="trash" size={14} color={c.textMuted} />
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                          onPress={() => updateDraftSet(exIdx, setIdx, { completed: !ds.completed })}>
+                          {ds.completed
+                            ? <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+                                <Icon name="check" size={12} color={c.surface} />
+                              </View>
+                            : <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted }}>{setIdx + 1}</Text>
+                              </View>
+                          }
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>세트 {setIdx + 1}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => removeDraftSet(exIdx, setIdx)}>
+                          <Icon name="trash" size={14} color={c.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                      <SetInputRow
+                        weight={ds.weight}
+                        reps={ds.reps}
+                        valueBg={c.surface}
+                        onWeightStep={delta => updateDraftSet(exIdx, setIdx, { weight: String(Math.max(0, (parseFloat(ds.weight) || 0) + delta)) })}
+                        onRepsStep={delta => updateDraftSet(exIdx, setIdx, { reps: String(Math.max(0, (parseInt(ds.reps) || 0) + delta)) })}
+                        onWeightPad={() => openPad(ds.weight, true, 'kg', v => updateDraftSet(exIdx, setIdx, { weight: v }))}
+                        onRepsPad={() => openPad(ds.reps, false, '회', v => updateDraftSet(exIdx, setIdx, { reps: v }))}
+                      />
                     </View>
                   ))}
                   <TouchableOpacity

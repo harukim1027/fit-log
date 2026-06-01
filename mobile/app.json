@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fitlog.app",
+      "bundleIdentifier": "com.harulog.app",
       "infoPlist": {
         "NSHealthShareUsageDescription": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
         "NSHealthUpdateUsageDescription": "운동 및 신체 데이터를 Apple Health에 저장합니다.",
@@ -36,7 +36,7 @@
       }
     },
     "android": {
-      "package": "com.fitlog.app",
+      "package": "com.harulog.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
