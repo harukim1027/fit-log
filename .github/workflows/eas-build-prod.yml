@@ -33,6 +33,48 @@ jobs:
         working-directory: mobile
         run: npm ci
 
+      - name: Create eas.json
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > mobile/eas.json << EOF
+          {
+            "cli": {
+              "version": ">= 10.0.0",
+              "appVersionSource": "remote"
+            },
+            "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal",
+                "env": {
+                  "APP_ENV": "development"
+                }
+              },
+              "production": {
+                "autoIncrement": true,
+                "ios": {
+                  "buildConfiguration": "Release"
+                },
+                "env": {
+                  "APP_ENV": "production"
+                }
+              }
+            },
+            "submit": {
+              "production": {
+                "ios": {
+                  "appleId": "${APPLE_ID}",
+                  "ascAppId": "${ASC_APP_ID}",
+                  "appleTeamId": "${APPLE_TEAM_ID}"
+                }
+              }
+            }
+          }
+          EOF
+
       - name: Setup EAS
         uses: expo/expo-github-action@v8
         with:
