@@ -38,6 +38,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+          expo-cache: false
 
       - name: Build iOS
         working-directory: mobile
@@ -65,6 +66,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+          expo-cache: false
 
       - name: Submit to App Store
         working-directory: mobile
