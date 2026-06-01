@@ -1,16 +1,7 @@
 name: EAS Build & Submit (Prod)
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      platform:
-        description: 'Platform'
-        required: true
-        default: 'ios'
-        type: choice
-        options: [ios, android, all]
 
 jobs:
   build:
