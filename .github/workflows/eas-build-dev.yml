@@ -6,22 +6,24 @@ on:
 
 jobs:
   build:
-    name: EAS Build – development
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
         working-directory: mobile
-        run: npm install
+        run: npm install --legacy-peer-deps
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Create eas.json
         env:
@@ -31,26 +33,15 @@ jobs:
         run: |
           cat > mobile/eas.json << EOF
           {
-            "cli": {
-              "version": ">= 10.0.0",
-              "appVersionSource": "remote"
-            },
+            "cli": { "version": ">= 10.0.0", "appVersionSource": "remote" },
             "build": {
               "development": {
                 "developmentClient": true,
-                "distribution": "internal",
-                "env": {
-                  "APP_ENV": "development"
-                }
+                "distribution": "internal"
               },
               "production": {
                 "autoIncrement": true,
-                "ios": {
-                  "buildConfiguration": "Release"
-                },
-                "env": {
-                  "APP_ENV": "production"
-                }
+                "ios": { "buildConfiguration": "Release" }
               }
             },
             "submit": {
@@ -65,13 +56,6 @@ jobs:
           }
           EOF
 
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-          expo-cache: false
-
-      - name: Build iOS (development)
+      - name: Build iOS
         working-directory: mobile
         run: eas build --platform ios --profile development --non-interactive
