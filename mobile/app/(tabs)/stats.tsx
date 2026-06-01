@@ -4,21 +4,17 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
-  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Header, Card, ThemeToggle } from "../../components/ui";
 import {
   Icon,
-  HeartIcon,
   SaladIcon,
   FlameIcon,
 } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
-import { useHealthStore } from "../../store/healthStore";
 import { useColors, ThemeColors } from "../../constants/colors";
 import { LineChart, BarChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
@@ -51,12 +47,6 @@ export default function StatsScreen() {
   const { dailyDiets, targetCalories } = useDietStore();
   const { sessions, fetchSessions } = useWorkoutStore();
   const { user, logout } = useAuthStore();
-  const {
-    data: healthData,
-    isLoading: healthLoading,
-    isAvailable: healthAvailable,
-    fetchHealthData,
-  } = useHealthStore();
 
   const [selectedExercise, setSelectedExercise] = React.useState<string | null>(
     null
@@ -293,138 +283,6 @@ export default function StatsScreen() {
           )}
         </Card>
 
-        {/* Apple Health 인바디 */}
-        {Platform.OS === "ios" && (
-          <Card className="mb-4">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-[15px] font-bold text-text-secondary">
-                인바디 (Apple Health)
-              </Text>
-              {healthAvailable && (
-                <TouchableOpacity
-                  className="flex-row items-center gap-1 rounded-[20px] px-3 py-[7px] min-w-[80px] justify-center"
-                  style={{ backgroundColor: "#FF3B3018" }}
-                  onPress={fetchHealthData}
-                  disabled={healthLoading}>
-                  {healthLoading ? (
-                    <ActivityIndicator size="small" color="#FF3B30" />
-                  ) : (
-                    <>
-                      <HeartIcon size={14} filled color="#FF3B30" />
-                      <Text
-                        className="text-sm font-semibold"
-                        style={{ color: "#FF3B30" }}>
-                        가져오기
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {!healthAvailable ? (
-              <View className="items-center py-5 gap-2">
-                <Icon name="phone" size={32} color={c.textMuted} />
-                <Text className="text-sm text-text-muted text-center">
-                  Apple Health는 실제 기기 빌드에서 사용 가능해요
-                </Text>
-              </View>
-            ) : healthData.weight ||
-              healthData.bodyFat ||
-              healthData.leanBodyMass ? (
-              <>
-                <View className="flex-row gap-2">
-                  <InbodyCard
-                    label="체중"
-                    value={
-                      healthData.weight != null ? `${healthData.weight}` : "-"
-                    }
-                    unit="kg"
-                    color={c.success}
-                  />
-                  <InbodyCard
-                    label="체지방률"
-                    value={
-                      healthData.bodyFat != null ? `${healthData.bodyFat}` : "-"
-                    }
-                    unit="%"
-                    color={c.danger}
-                  />
-                  <InbodyCard
-                    label="근육량"
-                    value={
-                      healthData.leanBodyMass != null
-                        ? `${healthData.leanBodyMass}`
-                        : "-"
-                    }
-                    unit="kg"
-                    color={c.primary}
-                  />
-                </View>
-                {healthData.weightHistory.length > 1 && (
-                  <>
-                    <Text className="text-[15px] font-bold text-text-secondary mt-4 mb-2">
-                      체중 추이 (30일)
-                    </Text>
-                    <LineChart
-                      data={{
-                        labels: healthData.weightHistory
-                          .filter(
-                            (_, i) =>
-                              i %
-                                Math.ceil(
-                                  healthData.weightHistory.length / 6
-                                ) ===
-                              0
-                          )
-                          .map((d) => d.date.slice(5)),
-                        datasets: [
-                          {
-                            data: healthData.weightHistory.map((d) => d.value),
-                          },
-                        ],
-                      }}
-                      width={W}
-                      height={160}
-                      chartConfig={{
-                        ...chartConfig,
-                        decimalPlaces: 1,
-                        color: (opacity = 1) => `rgba(91,155,217,${opacity})`,
-                        propsForDots: {
-                          r: "4",
-                          strokeWidth: "2",
-                          stroke: c.secondary,
-                        },
-                      }}
-                      bezier
-                      style={{ borderRadius: 16, marginLeft: -10 }}
-                      withInnerLines={false}
-                    />
-                  </>
-                )}
-              </>
-            ) : (
-              <View className="items-center py-5 gap-2">
-                <HeartIcon size={36} filled={false} color={c.textMuted} />
-                <Text className="text-sm text-text-muted text-center">
-                  Apple Health에서 신체 데이터를 가져오세요
-                </Text>
-                <TouchableOpacity
-                  className="rounded-[20px] px-5 py-2 mt-1"
-                  style={{ backgroundColor: "#FF3B3018" }}
-                  onPress={fetchHealthData}
-                  disabled={healthLoading}>
-                  <Text
-                    className="text-sm font-bold"
-                    style={{ color: "#FF3B30" }}>
-                    {healthLoading ? "불러오는 중..." : "Apple Health 연동하기"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </Card>
-        )}
-
         {/* 종목별 성장 그래프 */}
         {exerciseNames.length > 0 && (
           <Card className="mb-4">
@@ -570,36 +428,6 @@ export default function StatsScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
-  );
-}
-
-function InbodyCard({
-  label,
-  value,
-  unit,
-  color,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  color: string;
-}) {
-  return (
-    <View
-      className="flex-1 rounded-2xl p-3 items-center"
-      style={{ backgroundColor: color + "14" }}>
-      <Text className="text-[11px] text-text-secondary font-semibold mb-1">
-        {label}
-      </Text>
-      <Text className="text-[20px] font-extrabold" style={{ color }}>
-        {value}
-      </Text>
-      <Text
-        className="text-[11px] font-semibold mt-0.5"
-        style={{ color: color + "AA" }}>
-        {unit}
-      </Text>
     </View>
   );
 }
