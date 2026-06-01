@@ -64,5 +64,9 @@ jobs:
 
       - name: Submit to App Store
         working-directory: mobile
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: eas submit --platform ios --profile production --non-interactive
         continue-on-error: true
