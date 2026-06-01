@@ -5,5 +5,3 @@ dist
 .env.production
 *.log
 .expo
-mobile/eas.json
-mobile/eas.json
