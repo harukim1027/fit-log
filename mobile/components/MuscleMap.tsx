@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Body, { ExtendedBodyPart, Slug } from 'react-native-body-highlighter';
 import { useColors } from '../constants/colors';
+import { useThemeStore } from '../store/themeStore';
 
 // ── Labels (Korean) ─────────────────────────────────────────
 export const MUSCLE_LABELS: Partial<Record<Slug, string>> = {
@@ -41,10 +42,6 @@ export const MUSCLE_MAP: Record<string, Slug[]> = {
   '크런치':             ['abs'],
 };
 
-const HIGHLIGHT = '#FF8C7A';
-const HIGHLIGHT_BG = '#FF8C7A28';
-const BODY_FILL   = '#EDE8F8';
-
 // ── Component ───────────────────────────────────────────────
 interface Props {
   muscles: string[];
@@ -54,7 +51,12 @@ interface Props {
 
 export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
   const c = useColors();
+  const isDark = useThemeStore((s) => s.mode) === 'dark';
   const [side, setSide] = useState<'front' | 'back'>('front');
+
+  const HIGHLIGHT = c.primary;
+  const HIGHLIGHT_BG = c.primary + '28';
+  const BODY_FILL = isDark ? c.surfaceHigh : '#EDE8F8';
 
   const cardShadow = {
     shadowColor: c.primary, shadowOffset: { width: 0, height: 1 },

@@ -60,7 +60,7 @@ export function Header({
             style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: c.surfaceAlt }}
             onPress={handleClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={{ fontSize: 18, color: c.textPrimary, fontWeight: '700' }}>✕</Text>
+            <Icon name="close" size={18} color={c.textPrimary} />
           </TouchableOpacity>
         )}
       </View>

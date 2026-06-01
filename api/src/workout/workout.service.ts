@@ -141,6 +141,11 @@ export class WorkoutService {
           category: exData.category ?? '',
           settings: exData.settings ?? [],
           tip: exData.tip ?? '',
+          isSingleArm: exData.isSingleArm ?? false,
+          differentSides: exData.differentSides ?? false,
+          targetMuscles: exData.targetMuscles ?? [],
+          restSeconds: exData.restSeconds ?? null,
+          targetReps: exData.targetReps ?? null,
           session,
         });
         const savedEx = await this.exerciseRepo.save(exercise);

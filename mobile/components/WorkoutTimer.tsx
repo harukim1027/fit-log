@@ -17,7 +17,6 @@ interface Props {
   elapsed: number;
   paused: boolean;
   onPausedChange: (v: boolean) => void;
-  onReset: () => void;
   onEnd: () => void;
 }
 
@@ -27,7 +26,6 @@ export default function WorkoutTimer({
   elapsed,
   paused,
   onPausedChange,
-  onReset,
   onEnd,
 }: Props) {
   const c = useColors();
@@ -103,17 +101,6 @@ export default function WorkoutTimer({
           }}>
           {formatElapsed(elapsed)}
         </Text>
-
-        {/* 리셋 버튼 */}
-        <TouchableOpacity
-          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-          onPress={onReset}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Icon name="refresh" size={16} color={c.danger} />
-          <Text style={{ fontSize: 11, fontWeight: "700", color: c.danger }}>
-            리셋
-          </Text>
-        </TouchableOpacity>
 
         {/* 일시정지/재개 버튼 */}
         <TouchableOpacity

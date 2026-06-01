@@ -247,7 +247,7 @@ export default function DietScreen() {
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 16, padding: 12, alignItems: 'center' }}>
                 <Text style={{ fontSize: 22, fontWeight: '900', color: c.success }}>{achievedDays}</Text>
-                <Text style={{ fontSize: 11, color: c.textSecondary, fontWeight: '700', marginTop: 2 }}>목표 달성일 🎯</Text>
+                <Text style={{ fontSize: 11, color: c.textSecondary, fontWeight: '700', marginTop: 2 }}>목표 달성일</Text>
               </View>
               <View style={{ flex: 1, backgroundColor: c.warning + '18', borderRadius: 16, padding: 12, alignItems: 'center' }}>
                 <Text style={{ fontSize: 22, fontWeight: '900', color: c.warning }}>{avgCalories}</Text>
@@ -256,7 +256,7 @@ export default function DietScreen() {
             </View>
             {achievedDays > 0 && (
               <Text style={{ fontSize: 12, color: c.success, fontWeight: '800', textAlign: 'center', marginTop: 10 }}>
-                이번달 {achievedDays}일 목표 달성 🎯
+                이번달 {achievedDays}일 목표 달성
               </Text>
             )}
           </View>
@@ -296,9 +296,10 @@ export default function DietScreen() {
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <Text style={{ fontSize: 26, fontWeight: '900', color: c.textPrimary }}>{selectedDayData.calories} kcal</Text>
-                    <View style={{ backgroundColor: selectedDayData.calories >= targetCalories ? c.surfaceAlt : c.warning + '18', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+                    <View style={{ backgroundColor: selectedDayData.calories >= targetCalories ? c.surfaceAlt : c.warning + '18', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      {selectedDayData.calories >= targetCalories && <Icon name="check" size={12} color={c.success} />}
                       <Text style={{ fontSize: 12, fontWeight: '800', color: selectedDayData.calories >= targetCalories ? c.success : c.warning }}>
-                        {selectedDayData.calories >= targetCalories ? '✅ 목표 달성' : `목표 ${targetCalories - selectedDayData.calories} 부족`}
+                        {selectedDayData.calories >= targetCalories ? '목표 달성' : `목표 ${targetCalories - selectedDayData.calories} 부족`}
                       </Text>
                     </View>
                   </View>
