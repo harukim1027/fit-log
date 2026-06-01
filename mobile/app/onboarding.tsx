@@ -8,15 +8,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Header, Button, Input, NumberPad } from "../components/ui";
-import { Icon, GoalIcon, HeartIcon } from "../components/AppIcons";
+import { Icon, GoalIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useDietStore } from "../store/dietStore";
-import { useHealthStore } from "../store/healthStore";
 import { useColors } from "../constants/colors";
 import { BackgroundBlobs } from "../components/BackgroundBlobs";
 
@@ -76,8 +74,6 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
-  const { fetchHealthData, isLoading: healthLoading, isAvailable: healthAvailable } =
-    useHealthStore();
 
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -239,39 +235,6 @@ export default function OnboardingScreen() {
               <Text className="text-sm text-text-secondary mb-7 leading-5">
                 기초대사량 계산에 사용돼요
               </Text>
-
-              {Platform.OS === "ios" && healthAvailable && (
-                <TouchableOpacity
-                  className="flex-row items-center gap-2 border border-[#FF3B3030] rounded-[18px] px-[18px] py-[14px] mb-6"
-                  style={{ backgroundColor: '#FF3B3012', borderWidth: 1.5, borderColor: '#FF3B3030' }}
-                  onPress={async () => {
-                    const { data } = await (async () => {
-                      await fetchHealthData();
-                      return useHealthStore.getState();
-                    })();
-                    if (data.height) setHeight(String(data.height));
-                    if (data.weight) setWeight(String(data.weight));
-                    if (data.height || data.weight) {
-                      Alert.alert("연동 완료", "Apple Health에서 키/몸무게를 가져왔어요.");
-                    } else {
-                      Alert.alert("데이터 없음", "Apple Health에 신체 정보가 없거나 권한이 필요해요.");
-                    }
-                  }}
-                  disabled={healthLoading}
-                  activeOpacity={0.8}>
-                  {healthLoading ? (
-                    <ActivityIndicator size="small" color="#FF3B30" />
-                  ) : (
-                    <HeartIcon size={16} filled color="#FF3B30" />
-                  )}
-                  <Text className="text-[15px] font-bold flex-1" style={{ color: '#FF3B30' }}>
-                    {healthLoading ? "가져오는 중..." : "Apple Health 연동하기"}
-                  </Text>
-                  <Text className="text-[11px] font-semibold" style={{ color: '#FF3B3080' }}>
-                    키·몸무게 자동 입력
-                  </Text>
-                </TouchableOpacity>
-              )}
 
               <Text className="text-xs font-bold text-text-secondary mb-2">성별</Text>
               <View className="flex-row gap-3 mb-5">
