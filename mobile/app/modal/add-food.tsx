@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Header, Card, Input, Button } from "../../components/ui";
+import { Header, Card, Input, Button, NumberPad } from "../../components/ui";
 import { Stepper } from "../../components/ui/Stepper";
 import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
@@ -83,6 +83,11 @@ export default function AddFoodModal() {
 
   const [myCustomFoods, setMyCustomFoods] = useState<CustomFood[]>([]);
   const [customFoodsLoading, setCustomFoodsLoading] = useState(false);
+
+  type PadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
+  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
+    setPadConfig({ value, decimal, suffix, onConfirm });
 
   useEffect(() => {
     fetchFavorites();
@@ -529,21 +534,30 @@ export default function AddFoodModal() {
                 <Text style={{ fontSize: 14, fontWeight: '800', color: c.textSecondary, marginBottom: 12 }}>분석 결과 (수정 가능)</Text>
 
                 {[
-                  { label: '음식명', key: 'name', keyboard: 'default' as const },
-                  { label: '칼로리 (kcal)', key: 'calories', keyboard: 'numeric' as const },
-                  { label: '탄수화물 (g)', key: 'carbs', keyboard: 'numeric' as const },
-                  { label: '단백질 (g)', key: 'protein', keyboard: 'numeric' as const },
-                  { label: '지방 (g)', key: 'fat', keyboard: 'numeric' as const },
-                  { label: '양 (g)', key: 'amount', keyboard: 'numeric' as const },
-                ].map(({ label, key, keyboard }) => (
+                  { label: '음식명', key: 'name', numeric: false },
+                  { label: '칼로리 (kcal)', key: 'calories', numeric: true, suffix: 'kcal', decimal: false },
+                  { label: '탄수화물 (g)', key: 'carbs', numeric: true, suffix: 'g' },
+                  { label: '단백질 (g)', key: 'protein', numeric: true, suffix: 'g' },
+                  { label: '지방 (g)', key: 'fat', numeric: true, suffix: 'g' },
+                  { label: '양 (g)', key: 'amount', numeric: true, suffix: 'g' },
+                ].map(({ label, key, numeric, suffix: fSuffix, decimal: fDecimal }) => (
                   <View key={key} style={{ marginBottom: 10 }}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: c.textMuted, marginBottom: 4 }}>{label}</Text>
-                    <RNTextInput
-                      style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, fontSize: 15, fontWeight: '700', color: c.textPrimary }}
-                      value={String(photoResult[key] ?? '')}
-                      onChangeText={v => setPhotoResult((p: any) => ({ ...p, [key]: v }))}
-                      keyboardType={keyboard}
-                    />
+                    {numeric ? (
+                      <TouchableOpacity
+                        style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, alignItems: 'center' }}
+                        onPress={() => openPad(String(photoResult[key] ?? ''), fDecimal !== false, fSuffix ?? '', v => setPhotoResult((p: any) => ({ ...p, [key]: v })))}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: photoResult[key] ? c.textPrimary : c.textMuted }}>
+                          {photoResult[key] || '0'}{fSuffix ? <Text style={{ fontSize: 12, fontWeight: '600', color: c.textMuted }}>{' '}{fSuffix}</Text> : null}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <RNTextInput
+                        style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, fontSize: 15, fontWeight: '700', color: c.textPrimary }}
+                        value={String(photoResult[key] ?? '')}
+                        onChangeText={v => setPhotoResult((p: any) => ({ ...p, [key]: v }))}
+                      />
+                    )}
                   </View>
                 ))}
 
@@ -686,49 +700,44 @@ export default function AddFoodModal() {
           <ScrollView keyboardShouldPersistTaps="handled">
             <View className="gap-3 mb-4">
               <Input label="식품명 *" value={manualName} onChangeText={setManualName} placeholder="예: 삶은 계란" />
-              <Input
-                label="칼로리 (kcal) *"
-                value={manualCalories}
-                onChangeText={setManualCalories}
-                placeholder="0"
-                keyboardType="numeric"
-              />
-              <View className="flex-row gap-2">
-                <View className="flex-1">
-                  <Input
-                    label="탄수화물 (g)"
-                    value={manualCarbs}
-                    onChangeText={setManualCarbs}
-                    placeholder="0"
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Input
-                    label="단백질 (g)"
-                    value={manualProtein}
-                    onChangeText={setManualProtein}
-                    placeholder="0"
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Input
-                    label="지방 (g)"
-                    value={manualFat}
-                    onChangeText={setManualFat}
-                    placeholder="0"
-                    keyboardType="numeric"
-                  />
-                </View>
+              <View style={{ marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 6 }}>칼로리 (kcal) *</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center' }}
+                  onPress={() => openPad(manualCalories, false, 'kcal', setManualCalories)}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: manualCalories ? c.textPrimary : c.textMuted }}>
+                    {manualCalories || '0'}<Text style={{ fontSize: 12, fontWeight: '600', color: c.textMuted }}>{' '}kcal</Text>
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Input
-                label="양 (g)"
-                value={manualAmount}
-                onChangeText={setManualAmount}
-                placeholder="100"
-                keyboardType="numeric"
-              />
+              <View className="flex-row gap-2">
+                {([
+                  { label: '탄수화물 (g)', value: manualCarbs, set: setManualCarbs },
+                  { label: '단백질 (g)', value: manualProtein, set: setManualProtein },
+                  { label: '지방 (g)', value: manualFat, set: setManualFat },
+                ] as const).map(({ label, value, set }) => (
+                  <View key={label} style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary, marginBottom: 6 }}>{label}</Text>
+                    <TouchableOpacity
+                      style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, paddingVertical: 12, alignItems: 'center' }}
+                      onPress={() => openPad(value, true, 'g', set)}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: value ? c.textPrimary : c.textMuted }}>
+                        {value || '0'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+              <View style={{ marginBottom: 4 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 6 }}>양 (g)</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center' }}
+                  onPress={() => openPad(manualAmount, false, 'g', setManualAmount)}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: c.textPrimary }}>
+                    {manualAmount || '100'}<Text style={{ fontSize: 12, fontWeight: '600', color: c.textMuted }}>{' '}g</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               {/* 공개 설정 */}
               <View style={{ backgroundColor: c.surface, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -753,6 +762,15 @@ export default function AddFoodModal() {
         )}
       </View>
       </KeyboardAvoidingView>
+
+      <NumberPad
+        visible={padConfig !== null}
+        value={padConfig?.value ?? '0'}
+        decimal={padConfig?.decimal ?? true}
+        suffix={padConfig?.suffix}
+        onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
+        onCancel={() => setPadConfig(null)}
+      />
     </SafeAreaView>
   );
 }

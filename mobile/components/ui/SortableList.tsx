@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState } from "react";
 import { View, PanResponder, Animated, ViewStyle } from "react-native";
 import * as Haptics from "expo-haptics";
 
@@ -9,7 +9,7 @@ export interface SortableListProps<T> {
   onDragEnd: (newData: T[]) => void;
   onDragStart?: () => void;
   onDragRelease?: () => void;
-  itemHeight?: number; // 실측 대체 후 사용 안 함, 하위호환용
+  itemHeight?: number;
   style?: ViewStyle;
 }
 
@@ -23,24 +23,18 @@ export function SortableList<T>({
   style,
 }: SortableListProps<T>) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [totalHeight, setTotalHeight] = useState(0);
 
   const isDragging = useRef(false);
   const dragStartIndex = useRef(0);
   const hoverIndexRef = useRef<number | null>(null);
 
-  // 각 아이템의 실측 높이 (onLayout)
   const itemHeights = useRef<number[]>([]);
-  // 각 아이템의 top Y (컨테이너 기준) — 누적 계산
-  // → itemHeights에서 매번 계산하므로 별도 저장 불필요
-  // 컨테이너 전체 높이
-  const [totalHeight, setTotalHeight] = useState(0);
-
-  // 드래그 시작 시 containerPageY (fresh 측정)
   const containerPageY = useRef(0);
-  // PanResponder grant 시점 pageY
-  const grantPageY = useRef(0);
-  // onTouchStart pageY
   const touchStartPageY = useRef(0);
+  const grantPageY = useRef(0);
+  // Container-relative top Y of the dragged item at drag start
+  const dragItemOriginalTopY = useRef(0);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<View>(null);
@@ -65,7 +59,6 @@ export function SortableList<T>({
     shiftsRef.current = shiftsRef.current.slice(0, data.length);
   }
 
-  // index의 top Y (컨테이너 기준) = 앞 아이템 높이 합산
   const getTopY = (index: number): number => {
     let y = 0;
     for (let i = 0; i < index; i++) {
@@ -74,9 +67,10 @@ export function SortableList<T>({
     return y;
   };
 
-  // pageY → 아이템 인덱스
+  // Fix: return 0 when above the container (previous code returned n-1)
   const indexFromPageY = (pageY: number): number => {
     const relY = pageY - containerPageY.current;
+    if (relY <= 0) return 0;
     const n = dataRef.current.length;
     let acc = 0;
     for (let i = 0; i < n; i++) {
@@ -85,10 +79,6 @@ export function SortableList<T>({
     }
     return n - 1;
   };
-
-  // 드래그 아이템 높이
-  const getDragItemHeight = (): number =>
-    itemHeights.current[dragStartIndex.current] ?? 60;
 
   const applyShifts = (active: number, hover: number) => {
     const h = itemHeights.current[active] ?? 60;
@@ -141,18 +131,19 @@ export function SortableList<T>({
       onMoveShouldSetPanResponderCapture: () => isDragging.current,
 
       onPanResponderGrant: (e) => {
+        // Record the grant position as anchor for gs.dy.
+        // dragY is already set to the item's original top in the timer callback,
+        // so we don't reset it here — this prevents the "card jumps to finger" bug.
         grantPageY.current = e.nativeEvent.pageY;
-        const h = getDragItemHeight();
-        const relY = grantPageY.current - containerPageY.current;
-        dragY.setValue(relY - h / 2);
       },
 
       onPanResponderMove: (_, gs) => {
         if (!isDragging.current) return;
-        const currentPageY = grantPageY.current + gs.dy;
-        const h = getDragItemHeight();
-        dragY.setValue(currentPageY - containerPageY.current - h / 2);
+        // Move card by the same delta as the finger from the grant point,
+        // starting from the item's original position — smooth, no jump.
+        dragY.setValue(dragItemOriginalTopY.current + gs.dy);
 
+        const currentPageY = grantPageY.current + gs.dy;
         const newHoverIndex = indexFromPageY(currentPageY);
         if (newHoverIndex !== hoverIndexRef.current) {
           hoverIndexRef.current = newHoverIndex;
@@ -162,7 +153,6 @@ export function SortableList<T>({
 
       onPanResponderRelease: (_, gs) => {
         if (!isDragging.current) return;
-
         const currentPageY = grantPageY.current + gs.dy;
         const finalIndex = indexFromPageY(currentPageY);
 
@@ -205,6 +195,12 @@ export function SortableList<T>({
             containerPageY.current = py;
 
             const idx = indexFromPageY(touchStartPageY.current);
+            const topY = getTopY(idx);
+
+            // Set dragY to the item's original position before any movement.
+            // onPanResponderGrant will NOT override this — card stays in place.
+            dragItemOriginalTopY.current = topY;
+            dragY.setValue(topY);
 
             isDragging.current = true;
             dragStartIndex.current = idx;
@@ -232,7 +228,6 @@ export function SortableList<T>({
       onTouchEnd={cancelTimer}
       onTouchCancel={cancelTimer}
       {...panResponder.panHandlers}>
-      {/* 전체 높이를 실측 합산으로 맞춤 */}
       <View style={{ height: totalHeight }}>
         {data.map((item, index) => {
           const isActive = index === dragIndex;
@@ -245,7 +240,6 @@ export function SortableList<T>({
               onLayout={(e) => {
                 const h = e.nativeEvent.layout.height;
                 itemHeights.current[index] = h;
-                // 전체 높이 재계산
                 const total = itemHeights.current
                   .slice(0, data.length)
                   .reduce((s, v) => s + (v ?? 0), 0);

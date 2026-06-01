@@ -2,8 +2,8 @@ import React from "react";
 import { Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
-import { WorkoutSet } from "../../types/workout";
 import ExerciseAdder, { ExerciseAddResult } from "../../components/workout/ExerciseAdder";
+import { Exercise } from "../../types/workout";
 
 export default function AddWorkoutModal() {
   const router = useRouter();
@@ -11,15 +11,66 @@ export default function AddWorkoutModal() {
     editMode?: string;
     exerciseId?: string;
     exerciseData?: string;
+    date?: string;
+    sessionId?: string;
   }>();
-  const { addExercise, addSet, removeSet, updateExercise, activeSession } = useWorkoutStore();
+  const { addExercise, addSet, removeSet, updateExercise, activeSession, createSessionForDate, updateSession, sessions } = useWorkoutStore();
 
   const isEditMode = params.editMode === 'true';
   const editExercise = isEditMode && params.exerciseData
     ? (() => { try { return JSON.parse(params.exerciseData!); } catch { return null; } })()
     : null;
 
+  // 과거 날짜 직접 추가 모드
+  const targetDate = params.date;
+  const sessionId = params.sessionId;
+  const isHistoricalMode = Boolean(targetDate);
+
+  const buildExercise = (data: ExerciseAddResult): Exercise => {
+    const exId = `hist-${Date.now()}`;
+    return {
+      id: exId,
+      name: data.name,
+      category: data.category,
+      settings: data.settings,
+      tip: data.tip,
+      isSingleArm: data.isSingleArm ?? false,
+      differentSides: data.differentSides ?? false,
+      targetMuscles: data.targetMuscles,
+      restSeconds: data.restSeconds,
+      targetReps: data.targetReps,
+      sets: (data.sets ?? []).map((st, i) => ({
+        id: `${exId}-${i}`,
+        weight: st.weight,
+        weightR: st.weightR,
+        reps: st.reps,
+        completed: st.completed ?? false,
+      })),
+    };
+  };
+
+  const handleHistoricalAdd = async (data: ExerciseAddResult) => {
+    const exercise = buildExercise(data);
+    try {
+      if (sessionId) {
+        const session = sessions.find(s => s.id === sessionId);
+        if (session) {
+          await updateSession(sessionId, [...session.exercises, exercise]);
+        }
+      } else {
+        await createSessionForDate(targetDate!, [exercise]);
+      }
+      router.back();
+    } catch {
+      Alert.alert("오류", "저장에 실패했어요. 다시 시도해주세요.");
+    }
+  };
+
   const handleAdd = (data: ExerciseAddResult) => {
+    if (isHistoricalMode) {
+      handleHistoricalAdd(data);
+      return;
+    }
     if (!activeSession) return Alert.alert("운동 세션을 먼저 시작해주세요");
     const exId = Date.now().toString();
     addExercise({
@@ -40,7 +91,7 @@ export default function AddWorkoutModal() {
         weight: st.weight,
         weightR: st.weightR,
         reps: st.reps,
-        completed: false,
+        completed: st.completed ?? false,
       });
     });
     // router.back() 호출 안 함 — ExerciseAdder가 성공 애니메이션 후 onClose로 닫음
@@ -69,7 +120,7 @@ export default function AddWorkoutModal() {
         weight: st.weight,
         weightR: st.weightR,
         reps: st.reps,
-        completed: false,
+        completed: st.completed ?? false,
       });
     });
     // router.back() 호출 안 함 — ExerciseAdder가 성공 애니메이션 후 onClose로 닫음

@@ -85,6 +85,9 @@ export default function RoutineManageModal() {
   const [combineName, setCombineName] = useState("");
 
   const nameRef = useRef<TextInput>(null);
+  const listScrollRef = useRef<ScrollView>(null);
+  const editScrollRef = useRef<ScrollView>(null);
+  const combineScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadRoutines().then(() => {
@@ -124,13 +127,17 @@ export default function RoutineManageModal() {
         name: data.name,
         category: data.category,
         defaultSets: data.defaultSets ?? 3,
-        defaultWeight: data.defaultWeight,
+        defaultWeight: data.routineSets ? undefined : data.defaultWeight,
+        defaultReps: data.routineSets ? undefined : data.defaultReps,
+        sets: data.routineSets,
         restSeconds: data.restSeconds,
         targetReps: data.targetReps,
         settings: data.settings,
         tip: data.tip,
         targetMuscles: data.targetMuscles,
         gifUrl: data.gifUrl,
+        isSingleArm: data.isSingleArm,
+        differentSides: data.differentSides,
         key: `${data.name}-${Date.now()}`,
       },
     ]);
@@ -148,13 +155,17 @@ export default function RoutineManageModal() {
               name: data.name,
               category: data.category,
               defaultSets: data.defaultSets ?? ex.defaultSets,
-              defaultWeight: data.defaultWeight ?? ex.defaultWeight,
+              defaultWeight: data.routineSets ? undefined : (data.defaultWeight ?? ex.defaultWeight),
+              defaultReps: data.routineSets ? undefined : data.defaultReps,
+              sets: data.routineSets,
               restSeconds: data.restSeconds,
               targetReps: data.targetReps,
               settings: data.settings,
               tip: data.tip,
               targetMuscles: data.targetMuscles,
               gifUrl: data.gifUrl ?? ex.gifUrl,
+              isSingleArm: data.isSingleArm,
+              differentSides: data.differentSides,
             }
       )
     );
@@ -250,6 +261,10 @@ export default function RoutineManageModal() {
           targetMuscles: ex.targetMuscles,
           defaultSets: ex.defaultSets,
           defaultWeight: ex.defaultWeight,
+          defaultReps: ex.defaultReps,
+          routineSets: ex.sets,
+          isSingleArm: ex.isSingleArm,
+          differentSides: ex.differentSides,
         }}
         onAdd={handleExerciseEdit}
         onClose={() => {
@@ -270,6 +285,7 @@ export default function RoutineManageModal() {
           <BackgroundBlobs />
           <Header title="루틴 관리" showClose />
           <ScrollView
+            ref={listScrollRef}
             contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
             <TouchableOpacity
               style={[
@@ -356,6 +372,8 @@ export default function RoutineManageModal() {
                   data={routines}
                   keyExtractor={(r) => r.id}
                   itemHeight={ROUTINE_ITEM_H}
+                  onDragStart={() => listScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+                  onDragRelease={() => listScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                   onDragEnd={(ordered) =>
                     reorderRoutines(ordered.map((r) => r.id))
                   }
@@ -583,6 +601,7 @@ export default function RoutineManageModal() {
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
             <ScrollView
+              ref={combineScrollRef}
               contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
               keyboardShouldPersistTaps="handled">
               <Text
@@ -626,6 +645,8 @@ export default function RoutineManageModal() {
                 data={combineExercises}
                 keyExtractor={(ex) => ex.key}
                 itemHeight={EXERCISE_ITEM_H}
+                onDragStart={() => combineScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+                onDragRelease={() => combineScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                 onDragEnd={setCombineExercises}
                 renderItem={(ex) => (
                   <View
@@ -710,7 +731,7 @@ export default function RoutineManageModal() {
                         )
                       }
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Icon name="x" size={15} color={c.textMuted} />
+                      <Icon name="close" size={15} color={c.textMuted} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -754,6 +775,7 @@ export default function RoutineManageModal() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
           <ScrollView
+            ref={editScrollRef}
             contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled">
             <Text
@@ -809,6 +831,8 @@ export default function RoutineManageModal() {
                 data={exercises}
                 keyExtractor={(ex) => ex.key}
                 itemHeight={EXERCISE_ITEM_H}
+                onDragStart={() => editScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
+                onDragRelease={() => editScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                 onDragEnd={setExercises}
                 renderItem={(ex, idx) => (
                   <TouchableOpacity
@@ -880,15 +904,14 @@ export default function RoutineManageModal() {
                         {ex.defaultWeight ? ` · ${ex.defaultWeight}kg` : ""}
                       </Text>
                       {ex.tip ? (
-                        <Text
-                          style={{
-                            fontSize: 9,
-                            color: c.textMuted,
-                            marginTop: 1,
-                          }}
-                          numberOfLines={1}>
-                          💡 {ex.tip}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 1 }}>
+                          <Icon name="bulb" size={9} color={c.textMuted} />
+                          <Text
+                            style={{ fontSize: 9, color: c.textMuted }}
+                            numberOfLines={1}>
+                            {ex.tip}
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
                     <TouchableOpacity

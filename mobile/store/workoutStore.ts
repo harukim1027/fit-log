@@ -80,6 +80,7 @@ interface WorkoutStore {
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
   fetchSessions: () => Promise<void>;
+  createSessionForDate: (date: string, exercises: WorkoutSession['exercises']) => Promise<void>;
   fetchExerciseHistory: (
     exerciseName: string,
     mode?: CompareMode
@@ -174,12 +175,21 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       restSeconds: ex.restSeconds,
       targetReps: ex.targetReps,
       targetMuscles: ex.targetMuscles,
-      sets: Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
-        id: `${now}-${i}-${j}`,
-        weight: ex.defaultWeight ?? 0,
-        reps: 0,
-        completed: false,
-      })),
+      isSingleArm: ex.isSingleArm ?? false,
+      differentSides: ex.differentSides ?? false,
+      sets: ex.sets && ex.sets.length > 0
+        ? ex.sets.map((rs, j) => ({
+            id: `${now}-${i}-${j}`,
+            weight: rs.targetWeight,
+            reps: rs.targetReps,
+            completed: false,
+          }))
+        : Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
+            id: `${now}-${i}-${j}`,
+            weight: ex.defaultWeight ?? 0,
+            reps: ex.defaultReps ?? 0,
+            completed: false,
+          })),
     }));
     const session: WorkoutSession = {
       id: now.toString(),
@@ -356,6 +366,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   },
 
   updateSession: async (sessionId, exercises) => {
+    // Optimistic local update — avoids full re-render of all HistoryCards
+    set(s => ({
+      sessions: s.sessions.map(sess =>
+        sess.id === sessionId ? { ...sess, exercises } : sess
+      ),
+    }));
     try {
       await apiClient.patch(`/workout/${sessionId}`, {
         exercises: exercises.map(ex => ({
@@ -376,8 +392,9 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           })),
         })),
       });
-      await get().fetchSessions();
     } catch (e) {
+      // Revert optimistic update on failure
+      await get().fetchSessions();
       console.error('운동 기록 수정 실패', e);
       throw e;
     }
@@ -413,6 +430,33 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       console.error("운동 기록 불러오기 실패", e);
       set({ isLoading: false });
     }
+  },
+
+  createSessionForDate: async (date, exercises) => {
+    await apiClient.post("/workout", {
+      date,
+      durationMinutes: 0,
+      caloriesBurned: 0,
+      note: "",
+      exercises: exercises.map((ex) => ({
+        name: ex.name,
+        category: ex.category,
+        settings: ex.settings ?? [],
+        tip: ex.tip ?? "",
+        isSingleArm: ex.isSingleArm ?? false,
+        differentSides: ex.differentSides ?? false,
+        targetMuscles: ex.targetMuscles ?? [],
+        restSeconds: ex.restSeconds ?? null,
+        targetReps: ex.targetReps ?? "",
+        sets: ex.sets.map((st) => ({
+          weight: st.weight,
+          weightR: st.weightR ?? null,
+          reps: st.reps,
+          completed: st.completed,
+        })),
+      })),
+    });
+    await get().fetchSessions();
   },
 
   fetchExerciseHistory: async (exerciseName, mode = "recent") => {
