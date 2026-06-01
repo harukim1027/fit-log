@@ -8,3 +8,8 @@ on:
         default: 'ios'
         type: choice
         options: [ios, android, all]
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Manual trigger only"
