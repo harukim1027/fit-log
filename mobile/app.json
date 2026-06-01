@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,8 +16,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.harulog.app",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
-        "NSHealthUpdateUsageDescription": "운동 및 신체 데이터를 Apple Health에 저장합니다.",
         "NSCameraUsageDescription": "음식 사진을 찍어 칼로리를 분석합니다.",
         "NSPhotoLibraryUsageDescription": "갤러리에서 음식 사진을 선택해 칼로리를 분석합니다.",
         "CFBundleURLTypes": [
@@ -58,13 +56,6 @@
       "expo-router",
       "expo-font",
       "expo-image-picker",
-      [
-        "react-native-health/app.plugin.js",
-        {
-          "healthSharePermission": "체중, 체지방률, 근육량, 키 데이터를 읽어 피트니스 추적에 활용합니다.",
-          "healthUpdatePermission": "운동 및 신체 데이터를 Apple Health에 저장합니다."
-        }
-      ],
       "expo-web-browser"
     ],
     "scheme": "fitlog",
