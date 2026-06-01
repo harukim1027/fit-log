@@ -1,48 +1,96 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Animated } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
-import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
-import CalorieRing from "../../components/CalorieRing";
-import WaterTracker from "../../components/WaterTracker";
-import { useWaterStore } from "../../store/waterStore";
-import { Icon, BoltIcon, FlameIcon, SaladIcon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
+import { Icon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
-import { ThemeToggle } from "../../components/ui";
+import { ThemeToggle, LabelTag } from "../../components/ui";
+import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS } from "../../components/MuscleMap";
+import type { Slug } from "react-native-body-highlighter";
+import type { WorkoutSession } from "../../types/workout";
+
+const WEEKLY_GOAL = 4;
+const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
+
+function eunNeun(s: string) {
+  const code = s.charCodeAt(s.length - 1) - 0xAC00;
+  return code >= 0 && code % 28 !== 0 ? '은' : '는';
+}
+
+function getWeekBounds() {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - ((day + 6) % 7));
+  mon.setHours(0, 0, 0, 0);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 7);
+  return { start: mon, end: sun };
+}
+
+function GoalRing({ current, total, size = 100 }: { current: number; total: number; size?: number }) {
+  const c = useColors();
+  const r = size * 0.42;
+  const circ = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.min(current / total, 1) : 0;
+  const offset = circ * (1 - pct);
+  const cx = size / 2;
+  const cy = size / 2;
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <Circle cx={cx} cy={cy} r={r} fill="none" stroke={c.surfaceHigh} strokeWidth={size * 0.11} />
+        {pct > 0 && (
+          <Circle
+            cx={cx} cy={cy} r={r} fill="none" stroke={c.primary} strokeWidth={size * 0.11}
+            strokeLinecap="round"
+            strokeDasharray={`${circ}`}
+            strokeDashoffset={offset}
+            rotation={-90}
+            origin={`${cx}, ${cy}`}
+          />
+        )}
+      </Svg>
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: size * 0.30, fontWeight: "900", color: c.primary, lineHeight: size * 0.36 }}>
+          {current}
+          <Text style={{ fontSize: size * 0.15, fontWeight: "700", color: c.textSecondary }}>/{total}</Text>
+        </Text>
+        <Text style={{ fontSize: size * 0.11, fontWeight: "700", color: c.textSecondary }}>회 완료</Text>
+      </View>
+    </View>
+  );
+}
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  const diff = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (diff === 0) return "오늘";
+  if (diff === 1) return "어제";
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function sessionTitle(sess: WorkoutSession): string {
+  const names = sess.exercises.slice(0, 2).map((e) => e.category || e.name);
+  return names.join(" & ") || "운동";
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const c = useColors();
-  const { getTotalCalories, targetCalories, getTodayDiet, fetchDiet, summary } = useDietStore();
-  const { activeSession, sessionStartTime, getTodaySession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore();
+  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore();
   const { user } = useAuthStore();
-  const { fetchTotal } = useWaterStore();
-
-  const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.20,
-    shadowRadius: 24,
-    elevation: 4,
-  };
-  const SHADOW_SM = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    elevation: 3,
-  };
 
   const fadeAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(24))).current;
 
   useEffect(() => {
-    fetchDiet();
     fetchSessions();
-    fetchTotal();
-    Animated.stagger(90, fadeAnims.map((fade, i) =>
+    Animated.stagger(80, fadeAnims.map((fade, i) =>
       Animated.parallel([
         Animated.spring(fade, { toValue: 1, useNativeDriver: true, damping: 20, stiffness: 120 }),
         Animated.spring(slideAnims[i], { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 120 }),
@@ -50,49 +98,107 @@ export default function HomeScreen() {
     )).start();
   }, []);
 
-  getTodayDiet();
-  const consumed = getTotalCalories();
-  const target = targetCalories;
-  const remaining = Math.max(target - consumed, 0);
-  const todaySession = getTodaySession();
-  const exerciseCount = todaySession?.exercises.length ?? 0;
-  const sessionDuration = todaySession?.durationMinutes ??
-    (activeSession && sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 60000) : 0);
-  const sessionVolume = todaySession ? getTotalVolume(todaySession) : 0;
-
-  const getMotivation = (mins: number) => {
-    if (mins === 0) return "오늘 운동을 시작해볼까요? 🏋️";
-    if (mins <= 20) return "좋은 시작이에요! 계속 해봐요 🔥";
-    if (mins <= 40) return "잘 하고 있어요! 💪";
-    if (mins <= 60) return "훌륭해요! 오늘도 최선을 다했네요 🌟";
-    return "대단해요! 오늘의 챔피언 🏆";
+  const SHADOW = {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 4,
   };
-  const protein = summary?.protein ?? 0;
-  const carbs = summary?.carbs ?? 0;
-  const fat = summary?.fat ?? 0;
-  const totalMacro = (protein + carbs + fat) || 1;
+  const SHADOW_SM = {
+    shadowColor: c.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 3,
+  };
+
+  const { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, weekMuscles } = useMemo(() => {
+    const { start, end } = getWeekBounds();
+    const weekSessions = sessions.filter((s) => {
+      const d = new Date(s.date + "T00:00:00");
+      return d >= start && d < end;
+    });
+    const prevSessions = sessions.filter((s) => {
+      const d = new Date(s.date + "T00:00:00");
+      return d < start;
+    });
+
+    const weekVolumeTon = parseFloat(
+      (weekSessions.reduce((sum, s) => sum + getTotalVolume(s), 0) / 1000).toFixed(1)
+    );
+    const weekMins = weekSessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
+    const weekHours = parseFloat((weekMins / 60).toFixed(1));
+
+    const prevMax: Record<string, number> = {};
+    for (const sess of prevSessions) {
+      for (const ex of sess.exercises) {
+        const max = Math.max(0, ...ex.sets.map((st) => st.weight));
+        if (max > (prevMax[ex.name] ?? 0)) prevMax[ex.name] = max;
+      }
+    }
+
+    let weekPRCount = 0;
+    let prEntry: { name: string; weight: number; reps: number; date: string } | null = null;
+    for (const sess of [...weekSessions].sort((a, b) => b.date.localeCompare(a.date))) {
+      for (const ex of sess.exercises) {
+        const best = ex.sets.reduce(
+          (b, st) => (st.weight > b.weight ? st : b),
+          { weight: 0, reps: 0, id: "", completed: false }
+        );
+        if (best.weight > 0 && best.weight > (prevMax[ex.name] ?? 0)) {
+          weekPRCount++;
+          if (!prEntry) prEntry = { name: ex.name, weight: best.weight, reps: best.reps, date: sess.date };
+        }
+      }
+    }
+
+    const weekMuscleSet = new Set<string>();
+    for (const sess of weekSessions) {
+      for (const ex of sess.exercises) {
+        const slugs = MUSCLE_MAP[ex.name];
+        if (slugs) for (const s of slugs) weekMuscleSet.add(s);
+      }
+    }
+    const weekMuscles = Array.from(weekMuscleSet);
+
+    return { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, weekMuscles };
+  }, [sessions, getTotalVolume]);
+
+  const recentSession = useMemo(() => {
+    const completed = sessions.filter((s) => !activeSession || s.id !== activeSession.id);
+    return completed.sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
+  }, [sessions, activeSession]);
 
   const today = new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+
+  const weekMuscleSet = new Set(weekMuscles);
+  const missingMajor = MAJOR_MUSCLES.find(m => !weekMuscleSet.has(m));
+  const muscleHint = weekMuscles.length === 0
+    ? "이번 주 첫 운동을 기록해보세요"
+    : missingMajor
+      ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
+      : "전신 골고루 자극했어요!";
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <BackgroundBlobs />
 
       {/* 헤더 */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
             <SparkIcon size={13} color={c.textSecondary} />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: c.textSecondary }}>{today}</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary }}>{today}</Text>
           </View>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: c.textPrimary, letterSpacing: -0.5, lineHeight: 28 }}>
-            {user?.name ? `${user.name}님,` : '안녕하세요,'}{'\n'}오늘도 토닥토닥!
+          <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5 }}>
+            {user?.name ? `${user.name}님, 안녕!` : "안녕하세요!"}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ThemeToggle size={38} />
           <TouchableOpacity
-            style={[{ width: 50, height: 50, borderRadius: 18, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '6deg' }] }, SHADOW_SM]}
+            style={[{ width: 50, height: 50, borderRadius: 18, backgroundColor: c.primary, alignItems: "center", justifyContent: "center", transform: [{ rotate: "6deg" }] }, SHADOW_SM]}
             onPress={() => router.push("/modal/set-target" as any)}>
             <FaceAvatar size={30} color={c.onAccent} />
           </TouchableOpacity>
@@ -100,153 +206,146 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 14 }}>
 
-        {/* ── 칼로리 히어로 카드 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18 }, SHADOW]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary }}>오늘의 칼로리</Text>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.surfaceAlt, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999 }}
-                onPress={() => router.push("/modal/set-target" as any)}>
-                <Text style={{ fontSize: 12, fontWeight: '800', color: c.success }}>목표 수정</Text>
-                <Icon name="chevronRight" size={12} color={c.success} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ position: 'relative', width: 150, height: 150, flexShrink: 0 }}>
-                <CalorieRing consumed={consumed} target={target} size={150} />
-                <View style={{
-                  position: 'absolute', top: 6, right: -4,
-                  backgroundColor: c.warning, borderRadius: 14,
-                  paddingHorizontal: 10, paddingVertical: 6,
-                  transform: [{ rotate: '7deg' }],
-                  shadowColor: c.warning, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 3,
-                  flexDirection: 'row', alignItems: 'center', gap: 4,
-                }}>
-                  <FlameIcon size={12} color={c.onAccent} />
-                  <Text style={{ color: c.onAccent, fontSize: 11, fontWeight: '800' }}>{remaining} 남음</Text>
-                </View>
-              </View>
-
-              <View style={{ flex: 1, paddingLeft: 6, gap: 9 }}>
-                <MacroRow label="탄수화물" value={carbs} max={totalMacro} color={c.carb} iconColor={c.warning} />
-                <MacroRow label="단백질" value={protein} max={totalMacro} color={c.protein} iconColor={c.primary} />
-                <MacroRow label="지방" value={fat} max={totalMacro} color={c.fat} iconColor={c.danger} />
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* ── 오늘의 운동 카드 ── */}
-        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18 }, SHADOW]}>
-            <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary, marginBottom: 12 }}>오늘의 운동</Text>
-            {todaySession || activeSession ? (
-              <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-                  <View style={[{ width: 60, height: 60, borderRadius: 20, backgroundColor: c.warning + '18', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], flexShrink: 0 }, SHADOW_SM]}>
-                    <Icon name="dumbbell" size={28} color={c.warning} />
+        {/* ── 이번 주 운동 목표 히어로 ── */}
+        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], overflow: 'visible' }}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18, paddingTop: 28, overflow: 'visible' }, SHADOW]}>
+            <LabelTag label="이번 주 운동 목표" color={c.tagCoral} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              <GoalRing current={weekSessions.length} total={WEEKLY_GOAL} size={100} />
+              <View style={{ flex: 1, gap: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Icon name="dumbbell" size={14} color={c.primary} />
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>이번주 볼륨</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 32, fontWeight: '900', color: c.textPrimary, letterSpacing: -1 }}>
-                      {sessionDuration}<Text style={{ fontSize: 16, fontWeight: '700', color: c.textSecondary }}>분</Text>
-                    </Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: c.success, marginTop: 1 }}>
-                      {getMotivation(sessionDuration)}
-                    </Text>
+                  <Text style={{ fontSize: 15, fontWeight: "900", color: c.textPrimary }}>
+                    {weekVolumeTon} <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>ton</Text>
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Icon name="clock" size={14} color={c.warning} />
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>운동 시간</Text>
                   </View>
+                  <Text style={{ fontSize: 15, fontWeight: "900", color: c.textPrimary }}>
+                    {weekHours} <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>시간</Text>
+                  </Text>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {sessionVolume > 0 && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <Icon name="dumbbell" size={12} color={c.success} />
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: c.success }}>{sessionVolume.toLocaleString()}kg</Text>
-                    </View>
-                  )}
-                  {(todaySession?.caloriesBurned ?? 0) > 0 && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.warning + '20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <FlameIcon size={12} color={c.warning} />
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: c.warning }}>{todaySession!.caloriesBurned} kcal</Text>
-                    </View>
-                  )}
-                  {activeSession && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.surfaceAlt, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <Icon name="clock" size={12} color={c.textSecondary} />
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: c.textSecondary }}>진행 중</Text>
-                    </View>
-                  )}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Icon name="trophy" size={14} color={c.warning} />
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>이번주 PR</Text>
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: "900", color: c.textPrimary }}>
+                    {weekPRCount} <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>개</Text>
+                  </Text>
                 </View>
               </View>
-            ) : (
-              <View style={{ alignItems: 'center', paddingVertical: 10, gap: 6 }}>
-                <Icon name="dumbbell" size={38} color={c.textMuted} />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: c.textMuted }}>오늘 운동 기록이 없어요</Text>
-              </View>
-            )}
-          </View>
-        </Animated.View>
-
-        {/* ── 물 카드 ── */}
-        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }] }}>
-          <WaterTracker />
-        </Animated.View>
-
-        {/* ── 빠른 기록 ── */}
-        <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, marginLeft: 2 }}>
-            <BoltIcon size={15} color={c.stats} />
-            <Text style={{ fontSize: 14, fontWeight: '900', color: c.textPrimary }}>빠른 기록</Text>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 13 }}>
+            </View>
             <TouchableOpacity
-              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 26, padding: 18, alignItems: 'center', gap: 9, transform: [{ rotate: '-2deg' }] }, SHADOW]}
-              onPress={() => router.push("/modal/add-food")}
-              activeOpacity={0.8}>
-              <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-                <SaladIcon size={32} />
-              </View>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textPrimary }}>식단 추가</Text>
+              style={{ marginTop: 16, borderRadius: 16, backgroundColor: c.primary, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
+              activeOpacity={0.85}>
+              <Icon name="play" size={18} color={c.onAccent} />
+              <Text style={{ fontSize: 15, fontWeight: "900", color: c.onAccent }}>오늘 운동 시작하기</Text>
             </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* ── 빠른 액션 ── */}
+        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
+          <View style={{ flexDirection: "row", gap: 12 }}>
             <TouchableOpacity
-              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 26, padding: 18, alignItems: 'center', gap: 9, transform: [{ rotate: '2deg' }] }, SHADOW]}
+              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 20, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, transform: [{ rotate: "-1.5deg" }] }, SHADOW_SM]}
               onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
               activeOpacity={0.8}>
-              <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: c.warning + '18', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="dumbbell" size={30} color={c.warning} />
+              <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary + "22", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="dumbbell" size={26} color={c.primary} />
               </View>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: c.textPrimary }}>운동 시작</Text>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>운동 시작</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 20, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, transform: [{ rotate: "1.5deg" }] }, SHADOW_SM]}
+              onPress={() => router.push("/modal/routine-manage" as any)}
+              activeOpacity={0.8}>
+              <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
+                <Icon name="list" size={24} color={c.textSecondary} />
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>루틴 관리</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* ── 최근 기록 ── */}
+        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
+          <View style={{ position: 'relative', overflow: 'visible', height: 20, marginBottom: 16, marginTop: 14 }}>
+            <LabelTag label="최근 기록" color={c.tagMint} />
+            <TouchableOpacity
+              style={{ position: 'absolute', right: 0, top: 0, flexDirection: "row", alignItems: "center", gap: 3 }}
+              onPress={() => router.push("/(tabs)/stats")}>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: c.primary }}>전체 보기</Text>
+              <Icon name="chevronRight" size={12} color={c.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {prEntry && (
+            <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: c.surface, borderRadius: 16, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
+              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.warning + "28", alignItems: "center", justifyContent: "center", transform: [{ rotate: "-6deg" }] }}>
+                <Icon name="trophy" size={20} color={c.warning} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{prEntry.name} PR 경신!</Text>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1 }}>
+                  {formatDate(prEntry.date)} · {prEntry.weight}kg × {prEntry.reps}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, fontWeight: "900", color: c.primary }}>{prEntry.weight}kg</Text>
+            </View>
+          )}
+
+          {recentSession ? (
+            <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: c.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
+              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.primary + "20", alignItems: "center", justifyContent: "center", transform: [{ rotate: "-6deg" }] }}>
+                <Icon name="dumbbell" size={20} color={c.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{sessionTitle(recentSession)}</Text>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1 }}>
+                  {formatDate(recentSession.date)} · {recentSession.exercises.length}종목 · {getTotalVolume(recentSession).toLocaleString()}kg
+                </Text>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>{recentSession.durationMinutes}분</Text>
+            </View>
+          ) : (
+            <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 24, alignItems: "center", borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
+              <Icon name="dumbbell" size={32} color={c.textMuted} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginTop: 8 }}>아직 운동 기록이 없어요</Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* ── 이번 주 자극 부위 ── */}
+        <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }], overflow: 'visible' }}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, paddingTop: 28, borderWidth: 1, borderColor: c.border, overflow: 'visible' }, SHADOW_SM]}>
+            <LabelTag label="이번 주 자극 부위" color={c.tagSun} />
+            <MuscleMap muscles={weekMuscles} scale={0.55} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.border }}>
+              <Icon
+                name={weekMuscles.length === 0 ? "dumbbell" : missingMajor ? "target" : "check"}
+                size={13}
+                color={weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success}
+              />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success }}>
+                {muscleHint}
+              </Text>
+            </View>
           </View>
         </Animated.View>
 
       </ScrollView>
-    </View>
-  );
-}
-
-function MacroRow({ label, value, max, color, iconColor }: { label: string; value: number; max: number; color: string; iconColor: string }) {
-  const c = useColors();
-  const pct = Math.min(value / max, 1);
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-      <View style={{ width: 30, height: 30, borderRadius: 11, backgroundColor: color + '28', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: iconColor }} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{label}</Text>
-          <Text style={{ fontSize: 12, fontWeight: '900', color: c.textPrimary }}>{value}g</Text>
-        </View>
-        <View style={{ height: 7, borderRadius: 999, backgroundColor: c.surfaceAlt, overflow: 'hidden' }}>
-          <View style={{ height: '100%', borderRadius: 999, backgroundColor: color, width: `${pct * 100}%` as `${number}%` }} />
-        </View>
-      </View>
     </View>
   );
 }

@@ -3,17 +3,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../lib/apiClient';
 import type { WorkoutSession } from '../types/workout';
 
+export interface RoutineSet {
+  setNumber: number;
+  targetWeight: number;
+  targetReps: number;
+  unit: 'kg' | 'lbs';
+}
+
 export interface RoutineExercise {
   name: string;
   category: string;
   defaultSets: number;
   defaultWeight?: number;
+  defaultReps?: number;
+  sets?: RoutineSet[];
   restSeconds?: number;
   targetReps?: string;
   settings?: { key: string; value: string }[];
   tip?: string;
   targetMuscles?: string[];
   gifUrl?: string;
+  isSingleArm?: boolean;
+  differentSides?: boolean;
 }
 
 export interface Routine {

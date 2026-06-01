@@ -28,3 +28,11 @@ export { SortableList } from "./SortableList";
 export type { SortableListProps } from "./SortableList";
 
 export { ThemeToggle } from "./ThemeToggle";
+
+export { NumberPad } from "./NumberPad";
+export type { NumberPadProps } from "./NumberPad";
+
+export { LabelTag } from "./LabelTag";
+
+export { SetIndicator } from "./SetIndicator";
+export type { SetIndicatorProps, SetIndicatorState } from "./SetIndicator";
