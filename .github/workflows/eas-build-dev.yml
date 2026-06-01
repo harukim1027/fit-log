@@ -39,7 +39,8 @@ jobs:
             "build": {
               "development": {
                 "developmentClient": true,
-                "distribution": "internal"
+                "distribution": "internal",
+                "simulator": true
               },
               "production": {
                 "autoIncrement": true,
