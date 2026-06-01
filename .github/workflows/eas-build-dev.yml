@@ -8,6 +8,8 @@ jobs:
   build:
     name: EAS Build – development
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,6 +28,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+          expo-cache: false
 
       - name: Build iOS (development)
         working-directory: mobile
