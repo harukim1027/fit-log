@@ -2,6 +2,8 @@ import React from "react";
 import { Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
+import { useRoutineStore } from "../../store/routineStore";
+import { showCuteAlert } from "../../components/CuteAlert";
 import ExerciseAdder, { ExerciseAddResult } from "../../components/workout/ExerciseAdder";
 import { Exercise } from "../../types/workout";
 
@@ -94,6 +96,33 @@ export default function AddWorkoutModal() {
         completed: st.completed ?? false,
       });
     });
+
+    // 루틴으로 시작한 세션이고, 추가한 운동이 루틴에 없으면 즉시 반영 여부 질문
+    const fromRoutineId = activeSession.fromRoutineId;
+    if (fromRoutineId) {
+      const routine = useRoutineStore.getState().routines.find(r => r.id === fromRoutineId);
+      if (routine && !routine.exercises.find(e => e.name === data.name)) {
+        showCuteAlert({
+          icon: 'pencil',
+          tone: 'info',
+          title: '루틴에도 추가할까요?',
+          message: `${data.name}을(를) 루틴에 추가하면\n다음에도 바로 시작할 수 있어요`,
+          buttons: [
+            { label: '이번만', style: 'soft' },
+            {
+              label: '루틴에 추가',
+              style: 'primary',
+              onPress: () => {
+                const currentSession = useWorkoutStore.getState().activeSession;
+                if (currentSession) {
+                  useRoutineStore.getState().updateRoutineFromSession(fromRoutineId, currentSession);
+                }
+              },
+            },
+          ],
+        });
+      }
+    }
     // router.back() 호출 안 함 — ExerciseAdder가 성공 애니메이션 후 onClose로 닫음
   };
 

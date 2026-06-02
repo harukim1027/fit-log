@@ -386,10 +386,6 @@ export default function WorkoutScreen() {
     const calories = activeSession
       ? calculateCaloriesBurned(activeSession, weightKg, durationMinutes)
       : 0;
-    const fromRoutineId = activeSession?.fromRoutineId;
-    const sessionSnapshot = activeSession
-      ? { ...activeSession, exercises: [...activeSession.exercises] }
-      : null;
 
     Alert.alert("운동 종료", "오늘 운동을 저장하고 종료할까요?", [
       { text: "취소", style: "cancel" },
@@ -398,45 +394,6 @@ export default function WorkoutScreen() {
         onPress: async () => {
           await endSession(calories);
           setCompleteCalories(calories);
-
-          if (fromRoutineId && sessionSnapshot) {
-            const routine = routines.find((r) => r.id === fromRoutineId);
-            if (routine) {
-              const changes: string[] = [];
-              sessionSnapshot.exercises.forEach((ex) => {
-                const re = routine.exercises.find((r) => r.name === ex.name);
-                if (!re) changes.push(`${ex.name} 추가`);
-                else if (ex.sets.length !== re.defaultSets)
-                  changes.push(`${ex.name} 세트 변경`);
-              });
-              routine.exercises.forEach((re) => {
-                if (
-                  !sessionSnapshot.exercises.find((ex) => ex.name === re.name)
-                )
-                  changes.push(`${re.name} 제거`);
-              });
-              if (changes.length > 0) {
-                const summary = changes.slice(0, 3).join(", ");
-                Alert.alert(
-                  "루틴에도 반영할까요?",
-                  `변경 내역: ${summary}\n다음에도 동일하게 시작할 수 있어요`,
-                  [
-                    { text: "이번만", style: "cancel" },
-                    {
-                      text: "루틴에 반영",
-                      onPress: () =>
-                        useRoutineStore
-                          .getState()
-                          .updateRoutineFromSession(
-                            fromRoutineId,
-                            sessionSnapshot
-                          ),
-                    },
-                  ]
-                );
-              }
-            }
-          }
         },
       },
     ]);
