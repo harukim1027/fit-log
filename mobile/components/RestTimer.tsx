@@ -2,6 +2,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Switch,
   AppState,
   Vibration,
   Animated,
@@ -302,20 +303,16 @@ export default function RestTimer({
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           {(onPin || onUnpin) && (
-            <TouchableOpacity
-              onPress={pinned ? onUnpin : onPin}
-              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon name="target" size={14} color={pinned ? c.warning : c.textSecondary} style={{ opacity: pinned ? 1 : 0.5 }} />
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: "700",
-                  color: pinned ? c.warning : c.textSecondary,
-                }}>
-                {pinned ? "고정됨" : "고정"}
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: pinned ? c.warning : c.textSecondary }}>고정</Text>
+              <Switch
+                value={!!pinned}
+                onValueChange={(v) => v ? onPin?.() : onUnpin?.()}
+                trackColor={{ false: c.border, true: c.primary }}
+                thumbColor={c.surface}
+                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+              />
+            </View>
           )}
           <TouchableOpacity
             onPress={reset}
@@ -400,103 +397,7 @@ export default function RestTimer({
       {/* ── 펼친 상태 ── */}
       {!collapsed && (
         <>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 16,
-              marginBottom: 14,
-            }}>
-            <TouchableOpacity
-              onPress={() => adjust(-5)}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: c.surfaceAlt,
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-              <Text
-                style={{
-                  fontSize: 20,
-                  fontWeight: "800",
-                  color: c.textSecondary,
-                  marginTop: -2,
-                }}>
-                −
-              </Text>
-            </TouchableOpacity>
-            <View style={{ alignItems: "center" }}>
-              <Text
-                style={{
-                  fontSize: 34,
-                  fontWeight: "900",
-                  color: c.textPrimary,
-                  letterSpacing: -1,
-                }}>
-                {formatTime(seconds)}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 10,
-                  color: c.textMuted,
-                  fontWeight: "600",
-                  marginTop: 2,
-                }}>
-                설정 시간
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => adjust(5)}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: c.primary,
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-              <Text
-                style={{
-                  fontSize: 20,
-                  fontWeight: "800",
-                  color: c.onAccent,
-                  marginTop: -2,
-                }}>
-                +
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View
-            style={{
-              flexDirection: "row",
-              gap: 5,
-              marginBottom: 12,
-              flexWrap: "wrap",
-            }}>
-            {PRESETS.map((p) => (
-              <TouchableOpacity
-                key={p.seconds}
-                onPress={() => addPreset(p.seconds)}
-                style={{
-                  flex: 1,
-                  minWidth: 50,
-                  borderRadius: 999,
-                  paddingVertical: 7,
-                  alignItems: "center",
-                  backgroundColor: c.warning + '18',
-                }}>
-                <Text
-                  style={{ fontSize: 11, fontWeight: "800", color: c.warning }}>
-                  +{p.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
+          {/* 1. 현재 카운트다운 (상단) */}
           {(timerState === 'running' || timerState === 'paused') && (
             <View style={{ alignItems: "center", gap: 10, marginBottom: 12 }}>
               <View style={{ width: "100%", height: 8, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden" }}>
@@ -519,7 +420,8 @@ export default function RestTimer({
             </View>
           )}
 
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          {/* 2. 직접입력 + 시작/일시정지 버튼 */}
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14 }}>
             <TouchableOpacity
               onPress={() => setTimerPadVisible(true)}
               style={{
@@ -571,6 +473,69 @@ export default function RestTimer({
                  seconds === 0 ? '시간 설정' : '▶ 시작'}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          {/* ── 구분선 ── */}
+          <View style={{ height: 1, backgroundColor: c.border, marginBottom: 14 }} />
+
+          {/* 3. 설정시간 (하단) */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 16,
+              marginBottom: 14,
+            }}>
+            <TouchableOpacity
+              onPress={() => adjust(-5)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: c.danger + '20',
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+              <Text style={{ fontSize: 20, fontWeight: "800", color: c.danger, marginTop: -2 }}>−</Text>
+            </TouchableOpacity>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontSize: 34, fontWeight: "900", color: c.textPrimary, letterSpacing: -1 }}>
+                {formatTime(seconds)}
+              </Text>
+              <Text style={{ fontSize: 10, color: c.textMuted, fontWeight: "600", marginTop: 2 }}>설정 시간</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => adjust(5)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: c.primary,
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+              <Text style={{ fontSize: 20, fontWeight: "800", color: c.onAccent, marginTop: -2 }}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 4. Preset 버튼 */}
+          <View style={{ flexDirection: "row", gap: 5, flexWrap: "wrap" }}>
+            {PRESETS.map((p) => (
+              <TouchableOpacity
+                key={p.seconds}
+                onPress={() => addPreset(p.seconds)}
+                style={{
+                  flex: 1,
+                  minWidth: 50,
+                  borderRadius: 999,
+                  paddingVertical: 7,
+                  alignItems: "center",
+                  backgroundColor: c.warning + '18',
+                }}>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: c.warning }}>+{p.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </>
       )}
