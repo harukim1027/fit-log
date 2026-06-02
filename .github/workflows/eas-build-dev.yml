@@ -1,8 +1,7 @@
 name: EAS Build (Dev)
 
 on:
-  push:
-    branches: [develop]
+  workflow_dispatch:
 
 jobs:
   build:

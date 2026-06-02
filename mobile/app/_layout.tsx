@@ -11,6 +11,7 @@ import { useColors } from "../constants/colors";
 import { setUnauthorizedHandler } from "../lib/apiClient";
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { CuteAlertHost } from "../components/CuteAlert";
 
 if (!__DEV__) {
   ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
@@ -197,6 +198,7 @@ export default function RootLayout() {
         </AuthGate>
       </View>
     </SafeAreaProvider>
+    <CuteAlertHost />
     </ErrorBoundary>
   );
 }

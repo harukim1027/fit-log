@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from "react-native";
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from "react-native";
 import { useRouter } from "expo-router";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { useAuthStore } from "../../store/authStore";
+import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input, Button } from "../../components/ui";
 import { LogoMark, Icon } from "../../components/AppIcons";
@@ -30,7 +31,7 @@ export default function LoginScreen() {
       if (accessToken) {
         loginWithGoogle(accessToken)
           .then(() => router.replace("/(tabs)"))
-          .catch((e: any) => Alert.alert("Google 로그인 실패", e.message))
+          .catch((e: any) => showCuteAlert({ preset: 'network', message: e.message }))
           .finally(() => setSocialLoading(null));
       }
     } else if (googleResponse?.type === "error" || googleResponse?.type === "dismiss") {
@@ -40,12 +41,16 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password)
-      return Alert.alert("이메일과 비밀번호를 입력해주세요");
+      return showCuteAlert({ preset: 'emptyInput' });
     try {
       await login(email, password);
       router.replace("/(tabs)");
     } catch (e: any) {
-      Alert.alert("로그인 실패", e.message);
+      if (!e.status) {
+        showCuteAlert({ preset: 'network', onPrimary: handleLogin });
+      } else {
+        showCuteAlert({ preset: 'loginFail' });
+      }
     }
   };
 
