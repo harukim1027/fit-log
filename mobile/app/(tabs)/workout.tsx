@@ -1323,7 +1323,7 @@ export default function WorkoutScreen() {
                         fontWeight: "800",
                         color: c.success,
                       }}>
-                      직접 추가
+                      종목 추가
                     </Text>
                   </TouchableOpacity>
                   {routines.length > 0 && (

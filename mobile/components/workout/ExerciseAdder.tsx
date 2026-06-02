@@ -678,7 +678,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     <Icon name="pencil" size={16} color={c.primary} />
                   </View>
                   <View>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: c.primary }}>직접 추가하기</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: c.primary }}>종목 추가하기</Text>
                     <Text style={{ fontSize: 11, color: c.textMuted }}>목록에 없는 운동을 직접 추가해요</Text>
                   </View>
                 </TouchableOpacity>
@@ -687,7 +687,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   style={[{ backgroundColor: c.surface, borderRadius: 20, padding: 16, marginBottom: 12 }, SHADOW]}
                   onLayout={e => { customFormY.current = e.nativeEvent.layout.y; }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>직접 추가</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>종목 추가</Text>
                     <TouchableOpacity onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}>
                       <Icon name="close" size={16} color={c.textMuted} />
                     </TouchableOpacity>
@@ -775,7 +775,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   activeOpacity={0.7}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 15, fontWeight: "600", color: c.textPrimary }}>{ex.name}</Text>
-                    <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>직접 추가</Text>
+                    <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>종목 추가</Text>
                   </View>
                 </TouchableOpacity>
               ))}
