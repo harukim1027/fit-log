@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
+import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
@@ -53,14 +54,9 @@ export default function BarcodeScanModal() {
         unit: "g",
       };
       addFood(mealType, item);
-      Alert.alert("추가 완료", food.name + "이(가) 추가됐어요!", [
-        { text: "확인", onPress: () => router.back() },
-      ]);
+      showCuteAlert({ icon: 'check', tone: 'ok', title: '추가 완료', message: food.name + '이(가) 추가됐어요!', buttons: [{ label: '확인', style: 'primary', onPress: () => router.back() }] });
     } catch {
-      Alert.alert("찾을 수 없어요", "해당 바코드의 식품 정보를 찾지 못했어요", [
-        { text: "다시 시도", onPress: () => setScanned(false) },
-        { text: "닫기", onPress: () => router.back() },
-      ]);
+      showCuteAlert({ icon: 'wifi', tone: 'muted', title: '찾을 수 없어요', message: '해당 바코드의 식품 정보를 찾지 못했어요', buttons: [{ label: '닫기', style: 'soft', onPress: () => router.back() }, { label: '다시 시도', style: 'primary', onPress: () => setScanned(false) }] });
     } finally {
       setLoading(false);
     }

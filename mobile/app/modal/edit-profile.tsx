@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { showCuteAlert } from "../../components/CuteAlert";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -73,7 +73,7 @@ export default function EditProfileModal() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) return Alert.alert("이름을 입력해주세요");
+    if (!name.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '이름을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
 
     const weightNum = parseFloat(weight);
     const heightNum = parseFloat(height);
@@ -94,7 +94,7 @@ export default function EditProfileModal() {
       if (!isNaN(targetCalNum)) setTargetCalories(targetCalNum);
       router.back();
     } catch (e: any) {
-      Alert.alert("저장 실패", e.message ?? "다시 시도해주세요");
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '저장 실패', message: e.message ?? '다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     } finally {
       setIsSaving(false);
     }

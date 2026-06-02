@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert } from "react-native";
+import { } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useRoutineStore } from "../../store/routineStore";
@@ -64,7 +64,7 @@ export default function AddWorkoutModal() {
       }
       router.back();
     } catch {
-      Alert.alert("오류", "저장에 실패했어요. 다시 시도해주세요.");
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '저장 실패', message: '다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     }
   };
 
@@ -73,7 +73,7 @@ export default function AddWorkoutModal() {
       handleHistoricalAdd(data);
       return;
     }
-    if (!activeSession) return Alert.alert("운동 세션을 먼저 시작해주세요");
+    if (!activeSession) { showCuteAlert({ icon: 'alert', tone: 'warn', title: '운동 세션을 먼저 시작해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const exId = Date.now().toString();
     addExercise({
       id: exId,

@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import { showCuteAlert } from "../../components/CuteAlert";
 import { useRouter } from "expo-router";
 import {
   Header,
@@ -272,32 +273,9 @@ export default function WorkoutScreen() {
     routine: import("../../store/routineStore").Routine
   ) => {
     if (routine.isPublic && routine.shareCode) {
-      Alert.alert("공유 중", `공유 코드: ${routine.shareCode}`, [
-        {
-          text: "비공개로 변경",
-          style: "destructive",
-          onPress: () =>
-            unshareRoutine(routine.id).catch(() =>
-              Alert.alert("오류", "변경에 실패했어요")
-            ),
-        },
-        { text: "닫기", style: "cancel" },
-      ]);
+      showCuteAlert({ icon: 'mail', tone: 'info', title: '공유 중', message: `공유 코드: ${routine.shareCode}`, buttons: [{ label: '닫기', style: 'soft' }, { label: '비공개로 변경', style: 'primary', onPress: () => unshareRoutine(routine.id).catch(() => showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '변경에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] })) }] });
     } else {
-      Alert.alert(
-        "루틴 공개",
-        "이 루틴을 다른 사람과 공유할까요?\n공유 코드가 생성돼요.",
-        [
-          { text: "취소", style: "cancel" },
-          {
-            text: "공개하기",
-            onPress: () =>
-              shareRoutine(routine.id).catch(() =>
-                Alert.alert("오류", "공유 설정에 실패했어요")
-              ),
-          },
-        ]
-      );
+      showCuteAlert({ icon: 'mail', tone: 'info', title: '루틴 공개', message: '이 루틴을 다른 사람과 공유할까요?\n공유 코드가 생성돼요.', buttons: [{ label: '취소', style: 'soft' }, { label: '공개하기', style: 'primary', onPress: () => shareRoutine(routine.id).catch(() => showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '공유 설정에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] })) }] });
     }
   };
 
@@ -305,9 +283,9 @@ export default function WorkoutScreen() {
     setCopyingId(id);
     try {
       await copyRoutine(id);
-      Alert.alert("완료", "내 루틴으로 가져왔어요!");
+      showCuteAlert({ icon: 'check', tone: 'ok', title: '완료', message: '내 루틴으로 가져왔어요!', buttons: [{ label: '확인', style: 'primary' }] });
     } catch {
-      Alert.alert("오류", "가져오기에 실패했어요");
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '가져오기에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
     } finally {
       setCopyingId(null);
     }
@@ -315,14 +293,14 @@ export default function WorkoutScreen() {
 
   const handleCodeSearch = async () => {
     if (codeInput.trim().length !== 6)
-      return Alert.alert("코드 오류", "6자리 코드를 입력해주세요");
+    { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '코드 오류', message: '6자리 코드를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     setCodeSearching(true);
     setCodeResult(null);
     try {
       const result = await searchByCode(codeInput);
       setCodeResult(result);
     } catch {
-      Alert.alert("루틴을 찾을 수 없어요", "코드를 다시 확인해주세요");
+      showCuteAlert({ icon: 'alert', tone: 'warn', title: '루틴을 찾을 수 없어요', message: '코드를 다시 확인해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     } finally {
       setCodeSearching(false);
     }
@@ -417,21 +395,7 @@ export default function WorkoutScreen() {
       : 0;
     const snapshot = activeSession;
 
-    Alert.alert("운동 종료", "오늘 운동을 저장하고 종료할까요?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "저장 및 종료",
-        onPress: async () => {
-          await endSession(calories);
-          setCompleteCalories(calories);
-          if (!snapshot?.fromRoutineId && (snapshot?.exercises.length ?? 0) > 0) {
-            setSaveRoutineExercises(snapshot!.exercises);
-            setSaveRoutineName('');
-            setShowSaveRoutineModal(true);
-          }
-        },
-      },
-    ]);
+    showCuteAlert({ icon: 'check', tone: 'ok', title: '운동 종료', message: '오늘 운동을 저장하고 종료할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '저장 및 종료', style: 'primary', onPress: async () => { await endSession(calories); setCompleteCalories(calories); if (!snapshot?.fromRoutineId && (snapshot?.exercises.length ?? 0) > 0) { setSaveRoutineExercises(snapshot!.exercises); setSaveRoutineName(''); setShowSaveRoutineModal(true); } } }] });
   };
 
   const markedDates = useMemo(() => {
@@ -743,20 +707,7 @@ export default function WorkoutScreen() {
                                 />
                               </TouchableOpacity>
                               <TouchableOpacity
-                                onPress={() =>
-                                  Alert.alert(
-                                    "루틴 삭제",
-                                    `"${routine.name}"을 삭제할까요?`,
-                                    [
-                                      { text: "취소", style: "cancel" },
-                                      {
-                                        text: "삭제",
-                                        style: "destructive",
-                                        onPress: () =>
-                                          deleteRoutine(routine.id),
-                                      },
-                                    ]
-                                  )
+                                onPress={() => showCuteAlert({ icon: 'trash', tone: 'danger', title: '루틴 삭제', message: `"${routine.name}"을 삭제할까요?`, buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => deleteRoutine(routine.id) }] })
                                 }>
                                 <Icon
                                   name="trash"
@@ -1731,25 +1682,10 @@ export default function WorkoutScreen() {
                                         onPress={() => handleSetTap(i)}
                                         onLongPress={() => {
                                           if (ex.sets.length <= 1) {
-                                            Alert.alert(
-                                              "알림",
-                                              "세트는 최소 1개가 필요해요"
-                                            );
+                                            showCuteAlert({ icon: 'alert', tone: 'info', title: '알림', message: '세트는 최소 1개가 필요해요', buttons: [{ label: '확인', style: 'primary' }] });
                                             return;
                                           }
-                                          Alert.alert(
-                                            "세트 삭제",
-                                            "이 세트를 삭제할까요?",
-                                            [
-                                              { text: "취소", style: "cancel" },
-                                              {
-                                                text: "삭제",
-                                                style: "destructive",
-                                                onPress: () =>
-                                                  removeSet(ex.id, st.id),
-                                              },
-                                            ]
-                                          );
+                                          showCuteAlert({ icon: 'trash', tone: 'danger', title: '세트 삭제', message: '이 세트를 삭제할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => removeSet(ex.id, st.id) }] });
                                         }}
                                       />
                                     ))}
@@ -2731,10 +2667,7 @@ export default function WorkoutScreen() {
                           added++;
                         });
                         if (added === 0)
-                          Alert.alert(
-                            "알림",
-                            "이미 모든 종목이 추가되어 있어요"
-                          );
+                          showCuteAlert({ icon: 'alert', tone: 'info', title: '알림', message: '이미 모든 종목이 추가되어 있어요', buttons: [{ label: '확인', style: 'primary' }] });
                         else {
                           setShowRoutineSheet(false);
                         }
@@ -3453,21 +3386,14 @@ function HistoryCard({
       await onUpdate(exercises);
       setEditMode(false);
     } catch {
-      Alert.alert("오류", "저장에 실패했어요");
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '저장에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert("운동 기록 삭제", "이 기록을 삭제할까요?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "삭제",
-        style: "destructive",
-        onPress: () => onDelete(session.id),
-      },
-    ]);
+    showCuteAlert({ icon: 'trash', tone: 'danger', title: '운동 기록 삭제', message: '이 기록을 삭제할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => onDelete(session.id) }] });
   };
 
   const getExMaxWeight = (ex: WorkoutSession["exercises"][0]) =>

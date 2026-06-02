@@ -16,7 +16,7 @@ import Svg, { Path, Rect, Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useColors } from "../constants/colors";
 
-type IconKey = "lock" | "mail" | "pencil" | "wifi" | "check" | "alert";
+type IconKey = "lock" | "mail" | "pencil" | "wifi" | "check" | "alert" | "trash";
 type Tone = "danger" | "warn" | "info" | "muted" | "ok";
 type Btn = { label: string; style?: "primary" | "soft"; onPress?: () => void };
 type AlertOpts = { icon: IconKey; tone: Tone; title: string; message?: string; buttons?: Btn[]; shake?: boolean };
@@ -32,6 +32,7 @@ function Icon({ name, color, size = 34 }: { name: IconKey; color: string; size?:
       {name === "wifi" && (<><Path d="M5 12.5a10 10 0 0 1 14 0M8 16a5 5 0 0 1 8 0" {...p} /><Circle cx={12} cy={19.5} r={1.2} fill={color} /><Path d="M3 4l18 16" {...p} /></>)}
       {name === "check" && (<Path d="M5 13l4 4L19 7" {...p} strokeWidth={2.6} />)}
       {name === "alert" && (<><Path d="M12 4 3 20h18L12 4Z" {...p} /><Path d="M12 10v4M12 17h.01" {...p} /></>)}
+      {name === "trash" && (<><Path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" {...p} /><Path d="M10 11v6M14 11v6" {...p} /></>)}
     </Svg>
   );
 }

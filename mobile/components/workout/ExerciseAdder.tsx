@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { showCuteAlert } from "../CuteAlert";
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, Alert,
+  View, Text, TextInput, TouchableOpacity, ScrollView,
   KeyboardAvoidingView, Platform, Modal, LayoutAnimation,
   UIManager, Image, ActivityIndicator, Animated,
 } from "react-native";
@@ -357,8 +358,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   };
 
   const handleAddCustomExercise = () => {
-    if (!customName.trim()) return Alert.alert("종목명을 입력해주세요");
-    if (!customCat) return Alert.alert("카테고리를 선택해주세요");
+    if (!customName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '종목명을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (!customCat) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '카테고리를 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const newEx: SelectedExercise = {
       name: customName.trim(),
       category: customCat,
@@ -478,8 +479,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   const handleAddSetting = async () => {
     const key = isCustomKeyMode ? customKeyName.trim() : settingKey;
-    if (!key) return Alert.alert("항목명을 입력해주세요");
-    if (!settingValue.trim()) return Alert.alert("값을 입력해주세요");
+    if (!key) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '항목명을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (!settingValue.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '값을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     if (isCustomKeyMode && key && !customSettingKeys.some(k => k.name === key)) {
       try {
         const res = await apiClient.post<CustomKey>("/workout-settings", { name: key });
@@ -496,7 +497,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       setCustomSettingKeys(prev => prev.filter(k => k.id !== id));
       if (customSettingKeys.find(k => k.id === id)?.name === settingKey) setSettingKey(PRESET_SETTING_KEYS[0]);
     } catch {
-      Alert.alert("삭제 실패", "잠시 후 다시 시도해주세요");
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '삭제 실패', message: '잠시 후 다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     }
   };
 
@@ -505,19 +506,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // ─── Submit handler ───────────────────────────────────────────────────────
 
   const handleAdd = () => {
-    if (!selectedExercise) return Alert.alert("운동 종목을 선택해주세요");
+    if (!selectedExercise) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '운동 종목을 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
 
     if (mode === "session") {
       let finalSets: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean; unit: 'kg' | 'lbs' }>;
       if (!perSetMode) {
         const count = Math.max(1, parseInt(defaultSets) || 3);
         const r = parseInt(defaultReps) || 0;
-        if (r === 0) return Alert.alert("횟수를 입력해주세요");
+        if (r === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '횟수를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
         const w = parseFloat(defaultWeight) || 0;
         finalSets = Array.from({ length: count }, () => ({ weight: w, reps: r, completed: false, unit }));
       } else {
         const validSets = sets.filter(s => s.reps && parseInt(s.reps) > 0);
-        if (validSets.length === 0) return Alert.alert("최소 1세트를 입력해주세요");
+        if (validSets.length === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '최소 1세트를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
         finalSets = validSets.map(st => ({
           weight: parseFloat(st.weight) || 0,
           weightR: (isSingleArm && differentSides && st.weightR) ? parseFloat(st.weightR) || 0 : undefined,

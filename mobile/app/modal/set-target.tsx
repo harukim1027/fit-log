@@ -1,9 +1,9 @@
 import React from "react";
+import { showCuteAlert } from "../../components/CuteAlert";
 import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -188,24 +188,21 @@ export default function SetTargetModal() {
 
   const handleSave = async () => {
     const calNum = parseInt(calValue);
-    if (isNaN(calNum) || calNum < 500 || calNum > 9999)
-      return Alert.alert(
-        "올바른 칼로리를 입력해주세요",
-        "500 ~ 9999 사이로 입력해주세요"
-      );
+    if (isNaN(calNum) || calNum < 500 || calNum > 9999) {
+      showCuteAlert({ icon: 'pencil', tone: 'warn', title: '올바른 칼로리를 입력해주세요', message: '500 ~ 9999 사이로 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] });
+      return;
+    }
 
     const weightNum = parseFloat(weightValue);
-    if (weightValue && (isNaN(weightNum) || weightNum < 20 || weightNum > 300))
-      return Alert.alert(
-        "올바른 체중을 입력해주세요",
-        "20 ~ 300 사이로 입력해주세요"
-      );
+    if (weightValue && (isNaN(weightNum) || weightNum < 20 || weightNum > 300)) {
+      showCuteAlert({ icon: 'pencil', tone: 'warn', title: '올바른 체중을 입력해주세요', message: '20 ~ 300 사이로 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] });
+      return;
+    }
 
-    if (carbs + protein + fat !== 100)
-      return Alert.alert(
-        "비율 합계가 100%가 되어야 해요",
-        `현재 ${carbs + protein + fat}%`
-      );
+    if (carbs + protein + fat !== 100) {
+      showCuteAlert({ icon: 'pencil', tone: 'warn', title: '비율 합계가 100%가 되어야 해요', message: `현재 ${carbs + protein + fat}%`, buttons: [{ label: '확인', style: 'primary' }] });
+      return;
+    }
 
     setTargetCalories(calNum);
     setMacroRatios(carbs, protein, fat);
@@ -219,7 +216,7 @@ export default function SetTargetModal() {
         targetFatRatio: fat,
       } as any);
     } catch {
-      Alert.alert("서버 저장 실패", "앱 내 설정은 저장되었어요");
+      showCuteAlert({ icon: 'alert', tone: 'warn', title: '서버 저장 실패', message: '앱 내 설정은 저장되었어요', buttons: [{ label: '확인', style: 'primary' }] });
     }
     router.back();
   };

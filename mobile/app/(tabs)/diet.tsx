@@ -1,10 +1,10 @@
 import React, { useState as useLocalState } from "react";
+import { showCuteAlert } from "../../components/CuteAlert";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   PanResponder,
   Animated,
@@ -734,25 +734,7 @@ export default function DietScreen() {
                             }}
                             onPress={() => {
                               if (card.foods.length > 0) {
-                                Alert.alert(
-                                  "간식 카드 삭제",
-                                  "이 간식 카드의 모든 기록이 삭제돼요. 계속할까요?",
-                                  [
-                                    { text: "취소", style: "cancel" },
-                                    {
-                                      text: "삭제",
-                                      style: "destructive",
-                                      onPress: () =>
-                                        card.foods.forEach((f) =>
-                                          removeFood(
-                                            "snack",
-                                            f.id,
-                                            dateStr(currentDate)
-                                          )
-                                        ),
-                                    },
-                                  ]
-                                );
+                                showCuteAlert({ icon: 'trash', tone: 'danger', title: '간식 카드 삭제', message: '이 간식 카드의 모든 기록이 삭제돼요. 계속할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => card.foods.forEach((f) => removeFood('snack', f.id, dateStr(currentDate))) }] });
                               }
                             }}>
                             <Icon name="close" size={13} color={c.danger} />

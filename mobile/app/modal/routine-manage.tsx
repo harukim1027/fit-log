@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
+import { showCuteAlert } from "../../components/CuteAlert";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Image,
@@ -203,9 +203,8 @@ export default function RoutineManageModal() {
   };
 
   const handleSave = async () => {
-    if (!routineName.trim()) return Alert.alert("루틴 이름을 입력해주세요");
-    if (exercises.length === 0)
-      return Alert.alert("최소 1개 종목을 추가해주세요");
+    if (!routineName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '루틴 이름을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (exercises.length === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '최소 1개 종목을 추가해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const payload = exercises.map(({ gifUrl, key, ...rest }) => rest);
     if (mode === "create")
       await addRoutine({ name: routineName.trim(), exercises: payload });
@@ -218,10 +217,7 @@ export default function RoutineManageModal() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert("루틴 삭제", `"${name}" 루틴을 삭제할까요?`, [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => deleteRoutine(id) },
-    ]);
+    showCuteAlert({ icon: 'trash', tone: 'danger', title: '루틴 삭제', message: `"${name}" 루틴을 삭제할까요?`, buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => deleteRoutine(id) }] });
   };
 
   const toggleSelect = (id: string) => {
@@ -253,9 +249,8 @@ export default function RoutineManageModal() {
   };
 
   const handleCombineSave = async () => {
-    if (!combineName.trim()) return Alert.alert("루틴 이름을 입력해주세요");
-    if (combineExercises.length === 0)
-      return Alert.alert("최소 1개 종목이 필요해요");
+    if (!combineName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '루틴 이름을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (combineExercises.length === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '최소 1개 종목이 필요해요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const payload = combineExercises.map(
       ({ gifUrl, key, fromRoutineName, isDuplicate, ...rest }) => rest
     );
@@ -521,10 +516,7 @@ export default function RoutineManageModal() {
                         }}
                         onPress={() => {
                           if (activeSession) {
-                            Alert.alert(
-                              "운동 중",
-                              "진행 중인 운동이 있어요. 종료 후 시작해주세요."
-                            );
+                            showCuteAlert({ icon: 'alert', tone: 'warn', title: '운동 중', message: '진행 중인 운동이 있어요.\n종료 후 시작해주세요.', buttons: [{ label: '확인', style: 'primary' }] });
                             return;
                           }
                           startSessionWithRoutine(r);

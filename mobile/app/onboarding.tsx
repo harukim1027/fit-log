@@ -3,11 +3,11 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { showCuteAlert } from "../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Header, Button, NumberPad } from "../components/ui";
@@ -63,16 +63,16 @@ export default function OnboardingScreen() {
     setPadConfig({ value, decimal, suffix, onConfirm });
 
   const validateStep0 = () => {
-    if (!goal) { Alert.alert("목표를 선택해주세요"); return false; }
+    if (!goal) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '목표를 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return false; }
     return true;
   };
 
   const validateStep1 = () => {
-    if (!gender) { Alert.alert("성별을 선택해주세요"); return false; }
+    if (!gender) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '성별을 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return false; }
     const a = parseInt(age), h = parseFloat(height), w = parseFloat(weight);
-    if (!age || isNaN(a) || a < 10 || a > 100) { Alert.alert("나이를 올바르게 입력해주세요 (10~100)"); return false; }
-    if (!height || isNaN(h) || h < 100 || h > 250) { Alert.alert("키를 올바르게 입력해주세요 (100~250cm)"); return false; }
-    if (!weight || isNaN(w) || w < 20 || w > 300) { Alert.alert("몸무게를 올바르게 입력해주세요 (20~300kg)"); return false; }
+    if (!age || isNaN(a) || a < 10 || a > 100) { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '나이를 확인해주세요', message: '10 ~ 100 사이로 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return false; }
+    if (!height || isNaN(h) || h < 100 || h > 250) { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '키를 확인해주세요', message: '100 ~ 250cm 사이로 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return false; }
+    if (!weight || isNaN(w) || w < 20 || w > 300) { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '몸무게를 확인해주세요', message: '20 ~ 300kg 사이로 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return false; }
     return true;
   };
 
@@ -97,7 +97,7 @@ export default function OnboardingScreen() {
       });
       router.replace("/(tabs)" as any);
     } catch {
-      Alert.alert("저장 실패", "잠시 후 다시 시도해주세요");
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '저장 실패', message: '잠시 후 다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     } finally {
       setIsLoading(false);
     }
