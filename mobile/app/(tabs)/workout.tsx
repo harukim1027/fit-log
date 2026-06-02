@@ -205,6 +205,10 @@ export default function WorkoutScreen() {
   >(null);
   const [codeSearching, setCodeSearching] = useState(false);
   const [copyingId, setCopyingId] = useState<string | null>(null);
+  const [showSaveRoutineModal, setShowSaveRoutineModal] = useState(false);
+  const [saveRoutineName, setSaveRoutineName] = useState('');
+  const [saveRoutineExercises, setSaveRoutineExercises] = useState<WorkoutSession['exercises']>([]);
+  const [savingRoutine, setSavingRoutine] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
   const [timerState, setTimerState] = useState({
     seconds: 0,
@@ -367,6 +371,36 @@ export default function WorkoutScreen() {
     setDraftSets([]);
   };
 
+  const handleSaveAsRoutine = async () => {
+    const name = saveRoutineName.trim();
+    if (!name) return;
+    setSavingRoutine(true);
+    try {
+      await useRoutineStore.getState().addRoutine({
+        name,
+        exercises: saveRoutineExercises.map(ex => ({
+          name: ex.name,
+          category: ex.category,
+          defaultSets: ex.sets.length || 3,
+          defaultWeight: ex.sets[0]?.weight,
+          defaultReps: ex.sets[0]?.reps,
+          restSeconds: ex.restSeconds,
+          targetReps: ex.targetReps,
+          settings: ex.settings,
+          tip: ex.tip,
+          targetMuscles: ex.targetMuscles,
+          isSingleArm: ex.isSingleArm,
+          differentSides: ex.differentSides,
+        })),
+      });
+    } finally {
+      setSavingRoutine(false);
+      setShowSaveRoutineModal(false);
+      setSaveRoutineName('');
+      setSaveRoutineExercises([]);
+    }
+  };
+
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
     const durationMinutes = sessionStartTime
@@ -375,6 +409,7 @@ export default function WorkoutScreen() {
     const calories = activeSession
       ? calculateCaloriesBurned(activeSession, weightKg, durationMinutes)
       : 0;
+    const snapshot = activeSession;
 
     Alert.alert("운동 종료", "오늘 운동을 저장하고 종료할까요?", [
       { text: "취소", style: "cancel" },
@@ -383,6 +418,11 @@ export default function WorkoutScreen() {
         onPress: async () => {
           await endSession(calories);
           setCompleteCalories(calories);
+          if (!snapshot?.fromRoutineId && (snapshot?.exercises.length ?? 0) > 0) {
+            setSaveRoutineExercises(snapshot!.exercises);
+            setSaveRoutineName('');
+            setShowSaveRoutineModal(true);
+          }
         },
       },
     ]);
@@ -2761,6 +2801,41 @@ export default function WorkoutScreen() {
         </View>
       </Modal>
 
+      {/* ── Feature 2: 루틴으로 저장 모달 (운동 종료 시) ── */}
+      <Modal visible={showSaveRoutineModal} transparent animationType="fade">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 22, width: '100%' }}>
+              <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary, marginBottom: 6 }}>루틴으로 저장할까요?</Text>
+              <Text style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>오늘 운동 종목들로 새 루틴을 만들어요</Text>
+              <TextInput
+                style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 16 }}
+                value={saveRoutineName}
+                onChangeText={setSaveRoutineName}
+                placeholder="루틴 이름 (예: 상체 루틴)"
+                placeholderTextColor={c.textMuted}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSaveAsRoutine}
+              />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: 'center' }}
+                  onPress={() => { setShowSaveRoutineModal(false); setSaveRoutineExercises([]); }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>나중에</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.warning, alignItems: 'center' }}
+                  onPress={handleSaveAsRoutine}
+                  disabled={savingRoutine}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: c.onAccent }}>{savingRoutine ? '저장 중...' : '저장'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <NumberPad
         visible={padConfig !== null}
         value={padConfig?.value ?? "0"}
@@ -3124,6 +3199,38 @@ function HistoryCard({
   }, [session.exercises]);
   const [saving, setSaving] = useState(false);
   const [draftExercises, setDraftExercises] = useState<DraftExercise[]>([]);
+  const [showRoutineSaveModal, setShowRoutineSaveModal] = useState(false);
+  const [routineSaveName, setRoutineSaveName] = useState('');
+  const [routineSaving, setRoutineSaving] = useState(false);
+
+  const handleSaveSessionAsRoutine = async () => {
+    const name = routineSaveName.trim();
+    if (!name) return;
+    setRoutineSaving(true);
+    try {
+      await useRoutineStore.getState().addRoutine({
+        name,
+        exercises: session.exercises.map(ex => ({
+          name: ex.name,
+          category: ex.category,
+          defaultSets: ex.sets.length || 3,
+          defaultWeight: ex.sets[0]?.weight,
+          defaultReps: ex.sets[0]?.reps,
+          restSeconds: ex.restSeconds,
+          targetReps: ex.targetReps,
+          settings: ex.settings,
+          tip: ex.tip,
+          targetMuscles: ex.targetMuscles,
+          isSingleArm: ex.isSingleArm,
+          differentSides: ex.differentSides,
+        })),
+      });
+    } finally {
+      setRoutineSaving(false);
+      setShowRoutineSaveModal(false);
+      setRoutineSaveName('');
+    }
+  };
   type HistoryPadConfig = {
     value: string;
     decimal: boolean;
@@ -3449,7 +3556,7 @@ function HistoryCard({
           )}
         </TouchableOpacity>
 
-        {/* 수정 / 삭제 버튼 */}
+        {/* 수정 / 삭제 / 루틴 저장 버튼 */}
         <View
           style={{
             flexDirection: "row",
@@ -3461,6 +3568,12 @@ function HistoryCard({
             borderTopWidth: 1,
             borderTopColor: c.surfaceAlt,
           }}>
+          <TouchableOpacity
+            onPress={() => { setRoutineSaveName(''); setShowRoutineSaveModal(true); }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: c.warning + '20' }}>
+            <Icon name="star" size={16} color={c.warning} />
+            <Text style={{ fontSize: 13, fontWeight: "700", color: c.warning }}>루틴 저장</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
               if (editMode) {
@@ -3505,6 +3618,41 @@ function HistoryCard({
             <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>삭제</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 루틴으로 저장 모달 */}
+        <Modal visible={showRoutineSaveModal} transparent animationType="fade">
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 22, width: '100%' }}>
+                <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary, marginBottom: 6 }}>루틴으로 저장</Text>
+                <Text style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>{session.date} · {session.exercises.length}종목</Text>
+                <TextInput
+                  style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 16 }}
+                  value={routineSaveName}
+                  onChangeText={setRoutineSaveName}
+                  placeholder="루틴 이름 (예: 상체 루틴)"
+                  placeholderTextColor={c.textMuted}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveSessionAsRoutine}
+                />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: 'center' }}
+                    onPress={() => setShowRoutineSaveModal(false)}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.warning, alignItems: 'center' }}
+                    onPress={handleSaveSessionAsRoutine}
+                    disabled={routineSaving}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: c.onAccent }}>{routineSaving ? '저장 중...' : '저장'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
 
         {/* ── L1 펼친 상태 ── */}
         {expanded &&

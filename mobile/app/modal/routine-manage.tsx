@@ -9,7 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Modal,
 } from "react-native";
+import { useWorkoutStore } from "../../store/workoutStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import { Header, SortableList } from "../../components/ui";
@@ -83,6 +85,32 @@ export default function RoutineManageModal() {
     []
   );
   const [combineName, setCombineName] = useState("");
+
+  const { sessions } = useWorkoutStore();
+  const [showHistorySheet, setShowHistorySheet] = useState(false);
+
+  const loadFromSession = (session: (typeof sessions)[0]) => {
+    const drafts: ExerciseDraft[] = session.exercises.map((ex, i) => ({
+      name: ex.name,
+      category: ex.category,
+      defaultSets: ex.sets.length || 3,
+      defaultWeight: ex.sets[0]?.weight,
+      defaultReps: ex.sets[0]?.reps,
+      restSeconds: ex.restSeconds,
+      targetReps: ex.targetReps,
+      settings: ex.settings,
+      tip: ex.tip,
+      targetMuscles: ex.targetMuscles,
+      isSingleArm: ex.isSingleArm,
+      differentSides: ex.differentSides,
+      key: `${ex.name}-hist-${i}-${Date.now()}`,
+    }));
+    setExercises(prev => {
+      const existingNames = new Set(prev.map(e => e.name));
+      return [...prev, ...drafts.filter(d => !existingNames.has(d.name))];
+    });
+    setShowHistorySheet(false);
+  };
 
   const nameRef = useRef<TextInput>(null);
   const listScrollRef = useRef<ScrollView>(null);
@@ -928,6 +956,18 @@ export default function RoutineManageModal() {
               />
             )}
 
+            {sessions.length > 0 && (
+              <TouchableOpacity
+                style={[{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: c.surface, borderRadius: 16, padding: 14, marginBottom: 10 }, SHADOW]}
+                onPress={() => setShowHistorySheet(true)}
+                activeOpacity={0.8}>
+                <Icon name="chart" size={18} color={c.secondary} />
+                <Text style={{ fontSize: 14, fontWeight: "800", color: c.secondary }}>
+                  히스토리에서 불러오기
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[
                 {
@@ -967,6 +1007,44 @@ export default function RoutineManageModal() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* 히스토리에서 불러오기 시트 */}
+      <Modal visible={showHistorySheet} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingBottom: 32 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>
+              <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary }}>운동 기록에서 불러오기</Text>
+              <TouchableOpacity onPress={() => setShowHistorySheet(false)}>
+                <Icon name="close" size={20} color={c.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              {sessions.slice(0, 30).map(session => (
+                <TouchableOpacity
+                  key={session.id}
+                  style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                  onPress={() => loadFromSession(session)}
+                  activeOpacity={0.75}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: c.textPrimary, marginBottom: 4 }}>{session.date}</Text>
+                    <Text style={{ fontSize: 12, color: c.textSecondary }} numberOfLines={1}>
+                      {session.exercises.map(e => e.name).join(' · ')}
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: c.primary + '20', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, marginLeft: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>{session.exercises.length}종목</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {sessions.length === 0 && (
+                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                  <Text style={{ fontSize: 14, color: c.textMuted }}>아직 운동 기록이 없어요</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
