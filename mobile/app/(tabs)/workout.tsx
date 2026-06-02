@@ -216,6 +216,7 @@ export default function WorkoutScreen() {
     running: false,
     paused: false,
   });
+  const [historyExpanded, setHistoryExpanded] = useState<Record<string, boolean>>({});
   const [detailExpanded, setDetailExpanded] = useState<Record<string, boolean>>(
     {}
   );
@@ -2307,6 +2308,55 @@ export default function WorkoutScreen() {
                                     </View>
                                   </>
                                 )}
+
+                                {/* 이전 기록 토글 */}
+                                {(() => {
+                                  const prH = exerciseHistoryCache.get(`${ex.name}:pr`);
+                                  const weekH = exerciseHistoryCache.get(`${ex.name}:week`);
+                                  const monthH = exerciseHistoryCache.get(`${ex.name}:month`);
+                                  const fmtSession = (h: { comparisonSession: { maxWeight: number; sets: { weight: number; reps: number }[] } | null } | undefined) => {
+                                    const e = h?.comparisonSession;
+                                    if (!e) return null;
+                                    const best = e.sets.find(s => s.weight === e.maxWeight) ?? e.sets[0];
+                                    return best ? `${e.maxWeight}kg × ${best.reps}회` : `${e.maxWeight}kg`;
+                                  };
+                                  const rows = [
+                                    { label: 'PR', text: prH?.pr ? `${prH.pr.weight}kg` : null },
+                                    { label: '1주전', text: fmtSession(weekH) },
+                                    { label: '1달전', text: fmtSession(monthH) },
+                                  ];
+                                  const isOpen = !!historyExpanded[ex.id];
+                                  return (
+                                    <>
+                                      <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, marginTop: 4, borderTopWidth: 1, borderTopColor: c.border }}
+                                        onPress={() => {
+                                          const next = !isOpen;
+                                          setHistoryExpanded(prev => ({ ...prev, [ex.id]: next }));
+                                          if (next) {
+                                            fetchExerciseHistory(ex.name, 'week');
+                                            fetchExerciseHistory(ex.name, 'month');
+                                          }
+                                        }}
+                                        activeOpacity={0.7}>
+                                        <Text style={{ fontSize: 12, fontWeight: '700', color: c.textMuted }}>이전 기록</Text>
+                                        <Text style={{ fontSize: 11, color: c.textMuted }}>{isOpen ? ' ▲' : ' ▼'}</Text>
+                                      </TouchableOpacity>
+                                      {isOpen && (
+                                        <View style={{ paddingHorizontal: 6, paddingBottom: 8, paddingTop: 4, gap: 6 }}>
+                                          {rows.map(({ label, text }) => (
+                                            <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                              <View style={{ backgroundColor: c.surfaceAlt, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                                                <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{label}</Text>
+                                              </View>
+                                              <Text style={{ fontSize: 13, fontWeight: '800', color: text ? c.primary : c.textMuted }}>{text ?? '기록 없음'}</Text>
+                                            </View>
+                                          ))}
+                                        </View>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </>
                             )}
                           </Card>
