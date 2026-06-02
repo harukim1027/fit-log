@@ -875,8 +875,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     </TouchableOpacity>
                   )}
 
-                  {/* 목표 세트수 stepper */}
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>목표 세트수</Text>
+                  {/* 세트수 stepper */}
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>세트수</Text>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                     <TouchableOpacity
                       style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
