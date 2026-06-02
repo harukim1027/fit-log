@@ -367,17 +367,6 @@ export default function WorkoutScreen() {
     setDraftSets([]);
   };
 
-  const handleEditExercise = (ex: WorkoutSession["exercises"][0]) => {
-    router.push({
-      pathname: "/modal/add-workout",
-      params: {
-        editMode: "true",
-        exerciseId: ex.id,
-        exerciseData: JSON.stringify(ex),
-      },
-    } as any);
-  };
-
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
     const durationMinutes = sessionStartTime
@@ -1495,7 +1484,7 @@ export default function WorkoutScreen() {
                               ) : (
                                 <TouchableOpacity
                                   style={{ flex: 1 }}
-                                  onPress={() => handleEditExercise(ex)}
+                                  onPress={() => enterEdit(ex)}
                                   activeOpacity={0.7}>
                                   <Text
                                     style={{
