@@ -186,6 +186,7 @@ export default function WorkoutScreen() {
   );
   const [activeEditExId, setActiveEditExId] = useState<string | null>(null);
   const [draftExName, setDraftExName] = useState("");
+  const [draftUnit, setDraftUnit] = useState<'kg' | 'lbs'>('kg');
   const [draftSets, setDraftSets] = useState<
     Array<{
       id: string;
@@ -329,6 +330,8 @@ export default function WorkoutScreen() {
 
   const enterEdit = (ex: WorkoutSession["exercises"][0]) => {
     setDraftExName(ex.name);
+    const unit = ex.sets[0]?.unit ?? 'kg';
+    setDraftUnit(unit);
     setDraftSets(
       ex.sets.map((s) => ({
         id: s.id,
@@ -356,6 +359,7 @@ export default function WorkoutScreen() {
           weight: parseFloat(ds.weight) || 0,
           reps: parseInt(ds.reps) || 0,
           completed: ds.completed,
+          unit: draftUnit,
         });
       });
     draftSets
@@ -366,6 +370,7 @@ export default function WorkoutScreen() {
           weight: parseFloat(ds.weight) || 0,
           reps: parseInt(ds.reps) || 0,
           completed: ds.completed,
+          unit: draftUnit,
         });
       });
     setActiveEditExId(null);
@@ -1591,7 +1596,25 @@ export default function WorkoutScreen() {
                                   <Text style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>무게</Text>
                                   <View style={{ width: 16 }} />
                                   <Text style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>횟수</Text>
-                                  <View style={{ width: 24 }} />
+                                  {/* 단위 토글 */}
+                                  <View style={{ flexDirection: 'row', gap: 3 }}>
+                                    {(['kg', 'lbs'] as const).map(u => (
+                                      <TouchableOpacity key={u}
+                                        style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: draftUnit === u ? c.primary : c.surfaceAlt }}
+                                        onPress={() => {
+                                          if (draftUnit !== u) {
+                                            const factor = u === 'lbs' ? 2.20462 : 1 / 2.20462;
+                                            setDraftSets(prev => prev.map(s => ({
+                                              ...s,
+                                              weight: String(Math.round((parseFloat(s.weight || '0') * factor) * 10) / 10),
+                                            })));
+                                            setDraftUnit(u);
+                                          }
+                                        }}>
+                                        <Text style={{ fontSize: 10, fontWeight: '700', color: draftUnit === u ? c.surface : c.textSecondary }}>{u}</Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </View>
                                 </View>
                                 <View style={{ width: '100%', height: 1, backgroundColor: c.border, marginBottom: 6 }} />
                                 {draftSets.map((ds, idx) => (
@@ -1608,9 +1631,9 @@ export default function WorkoutScreen() {
                                       </TouchableOpacity>
                                       <TouchableOpacity
                                         style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 54 }}
-                                        onPress={() => openPad(ds.weight, true, 'kg', v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: v } : s)))}>
+                                        onPress={() => openPad(ds.weight, true, draftUnit, v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: v } : s)))}>
                                         <Text style={{ fontSize: 13, fontWeight: '900', color: c.primary }}>
-                                          {ds.weight || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> kg</Text>
+                                          {ds.weight || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> {draftUnit}</Text>
                                         </Text>
                                       </TouchableOpacity>
                                       <TouchableOpacity
@@ -1760,9 +1783,10 @@ export default function WorkoutScreen() {
                                         <SetInputRow
                                           weight={String(currentSet?.weight ?? 0)}
                                           reps={String(currentSet?.reps ?? 0)}
+                                          unit={currentSet?.unit ?? 'kg'}
                                           onWeightStep={delta => currentSet && updateSet(ex.id, currentSet.id, { weight: Math.max(0, currentSet.weight + delta) })}
                                           onRepsStep={delta => currentSet && updateSet(ex.id, currentSet.id, { reps: Math.max(0, currentSet.reps + delta) })}
-                                          onWeightPad={() => currentSet && openPad(String(currentSet.weight), true, 'kg', v => updateSet(ex.id, currentSet.id, { weight: parseFloat(v) || 0 }))}
+                                          onWeightPad={() => currentSet && openPad(String(currentSet.weight), true, currentSet?.unit ?? 'kg', v => updateSet(ex.id, currentSet.id, { weight: parseFloat(v) || 0 }))}
                                           onRepsPad={() => currentSet && openPad(String(currentSet.reps), false, '회', v => updateSet(ex.id, currentSet.id, { reps: parseInt(v) || 0 }))}
                                           containerStyle={{ marginBottom: 14 }}
                                         />

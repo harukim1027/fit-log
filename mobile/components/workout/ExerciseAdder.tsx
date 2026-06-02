@@ -121,7 +121,7 @@ export type ExerciseAddResult = {
   restSeconds?: number;
   targetReps?: string;
   // session mode
-  sets?: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean }>;
+  sets?: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
   isSingleArm?: boolean;
   differentSides?: boolean;
   // routine mode
@@ -146,7 +146,7 @@ type ExerciseAdderProps = {
     targetMuscles?: string[];
     isSingleArm?: boolean;
     differentSides?: boolean;
-    sets?: Array<{ weight: number; reps: number; weightR?: number; completed?: boolean }>;
+    sets?: Array<{ weight: number; reps: number; weightR?: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
     defaultSets?: number;
     defaultWeight?: number;
     defaultReps?: number;
@@ -251,6 +251,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         setIsSingleArm(ex.isSingleArm ?? false);
         setDifferentSides(ex.differentSides ?? false);
         if (ex.sets && ex.sets.length > 0) {
+          const savedUnit = ex.sets[0]?.unit ?? 'kg';
+          setUnit(savedUnit);
           setSets(ex.sets.map(s => ({ weight: String(s.weight), weightR: String(s.weightR ?? ''), reps: String(s.reps), completed: s.completed ?? false })));
         }
       } else if (mode === 'routine') {
@@ -506,21 +508,22 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     if (!selectedExercise) return Alert.alert("운동 종목을 선택해주세요");
 
     if (mode === "session") {
-      let finalSets: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean }>;
+      let finalSets: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean; unit: 'kg' | 'lbs' }>;
       if (!perSetMode) {
         const count = Math.max(1, parseInt(defaultSets) || 3);
         const r = parseInt(defaultReps) || 0;
         if (r === 0) return Alert.alert("횟수를 입력해주세요");
-        const w = toKg(defaultWeight);
-        finalSets = Array.from({ length: count }, () => ({ weight: w, reps: r, completed: false }));
+        const w = parseFloat(defaultWeight) || 0;
+        finalSets = Array.from({ length: count }, () => ({ weight: w, reps: r, completed: false, unit }));
       } else {
         const validSets = sets.filter(s => s.reps && parseInt(s.reps) > 0);
         if (validSets.length === 0) return Alert.alert("최소 1세트를 입력해주세요");
         finalSets = validSets.map(st => ({
-          weight: toKg(st.weight),
-          weightR: (isSingleArm && differentSides && st.weightR) ? toKg(st.weightR) : undefined,
+          weight: parseFloat(st.weight) || 0,
+          weightR: (isSingleArm && differentSides && st.weightR) ? parseFloat(st.weightR) || 0 : undefined,
           reps: parseInt(st.reps),
           completed: st.completed,
+          unit,
         }));
       }
       onAdd({

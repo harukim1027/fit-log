@@ -4,6 +4,7 @@ export interface WorkoutSet {
   weightR?: number; // 우측 무게 (differentSides 시 사용)
   reps: number;
   completed: boolean;
+  unit?: 'kg' | 'lbs';
 }
 
 export interface ExerciseSetting {

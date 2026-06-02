@@ -254,6 +254,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
             weightR: st.weightR ?? null,
             reps: st.reps,
             completed: st.completed,
+            unit: st.unit ?? 'kg',
           })),
         })),
       });

@@ -94,6 +94,7 @@ export default function AddWorkoutModal() {
         weightR: st.weightR,
         reps: st.reps,
         completed: st.completed ?? false,
+        unit: st.unit ?? 'kg',
       });
     });
 
@@ -150,6 +151,7 @@ export default function AddWorkoutModal() {
         weightR: st.weightR,
         reps: st.reps,
         completed: st.completed ?? false,
+        unit: st.unit ?? 'kg',
       });
     });
     // router.back() 호출 안 함 — ExerciseAdder가 성공 애니메이션 후 onClose로 닫음
