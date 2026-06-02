@@ -30,7 +30,16 @@ const BODYPART_TO_CATEGORY: Record<string, string> = {
   waist: "복근", cardio: "유산소",
 };
 
-const BODY_PARTS = ["가슴", "등", "어깨", "팔", "하체", "복근", "유산소", "전신"];
+const CATEGORY_TARGETS: Record<string, string[]> = {
+  '가슴': ['상부', '중부', '하부', '내측', '직접 입력'],
+  '등': ['상부 승모', '중부 승모', '광배', '척추기립근', '직접 입력'],
+  '어깨': ['전면', '측면', '후면', '직접 입력'],
+  '팔': ['이두', '삼두', '전완', '직접 입력'],
+  '하체': ['대퇴사두', '햄스트링', '둔근', '종아리', '직접 입력'],
+  '복근': ['상복부', '하복부', '측복부', '직접 입력'],
+  '유산소': ['전신', '직접 입력'],
+  '기타': ['직접 입력'],
+};
 
 
 const PRESET_SETTING_KEYS = [
@@ -191,6 +200,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const [customName, setCustomName] = useState("");
   const [customCat, setCustomCat] = useState("");
   const [customTargetParts, setCustomTargetParts] = useState<string[]>([]);
+  const [customTargetInput, setCustomTargetInput] = useState('');
+  const [showCustomTargetInput, setShowCustomTargetInput] = useState(false);
   const [customRestSeconds, setCustomRestSeconds] = useState("60");
   const [customTargetReps, setCustomTargetReps] = useState("");
   const [customNote, setCustomNote] = useState("");
@@ -714,7 +725,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       return (
                         <TouchableOpacity key={cat}
                           style={[{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: on ? c.danger + "28" : c.surface }, SHADOW]}
-                          onPress={() => setCustomCat(cat)}>
+                          onPress={() => { setCustomCat(cat); setCustomTargetParts([]); setCustomTargetInput(''); setShowCustomTargetInput(false); }}>
                           <Text style={{ fontSize: 13, color: on ? c.danger : c.textSecondary, fontWeight: on ? "700" : "600" }}>{cat}</Text>
                         </TouchableOpacity>
                       );
@@ -722,18 +733,70 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   </ScrollView>
 
                   <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 8 }}>타겟 부위 (다중 선택)</Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                    {BODY_PARTS.map(part => {
-                      const on = customTargetParts.includes(part);
-                      return (
-                        <TouchableOpacity key={part}
-                          style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: on ? c.primary : c.surfaceAlt }}
-                          onPress={() => setCustomTargetParts(prev => on ? prev.filter(p => p !== part) : [...prev, part])}>
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: on ? c.surface : c.textSecondary }}>{part}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  {!customCat ? (
+                    <Text style={{ fontSize: 12, color: c.textMuted, marginBottom: 16 }}>카테고리를 먼저 선택해주세요</Text>
+                  ) : (
+                    <View style={{ marginBottom: 16 }}>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: showCustomTargetInput ? 10 : 0 }}>
+                        {(CATEGORY_TARGETS[customCat] ?? ['직접 입력']).map(part => {
+                          if (part === '직접 입력') {
+                            return (
+                              <TouchableOpacity key="custom"
+                                style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: showCustomTargetInput ? c.primary : c.surfaceAlt }}
+                                onPress={() => setShowCustomTargetInput(v => !v)}>
+                                <Text style={{ fontSize: 12, fontWeight: "700", color: showCustomTargetInput ? c.surface : c.textSecondary }}>+ 직접 입력</Text>
+                              </TouchableOpacity>
+                            );
+                          }
+                          const on = customTargetParts.includes(part);
+                          return (
+                            <TouchableOpacity key={part}
+                              style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: on ? c.primary : c.surfaceAlt }}
+                              onPress={() => setCustomTargetParts(prev => on ? prev.filter(p => p !== part) : [...prev, part])}>
+                              <Text style={{ fontSize: 12, fontWeight: "700", color: on ? c.surface : c.textSecondary }}>{part}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {/* 직접 입력으로 추가된 항목 태그 */}
+                        {customTargetParts.filter(p => !(CATEGORY_TARGETS[customCat] ?? []).includes(p)).map(p => (
+                          <TouchableOpacity key={p}
+                            style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            onPress={() => setCustomTargetParts(prev => prev.filter(x => x !== p))}>
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: c.surface }}>{p}</Text>
+                            <Text style={{ fontSize: 10, color: c.surface, opacity: 0.7 }}>×</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      {showCustomTargetInput && (
+                        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                          <TextInput
+                            style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, fontSize: 13, color: c.textPrimary }}
+                            placeholder="타겟 부위 직접 입력"
+                            placeholderTextColor={c.textMuted}
+                            value={customTargetInput}
+                            onChangeText={setCustomTargetInput}
+                            returnKeyType="done"
+                            onSubmitEditing={() => {
+                              const v = customTargetInput.trim();
+                              if (v && !customTargetParts.includes(v)) setCustomTargetParts(prev => [...prev, v]);
+                              setCustomTargetInput('');
+                              setShowCustomTargetInput(false);
+                            }}
+                          />
+                          <TouchableOpacity
+                            style={{ backgroundColor: c.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 }}
+                            onPress={() => {
+                              const v = customTargetInput.trim();
+                              if (v && !customTargetParts.includes(v)) setCustomTargetParts(prev => [...prev, v]);
+                              setCustomTargetInput('');
+                              setShowCustomTargetInput(false);
+                            }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: c.surface }}>추가</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )}
 
                   <Text style={{ fontSize: 11, color: c.textMuted, marginBottom: 12, textAlign: "center" }}>
                     세트, 쉬는 시간, 팁은 다음 단계에서 설정해요
