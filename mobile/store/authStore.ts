@@ -85,7 +85,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       get().fetchMe().catch(() => {});
     } catch (e: any) {
       set({ isLoading: false });
-      throw new Error(e.response?.data?.message || '로그인 실패');
+      const err = new Error(e.response?.data?.message || '로그인 실패') as any;
+      err.status = e.response?.status;
+      throw err;
     }
   },
 
@@ -105,7 +107,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       console.log('[Google] status:', e.response?.status);
       console.log('[Google] message:', e.message);
       set({ isLoading: false });
-      throw new Error(e.response?.data?.message || `Google 로그인 실패 (${e.response?.status ?? e.message})`);
+      const err = new Error(e.response?.data?.message || `Google 로그인 실패 (${e.response?.status ?? e.message})`) as any;
+      err.status = e.response?.status;
+      throw err;
     }
   },
 
@@ -119,7 +123,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ token: access_token, user, isLoading: false });
     } catch (e: any) {
       set({ isLoading: false });
-      throw new Error(e.response?.data?.message || '회원가입 실패');
+      const err = new Error(e.response?.data?.message || '회원가입 실패') as any;
+      err.status = e.response?.status;
+      throw err;
     }
   },
 

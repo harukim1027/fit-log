@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
+import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header, Input, Button } from "../../components/ui";
 import { LogoMark } from "../../components/AppIcons";
@@ -17,12 +18,18 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name || !email || !password)
-      return Alert.alert("모든 항목을 입력해주세요");
+      return showCuteAlert({ preset: 'emptyInput', message: '이름, 이메일, 비밀번호를\n모두 입력해 주세요.' });
     try {
       await register(email, password, name);
-      router.replace("/(tabs)");
+      showCuteAlert({ preset: 'signupSuccess', onPrimary: () => router.replace("/(tabs)" as any) });
     } catch (e: any) {
-      Alert.alert("회원가입 실패", e.message);
+      if (e.status === 409) {
+        showCuteAlert({ preset: 'emailDup', onSecondary: () => router.push("/auth/login" as any) });
+      } else if (!e.status) {
+        showCuteAlert({ preset: 'network', onPrimary: handleRegister });
+      } else {
+        showCuteAlert({ icon: 'alert', tone: 'danger', title: '회원가입 실패', message: e.message, buttons: [{ label: '확인', style: 'primary' }] });
+      }
     }
   };
 
