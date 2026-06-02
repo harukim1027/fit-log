@@ -1598,16 +1598,17 @@ export default function WorkoutScreen() {
                                     key={ds.id}
                                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6 }}>
                                     <Text style={{ fontSize: 11, fontWeight: '700', color: c.textMuted, width: 34 }}>{idx + 1}세트</Text>
+                                    {/* 중량 섹션 */}
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                       <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}
                                         onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: String(Math.max(0, (parseFloat(s.weight) || 0) - 5)) } : s))}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>-5</Text>
+                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>-5</Text>
                                       </TouchableOpacity>
                                       <TouchableOpacity
                                         style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 54 }}
                                         onPress={() => openPad(ds.weight, true, 'kg', v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: v } : s)))}>
-                                        <Text style={{ fontSize: 13, fontWeight: '900', color: ds.weight ? c.textPrimary : c.textMuted }}>
+                                        <Text style={{ fontSize: 13, fontWeight: '900', color: c.primary }}>
                                           {ds.weight || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> kg</Text>
                                         </Text>
                                       </TouchableOpacity>
@@ -1617,22 +1618,24 @@ export default function WorkoutScreen() {
                                         <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>+5</Text>
                                       </TouchableOpacity>
                                     </View>
-                                    <Text style={{ fontSize: 12, color: c.textMuted }}>·</Text>
+                                    {/* 세로 구분선 */}
+                                    <View style={{ width: 1, height: 24, backgroundColor: c.border }} />
+                                    {/* 횟수 섹션 */}
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                       <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}
                                         onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: String(Math.max(0, (parseInt(s.reps) || 0) - 1)) } : s))}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>-1</Text>
+                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>-1</Text>
                                       </TouchableOpacity>
                                       <TouchableOpacity
                                         style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 46 }}
                                         onPress={() => openPad(ds.reps, false, '회', v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: v } : s)))}>
-                                        <Text style={{ fontSize: 13, fontWeight: '900', color: ds.reps ? c.textPrimary : c.textMuted }}>
+                                        <Text style={{ fontSize: 13, fontWeight: '900', color: c.primary }}>
                                           {ds.reps || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> 회</Text>
                                         </Text>
                                       </TouchableOpacity>
                                       <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
                                         onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: String((parseInt(s.reps) || 0) + 1) } : s))}>
                                         <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>+1</Text>
                                       </TouchableOpacity>
