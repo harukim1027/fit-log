@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Header, SortableList } from "../../components/ui";
 import { Icon } from "../../components/AppIcons";
 import {
@@ -86,7 +86,8 @@ export default function RoutineManageModal() {
   );
   const [combineName, setCombineName] = useState("");
 
-  const { sessions } = useWorkoutStore();
+  const router = useRouter();
+  const { sessions, startSessionWithRoutine, activeSession } = useWorkoutStore();
   const [showHistorySheet, setShowHistorySheet] = useState(false);
 
   const loadFromSession = (session: (typeof sessions)[0]) => {
@@ -509,6 +510,34 @@ export default function RoutineManageModal() {
                           </View>
                         )}
                       </View>
+                      {/* 시작 버튼 */}
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                          gap: 6,
+                          marginTop: 10,
+                        }}
+                        onPress={() => {
+                          if (activeSession) {
+                            Alert.alert(
+                              "운동 중",
+                              "진행 중인 운동이 있어요. 종료 후 시작해주세요."
+                            );
+                            return;
+                          }
+                          startSessionWithRoutine(r);
+                          router.back();
+                        }}
+                        activeOpacity={0.8}>
+                        <Text style={{ fontSize: 13, fontWeight: "800", color: c.warning }}>
+                          시작
+                        </Text>
+                        <View style={{ backgroundColor: c.warning, borderRadius: 999, width: 28, height: 28, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontSize: 14, color: c.onAccent, fontWeight: "900" }}>▶</Text>
+                        </View>
+                      </TouchableOpacity>
                     </View>
                   )}
                 />
