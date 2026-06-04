@@ -94,22 +94,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loginWithGoogle: async (accessToken: string) => {
     set({ isLoading: true });
     try {
-      console.log('[Google] API_URL:', API_URL);
-      console.log('[Google] accessToken 존재:', !!accessToken, accessToken?.slice(0, 20));
       const res = await axios.post(API_URL + '/auth/google', { access_token: accessToken });
       const { access_token: token, user } = res.data;
       await AsyncStorage.setItem('token', token);
       await saveUser(user);
-      set({ token, user, isLoading: false });
+      set({ token, user });
       get().fetchMe().catch(() => {});
     } catch (e: any) {
-      console.log('[Google] 에러 상세:', JSON.stringify(e.response?.data));
-      console.log('[Google] status:', e.response?.status);
-      console.log('[Google] message:', e.message);
-      set({ isLoading: false });
       const err = new Error(e.response?.data?.message || `Google 로그인 실패 (${e.response?.status ?? e.message})`) as any;
       err.status = e.response?.status;
       throw err;
+    } finally {
+      set({ isLoading: false });
     }
   },
 

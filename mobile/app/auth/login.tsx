@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from "react-native";
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, AppState } from "react-native";
 import { useRouter } from "expo-router";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
@@ -26,18 +26,30 @@ export default function LoginScreen() {
   });
 
   useEffect(() => {
-    if (googleResponse?.type === "success") {
+    if (!googleResponse) return;
+    if (googleResponse.type === "success") {
       const accessToken = googleResponse.authentication?.accessToken;
       if (accessToken) {
         loginWithGoogle(accessToken)
           .then(() => router.replace("/(tabs)"))
           .catch((e: any) => showCuteAlert({ preset: 'network', message: e.message }))
           .finally(() => setSocialLoading(null));
+      } else {
+        setSocialLoading(null);
       }
-    } else if (googleResponse?.type === "error" || googleResponse?.type === "dismiss") {
+    } else {
+      // cancel / dismiss / error / locked — 모두 로딩 해제
       setSocialLoading(null);
     }
   }, [googleResponse]);
+
+  // 앱 포그라운드 복귀 시 로딩 상태 안전망 초기화
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") setSocialLoading(null);
+    });
+    return () => sub.remove();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password)
@@ -98,6 +110,7 @@ export default function LoginScreen() {
             title="로그인"
             onPress={handleLogin}
             loading={isLoading}
+            disabled={!email.trim() || !password}
             fullWidth
             className="mt-2"
           />

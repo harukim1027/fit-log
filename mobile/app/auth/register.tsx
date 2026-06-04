@@ -71,6 +71,7 @@ export default function RegisterScreen() {
             title="회원가입"
             onPress={handleRegister}
             loading={isLoading}
+            disabled={!name.trim() || !email.trim() || !password}
             fullWidth
             className="mt-2"
           />

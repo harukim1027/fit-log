@@ -1,4 +1,12 @@
 import React, { useRef } from "react";
+import { calcExerciseVolume } from "../../utils/workout";
+import {
+  showWorkoutNotification,
+  showRestNotification,
+  dismissWorkoutNotification,
+  scheduleRestEndNotification,
+  cancelRestEndNotification,
+} from "../../lib/workoutNotification";
 import {
   View,
   Text,
@@ -187,7 +195,7 @@ export default function WorkoutScreen() {
   );
   const [activeEditExId, setActiveEditExId] = useState<string | null>(null);
   const [draftExName, setDraftExName] = useState("");
-  const [draftUnit, setDraftUnit] = useState<'kg' | 'lbs'>('kg');
+  const [draftUnit, setDraftUnit] = useState<"kg" | "lbs">("kg");
   const [draftSets, setDraftSets] = useState<
     Array<{
       id: string;
@@ -208,8 +216,10 @@ export default function WorkoutScreen() {
   const [codeSearching, setCodeSearching] = useState(false);
   const [copyingId, setCopyingId] = useState<string | null>(null);
   const [showSaveRoutineModal, setShowSaveRoutineModal] = useState(false);
-  const [saveRoutineName, setSaveRoutineName] = useState('');
-  const [saveRoutineExercises, setSaveRoutineExercises] = useState<WorkoutSession['exercises']>([]);
+  const [saveRoutineName, setSaveRoutineName] = useState("");
+  const [saveRoutineExercises, setSaveRoutineExercises] = useState<
+    WorkoutSession["exercises"]
+  >([]);
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
   const [timerState, setTimerState] = useState({
@@ -218,7 +228,9 @@ export default function WorkoutScreen() {
     running: false,
     paused: false,
   });
-  const [historyExpanded, setHistoryExpanded] = useState<Record<string, boolean>>({});
+  const [historyExpanded, setHistoryExpanded] = useState<
+    Record<string, boolean>
+  >({});
   const [detailExpanded, setDetailExpanded] = useState<Record<string, boolean>>(
     {}
   );
@@ -265,6 +277,42 @@ export default function WorkoutScreen() {
     loadRoutines();
   }, []);
 
+  // 운동 세션이 시작되면 항상 "오늘 운동" 탭으로 이동
+  useEffect(() => {
+    if (activeSession) setTab("today");
+  }, [activeSession]);
+
+  // 휴식 타이머 알림 연동
+  useEffect(() => {
+    if (!activeSession) return;
+    if (timerState.running && !timerState.paused && timerState.remaining > 0) {
+      const exerciseName =
+        activeSession.exercises[activeSession.exercises.length - 1]?.name;
+      showRestNotification(timerState.remaining, exerciseName).catch(() => {});
+    } else if (!timerState.running) {
+      // 휴식 종료 → 운동 타이머로 복귀
+      showWorkoutNotification(
+        workoutElapsed,
+        activeSession.exercises.length,
+        getTotalVolume(activeSession)
+      ).catch(() => {});
+    }
+  }, [timerState.running, timerState.remaining]);
+
+  // 휴식 종료 예약 알림 (백그라운드에서도 타이머 종료 알림)
+  useEffect(() => {
+    if (!activeSession) return;
+    const exerciseName =
+      activeSession.exercises[activeSession.exercises.length - 1]?.name;
+    if (timerState.running && !timerState.paused && timerState.remaining > 0) {
+      scheduleRestEndNotification(timerState.remaining, exerciseName).catch(
+        () => {}
+      );
+    } else {
+      cancelRestEndNotification().catch(() => {});
+    }
+  }, [timerState.running, timerState.paused]);
+
   useEffect(() => {
     if (communityExpanded) fetchPublicRoutines(communitySort).catch(() => {});
   }, [communityExpanded, communitySort]);
@@ -273,9 +321,53 @@ export default function WorkoutScreen() {
     routine: import("../../store/routineStore").Routine
   ) => {
     if (routine.isPublic && routine.shareCode) {
-      showCuteAlert({ icon: 'mail', tone: 'info', title: '공유 중', message: `공유 코드: ${routine.shareCode}`, buttons: [{ label: '닫기', style: 'soft' }, { label: '비공개로 변경', style: 'primary', onPress: () => unshareRoutine(routine.id).catch(() => showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '변경에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] })) }] });
+      showCuteAlert({
+        icon: "mail",
+        tone: "info",
+        title: "공유 중",
+        message: `공유 코드: ${routine.shareCode}`,
+        buttons: [
+          { label: "닫기", style: "soft" },
+          {
+            label: "비공개로 변경",
+            style: "primary",
+            onPress: () =>
+              unshareRoutine(routine.id).catch(() =>
+                showCuteAlert({
+                  icon: "alert",
+                  tone: "danger",
+                  title: "오류",
+                  message: "변경에 실패했어요",
+                  buttons: [{ label: "확인", style: "primary" }],
+                })
+              ),
+          },
+        ],
+      });
     } else {
-      showCuteAlert({ icon: 'mail', tone: 'info', title: '루틴 공개', message: '이 루틴을 다른 사람과 공유할까요?\n공유 코드가 생성돼요.', buttons: [{ label: '취소', style: 'soft' }, { label: '공개하기', style: 'primary', onPress: () => shareRoutine(routine.id).catch(() => showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '공유 설정에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] })) }] });
+      showCuteAlert({
+        icon: "mail",
+        tone: "info",
+        title: "루틴 공개",
+        message: "이 루틴을 다른 사람과 공유할까요?\n공유 코드가 생성돼요.",
+        buttons: [
+          { label: "취소", style: "soft" },
+          {
+            label: "공개하기",
+            style: "primary",
+            onPress: () =>
+              shareRoutine(routine.id).catch(() =>
+                showCuteAlert({
+                  icon: "alert",
+                  tone: "danger",
+                  title: "오류",
+                  message: "공유 설정에 실패했어요",
+                  buttons: [{ label: "확인", style: "primary" }],
+                })
+              ),
+          },
+        ],
+      });
     }
   };
 
@@ -283,24 +375,50 @@ export default function WorkoutScreen() {
     setCopyingId(id);
     try {
       await copyRoutine(id);
-      showCuteAlert({ icon: 'check', tone: 'ok', title: '완료', message: '내 루틴으로 가져왔어요!', buttons: [{ label: '확인', style: 'primary' }] });
+      showCuteAlert({
+        icon: "check",
+        tone: "ok",
+        title: "완료",
+        message: "내 루틴으로 가져왔어요!",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
     } catch {
-      showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '가져오기에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
+      showCuteAlert({
+        icon: "alert",
+        tone: "danger",
+        title: "오류",
+        message: "가져오기에 실패했어요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
     } finally {
       setCopyingId(null);
     }
   };
 
   const handleCodeSearch = async () => {
-    if (codeInput.trim().length !== 6)
-    { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '코드 오류', message: '6자리 코드를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (codeInput.trim().length !== 6) {
+      showCuteAlert({
+        icon: "pencil",
+        tone: "warn",
+        title: "코드 오류",
+        message: "6자리 코드를 입력해주세요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
+      return;
+    }
     setCodeSearching(true);
     setCodeResult(null);
     try {
       const result = await searchByCode(codeInput);
       setCodeResult(result);
     } catch {
-      showCuteAlert({ icon: 'alert', tone: 'warn', title: '루틴을 찾을 수 없어요', message: '코드를 다시 확인해주세요', buttons: [{ label: '확인', style: 'primary' }] });
+      showCuteAlert({
+        icon: "alert",
+        tone: "warn",
+        title: "루틴을 찾을 수 없어요",
+        message: "코드를 다시 확인해주세요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
     } finally {
       setCodeSearching(false);
     }
@@ -308,16 +426,6 @@ export default function WorkoutScreen() {
 
   const enterEdit = (ex: WorkoutSession["exercises"][0]) => {
     setDraftExName(ex.name);
-    const unit = ex.sets[0]?.unit ?? 'kg';
-    setDraftUnit(unit);
-    setDraftSets(
-      ex.sets.map((s) => ({
-        id: s.id,
-        weight: String(s.weight),
-        reps: String(s.reps),
-        completed: s.completed,
-      }))
-    );
     setActiveEditExId(ex.id);
   };
 
@@ -325,34 +433,7 @@ export default function WorkoutScreen() {
     if (draftExName.trim() && draftExName.trim() !== ex.name) {
       updateExercise(ex.id, { name: draftExName.trim() } as any);
     }
-    const originalIds = new Set(ex.sets.map((s) => s.id));
-    const keptIds = new Set(draftSets.filter((s) => !s.isNew).map((s) => s.id));
-    ex.sets.forEach((s) => {
-      if (!keptIds.has(s.id)) removeSet(ex.id, s.id);
-    });
-    draftSets
-      .filter((s) => !s.isNew && originalIds.has(s.id))
-      .forEach((ds) => {
-        updateSet(ex.id, ds.id, {
-          weight: parseFloat(ds.weight) || 0,
-          reps: parseInt(ds.reps) || 0,
-          completed: ds.completed,
-          unit: draftUnit,
-        });
-      });
-    draftSets
-      .filter((s) => s.isNew)
-      .forEach((ds, i) => {
-        addSet(ex.id, {
-          id: `${ex.id}-edit-${Date.now()}-${i}`,
-          weight: parseFloat(ds.weight) || 0,
-          reps: parseInt(ds.reps) || 0,
-          completed: ds.completed,
-          unit: draftUnit,
-        });
-      });
     setActiveEditExId(null);
-    setDraftSets([]);
   };
 
   const handleSaveAsRoutine = async () => {
@@ -362,7 +443,7 @@ export default function WorkoutScreen() {
     try {
       await useRoutineStore.getState().addRoutine({
         name,
-        exercises: saveRoutineExercises.map(ex => ({
+        exercises: saveRoutineExercises.map((ex) => ({
           name: ex.name,
           category: ex.category,
           defaultSets: ex.sets.length || 3,
@@ -380,7 +461,7 @@ export default function WorkoutScreen() {
     } finally {
       setSavingRoutine(false);
       setShowSaveRoutineModal(false);
-      setSaveRoutineName('');
+      setSaveRoutineName("");
       setSaveRoutineExercises([]);
     }
   };
@@ -395,7 +476,31 @@ export default function WorkoutScreen() {
       : 0;
     const snapshot = activeSession;
 
-    showCuteAlert({ icon: 'check', tone: 'ok', title: '운동 종료', message: '오늘 운동을 저장하고 종료할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '저장 및 종료', style: 'primary', onPress: async () => { await endSession(calories); setCompleteCalories(calories); if (!snapshot?.fromRoutineId && (snapshot?.exercises.length ?? 0) > 0) { setSaveRoutineExercises(snapshot!.exercises); setSaveRoutineName(''); setShowSaveRoutineModal(true); } } }] });
+    showCuteAlert({
+      icon: "check",
+      tone: "ok",
+      title: "운동 종료",
+      message: "오늘 운동을 저장하고 종료할까요?",
+      buttons: [
+        { label: "취소", style: "soft" },
+        {
+          label: "저장 및 종료",
+          style: "primary",
+          onPress: async () => {
+            await endSession(calories);
+            setCompleteCalories(calories);
+            if (
+              !snapshot?.fromRoutineId &&
+              (snapshot?.exercises.length ?? 0) > 0
+            ) {
+              setSaveRoutineExercises(snapshot!.exercises);
+              setSaveRoutineName("");
+              setShowSaveRoutineModal(true);
+            }
+          },
+        },
+      ],
+    });
   };
 
   const markedDates = useMemo(() => {
@@ -707,7 +812,22 @@ export default function WorkoutScreen() {
                                 />
                               </TouchableOpacity>
                               <TouchableOpacity
-                                onPress={() => showCuteAlert({ icon: 'trash', tone: 'danger', title: '루틴 삭제', message: `"${routine.name}"을 삭제할까요?`, buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => deleteRoutine(routine.id) }] })
+                                onPress={() =>
+                                  showCuteAlert({
+                                    icon: "trash",
+                                    tone: "danger",
+                                    title: "루틴 삭제",
+                                    message: `"${routine.name}"을 삭제할까요?`,
+                                    buttons: [
+                                      { label: "취소", style: "soft" },
+                                      {
+                                        label: "삭제",
+                                        style: "primary",
+                                        onPress: () =>
+                                          deleteRoutine(routine.id),
+                                      },
+                                    ],
+                                  })
                                 }>
                                 <Icon
                                   name="trash"
@@ -1231,7 +1351,17 @@ export default function WorkoutScreen() {
                   totalVolume={getTotalVolume(activeSession)}
                   elapsed={workoutElapsed}
                   paused={workoutPaused}
-                  onPausedChange={setWorkoutPaused}
+                  onPausedChange={(v) => {
+                    setWorkoutPaused(v);
+                    if (!v) {
+                      // 재개 시 알림 즉시 갱신
+                      showWorkoutNotification(
+                        workoutElapsed,
+                        activeSession.exercises.length,
+                        getTotalVolume(activeSession)
+                      ).catch(() => {});
+                    }
+                  }}
                   onEnd={handleEnd}
                 />
                 {activeSession.fromRoutineId &&
@@ -1422,27 +1552,6 @@ export default function WorkoutScreen() {
                                 gap: 6,
                                 marginBottom: 10,
                               }}>
-                              <TouchableOpacity
-                                onPress={() =>
-                                  setDetailExpanded((prev) => ({
-                                    ...prev,
-                                    [ex.id]: !isExpanded,
-                                  }))
-                                }
-                                hitSlop={{
-                                  top: 8,
-                                  bottom: 8,
-                                  left: 8,
-                                  right: 8,
-                                }}>
-                                <Icon
-                                  name={
-                                    isExpanded ? "chevronUp" : "chevronDown"
-                                  }
-                                  size={16}
-                                  color={c.textMuted}
-                                />
-                              </TouchableOpacity>
                               <View
                                 style={{
                                   opacity: isActive ? 1 : 0.35,
@@ -1494,31 +1603,19 @@ export default function WorkoutScreen() {
                                   </Text>
                                 </TouchableOpacity>
                               )}
-                              <TouchableOpacity
-                                style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: activeEditExId === ex.id ? c.primary + '22' : c.primary + '15', alignItems: 'center', justifyContent: 'center' }}
-                                onPress={() => {
-                                  if (activeEditExId === ex.id) commitEdit(ex);
-                                  else enterEdit(ex);
-                                }}>
-                                <Icon
-                                  name={activeEditExId === ex.id ? "check" : "pencil"}
-                                  size={20}
-                                  color={c.primary}
-                                />
-                              </TouchableOpacity>
-                              {!isExpanded &&
-                                ex.restSeconds &&
-                                ex.restSeconds > 0 && (
-                                  <Text
-                                    style={{
-                                      fontSize: 11,
-                                      fontWeight: "700",
-                                      color: c.textMuted,
-                                      flexShrink: 0,
-                                    }}>
-                                    {fmtRestSeconds(ex.restSeconds)}
-                                  </Text>
-                                )}
+
+                              {ex.restSeconds && ex.restSeconds > 0 && (
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "700",
+                                    color: c.textMuted,
+                                    flexShrink: 0,
+                                  }}>
+                                  {fmtRestSeconds(ex.restSeconds)}
+                                </Text>
+                              )}
+                              {/* 카테고리 뱃지 */}
                               <View
                                 style={{
                                   backgroundColor: c.surfaceAlt,
@@ -1537,779 +1634,1039 @@ export default function WorkoutScreen() {
                                 </Text>
                               </View>
                             </View>
-
-                            {/* EDIT MODE */}
-                            {activeEditExId === ex.id ? (
-                              <View style={{ marginTop: 4 }}>
-                                {/* 컬럼 헤더 — 한 번만 */}
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 4 }}>
-                                  <View style={{ width: 34 }} />
-                                  <Text style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>무게</Text>
-                                  <View style={{ width: 16 }} />
-                                  <Text style={{ fontSize: 11, color: c.textMuted, flex: 1 }}>횟수</Text>
-                                  {/* 단위 토글 */}
-                                  <View style={{ flexDirection: 'row', gap: 3 }}>
-                                    {(['kg', 'lbs'] as const).map(u => (
-                                      <TouchableOpacity key={u}
-                                        style={{ paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, backgroundColor: draftUnit === u ? c.primary : c.surfaceAlt }}
-                                        onPress={() => {
-                                          if (draftUnit !== u) {
-                                            const factor = u === 'lbs' ? 2.20462 : 1 / 2.20462;
-                                            setDraftSets(prev => prev.map(s => ({
-                                              ...s,
-                                              weight: String(Math.round((parseFloat(s.weight || '0') * factor) * 10) / 10),
-                                            })));
-                                            setDraftUnit(u);
-                                          }
-                                        }}>
-                                        <Text style={{ fontSize: 10, fontWeight: '700', color: draftUnit === u ? c.surface : c.textSecondary }}>{u}</Text>
-                                      </TouchableOpacity>
-                                    ))}
-                                  </View>
-                                </View>
-                                <View style={{ width: '100%', height: 1, backgroundColor: c.border, marginBottom: 6 }} />
-                                {draftSets.map((ds, idx) => (
+                            {/* ── 1. 타겟 부위 뱃지 ── */}
+                            {(ex.targetMuscles?.length ?? 0) > 0 && (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  flexWrap: "wrap",
+                                  gap: 4,
+                                  marginTop: 6,
+                                }}>
+                                {ex.targetMuscles!.map((m, mi) => (
                                   <View
-                                    key={ds.id}
-                                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6 }}>
-                                    <Text style={{ fontSize: 11, fontWeight: '700', color: c.textMuted, width: 34 }}>{idx + 1}세트</Text>
-                                    {/* 중량 섹션 */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                      <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}
-                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: String(Math.max(0, (parseFloat(s.weight) || 0) - 5)) } : s))}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>-5</Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 54 }}
-                                        onPress={() => openPad(ds.weight, true, draftUnit, v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: v } : s)))}>
-                                        <Text style={{ fontSize: 13, fontWeight: '900', color: c.primary }}>
-                                          {ds.weight || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> {draftUnit}</Text>
-                                        </Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
-                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, weight: String((parseFloat(s.weight) || 0) + 5) } : s))}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>+5</Text>
-                                      </TouchableOpacity>
-                                    </View>
-                                    {/* 세로 구분선 */}
-                                    <View style={{ width: 1, height: 24, backgroundColor: c.border }} />
-                                    {/* 횟수 섹션 */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                      <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' }}
-                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: String(Math.max(0, (parseInt(s.reps) || 0) - 1)) } : s))}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>-1</Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        style={{ paddingHorizontal: 6, height: 28, backgroundColor: c.surfaceAlt, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 46 }}
-                                        onPress={() => openPad(ds.reps, false, '회', v => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: v } : s)))}>
-                                        <Text style={{ fontSize: 13, fontWeight: '900', color: c.primary }}>
-                                          {ds.reps || '0'}<Text style={{ fontSize: 10, fontWeight: '600', color: c.textMuted }}> 회</Text>
-                                        </Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}
-                                        onPress={() => setDraftSets(prev => prev.map((s, i) => i === idx ? { ...s, reps: String((parseInt(s.reps) || 0) + 1) } : s))}>
-                                        <Text style={{ fontSize: 11, fontWeight: '800', color: c.surface }}>+1</Text>
-                                      </TouchableOpacity>
-                                    </View>
-                                    <TouchableOpacity
-                                      style={{ paddingLeft: 8 }}
-                                      onPress={() => setDraftSets(prev => prev.filter((_, i) => i !== idx))}>
-                                      <Icon name="trash" size={16} color={c.danger} />
-                                    </TouchableOpacity>
+                                    key={mi}
+                                    style={{
+                                      backgroundColor: c.primary + "18",
+                                      borderRadius: 999,
+                                      paddingHorizontal: 7,
+                                      paddingVertical: 2,
+                                    }}>
+                                    <Text
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: "700",
+                                        color: c.primary,
+                                      }}>
+                                      {m}
+                                    </Text>
                                   </View>
                                 ))}
-                                <TouchableOpacity
+                              </View>
+                            )}
+
+                            {/* ── 2. 세트 아이콘 ── */}
+                            {ex.sets.length > 0 && (
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "flex-start",
+                                  justifyContent: "center",
+                                  flexWrap: "wrap",
+                                  gap: 8,
+                                  marginTop: 10,
+                                  marginBottom: 6,
+                                }}>
+                                {ex.sets.map((st, i) => (
+                                  <SetIndicator
+                                    key={st.id}
+                                    state={
+                                      i < completedSets
+                                        ? "done"
+                                        : i === completedSets
+                                        ? "current"
+                                        : "todo"
+                                    }
+                                    index={i}
+                                    showLabel={false}
+                                    weight={st.weight}
+                                    reps={st.reps}
+                                    unit={st.unit}
+                                    onPress={() => handleSetTap(i)}
+                                    onLongPress={() => {
+                                      if (ex.sets.length <= 1) {
+                                        showCuteAlert({
+                                          icon: "alert",
+                                          tone: "info",
+                                          title: "알림",
+                                          message: "세트는 최소 1개가 필요해요",
+                                          buttons: [
+                                            { label: "확인", style: "primary" },
+                                          ],
+                                        });
+                                        return;
+                                      }
+                                      showCuteAlert({
+                                        icon: "trash",
+                                        tone: "danger",
+                                        title: "세트 삭제",
+                                        message: "이 세트를 삭제할까요?",
+                                        buttons: [
+                                          { label: "취소", style: "soft" },
+                                          {
+                                            label: "삭제",
+                                            style: "primary",
+                                            onPress: () =>
+                                              removeSet(ex.id, st.id),
+                                          },
+                                        ],
+                                      });
+                                    }}
+                                  />
+                                ))}
+                              </View>
+                            )}
+
+                            {/* ── 상세보기 토글 버튼 ── */}
+                            <TouchableOpacity
+                              onPress={() =>
+                                setDetailExpanded((prev) => ({
+                                  ...prev,
+                                  [ex.id]: !isExpanded,
+                                }))
+                              }
+                              activeOpacity={0.7}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 4,
+                                paddingVertical: 10,
+                                marginTop: 6,
+                                borderTopWidth: 1,
+                                borderTopColor: c.border,
+                              }}>
+                              <Text
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: "700",
+                                  color: c.textMuted,
+                                }}>
+                                {isExpanded ? "접기" : "상세보기"}
+                              </Text>
+                              <Text
+                                style={{ fontSize: 11, color: c.textMuted }}>
+                                {isExpanded ? " ▲" : " ▼"}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {/* ── 상세 정보 (토글) ── */}
+                            {isExpanded && (
+                              <>
+                                {/* ── 3. 세트 편집 테이블 ── */}
+                                <View
                                   style={{
-                                    alignItems: "center",
-                                    paddingVertical: 8,
-                                    borderRadius: 14,
-                                    backgroundColor: c.primary + "18",
-                                    marginTop: 2,
-                                    marginBottom: 4,
+                                    height: 1,
+                                    backgroundColor: c.border,
+                                    marginTop: 6,
+                                    marginBottom: 8,
                                   }}
-                                  onPress={() => {
-                                    const last =
-                                      draftSets[draftSets.length - 1];
-                                    setDraftSets((prev) => [
-                                      ...prev,
-                                      {
-                                        id: `new-${Date.now()}`,
-                                        weight: last?.weight ?? "",
-                                        reps: last?.reps ?? "",
-                                        completed: false,
-                                        isNew: true,
-                                      },
-                                    ]);
-                                  }}>
+                                />
+                                {ex.sets.length === 0 ? (
                                   <Text
                                     style={{
                                       fontSize: 13,
-                                      fontWeight: "700",
-                                      color: c.success,
+                                      color: c.textMuted,
+                                      textAlign: "center",
+                                      paddingVertical: 8,
                                     }}>
-                                    + 세트 추가
+                                    수정 버튼을 눌러 세트를 추가해보세요
                                   </Text>
-                                </TouchableOpacity>
-                              </View>
-                            ) : (
-                              <>
-                                {/* Set Icons — always visible */}
-                                {ex.sets.length > 0 && (
-                                  <View
-                                    style={{
-                                      flexDirection: "row",
-                                      justifyContent: "center",
-                                      flexWrap: "wrap",
-                                      gap: 8,
-                                      marginBottom: isExpanded ? 14 : 8,
-                                    }}>
-                                    {ex.sets.map((st, i) => (
-                                      <SetIndicator
-                                        key={st.id}
-                                        state={
-                                          i < completedSets
-                                            ? "done"
-                                            : i === completedSets
-                                            ? "current"
-                                            : "todo"
-                                        }
-                                        index={i}
-                                        showLabel={false}
-                                        onPress={() => handleSetTap(i)}
-                                        onLongPress={() => {
-                                          if (ex.sets.length <= 1) {
-                                            showCuteAlert({ icon: 'alert', tone: 'info', title: '알림', message: '세트는 최소 1개가 필요해요', buttons: [{ label: '확인', style: 'primary' }] });
-                                            return;
-                                          }
-                                          showCuteAlert({ icon: 'trash', tone: 'danger', title: '세트 삭제', message: '이 세트를 삭제할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => removeSet(ex.id, st.id) }] });
-                                        }}
-                                      />
-                                    ))}
-                                  </View>
-                                )}
-
-                                {/* Detail mode extras */}
-                                {isExpanded && (
-                                  <>
+                                ) : (
+                                  <View>
                                     <View
                                       style={{
-                                        height: 1,
-                                        backgroundColor: c.surfaceAlt,
-                                        marginBottom: 14,
-                                      }}
-                                    />
-
-                                    {ex.sets.length === 0 ? (
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        paddingHorizontal: 12,
+                                        marginBottom: 4,
+                                      }}>
+                                      <View style={{ width: 34 }} />
                                       <Text
                                         style={{
-                                          fontSize: 13,
+                                          fontSize: 11,
                                           color: c.textMuted,
-                                          textAlign: "center",
-                                          paddingVertical: 8,
+                                          flex: 1,
                                         }}>
-                                        종목 수정에서 세트를 추가해보세요
+                                        무게
                                       </Text>
-                                    ) : (
-                                      <>
-                                        {/* Weight + Reps side by side */}
-                                        <SetInputRow
-                                          weight={String(currentSet?.weight ?? 0)}
-                                          reps={String(currentSet?.reps ?? 0)}
-                                          unit={currentSet?.unit ?? 'kg'}
-                                          onWeightStep={delta => currentSet && updateSet(ex.id, currentSet.id, { weight: Math.max(0, currentSet.weight + delta) })}
-                                          onRepsStep={delta => currentSet && updateSet(ex.id, currentSet.id, { reps: Math.max(0, currentSet.reps + delta) })}
-                                          onWeightPad={() => currentSet && openPad(String(currentSet.weight), true, currentSet?.unit ?? 'kg', v => updateSet(ex.id, currentSet.id, { weight: parseFloat(v) || 0 }))}
-                                          onRepsPad={() => currentSet && openPad(String(currentSet.reps), false, '회', v => updateSet(ex.id, currentSet.id, { reps: parseInt(v) || 0 }))}
-                                          containerStyle={{ marginBottom: 14 }}
-                                        />
-
-                                        {/* R arm */}
-                                        {ex.isSingleArm &&
-                                          ex.differentSides &&
-                                          currentSet && (
-                                            <>
+                                      <View style={{ width: 16 }} />
+                                      <Text
+                                        style={{
+                                          fontSize: 11,
+                                          color: c.textMuted,
+                                          flex: 1,
+                                        }}>
+                                        횟수
+                                      </Text>
+                                      <View
+                                        style={{
+                                          flexDirection: "row",
+                                          gap: 3,
+                                        }}>
+                                        {(["kg", "lbs"] as const).map((u) => {
+                                          const curUnit =
+                                            ex.sets[0]?.unit ?? "kg";
+                                          return (
+                                            <TouchableOpacity
+                                              key={u}
+                                              style={{
+                                                paddingHorizontal: 7,
+                                                paddingVertical: 3,
+                                                borderRadius: 999,
+                                                backgroundColor:
+                                                  curUnit === u
+                                                    ? c.primary
+                                                    : c.surfaceAlt,
+                                              }}
+                                              onPress={() => {
+                                                if (curUnit !== u) {
+                                                  const factor =
+                                                    u === "lbs"
+                                                      ? 2.20462
+                                                      : 1 / 2.20462;
+                                                  ex.sets.forEach((st) =>
+                                                    updateSet(ex.id, st.id, {
+                                                      weight:
+                                                        Math.round(
+                                                          st.weight *
+                                                            factor *
+                                                            10
+                                                        ) / 10,
+                                                      unit: u,
+                                                    })
+                                                  );
+                                                }
+                                              }}>
                                               <Text
                                                 style={{
                                                   fontSize: 10,
                                                   fontWeight: "700",
-                                                  color: c.warning,
-                                                  marginBottom: 6,
+                                                  color:
+                                                    curUnit === u
+                                                      ? c.surface
+                                                      : c.textSecondary,
                                                 }}>
-                                                R 무게
+                                                {u}
                                               </Text>
-                                              <View
-                                                style={{
-                                                  flexDirection: "row",
-                                                  alignItems: "center",
-                                                  gap: 4,
-                                                  marginBottom: 14,
-                                                }}>
-                                                <TouchableOpacity
-                                                  style={{
-                                                    width: 32,
-                                                    height: 32,
-                                                    borderRadius: 10,
-                                                    backgroundColor:
-                                                      c.surfaceAlt,
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                  }}
-                                                  onPress={() =>
-                                                    updateSet(
-                                                      ex.id,
-                                                      currentSet.id,
-                                                      {
-                                                        weightR: Math.max(
-                                                          0,
-                                                          (currentSet.weightR ??
-                                                            0) - 5
-                                                        ),
-                                                      }
-                                                    )
-                                                  }>
-                                                  <Text
-                                                    style={{
-                                                      fontSize: 12,
-                                                      fontWeight: "800",
-                                                      color: c.textSecondary,
-                                                    }}>
-                                                    -5
-                                                  </Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                  style={{
-                                                    paddingHorizontal: 10,
-                                                    height: 36,
-                                                    backgroundColor:
-                                                      c.warning + "18",
-                                                    borderRadius: 12,
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    minWidth: 70,
-                                                    borderWidth: 1.5,
-                                                    borderColor:
-                                                      c.warning + "40",
-                                                  }}
-                                                  onPress={() =>
-                                                    openPad(
-                                                      String(
-                                                        currentSet.weightR ?? 0
-                                                      ),
-                                                      true,
-                                                      "kg",
-                                                      (v) =>
-                                                        updateSet(
-                                                          ex.id,
-                                                          currentSet.id,
-                                                          {
-                                                            weightR:
-                                                              parseFloat(v) ||
-                                                              0,
-                                                          }
-                                                        )
-                                                    )
-                                                  }>
-                                                  <Text
-                                                    style={{
-                                                      fontSize: 14,
-                                                      fontWeight: "900",
-                                                      color: c.textPrimary,
-                                                    }}>
-                                                    {currentSet.weightR ?? 0}
-                                                    <Text
-                                                      style={{
-                                                        fontSize: 11,
-                                                        fontWeight: "600",
-                                                        color: c.textMuted,
-                                                      }}>
-                                                      {" "}
-                                                      kg
-                                                    </Text>
-                                                  </Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                  style={{
-                                                    width: 32,
-                                                    height: 32,
-                                                    borderRadius: 10,
-                                                    backgroundColor:
-                                                      c.warning + "80",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                  }}
-                                                  onPress={() =>
-                                                    updateSet(
-                                                      ex.id,
-                                                      currentSet.id,
-                                                      {
-                                                        weightR:
-                                                          (currentSet.weightR ??
-                                                            0) + 5,
-                                                      }
-                                                    )
-                                                  }>
-                                                  <Text
-                                                    style={{
-                                                      fontSize: 12,
-                                                      fontWeight: "800",
-                                                      color: c.surface,
-                                                    }}>
-                                                    +5
-                                                  </Text>
-                                                </TouchableOpacity>
-                                              </View>
-                                            </>
-                                          )}
-
-                                        {/* + 세트 추가 */}
-                                        <TouchableOpacity
-                                          style={{
-                                            alignItems: "center",
-                                            paddingVertical: 10,
-                                            borderRadius: 14,
-                                            backgroundColor: c.primary + "18",
-                                            marginBottom: 14,
-                                          }}
-                                          activeOpacity={0.8}
-                                          onPress={() => {
-                                            const lastSet =
-                                              ex.sets[ex.sets.length - 1];
-                                            addSet(ex.id, {
-                                              id: `${ex.id}-add-${Date.now()}`,
-                                              weight: lastSet?.weight ?? 0,
-                                              weightR: lastSet?.weightR,
-                                              reps: lastSet?.reps ?? 0,
-                                              completed: false,
-                                            });
-                                            setCurrentSetIdx((prev) => ({
-                                              ...prev,
-                                              [ex.id]: ex.sets.length,
-                                            }));
-                                          }}>
-                                          <Text
-                                            style={{
-                                              fontSize: 13,
-                                              fontWeight: "800",
-                                              color: c.primary,
-                                            }}>
-                                            + 세트 추가
-                                          </Text>
-                                        </TouchableOpacity>
-                                      </>
-                                    )}
-
-                                    {/* Han-arm toggle */}
+                                            </TouchableOpacity>
+                                          );
+                                        })}
+                                      </View>
+                                    </View>
                                     <View
                                       style={{
-                                        flexDirection: "row",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                        marginBottom: 10,
-                                      }}>
-                                      <Text
-                                        style={{
-                                          fontSize: 12,
-                                          fontWeight: "600",
-                                          color: c.textSecondary,
-                                        }}>
-                                        한팔 기준
-                                        {ex.isSingleArm ? " (볼륨 ×2)" : ""}
-                                      </Text>
+                                        width: "100%",
+                                        height: 1,
+                                        backgroundColor: c.border,
+                                        marginBottom: 6,
+                                      }}
+                                    />
+                                    {ex.sets.map((st, idx) => (
                                       <View
+                                        key={st.id}
                                         style={{
                                           flexDirection: "row",
                                           alignItems: "center",
-                                          gap: 8,
+                                          justifyContent: "space-between",
+                                          paddingHorizontal: 12,
+                                          paddingVertical: 6,
                                         }}>
-                                        {ex.isSingleArm && (
+                                        <Text
+                                          style={{
+                                            fontSize: 11,
+                                            fontWeight: "700",
+                                            color: c.textMuted,
+                                            width: 34,
+                                          }}>
+                                          {idx + 1}세트
+                                        </Text>
+                                        <View
+                                          style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            gap: 12,
+                                          }}>
                                           <TouchableOpacity
                                             style={{
-                                              flexDirection: "row",
+                                              width: 28,
+                                              height: 28,
+                                              borderRadius: 8,
+                                              backgroundColor: c.danger + "20",
                                               alignItems: "center",
-                                              gap: 4,
+                                              justifyContent: "center",
                                             }}
                                             onPress={() =>
-                                              updateExercise(ex.id, {
-                                                differentSides:
-                                                  !ex.differentSides,
+                                              updateSet(ex.id, st.id, {
+                                                weight: Math.max(
+                                                  0,
+                                                  st.weight - 5
+                                                ),
                                               })
                                             }>
-                                            <View
-                                              style={{
-                                                width: 15,
-                                                height: 15,
-                                                borderRadius: 4,
-                                                borderWidth: 1.5,
-                                                borderColor: ex.differentSides
-                                                  ? c.primary
-                                                  : c.border,
-                                                backgroundColor:
-                                                  ex.differentSides
-                                                    ? c.primary
-                                                    : "transparent",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                              }}>
-                                              {ex.differentSides && (
-                                                <Icon
-                                                  name="check"
-                                                  size={9}
-                                                  color={c.surface}
-                                                />
-                                              )}
-                                            </View>
                                             <Text
                                               style={{
                                                 fontSize: 11,
-                                                color: c.textSecondary,
-                                                fontWeight: "600",
+                                                fontWeight: "800",
+                                                color: c.danger,
                                               }}>
-                                              좌우 다른 무게
+                                              -5
                                             </Text>
                                           </TouchableOpacity>
-                                        )}
-                                        <TouchableOpacity
-                                          style={{
-                                            width: 40,
-                                            height: 22,
-                                            borderRadius: 11,
-                                            backgroundColor: ex.isSingleArm
-                                              ? c.primary
-                                              : c.surfaceAlt,
-                                            justifyContent: "center",
-                                            paddingHorizontal: 2,
-                                          }}
-                                          onPress={() =>
-                                            updateExercise(ex.id, {
-                                              isSingleArm: !ex.isSingleArm,
-                                              differentSides: false,
-                                            })
-                                          }
-                                          activeOpacity={0.8}>
-                                          <View
+                                          <TouchableOpacity
                                             style={{
-                                              width: 18,
-                                              height: 18,
-                                              borderRadius: 9,
-                                              backgroundColor: c.surface,
-                                              transform: [
+                                              paddingHorizontal: 6,
+                                              height: 28,
+                                              backgroundColor: c.surfaceAlt,
+                                              borderRadius: 8,
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                              minWidth: 54,
+                                            }}
+                                            onPress={() =>
+                                              openPad(
+                                                String(st.weight),
+                                                true,
+                                                st.unit ?? "kg",
+                                                (v) =>
+                                                  updateSet(ex.id, st.id, {
+                                                    weight: parseFloat(v) || 0,
+                                                  })
+                                              )
+                                            }>
+                                            <Text
+                                              style={{
+                                                fontSize: 13,
+                                                fontWeight: "900",
+                                                color: c.primary,
+                                              }}>
+                                              {st.weight}
+                                              <Text
+                                                style={{
+                                                  fontSize: 10,
+                                                  fontWeight: "600",
+                                                  color: c.textMuted,
+                                                }}>
+                                                {" "}
+                                                {st.unit ?? "kg"}
+                                              </Text>
+                                            </Text>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            style={{
+                                              width: 28,
+                                              height: 28,
+                                              borderRadius: 8,
+                                              backgroundColor: c.success + "20",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                            }}
+                                            onPress={() =>
+                                              updateSet(ex.id, st.id, {
+                                                weight: st.weight + 5,
+                                              })
+                                            }>
+                                            <Text
+                                              style={{
+                                                fontSize: 11,
+                                                fontWeight: "800",
+                                                color: c.success,
+                                              }}>
+                                              +5
+                                            </Text>
+                                          </TouchableOpacity>
+                                        </View>
+                                        <View
+                                          style={{
+                                            width: 1,
+                                            height: 24,
+                                            backgroundColor: c.border,
+                                          }}
+                                        />
+                                        <View
+                                          style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            gap: 12,
+                                          }}>
+                                          <TouchableOpacity
+                                            style={{
+                                              width: 28,
+                                              height: 28,
+                                              borderRadius: 8,
+                                              backgroundColor: c.danger + "20",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                            }}
+                                            onPress={() =>
+                                              updateSet(ex.id, st.id, {
+                                                reps: Math.max(0, st.reps - 1),
+                                              })
+                                            }>
+                                            <Text
+                                              style={{
+                                                fontSize: 11,
+                                                fontWeight: "800",
+                                                color: c.danger,
+                                              }}>
+                                              -1
+                                            </Text>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            style={{
+                                              paddingHorizontal: 6,
+                                              height: 28,
+                                              backgroundColor: c.surfaceAlt,
+                                              borderRadius: 8,
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                              minWidth: 46,
+                                            }}
+                                            onPress={() =>
+                                              openPad(
+                                                String(st.reps),
+                                                false,
+                                                "회",
+                                                (v) =>
+                                                  updateSet(ex.id, st.id, {
+                                                    reps: parseInt(v) || 0,
+                                                  })
+                                              )
+                                            }>
+                                            <Text
+                                              style={{
+                                                fontSize: 13,
+                                                fontWeight: "900",
+                                                color: c.primary,
+                                              }}>
+                                              {st.reps}
+                                              <Text
+                                                style={{
+                                                  fontSize: 10,
+                                                  fontWeight: "600",
+                                                  color: c.textMuted,
+                                                }}>
+                                                {" "}
+                                                회
+                                              </Text>
+                                            </Text>
+                                          </TouchableOpacity>
+                                          <TouchableOpacity
+                                            style={{
+                                              width: 28,
+                                              height: 28,
+                                              borderRadius: 8,
+                                              backgroundColor: c.success + "20",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                            }}
+                                            onPress={() =>
+                                              updateSet(ex.id, st.id, {
+                                                reps: st.reps + 1,
+                                              })
+                                            }>
+                                            <Text
+                                              style={{
+                                                fontSize: 11,
+                                                fontWeight: "800",
+                                                color: c.success,
+                                              }}>
+                                              +1
+                                            </Text>
+                                          </TouchableOpacity>
+                                        </View>
+                                        <TouchableOpacity
+                                          style={{ paddingLeft: 8 }}
+                                          onPress={() => {
+                                            if (ex.sets.length <= 1) {
+                                              showCuteAlert({
+                                                icon: "alert",
+                                                tone: "info",
+                                                title: "알림",
+                                                message:
+                                                  "세트는 최소 1개가 필요해요",
+                                                buttons: [
+                                                  {
+                                                    label: "확인",
+                                                    style: "primary",
+                                                  },
+                                                ],
+                                              });
+                                              return;
+                                            }
+                                            showCuteAlert({
+                                              icon: "trash",
+                                              tone: "danger",
+                                              title: "세트 삭제",
+                                              message: "이 세트를 삭제할까요?",
+                                              buttons: [
                                                 {
-                                                  translateX: ex.isSingleArm
-                                                    ? 18
-                                                    : 0,
+                                                  label: "취소",
+                                                  style: "soft",
+                                                },
+                                                {
+                                                  label: "삭제",
+                                                  style: "primary",
+                                                  onPress: () =>
+                                                    removeSet(ex.id, st.id),
                                                 },
                                               ],
-                                              shadowColor: "#000",
-                                              shadowOpacity: 0.12,
-                                              shadowRadius: 2,
-                                              elevation: 1,
-                                            }}
+                                            });
+                                          }}>
+                                          <Icon
+                                            name="trash"
+                                            size={16}
+                                            color={c.danger}
+                                          />
+                                        </TouchableOpacity>
+                                      </View>
+                                    ))}
+                                    <TouchableOpacity
+                                      style={{
+                                        alignItems: "center",
+                                        paddingVertical: 8,
+                                        borderRadius: 14,
+                                        backgroundColor: c.primary + "18",
+                                        marginTop: 2,
+                                        marginBottom: 4,
+                                      }}
+                                      onPress={() => {
+                                        const last =
+                                          ex.sets[ex.sets.length - 1];
+                                        addSet(ex.id, {
+                                          id: `${ex.id}-add-${Date.now()}`,
+                                          weight: last?.weight ?? 0,
+                                          weightR: last?.weightR,
+                                          reps: last?.reps ?? 0,
+                                          completed: false,
+                                          unit:
+                                            last?.unit ??
+                                            ex.sets[0]?.unit ??
+                                            "kg",
+                                        });
+                                      }}>
+                                      <Text
+                                        style={{
+                                          fontSize: 13,
+                                          fontWeight: "700",
+                                          color: c.success,
+                                        }}>
+                                        + 세트 추가
+                                      </Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                )}
+
+                                {/* ── 4. 한팔 기준 토글 ── */}
+                                <View
+                                  style={{
+                                    height: 1,
+                                    backgroundColor: c.border,
+                                    marginTop: 8,
+                                    marginBottom: 10,
+                                  }}
+                                />
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    marginBottom: 10,
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: "600",
+                                      color: c.textSecondary,
+                                    }}>
+                                    한팔 기준
+                                    {ex.isSingleArm ? " (볼륨 ×2)" : ""}
+                                  </Text>
+                                  <View
+                                    style={{
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      gap: 8,
+                                    }}>
+                                    {ex.isSingleArm && (
+                                      <TouchableOpacity
+                                        style={{
+                                          flexDirection: "row",
+                                          alignItems: "center",
+                                          gap: 4,
+                                        }}
+                                        onPress={() =>
+                                          updateExercise(ex.id, {
+                                            differentSides: !ex.differentSides,
+                                          })
+                                        }>
+                                        <View
+                                          style={{
+                                            width: 15,
+                                            height: 15,
+                                            borderRadius: 4,
+                                            borderWidth: 1.5,
+                                            borderColor: ex.differentSides
+                                              ? c.primary
+                                              : c.border,
+                                            backgroundColor: ex.differentSides
+                                              ? c.primary
+                                              : "transparent",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                          }}>
+                                          {ex.differentSides && (
+                                            <Icon
+                                              name="check"
+                                              size={9}
+                                              color={c.surface}
+                                            />
+                                          )}
+                                        </View>
+                                        <Text
+                                          style={{
+                                            fontSize: 11,
+                                            color: c.textSecondary,
+                                            fontWeight: "600",
+                                          }}>
+                                          좌우 다른 무게
+                                        </Text>
+                                      </TouchableOpacity>
+                                    )}
+                                    <TouchableOpacity
+                                      style={{
+                                        width: 40,
+                                        height: 22,
+                                        borderRadius: 11,
+                                        backgroundColor: ex.isSingleArm
+                                          ? c.primary
+                                          : c.surfaceAlt,
+                                        justifyContent: "center",
+                                        paddingHorizontal: 2,
+                                      }}
+                                      onPress={() =>
+                                        updateExercise(ex.id, {
+                                          isSingleArm: !ex.isSingleArm,
+                                          differentSides: false,
+                                        })
+                                      }
+                                      activeOpacity={0.8}>
+                                      <View
+                                        style={{
+                                          width: 18,
+                                          height: 18,
+                                          borderRadius: 9,
+                                          backgroundColor: c.surface,
+                                          transform: [
+                                            {
+                                              translateX: ex.isSingleArm
+                                                ? 18
+                                                : 0,
+                                            },
+                                          ],
+                                          shadowColor: "#000",
+                                          shadowOpacity: 0.12,
+                                          shadowRadius: 2,
+                                          elevation: 1,
+                                        }}
+                                      />
+                                    </TouchableOpacity>
+                                  </View>
+                                </View>
+
+                                {/* ── 5. 기구 설정 ── */}
+                                <View style={{ marginBottom: 10 }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "700",
+                                      color: c.textMuted,
+                                      marginBottom: 8,
+                                    }}>
+                                    기구 설정
+                                  </Text>
+                                  <View
+                                    style={{
+                                      flexDirection: "row",
+                                      flexWrap: "wrap",
+                                      gap: 6,
+                                    }}>
+                                    {(ex.settings ?? []).map((s, si) => (
+                                      <View
+                                        key={si}
+                                        style={{
+                                          flexDirection: "row",
+                                          alignItems: "center",
+                                          backgroundColor: c.surfaceAlt,
+                                          borderRadius: 999,
+                                          paddingLeft: 10,
+                                          paddingRight: 4,
+                                          paddingVertical: 4,
+                                          gap: 4,
+                                        }}>
+                                        <Text
+                                          style={{
+                                            fontSize: 11,
+                                            fontWeight: "700",
+                                            color: c.success,
+                                          }}>
+                                          {s.key}: {s.value}
+                                        </Text>
+                                        <TouchableOpacity
+                                          onPress={() =>
+                                            updateExercise(ex.id, {
+                                              settings: (
+                                                ex.settings ?? []
+                                              ).filter((_, idx) => idx !== si),
+                                            })
+                                          }
+                                          hitSlop={{
+                                            top: 6,
+                                            bottom: 6,
+                                            left: 4,
+                                            right: 4,
+                                          }}>
+                                          <Text
+                                            style={{
+                                              fontSize: 14,
+                                              color: c.textMuted,
+                                              fontWeight: "700",
+                                            }}>
+                                            ×
+                                          </Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                    ))}
+                                    <TouchableOpacity
+                                      style={{
+                                        backgroundColor: c.surfaceAlt,
+                                        borderRadius: 999,
+                                        paddingHorizontal: 10,
+                                        paddingVertical: 4,
+                                        borderWidth: 1,
+                                        borderColor: c.border,
+                                      }}
+                                      onPress={() =>
+                                        setAddingSettingFor(
+                                          addingSettingFor === ex.id
+                                            ? null
+                                            : ex.id
+                                        )
+                                      }>
+                                      <Text
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: c.textSecondary,
+                                        }}>
+                                        + 추가
+                                      </Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                  {addingSettingFor === ex.id && (
+                                    <View style={{ marginTop: 8, gap: 6 }}>
+                                      <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}>
+                                        <View
+                                          style={{
+                                            flexDirection: "row",
+                                            gap: 4,
+                                          }}>
+                                          {SETTING_KEYS.map((k) => (
+                                            <TouchableOpacity
+                                              key={k}
+                                              style={{
+                                                backgroundColor:
+                                                  newSettingKey === k
+                                                    ? c.primary
+                                                    : c.surfaceAlt,
+                                                borderRadius: 999,
+                                                paddingHorizontal: 10,
+                                                paddingVertical: 5,
+                                              }}
+                                              onPress={() =>
+                                                setNewSettingKey(k)
+                                              }>
+                                              <Text
+                                                style={{
+                                                  fontSize: 11,
+                                                  fontWeight: "700",
+                                                  color:
+                                                    newSettingKey === k
+                                                      ? c.surface
+                                                      : c.textSecondary,
+                                                }}>
+                                                {k}
+                                              </Text>
+                                            </TouchableOpacity>
+                                          ))}
+                                        </View>
+                                      </ScrollView>
+                                      <View
+                                        style={{
+                                          flexDirection: "row",
+                                          gap: 6,
+                                          alignItems: "center",
+                                        }}>
+                                        <TextInput
+                                          style={{
+                                            flex: 1,
+                                            backgroundColor: c.surfaceAlt,
+                                            borderRadius: 10,
+                                            height: 36,
+                                            paddingHorizontal: 10,
+                                            fontSize: 13,
+                                            fontWeight: "700",
+                                            color: c.textPrimary,
+                                          }}
+                                          placeholder="값 입력"
+                                          placeholderTextColor={c.textMuted}
+                                          value={newSettingVal}
+                                          onChangeText={setNewSettingVal}
+                                        />
+                                        <TouchableOpacity
+                                          style={{
+                                            backgroundColor: c.primary,
+                                            borderRadius: 10,
+                                            height: 36,
+                                            paddingHorizontal: 14,
+                                            justifyContent: "center",
+                                          }}
+                                          onPress={() => {
+                                            if (!newSettingVal.trim()) return;
+                                            updateExercise(ex.id, {
+                                              settings: [
+                                                ...(ex.settings ?? []),
+                                                {
+                                                  key: newSettingKey,
+                                                  value: newSettingVal.trim(),
+                                                },
+                                              ],
+                                            });
+                                            setNewSettingVal("");
+                                            setAddingSettingFor(null);
+                                          }}>
+                                          <Icon
+                                            name="check"
+                                            size={14}
+                                            color={c.surface}
                                           />
                                         </TouchableOpacity>
                                       </View>
                                     </View>
+                                  )}
+                                </View>
 
-                                    {/* Equipment settings */}
-                                    <View style={{ marginBottom: 10 }}>
-                                      <Text
-                                        style={{
-                                          fontSize: 11,
-                                          fontWeight: "700",
-                                          color: c.textMuted,
-                                          marginBottom: 8,
-                                        }}>
-                                        기구 설정
-                                      </Text>
-                                      <View
-                                        style={{
-                                          flexDirection: "row",
-                                          flexWrap: "wrap",
-                                          gap: 6,
-                                        }}>
-                                        {(ex.settings ?? []).map((st, si) => (
-                                          <View
-                                            key={si}
-                                            style={{
-                                              flexDirection: "row",
-                                              alignItems: "center",
-                                              backgroundColor: c.surfaceAlt,
-                                              borderRadius: 999,
-                                              paddingLeft: 10,
-                                              paddingRight: 4,
-                                              paddingVertical: 4,
-                                              gap: 4,
-                                            }}>
-                                            <Text
-                                              style={{
-                                                fontSize: 11,
-                                                fontWeight: "700",
-                                                color: c.success,
-                                              }}>
-                                              {st.key}: {st.value}
-                                            </Text>
-                                            <TouchableOpacity
-                                              onPress={() =>
-                                                updateExercise(ex.id, {
-                                                  settings: (
-                                                    ex.settings ?? []
-                                                  ).filter(
-                                                    (_, idx) => idx !== si
-                                                  ),
-                                                })
-                                              }
-                                              hitSlop={{
-                                                top: 6,
-                                                bottom: 6,
-                                                left: 4,
-                                                right: 4,
-                                              }}>
-                                              <Text
-                                                style={{
-                                                  fontSize: 14,
-                                                  color: c.textMuted,
-                                                  fontWeight: "700",
-                                                }}>
-                                                ×
-                                              </Text>
-                                            </TouchableOpacity>
-                                          </View>
-                                        ))}
-                                        <TouchableOpacity
-                                          style={{
-                                            backgroundColor: c.surfaceAlt,
-                                            borderRadius: 999,
-                                            paddingHorizontal: 10,
-                                            paddingVertical: 4,
-                                            borderWidth: 1,
-                                            borderColor: c.border,
-                                          }}
-                                          onPress={() =>
-                                            setAddingSettingFor(
-                                              addingSettingFor === ex.id
-                                                ? null
-                                                : ex.id
-                                            )
-                                          }>
-                                          <Text
-                                            style={{
-                                              fontSize: 11,
-                                              fontWeight: "700",
-                                              color: c.textSecondary,
-                                            }}>
-                                            + 추가
-                                          </Text>
-                                        </TouchableOpacity>
-                                      </View>
-                                      {addingSettingFor === ex.id && (
-                                        <View style={{ marginTop: 8, gap: 6 }}>
-                                          <ScrollView
-                                            horizontal
-                                            showsHorizontalScrollIndicator={
-                                              false
-                                            }>
-                                            <View
-                                              style={{
-                                                flexDirection: "row",
-                                                gap: 4,
-                                              }}>
-                                              {SETTING_KEYS.map((k) => (
-                                                <TouchableOpacity
-                                                  key={k}
-                                                  style={{
-                                                    backgroundColor:
-                                                      newSettingKey === k
-                                                        ? c.primary
-                                                        : c.surfaceAlt,
-                                                    borderRadius: 999,
-                                                    paddingHorizontal: 10,
-                                                    paddingVertical: 5,
-                                                  }}
-                                                  onPress={() =>
-                                                    setNewSettingKey(k)
-                                                  }>
-                                                  <Text
-                                                    style={{
-                                                      fontSize: 11,
-                                                      fontWeight: "700",
-                                                      color:
-                                                        newSettingKey === k
-                                                          ? c.surface
-                                                          : c.textSecondary,
-                                                    }}>
-                                                    {k}
-                                                  </Text>
-                                                </TouchableOpacity>
-                                              ))}
-                                            </View>
-                                          </ScrollView>
-                                          <View
-                                            style={{
-                                              flexDirection: "row",
-                                              gap: 6,
-                                              alignItems: "center",
-                                            }}>
-                                            <TextInput
-                                              style={{
-                                                flex: 1,
-                                                backgroundColor: c.surfaceAlt,
-                                                borderRadius: 10,
-                                                height: 36,
-                                                paddingHorizontal: 10,
-                                                fontSize: 13,
-                                                fontWeight: "700",
-                                                color: c.textPrimary,
-                                              }}
-                                              placeholder="값 입력"
-                                              placeholderTextColor={c.textMuted}
-                                              value={newSettingVal}
-                                              onChangeText={setNewSettingVal}
-                                            />
-                                            <TouchableOpacity
-                                              style={{
-                                                backgroundColor: c.primary,
-                                                borderRadius: 10,
-                                                height: 36,
-                                                paddingHorizontal: 14,
-                                                justifyContent: "center",
-                                              }}
-                                              onPress={() => {
-                                                if (!newSettingVal.trim())
-                                                  return;
-                                                updateExercise(ex.id, {
-                                                  settings: [
-                                                    ...(ex.settings ?? []),
-                                                    {
-                                                      key: newSettingKey,
-                                                      value:
-                                                        newSettingVal.trim(),
-                                                    },
-                                                  ],
-                                                });
-                                                setNewSettingVal("");
-                                                setAddingSettingFor(null);
-                                              }}>
-                                              <Icon
-                                                name="check"
-                                                size={14}
-                                                color={c.surface}
-                                              />
-                                            </TouchableOpacity>
-                                          </View>
-                                        </View>
-                                      )}
-                                    </View>
+                                {/* ── 6. 목표 횟수 ── */}
+                                <View style={{ marginBottom: 10 }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "700",
+                                      color: c.textMuted,
+                                      marginBottom: 6,
+                                    }}>
+                                    목표 횟수
+                                  </Text>
+                                  <TextInput
+                                    style={{
+                                      backgroundColor: c.surfaceAlt,
+                                      borderRadius: 12,
+                                      padding: 10,
+                                      fontSize: 13,
+                                      fontWeight: "700",
+                                      color: c.textPrimary,
+                                    }}
+                                    value={ex.targetReps ?? ""}
+                                    onChangeText={(v) =>
+                                      updateExercise(ex.id, { targetReps: v })
+                                    }
+                                    placeholder="예: 12회, 15-20회"
+                                    placeholderTextColor={c.textMuted}
+                                    returnKeyType="done"
+                                  />
+                                </View>
 
-                                    {/* Target reps */}
-                                    <View style={{ marginBottom: 10 }}>
-                                      <Text
-                                        style={{
-                                          fontSize: 11,
-                                          fontWeight: "700",
-                                          color: c.textMuted,
-                                          marginBottom: 6,
-                                        }}>
-                                        목표 횟수
-                                      </Text>
-                                      <TextInput
-                                        style={{
-                                          backgroundColor: c.surfaceAlt,
-                                          borderRadius: 12,
-                                          padding: 10,
-                                          fontSize: 13,
-                                          fontWeight: "700",
-                                          color: c.textPrimary,
-                                        }}
-                                        value={ex.targetReps ?? ""}
-                                        onChangeText={(v) =>
-                                          updateExercise(ex.id, {
-                                            targetReps: v,
-                                          })
-                                        }
-                                        placeholder="예: 12회, 15-20회"
-                                        placeholderTextColor={c.textMuted}
-                                        returnKeyType="done"
-                                      />
-                                    </View>
+                                {/* ── 7. 운동 팁 ── */}
+                                <View style={{ marginBottom: 10 }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "700",
+                                      color: c.textMuted,
+                                      marginBottom: 6,
+                                    }}>
+                                    운동 팁
+                                  </Text>
+                                  <TextInput
+                                    style={{
+                                      backgroundColor: c.surfaceAlt,
+                                      borderRadius: 12,
+                                      padding: 10,
+                                      fontSize: 13,
+                                      color: c.textPrimary,
+                                      minHeight: 60,
+                                    }}
+                                    value={ex.tip ?? ""}
+                                    onChangeText={(v) =>
+                                      updateExercise(ex.id, { tip: v })
+                                    }
+                                    placeholder="예: 무릎이 발끝을 넘지 않게"
+                                    placeholderTextColor={c.textMuted}
+                                    multiline
+                                    numberOfLines={3}
+                                    textAlignVertical="top"
+                                  />
+                                </View>
 
-                                    {/* Tip */}
-                                    <View style={{ marginBottom: 10 }}>
-                                      <Text
-                                        style={{
-                                          fontSize: 11,
-                                          fontWeight: "700",
-                                          color: c.textMuted,
-                                          marginBottom: 6,
-                                        }}>
-                                        운동 팁
-                                      </Text>
-                                      <TextInput
-                                        style={{
-                                          backgroundColor: c.surfaceAlt,
-                                          borderRadius: 12,
-                                          padding: 10,
-                                          fontSize: 13,
-                                          color: c.textPrimary,
-                                          minHeight: 60,
-                                        }}
-                                        value={ex.tip ?? ""}
-                                        onChangeText={(v) =>
-                                          updateExercise(ex.id, { tip: v })
-                                        }
-                                        placeholder="예: 무릎이 발끝을 넘지 않게"
-                                        placeholderTextColor={c.textMuted}
-                                        multiline
-                                        numberOfLines={3}
-                                        textAlignVertical="top"
-                                      />
-                                    </View>
-                                  </>
-                                )}
-
-                                {/* 이전 기록 토글 */}
+                                {/* ── 8. 이전 기록 토글 ── */}
                                 {(() => {
-                                  const prH = exerciseHistoryCache.get(`${ex.name}:pr`);
-                                  const weekH = exerciseHistoryCache.get(`${ex.name}:week`);
-                                  const monthH = exerciseHistoryCache.get(`${ex.name}:month`);
-                                  const fmtSession = (h: { comparisonSession: { maxWeight: number; sets: { weight: number; reps: number }[] } | null } | undefined) => {
+                                  const prH = exerciseHistoryCache.get(
+                                    `${ex.name}:pr`
+                                  );
+                                  const weekH = exerciseHistoryCache.get(
+                                    `${ex.name}:week`
+                                  );
+                                  const monthH = exerciseHistoryCache.get(
+                                    `${ex.name}:month`
+                                  );
+                                  const fmtSession = (
+                                    h:
+                                      | {
+                                          comparisonSession: {
+                                            maxWeight: number;
+                                            sets: {
+                                              weight: number;
+                                              reps: number;
+                                            }[];
+                                          } | null;
+                                        }
+                                      | undefined
+                                  ) => {
                                     const e = h?.comparisonSession;
                                     if (!e) return null;
-                                    const best = e.sets.find(s => s.weight === e.maxWeight) ?? e.sets[0];
-                                    return best ? `${e.maxWeight}kg × ${best.reps}회` : `${e.maxWeight}kg`;
+                                    const best =
+                                      e.sets.find(
+                                        (s) => s.weight === e.maxWeight
+                                      ) ?? e.sets[0];
+                                    return best
+                                      ? `${e.maxWeight}kg × ${best.reps}회`
+                                      : `${e.maxWeight}kg`;
                                   };
                                   const rows = [
-                                    { label: 'PR', text: prH?.pr ? `${prH.pr.weight}kg` : null },
-                                    { label: '1주전', text: fmtSession(weekH) },
-                                    { label: '1달전', text: fmtSession(monthH) },
+                                    {
+                                      label: "PR",
+                                      text: prH?.pr
+                                        ? `${prH.pr.weight}kg`
+                                        : null,
+                                    },
+                                    { label: "1주전", text: fmtSession(weekH) },
+                                    {
+                                      label: "1달전",
+                                      text: fmtSession(monthH),
+                                    },
                                   ];
                                   const isOpen = !!historyExpanded[ex.id];
                                   return (
                                     <>
                                       <TouchableOpacity
-                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, marginTop: 4, borderTopWidth: 1, borderTopColor: c.border }}
+                                        style={{
+                                          flexDirection: "row",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          gap: 4,
+                                          paddingVertical: 8,
+                                          borderTopWidth: 1,
+                                          borderTopColor: c.border,
+                                        }}
                                         onPress={() => {
                                           const next = !isOpen;
-                                          setHistoryExpanded(prev => ({ ...prev, [ex.id]: next }));
+                                          setHistoryExpanded((prev) => ({
+                                            ...prev,
+                                            [ex.id]: next,
+                                          }));
                                           if (next) {
-                                            fetchExerciseHistory(ex.name, 'week');
-                                            fetchExerciseHistory(ex.name, 'month');
+                                            fetchExerciseHistory(
+                                              ex.name,
+                                              "week"
+                                            );
+                                            fetchExerciseHistory(
+                                              ex.name,
+                                              "month"
+                                            );
                                           }
                                         }}
                                         activeOpacity={0.7}>
-                                        <Text style={{ fontSize: 12, fontWeight: '700', color: c.textMuted }}>이전 기록</Text>
-                                        <Text style={{ fontSize: 11, color: c.textMuted }}>{isOpen ? ' ▲' : ' ▼'}</Text>
+                                        <Text
+                                          style={{
+                                            fontSize: 12,
+                                            fontWeight: "700",
+                                            color: c.textMuted,
+                                          }}>
+                                          이전 기록
+                                        </Text>
+                                        <Text
+                                          style={{
+                                            fontSize: 11,
+                                            color: c.textMuted,
+                                          }}>
+                                          {isOpen ? " ▲" : " ▼"}
+                                        </Text>
                                       </TouchableOpacity>
                                       {isOpen && (
-                                        <View style={{ paddingHorizontal: 6, paddingBottom: 8, paddingTop: 4, gap: 6 }}>
+                                        <View
+                                          style={{
+                                            paddingHorizontal: 6,
+                                            paddingBottom: 8,
+                                            paddingTop: 4,
+                                            gap: 6,
+                                          }}>
                                           {rows.map(({ label, text }) => (
-                                            <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                              <View style={{ backgroundColor: c.surfaceAlt, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                                                <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{label}</Text>
+                                            <View
+                                              key={label}
+                                              style={{
+                                                flexDirection: "row",
+                                                justifyContent: "space-between",
+                                                alignItems: "center",
+                                              }}>
+                                              <View
+                                                style={{
+                                                  backgroundColor: c.surfaceAlt,
+                                                  borderRadius: 8,
+                                                  paddingHorizontal: 8,
+                                                  paddingVertical: 3,
+                                                }}>
+                                                <Text
+                                                  style={{
+                                                    fontSize: 11,
+                                                    fontWeight: "700",
+                                                    color: c.textSecondary,
+                                                  }}>
+                                                  {label}
+                                                </Text>
                                               </View>
-                                              <Text style={{ fontSize: 13, fontWeight: '800', color: text ? c.primary : c.textMuted }}>{text ?? '기록 없음'}</Text>
+                                              <Text
+                                                style={{
+                                                  fontSize: 13,
+                                                  fontWeight: "800",
+                                                  color: text
+                                                    ? c.primary
+                                                    : c.textMuted,
+                                                }}>
+                                                {text ?? "기록 없음"}
+                                              </Text>
                                             </View>
                                           ))}
                                         </View>
@@ -2333,6 +2690,7 @@ export default function WorkoutScreen() {
         <ScrollView
           ref={historyScrollRef}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
           <Card className="flex-row justify-between items-center mb-3 p-[18px]">
             <View className="gap-1">
@@ -2585,7 +2943,8 @@ export default function WorkoutScreen() {
           </View>
           <ScrollView
             contentContainerStyle={{ padding: 16, gap: 10 }}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
             {routines.map((routine) => {
               const isExpanded = expandedRoutineInSheet === routine.id;
               const currentNames = new Set(
@@ -2667,7 +3026,13 @@ export default function WorkoutScreen() {
                           added++;
                         });
                         if (added === 0)
-                          showCuteAlert({ icon: 'alert', tone: 'info', title: '알림', message: '이미 모든 종목이 추가되어 있어요', buttons: [{ label: '확인', style: 'primary' }] });
+                          showCuteAlert({
+                            icon: "alert",
+                            tone: "info",
+                            title: "알림",
+                            message: "이미 모든 종목이 추가되어 있어요",
+                            buttons: [{ label: "확인", style: "primary" }],
+                          });
                         else {
                           setShowRoutineSheet(false);
                         }
@@ -2813,13 +3178,51 @@ export default function WorkoutScreen() {
 
       {/* ── Feature 2: 루틴으로 저장 모달 (운동 종료 시) ── */}
       <Modal visible={showSaveRoutineModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 22, width: '100%' }}>
-              <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary, marginBottom: 6 }}>루틴으로 저장할까요?</Text>
-              <Text style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>오늘 운동 종목들로 새 루틴을 만들어요</Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.55)",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}>
+            <View
+              style={{
+                backgroundColor: c.surface,
+                borderRadius: 24,
+                padding: 22,
+                width: "100%",
+              }}>
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "900",
+                  color: c.textPrimary,
+                  marginBottom: 6,
+                }}>
+                루틴으로 저장할까요?
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: c.textSecondary,
+                  marginBottom: 16,
+                }}>
+                오늘 운동 종목들로 새 루틴을 만들어요
+              </Text>
               <TextInput
-                style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 16 }}
+                style={{
+                  backgroundColor: c.surfaceAlt,
+                  borderRadius: 14,
+                  padding: 14,
+                  fontSize: 15,
+                  fontWeight: "700",
+                  color: c.textPrimary,
+                  marginBottom: 16,
+                }}
                 value={saveRoutineName}
                 onChangeText={setSaveRoutineName}
                 placeholder="루틴 이름 (예: 상체 루틴)"
@@ -2828,17 +3231,46 @@ export default function WorkoutScreen() {
                 returnKeyType="done"
                 onSubmitEditing={handleSaveAsRoutine}
               />
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
                 <TouchableOpacity
-                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: 'center' }}
-                  onPress={() => { setShowSaveRoutineModal(false); setSaveRoutineExercises([]); }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>나중에</Text>
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    backgroundColor: c.surfaceAlt,
+                    alignItems: "center",
+                  }}
+                  onPress={() => {
+                    setShowSaveRoutineModal(false);
+                    setSaveRoutineExercises([]);
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "700",
+                      color: c.textSecondary,
+                    }}>
+                    나중에
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.warning, alignItems: 'center' }}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    backgroundColor: c.warning,
+                    alignItems: "center",
+                  }}
                   onPress={handleSaveAsRoutine}
                   disabled={savingRoutine}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: c.onAccent }}>{savingRoutine ? '저장 중...' : '저장'}</Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "800",
+                      color: c.onAccent,
+                    }}>
+                    {savingRoutine ? "저장 중..." : "저장"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -3008,6 +3440,31 @@ function ExerciseHistoryRow({
           </Text>
         </View>
       </View>
+      {(ex.targetMuscles?.length ?? 0) > 0 && (
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 4,
+            marginBottom: 8,
+          }}>
+          {ex.targetMuscles!.map((m, mi) => (
+            <View
+              key={mi}
+              style={{
+                backgroundColor: c.primary + "18",
+                borderRadius: 999,
+                paddingHorizontal: 7,
+                paddingVertical: 2,
+              }}>
+              <Text
+                style={{ fontSize: 10, fontWeight: "700", color: c.primary }}>
+                {m}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {allPrevMax != null && curMaxWeight > 0 && (
         <Animated.View style={{ marginBottom: 10, gap: 4, opacity: compOp }}>
@@ -3119,11 +3576,18 @@ function ExerciseHistoryRow({
 
       <View className="gap-1 mb-2">
         {ex.sets.map((st, i) => {
+          const _w = st.unit === "lbs" ? st.weight / 2.20462 : st.weight;
+          const _wR =
+            st.weightR != null
+              ? st.unit === "lbs"
+                ? st.weightR / 2.20462
+                : st.weightR
+              : null;
           const vol = ex.isSingleArm
-            ? ex.differentSides && st.weightR != null
-              ? (st.weight + st.weightR) * st.reps
-              : st.weight * st.reps * 2
-            : st.weight * st.reps;
+            ? ex.differentSides && _wR != null
+              ? (_w + _wR) * st.reps
+              : _w * st.reps * 2
+            : _w * st.reps;
           return (
             <View key={st.id} className="flex-row items-center">
               <Text className="text-xs font-semibold text-text-muted w-10">
@@ -3210,7 +3674,7 @@ function HistoryCard({
   const [saving, setSaving] = useState(false);
   const [draftExercises, setDraftExercises] = useState<DraftExercise[]>([]);
   const [showRoutineSaveModal, setShowRoutineSaveModal] = useState(false);
-  const [routineSaveName, setRoutineSaveName] = useState('');
+  const [routineSaveName, setRoutineSaveName] = useState("");
   const [routineSaving, setRoutineSaving] = useState(false);
 
   const handleSaveSessionAsRoutine = async () => {
@@ -3220,7 +3684,7 @@ function HistoryCard({
     try {
       await useRoutineStore.getState().addRoutine({
         name,
-        exercises: session.exercises.map(ex => ({
+        exercises: session.exercises.map((ex) => ({
           name: ex.name,
           category: ex.category,
           defaultSets: ex.sets.length || 3,
@@ -3238,7 +3702,7 @@ function HistoryCard({
     } finally {
       setRoutineSaving(false);
       setShowRoutineSaveModal(false);
-      setRoutineSaveName('');
+      setRoutineSaveName("");
     }
   };
   type HistoryPadConfig = {
@@ -3386,24 +3850,39 @@ function HistoryCard({
       await onUpdate(exercises);
       setEditMode(false);
     } catch {
-      showCuteAlert({ icon: 'alert', tone: 'danger', title: '오류', message: '저장에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
+      showCuteAlert({
+        icon: "alert",
+        tone: "danger",
+        title: "오류",
+        message: "저장에 실패했어요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = () => {
-    showCuteAlert({ icon: 'trash', tone: 'danger', title: '운동 기록 삭제', message: '이 기록을 삭제할까요?', buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => onDelete(session.id) }] });
+    showCuteAlert({
+      icon: "trash",
+      tone: "danger",
+      title: "운동 기록 삭제",
+      message: "이 기록을 삭제할까요?",
+      buttons: [
+        { label: "취소", style: "soft" },
+        {
+          label: "삭제",
+          style: "primary",
+          onPress: () => onDelete(session.id),
+        },
+      ],
+    });
   };
 
   const getExMaxWeight = (ex: WorkoutSession["exercises"][0]) =>
     ex.sets.length > 0 ? Math.max(...ex.sets.map((s) => s.weight)) : 0;
 
-  const getExVolume = (ex: WorkoutSession["exercises"][0]) =>
-    ex.sets.reduce(
-      (sum, s) => sum + s.weight * s.reps * (ex.isSingleArm ? 2 : 1),
-      0
-    );
+  const getExVolume = calcExerciseVolume;
 
   const getPrevSessionInfo = (
     exName: string
@@ -3572,10 +4051,24 @@ function HistoryCard({
             borderTopColor: c.surfaceAlt,
           }}>
           <TouchableOpacity
-            onPress={() => { setRoutineSaveName(''); setShowRoutineSaveModal(true); }}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: c.warning + '20' }}>
+            onPress={() => {
+              setRoutineSaveName("");
+              setShowRoutineSaveModal(true);
+            }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              minHeight: 44,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: c.warning + "20",
+            }}>
             <Icon name="star" size={16} color={c.warning} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.warning }}>루틴 저장</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: c.warning }}>
+              루틴 저장
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -3594,14 +4087,19 @@ function HistoryCard({
               paddingHorizontal: 14,
               paddingVertical: 8,
               borderRadius: 12,
-              backgroundColor: editMode ? c.danger + '15' : c.primary + '15',
+              backgroundColor: editMode ? c.danger + "15" : c.primary + "15",
             }}>
             <Icon
               name={editMode ? "close" : "pencil"}
               size={18}
               color={editMode ? c.danger : c.primary}
             />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: editMode ? c.danger : c.primary }}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: editMode ? c.danger : c.primary,
+              }}>
               {editMode ? "취소" : "수정"}
             </Text>
           </TouchableOpacity>
@@ -3615,22 +4113,62 @@ function HistoryCard({
               paddingHorizontal: 14,
               paddingVertical: 8,
               borderRadius: 12,
-              backgroundColor: c.danger + '15',
+              backgroundColor: c.danger + "15",
             }}>
             <Icon name="trash" size={18} color={c.danger} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>삭제</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>
+              삭제
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* 루틴으로 저장 모달 */}
         <Modal visible={showRoutineSaveModal} transparent animationType="fade">
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-              <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 22, width: '100%' }}>
-                <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary, marginBottom: 6 }}>루틴으로 저장</Text>
-                <Text style={{ fontSize: 13, color: c.textSecondary, marginBottom: 16 }}>{session.date} · {session.exercises.length}종목</Text>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}>
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.55)",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 24,
+              }}>
+              <View
+                style={{
+                  backgroundColor: c.surface,
+                  borderRadius: 24,
+                  padding: 22,
+                  width: "100%",
+                }}>
+                <Text
+                  style={{
+                    fontSize: 17,
+                    fontWeight: "900",
+                    color: c.textPrimary,
+                    marginBottom: 6,
+                  }}>
+                  루틴으로 저장
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: c.textSecondary,
+                    marginBottom: 16,
+                  }}>
+                  {session.date} · {session.exercises.length}종목
+                </Text>
                 <TextInput
-                  style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, fontWeight: '700', color: c.textPrimary, marginBottom: 16 }}
+                  style={{
+                    backgroundColor: c.surfaceAlt,
+                    borderRadius: 14,
+                    padding: 14,
+                    fontSize: 15,
+                    fontWeight: "700",
+                    color: c.textPrimary,
+                    marginBottom: 16,
+                  }}
                   value={routineSaveName}
                   onChangeText={setRoutineSaveName}
                   placeholder="루틴 이름 (예: 상체 루틴)"
@@ -3639,17 +4177,43 @@ function HistoryCard({
                   returnKeyType="done"
                   onSubmitEditing={handleSaveSessionAsRoutine}
                 />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flexDirection: "row", gap: 8 }}>
                   <TouchableOpacity
-                    style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: 'center' }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      borderRadius: 14,
+                      backgroundColor: c.surfaceAlt,
+                      alignItems: "center",
+                    }}
                     onPress={() => setShowRoutineSaveModal(false)}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>취소</Text>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "700",
+                        color: c.textSecondary,
+                      }}>
+                      취소
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.warning, alignItems: 'center' }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      borderRadius: 14,
+                      backgroundColor: c.warning,
+                      alignItems: "center",
+                    }}
                     onPress={handleSaveSessionAsRoutine}
                     disabled={routineSaving}>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: c.onAccent }}>{routineSaving ? '저장 중...' : '저장'}</Text>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "800",
+                        color: c.onAccent,
+                      }}>
+                      {routineSaving ? "저장 중..." : "저장"}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -3702,26 +4266,75 @@ function HistoryCard({
                     <View
                       key={ds.id}
                       style={{
-                        backgroundColor: ds.completed ? c.success + '14' : c.surfaceAlt,
+                        backgroundColor: ds.completed
+                          ? c.success + "14"
+                          : c.surfaceAlt,
                         borderRadius: 12,
                         padding: 10,
                         marginBottom: 8,
                       }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 8,
+                        }}>
                         <TouchableOpacity
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                          onPress={() => updateDraftSet(exIdx, setIdx, { completed: !ds.completed })}>
-                          {ds.completed
-                            ? <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-                                <Icon name="check" size={12} color={c.surface} />
-                              </View>
-                            : <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
-                                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted }}>{setIdx + 1}</Text>
-                              </View>
-                          }
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>세트 {setIdx + 1}</Text>
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                          onPress={() =>
+                            updateDraftSet(exIdx, setIdx, {
+                              completed: !ds.completed,
+                            })
+                          }>
+                          {ds.completed ? (
+                            <View
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                backgroundColor: c.primary,
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}>
+                              <Icon name="check" size={12} color={c.surface} />
+                            </View>
+                          ) : (
+                            <View
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                borderWidth: 1.5,
+                                borderColor: c.border,
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}>
+                              <Text
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: "700",
+                                  color: c.textMuted,
+                                }}>
+                                {setIdx + 1}
+                              </Text>
+                            </View>
+                          )}
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: "700",
+                              color: c.textSecondary,
+                            }}>
+                            세트 {setIdx + 1}
+                          </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => removeDraftSet(exIdx, setIdx)}>
+                        <TouchableOpacity
+                          onPress={() => removeDraftSet(exIdx, setIdx)}>
                           <Icon name="trash" size={14} color={c.textMuted} />
                         </TouchableOpacity>
                       </View>
@@ -3729,10 +4342,30 @@ function HistoryCard({
                         weight={ds.weight}
                         reps={ds.reps}
                         valueBg={c.surface}
-                        onWeightStep={delta => updateDraftSet(exIdx, setIdx, { weight: String(Math.max(0, (parseFloat(ds.weight) || 0) + delta)) })}
-                        onRepsStep={delta => updateDraftSet(exIdx, setIdx, { reps: String(Math.max(0, (parseInt(ds.reps) || 0) + delta)) })}
-                        onWeightPad={() => openPad(ds.weight, true, 'kg', v => updateDraftSet(exIdx, setIdx, { weight: v }))}
-                        onRepsPad={() => openPad(ds.reps, false, '회', v => updateDraftSet(exIdx, setIdx, { reps: v }))}
+                        onWeightStep={(delta) =>
+                          updateDraftSet(exIdx, setIdx, {
+                            weight: String(
+                              Math.max(0, (parseFloat(ds.weight) || 0) + delta)
+                            ),
+                          })
+                        }
+                        onRepsStep={(delta) =>
+                          updateDraftSet(exIdx, setIdx, {
+                            reps: String(
+                              Math.max(0, (parseInt(ds.reps) || 0) + delta)
+                            ),
+                          })
+                        }
+                        onWeightPad={() =>
+                          openPad(ds.weight, true, "kg", (v) =>
+                            updateDraftSet(exIdx, setIdx, { weight: v })
+                          )
+                        }
+                        onRepsPad={() =>
+                          openPad(ds.reps, false, "회", (v) =>
+                            updateDraftSet(exIdx, setIdx, { reps: v })
+                          )
+                        }
                       />
                     </View>
                   ))}
@@ -3911,6 +4544,36 @@ function HistoryCard({
                               </Text>
                             </View>
                           </View>
+                          {(ex.targetMuscles?.length ?? 0) > 0 && (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                flexWrap: "wrap",
+                                gap: 4,
+                                marginTop: 4,
+                                marginBottom: 2,
+                              }}>
+                              {ex.targetMuscles!.map((m, mi) => (
+                                <View
+                                  key={mi}
+                                  style={{
+                                    backgroundColor: c.primary + "18",
+                                    borderRadius: 999,
+                                    paddingHorizontal: 7,
+                                    paddingVertical: 2,
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "700",
+                                      color: c.primary,
+                                    }}>
+                                    {m}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
                           <Text
                             style={{
                               fontSize: 11,
@@ -4053,11 +4716,21 @@ function HistoryCard({
 
                           {/* 세트 행들 */}
                           {ex.sets.map((st, si) => {
+                            const _w =
+                              st.unit === "lbs"
+                                ? st.weight / 2.20462
+                                : st.weight;
+                            const _wR =
+                              st.weightR != null
+                                ? st.unit === "lbs"
+                                  ? st.weightR / 2.20462
+                                  : st.weightR
+                                : null;
                             const vol = ex.isSingleArm
-                              ? ex.differentSides && st.weightR != null
-                                ? (st.weight + st.weightR) * st.reps
-                                : st.weight * st.reps * 2
-                              : st.weight * st.reps;
+                              ? ex.differentSides && _wR != null
+                                ? (_w + _wR) * st.reps
+                                : _w * st.reps * 2
+                              : _w * st.reps;
                             return (
                               <View
                                 key={st.id}

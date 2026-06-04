@@ -240,7 +240,10 @@ export default function DietScreen() {
       </View>
 
       {dietTab === 'calendar' ? (
-        <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           {/* 이번달 요약 */}
           <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, marginBottom: 14 }, SHADOW_SM]}>
             <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary, marginBottom: 8 }}>{calMonthLabel} 요약</Text>

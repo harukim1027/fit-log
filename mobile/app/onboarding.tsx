@@ -241,6 +241,7 @@ export default function OnboardingScreen() {
               title="다음"
               rightIcon={<Icon name="chevronRight" size={20} color={c.surface} />}
               onPress={goNext}
+              disabled={!goal}
               fullWidth
             />
           ) : (
@@ -248,6 +249,7 @@ export default function OnboardingScreen() {
               title={isLoading ? "저장 중..." : "시작하기"}
               onPress={handleFinish}
               loading={isLoading}
+              disabled={!gender || !age || !height || !weight}
               fullWidth
               className="bg-workout"
             />

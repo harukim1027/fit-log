@@ -621,6 +621,15 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "600", marginBottom: 3 }}>선택된 종목</Text>
                   <Text style={{ fontSize: 16, fontWeight: "800", color: c.textPrimary, marginBottom: 2 }}>{selectedExercise.name}</Text>
+                  {(selectedExercise.targetMuscles?.length ?? 0) > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                      {selectedExercise.targetMuscles!.map((m, mi) => (
+                        <View key={mi} style={{ backgroundColor: c.primary + '18', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: c.primary }}>{m}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                   {selectedExercise.caloriesPerMinute ? (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                       <FlameIcon size={11} color={c.danger} />
@@ -842,7 +851,17 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   activeOpacity={0.7}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 15, fontWeight: "600", color: c.textPrimary }}>{ex.name}</Text>
-                    <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>종목 추가</Text>
+                    {(ex.targetMuscles?.length ?? 0) > 0 ? (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                        {ex.targetMuscles!.map((m, mi) => (
+                          <View key={mi} style={{ backgroundColor: c.primary + '18', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: c.primary }}>{m}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>내 종목</Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -909,7 +928,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
               {mode === "session" && (
                 <>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>세트 기록</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>세트 설정</Text>
                     <View style={{ flexDirection: "row", gap: 4 }}>
                       {(["kg", "lbs"] as const).map(u => (
                         <TouchableOpacity key={u}
@@ -1070,7 +1089,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 <>
                   {/* 헤더 + kg/lbs 토글 */}
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>목표 설정</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>세트 설정</Text>
                     <View style={{ flexDirection: "row", gap: 4 }}>
                       {(["kg", "lbs"] as const).map(u => (
                         <TouchableOpacity key={u}
@@ -1103,8 +1122,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     </TouchableOpacity>
                   )}
 
-                  {/* 목표 세트 수 */}
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>목표 세트 수</Text>
+                  {/* 세트수 */}
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>세트수</Text>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
                     <TouchableOpacity
                       style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
@@ -1133,7 +1152,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 12, marginBottom: 14 }}>
                     <View>
                       <Text style={{ fontSize: 13, fontWeight: "700", color: c.textPrimary }}>세트별 개별 설정</Text>
-                      <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>각 세트마다 다른 목표 무게/횟수</Text>
+                      <Text style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>각 세트마다 다른 무게/횟수 입력</Text>
                     </View>
                     <TouchableOpacity
                       style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: perSetMode ? c.primary : c.surfaceHigh, justifyContent: "center", paddingHorizontal: 2 }}
@@ -1146,7 +1165,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   {!perSetMode ? (
                     <>
                       {/* 기본무게 · 목표횟수 */}
-                      <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 10 }}>기본무게 · 목표횟수 (선택)</Text>
+                      <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 10 }}>기본무게 · 목표횟수</Text>
                       <SetInputRow
                         weight={defaultWeight}
                         reps={defaultReps}
@@ -1312,7 +1331,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         {/* Footer button */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.surfaceAlt, backgroundColor: c.background, paddingBottom: Math.max(insets.bottom, 12) }}>
           <TouchableOpacity
-            style={{ backgroundColor: mode === "session" ? c.danger : c.primary, borderRadius: 24, paddingVertical: 16, alignItems: "center" }}
+            style={{ backgroundColor: c.primary, borderRadius: 24, paddingVertical: 16, alignItems: "center" }}
             onPress={handleAdd}
             disabled={isSuccess}
             activeOpacity={0.8}>

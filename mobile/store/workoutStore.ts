@@ -1,7 +1,10 @@
 import { create } from "zustand";
+import { AppState } from "react-native";
 import { Exercise, WorkoutSession, WorkoutSet } from "../types/workout";
 import { Routine } from "./routineStore";
 import apiClient from "../lib/apiClient";
+import { calcSessionVolume } from "../utils/workout";
+import { showWorkoutNotification, dismissWorkoutNotification } from "../lib/workoutNotification";
 
 export type CompareMode = "recent" | "pr" | "week" | "month";
 
@@ -95,8 +98,12 @@ interface WorkoutStore {
 
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-// interval은 store 밖에서 관리 (Zustand state에 넣으면 직렬화 문제)
+// interval/timer 상태는 store 밖에서 관리 (Zustand state에 넣으면 직렬화 문제)
 let _workoutIntervalId: ReturnType<typeof setInterval> | null = null;
+// 타이머 시작 시각 기반 방식: 백그라운드에서도 정확한 경과 시간 계산
+let _workoutTimerBase = 0;    // 현재 세그먼트 시작 시점 (Date.now())
+let _workoutElapsedBase = 0;  // 현재 세그먼트 시작 시점의 누적 경과(초)
+let _appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 
 export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   sessions: [],
@@ -116,6 +123,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         clearInterval(_workoutIntervalId);
         _workoutIntervalId = null;
       }
+      // 일시정지 시점의 경과 시간 고정
+      _workoutElapsedBase = get().workoutElapsed;
     } else {
       get().startWorkoutTimer();
     }
@@ -126,18 +135,42 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       clearInterval(_workoutIntervalId);
       _workoutIntervalId = null;
     }
+    _workoutElapsedBase = 0;
+    _workoutTimerBase = Date.now();
     set({ workoutElapsed: 0, workoutPaused: false });
-    // 리셋 후 바로 시작
     _workoutIntervalId = setInterval(() => {
-      set((s) => ({ workoutElapsed: s.workoutElapsed + 1 }));
+      const elapsed = _workoutElapsedBase + Math.floor((Date.now() - _workoutTimerBase) / 1000);
+      set({ workoutElapsed: elapsed });
     }, 1000);
   },
 
   startWorkoutTimer: () => {
     if (_workoutIntervalId) clearInterval(_workoutIntervalId);
+    // 현재 경과 시간을 베이스로, 벽시계 기준으로 증가 계산
+    _workoutTimerBase = Date.now();
+    _workoutElapsedBase = get().workoutElapsed;
     _workoutIntervalId = setInterval(() => {
-      set((s) => ({ workoutElapsed: s.workoutElapsed + 1 }));
+      const elapsed = _workoutElapsedBase + Math.floor((Date.now() - _workoutTimerBase) / 1000);
+      set({ workoutElapsed: elapsed });
+      const session = get().activeSession;
+      if (session) {
+        const vol = calcSessionVolume(session);
+        showWorkoutNotification(elapsed, session.exercises.length, vol).catch(() => {});
+      }
     }, 1000);
+    // 백그라운드 복귀 시 즉시 알림 갱신
+    if (!_appStateSubscription) {
+      _appStateSubscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          const session = get().activeSession;
+          if (session) {
+            const elapsed = _workoutElapsedBase + Math.floor((Date.now() - _workoutTimerBase) / 1000);
+            const vol = calcSessionVolume(session);
+            showWorkoutNotification(elapsed, session.exercises.length, vol).catch(() => {});
+          }
+        }
+      });
+    }
   },
 
   stopWorkoutTimer: () => {
@@ -145,6 +178,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       clearInterval(_workoutIntervalId);
       _workoutIntervalId = null;
     }
+    _appStateSubscription?.remove();
+    _appStateSubscription = null;
   },
 
   startSession: () => {
@@ -162,6 +197,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       workoutPaused: false,
     });
     get().startWorkoutTimer();
+    showWorkoutNotification(0, 0, 0).catch(() => {});
   },
 
   startSessionWithRoutine: (routine) => {
@@ -206,6 +242,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       workoutPaused: false,
     });
     get().startWorkoutTimer();
+    showWorkoutNotification(0, exercises.length, 0).catch(() => {});
     exercises.forEach((ex) => {
       get().fetchExerciseHistory(ex.name, "recent");
       get().fetchExerciseHistory(ex.name, "pr");
@@ -263,6 +300,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       console.error("운동 저장 실패", e);
     }
     set({ activeSession: null, sessionStartTime: null });
+    dismissWorkoutNotification().catch(() => {});
   },
 
   addExercise: (exercise) => {
@@ -390,6 +428,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
             weightR: st.weightR,
             reps: st.reps,
             completed: st.completed,
+            unit: st.unit ?? 'kg',
           })),
         })),
       });
@@ -406,21 +445,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     return get().sessions.find((s) => s.date === today) ?? get().activeSession;
   },
 
-  getTotalVolume: (session) =>
-    session.exercises.reduce(
-      (sum, ex) =>
-        sum +
-        ex.sets.reduce((s, st) => {
-          if (ex.isSingleArm) {
-            if (ex.differentSides && st.weightR != null) {
-              return s + (st.weight + st.weightR) * st.reps;
-            }
-            return s + st.weight * st.reps * 2;
-          }
-          return s + st.weight * st.reps;
-        }, 0),
-      0
-    ),
+  getTotalVolume: (session) => calcSessionVolume(session),
 
   fetchSessions: async () => {
     set({ isLoading: true });
@@ -454,6 +479,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           weightR: st.weightR ?? null,
           reps: st.reps,
           completed: st.completed,
+          unit: st.unit ?? 'kg',
         })),
       })),
     });

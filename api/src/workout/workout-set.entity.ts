@@ -18,6 +18,9 @@ export class WorkoutSet {
   @Column({ default: true })
   completed: boolean;
 
+  @Column({ nullable: true, default: 'kg' })
+  unit: string;
+
   @ManyToOne(() => WorkoutExercise, exercise => exercise.sets, { onDelete: 'CASCADE' })
   exercise: WorkoutExercise;
 }

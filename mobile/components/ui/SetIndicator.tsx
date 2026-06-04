@@ -12,6 +12,9 @@ export interface SetIndicatorProps {
   index: number;
   size?: number;
   showLabel?: boolean;
+  weight?: number;
+  reps?: number;
+  unit?: string;
   onPress?: () => void;
   onLongPress?: () => void;
 }
@@ -21,6 +24,9 @@ export function SetIndicator({
   index,
   size = 40,
   showLabel = true,
+  weight,
+  reps,
+  unit,
   onPress,
   onLongPress,
 }: SetIndicatorProps) {
@@ -65,12 +71,19 @@ export function SetIndicator({
     }
   }, [state]);
 
+  const isDone = state === 'done';
+  const isCurrent = state === 'current';
+  const infoColor = isCurrent ? CORAL : isDone ? c.textSecondary : c.textMuted;
+  const weightColor = isCurrent ? CORAL : isDone ? c.textPrimary : c.textMuted;
+  const hasInfo = (weight != null && weight > 0) || (reps != null && reps > 0);
+  const unitLabel = unit === 'lbs' ? 'lbs' : 'kg';
+
   return (
     <TouchableOpacity
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.75}
-      style={{ alignItems: 'center', gap: 5 }}
+      style={{ alignItems: 'center', gap: 3 }}
     >
       <Animated.View style={{ opacity: opacityAnim, transform: [{ scale: scaleAnim }] }}>
         <Svg width={size} height={size} viewBox="0 0 40 40">
@@ -112,15 +125,25 @@ export function SetIndicator({
           )}
         </Svg>
       </Animated.View>
-      {showLabel && (
-        <Text style={{
-          fontSize: 10.5,
-          fontWeight: '800',
-          color: state === 'current' ? CORAL : c.textMuted,
-        }}>
+
+      {hasInfo ? (
+        <>
+          {weight != null && weight > 0 && (
+            <Text style={{ fontSize: 10, fontWeight: '700', color: weightColor, textAlign: 'center' }}>
+              {Number.isInteger(weight) ? weight : weight.toFixed(1)}{unitLabel}
+            </Text>
+          )}
+          {reps != null && reps > 0 && (
+            <Text style={{ fontSize: 10, fontWeight: '600', color: infoColor, textAlign: 'center' }}>
+              {reps}회
+            </Text>
+          )}
+        </>
+      ) : showLabel ? (
+        <Text style={{ fontSize: 10.5, fontWeight: '800', color: isCurrent ? CORAL : c.textMuted }}>
           {index + 1}
         </Text>
-      )}
+      ) : null}
     </TouchableOpacity>
   );
 }

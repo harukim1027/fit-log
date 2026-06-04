@@ -5,7 +5,6 @@ import {
   TextInput as RNTextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
   Switch,
@@ -18,6 +17,7 @@ import { Header, Card, Input, Button, NumberPad } from "../../components/ui";
 import { Stepper } from "../../components/ui/Stepper";
 import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
+import { showCuteAlert } from "../../components/CuteAlert";
 import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
 import { MEAL_LABELS } from "../../constants";
@@ -125,11 +125,11 @@ export default function AddFoodModal() {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       console.error('[식품검색]', status, msg, e);
       if (status === 401) {
-        Alert.alert("인증 오류", "다시 로그인해주세요");
+        showCuteAlert({ icon: 'alert', tone: 'danger', title: '인증 오류', message: '다시 로그인해주세요', buttons: [{ label: '확인', style: 'primary' }] });
       } else if (!e?.response) {
-        Alert.alert("서버 연결 실패", "서버가 실행 중인지 확인해주세요");
+        showCuteAlert({ preset: 'network' });
       } else {
-        Alert.alert("검색 실패", msg);
+        showCuteAlert({ icon: 'alert', tone: 'danger', title: '검색 실패', message: msg, buttons: [{ label: '확인', style: 'primary' }] });
       }
       setHasSearched(true);
     } finally {
@@ -154,9 +154,9 @@ export default function AddFoodModal() {
   };
 
   const handleAddSearch = () => {
-    if (!selected) return Alert.alert("식품을 선택해주세요");
+    if (!selected) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '식품을 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) return Alert.alert("올바른 양을 입력해주세요");
+    if (isNaN(amt) || amt <= 0) { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '올바른 양을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     handleAddFood(selected, amt);
   };
 
@@ -182,10 +182,10 @@ export default function AddFoodModal() {
   const handleCopyCustomFood = async (customFoodId: string, foodName: string) => {
     try {
       await apiClient.post(`/food/custom/${customFoodId}/copy`);
-      Alert.alert('완료', `"${foodName}"을(를) 내 식품에 추가했어요`);
+      showCuteAlert({ icon: 'check', tone: 'ok', title: '추가 완료', message: `"${foodName}"을(를) 내 식품에 추가했어요`, buttons: [{ label: '확인', style: 'primary' }] });
       if (tab === 'favorites') loadMyCustomFoods();
     } catch {
-      Alert.alert('실패', '가져오기에 실패했어요');
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '실패', message: '가져오기에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
     }
   };
 
@@ -194,30 +194,27 @@ export default function AddFoodModal() {
       const updated = await apiClient.patch(`/food/custom/${food.id}`, { isPublic: !food.isPublic });
       setMyCustomFoods(prev => prev.map(f => f.id === food.id ? { ...f, isPublic: updated.data.isPublic } : f));
     } catch {
-      Alert.alert('실패', '공개 설정 변경에 실패했어요');
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '실패', message: '공개 설정 변경에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
     }
   };
 
   const handleDeleteCustomFood = (food: CustomFood) => {
-    Alert.alert('삭제', `"${food.foodName}"을(를) 삭제할까요?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제', style: 'destructive',
-        onPress: async () => {
-          try {
-            await apiClient.delete(`/food/custom/${food.id}`);
-            setMyCustomFoods(prev => prev.filter(f => f.id !== food.id));
-          } catch {
-            Alert.alert('실패', '삭제에 실패했어요');
-          }
-        },
-      },
-    ]);
+    showCuteAlert({ icon: 'trash', tone: 'danger', title: '식품 삭제', message: `"${food.foodName}"을(를) 삭제할까요?`, buttons: [
+      { label: '취소', style: 'soft' },
+      { label: '삭제', style: 'primary', onPress: async () => {
+        try {
+          await apiClient.delete(`/food/custom/${food.id}`);
+          setMyCustomFoods(prev => prev.filter(f => f.id !== food.id));
+        } catch {
+          showCuteAlert({ icon: 'alert', tone: 'danger', title: '실패', message: '삭제에 실패했어요', buttons: [{ label: '확인', style: 'primary' }] });
+        }
+      }},
+    ]});
   };
 
   const pickImageFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('권한 필요', '사진 접근 권한이 필요해요'); return; }
+    if (!perm.granted) { showCuteAlert({ icon: 'alert', tone: 'warn', title: '권한 필요', message: '사진 접근 권한이 필요해요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
@@ -231,7 +228,7 @@ export default function AddFoodModal() {
 
   const pickImageFromCamera = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { Alert.alert('권한 필요', '카메라 접근 권한이 필요해요'); return; }
+    if (!perm.granted) { showCuteAlert({ icon: 'alert', tone: 'warn', title: '권한 필요', message: '카메라 접근 권한이 필요해요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const res = await ImagePicker.launchCameraAsync({
       quality: 0.7,
       base64: true,
@@ -250,7 +247,7 @@ export default function AddFoodModal() {
       const res = await apiClient.post('/food/analyze-image', { base64 });
       setPhotoResult({ ...res.data, amount: String(res.data.amount || 100) });
     } catch {
-      Alert.alert('분석 실패', '음식을 인식하지 못했어요. 다시 시도해주세요');
+      showCuteAlert({ icon: 'alert', tone: 'warn', title: '분석 실패', message: '음식을 인식하지 못했어요. 다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     } finally {
       setPhotoAnalyzing(false);
     }
@@ -273,9 +270,9 @@ export default function AddFoodModal() {
   };
 
   const handleAddManual = async () => {
-    if (!manualName.trim()) return Alert.alert("식품명을 입력해주세요");
+    if (!manualName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '식품명을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const cal = parseFloat(manualCalories);
-    if (isNaN(cal) || cal < 0) return Alert.alert("올바른 칼로리를 입력해주세요");
+    if (isNaN(cal) || cal < 0) { showCuteAlert({ icon: 'pencil', tone: 'warn', title: '올바른 칼로리를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const food: FoodItem = {
       id: Date.now().toString(),
       name: manualName,
@@ -496,7 +493,7 @@ export default function AddFoodModal() {
         )}
 
         {tab === "photo" && (
-          <ScrollView keyboardShouldPersistTaps="handled" className="flex-1">
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" className="flex-1">
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
@@ -697,7 +694,7 @@ export default function AddFoodModal() {
         )}
 
         {tab === "manual" && (
-          <ScrollView keyboardShouldPersistTaps="handled">
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <View className="gap-3 mb-4">
               <Input label="식품명 *" value={manualName} onChangeText={setManualName} placeholder="예: 삶은 계란" />
               <View style={{ marginBottom: 4 }}>

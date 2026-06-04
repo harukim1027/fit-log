@@ -153,8 +153,10 @@ export class WorkoutService {
           for (const setData of exData.sets) {
             const set = this.setRepo.create({
               weight: setData.weight ?? 0,
+              weightR: setData.weightR ?? null,
               reps: setData.reps ?? 0,
               completed: setData.completed ?? false,
+              unit: setData.unit ?? 'kg',
               exercise: savedEx,
             });
             await this.setRepo.save(set);

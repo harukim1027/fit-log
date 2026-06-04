@@ -207,7 +207,9 @@ export default function HomeScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 14 }}>
+        contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 14 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
 
         {/* ── 이번 주 운동 목표 히어로 ── */}
         <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], overflow: 'visible' }}>

@@ -176,7 +176,10 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
     const reordered = ids.map(id => currentRoutines.find(r => r.id === id)!).filter(Boolean);
     set({ routines: reordered });
     await persist(reordered);
-    apiClient.patch('/routine/reorder', { ids }).catch(() => {});
+    // await로 API 순서 저장 — catch하지 않으면 앱 재시작 시 서버 순서로 덮어써짐
+    try {
+      await apiClient.patch('/routine/reorder', { ids });
+    } catch {}
   },
 
   reorderExercises: async (routineId, exercises) => {

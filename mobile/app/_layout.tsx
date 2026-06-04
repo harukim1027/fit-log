@@ -9,6 +9,8 @@ import { useAuthStore } from "../store/authStore";
 import { useThemeStore } from "../store/themeStore";
 import { useColors } from "../constants/colors";
 import { setUnauthorizedHandler } from "../lib/apiClient";
+import { requestNotificationPermission, setupNotificationChannel } from "../lib/workoutNotification";
+import * as Notifications from 'expo-notifications';
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CuteAlertHost } from "../components/CuteAlert";
@@ -91,12 +93,29 @@ const darkVars = vars({
   "--color-protein":        "61 139 224",
 });
 
+// 알림을 foreground에서도 배너로 표시하지 않음 (ongoing 알림만 사용)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: false,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    priority: Notifications.AndroidNotificationPriority.LOW,
+  } as Notifications.NotificationBehavior),
+});
+
 function useThemeSync() {
   const mode = useThemeStore((s) => s.mode);
   const hydrate = useThemeStore((s) => s.hydrate);
   const { setColorScheme } = useColorScheme();
   useEffect(() => { hydrate(); }, []);
   useEffect(() => { setColorScheme(mode); }, [mode]);
+}
+
+function useNotificationSetup() {
+  useEffect(() => {
+    setupNotificationChannel();
+    requestNotificationPermission();
+  }, []);
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -150,6 +169,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   useThemeSync();
+  useNotificationSetup();
   const mode = useThemeStore((s) => s.mode);
   const colors = useColors();
 

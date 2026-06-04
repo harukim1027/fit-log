@@ -97,7 +97,9 @@ export default function RestTimer({
   };
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const bgTimestampRef = useRef<number | null>(null);
+  // 타이머 시작 시각 기반 방식: 백그라운드에서도 정확한 계산
+  // startTsRef = Date.now() - (seconds - remaining_at_start) * 1000
+  const startTsRef = useRef<number | null>(null);
   const remainingRef = useRef(remaining);
   const secondsRef = useRef(seconds);
   const onStateChangeRef = useRef(onStateChange);
@@ -130,48 +132,70 @@ export default function RestTimer({
     });
   }, [exerciseName]);
 
+  const handleTimerComplete = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    startTsRef.current = null;
+    remainingRef.current = 0;
+    _setRemaining(0);
+    _setRunning(false);
+    _setPaused(false);
+    setCompleted(true);
+    onStateChangeRef.current?.({ seconds: secondsRef.current, remaining: 0, running: false, paused: false });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
+      Vibration.vibrate([0, 300, 200, 300]);
+    });
+  };
+
   useEffect(() => {
     if (running && !paused) {
+      // 이 시점의 remaining 기준으로 가상 시작 시각 계산
+      // (일시정지 후 재개 시에도 올바른 기준점 설정)
+      startTsRef.current = Date.now() - (secondsRef.current - remainingRef.current) * 1000;
+
       intervalRef.current = setInterval(() => {
-        const r = remainingRef.current;
-        const next = r <= 1 ? 0 : r - 1;
-        remainingRef.current = next;
-        _setRemaining(next);
-        if (r <= 1) {
-          clearInterval(intervalRef.current!);
-          _setRunning(false);
-          _setPaused(false);
-          setCompleted(true);
-          onStateChangeRef.current?.({ seconds: secondsRef.current, remaining: 0, running: false, paused: false });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
-            Vibration.vibrate([0, 300, 200, 300]);
-          });
-        } else {
-          onStateChangeRef.current?.({ seconds: secondsRef.current, remaining: next, running: true, paused: false });
+        if (!startTsRef.current) return;
+        const elapsed = Math.floor((Date.now() - startTsRef.current) / 1000);
+        const next = Math.max(0, secondsRef.current - elapsed);
+
+        if (next !== remainingRef.current) {
+          remainingRef.current = next;
+          _setRemaining(next);
+          if (next === 0) {
+            handleTimerComplete();
+          } else {
+            onStateChangeRef.current?.({ seconds: secondsRef.current, remaining: next, running: true, paused: false });
+          }
         }
-      }, 1000);
+      }, 500);
     }
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [running, paused]);
 
+  // 백그라운드 복귀 시 즉시 재계산 (setInterval이 백그라운드에서 멈추는 문제 보완)
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "background" || state === "inactive") {
-        bgTimestampRef.current = Date.now();
-      } else if (state === "active" && bgTimestampRef.current !== null) {
-        if (running && !paused) {
-          const elapsed = Math.round(
-            (Date.now() - bgTimestampRef.current) / 1000
-          );
-          setRemaining((r) => Math.max(0, r - elapsed));
+      if (state === "active" && startTsRef.current !== null) {
+        const elapsed = Math.floor((Date.now() - startTsRef.current) / 1000);
+        const next = Math.max(0, secondsRef.current - elapsed);
+        if (next !== remainingRef.current) {
+          remainingRef.current = next;
+          _setRemaining(next);
+          if (next === 0) {
+            handleTimerComplete();
+          } else {
+            onStateChangeRef.current?.({ seconds: secondsRef.current, remaining: next, running: true, paused: false });
+          }
         }
-        bgTimestampRef.current = null;
       }
     });
     return () => sub.remove();
-  }, [running, paused]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -195,7 +219,8 @@ export default function RestTimer({
   };
 
   const reset = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    startTsRef.current = null;
     setRunning(false);
     setPaused(false);
     setRemaining(0);
@@ -206,7 +231,8 @@ export default function RestTimer({
   };
 
   const stopTimer = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    startTsRef.current = null;
     _setRunning(false);
     _setPaused(false);
     _setRemaining(0);
@@ -215,7 +241,8 @@ export default function RestTimer({
   };
 
   const restartTimer = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    startTsRef.current = null;
     _setRunning(false);
     _setPaused(false);
     _setRemaining(seconds);
@@ -236,11 +263,13 @@ export default function RestTimer({
 
   const togglePause = () => {
     if (paused) {
+      // 재개: useEffect가 startTsRef를 재설정하므로 별도 처리 불필요
       setPaused(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } else {
+      // 일시정지: startTsRef 유지 (재개 시 남은 시간 기준으로 재설정됨)
+      startTsRef.current = null;
       setPaused(true);
-      if (intervalRef.current) clearInterval(intervalRef.current);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
   };

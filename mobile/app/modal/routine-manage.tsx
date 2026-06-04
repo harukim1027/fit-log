@@ -407,12 +407,15 @@ export default function RoutineManageModal() {
                         {
                           backgroundColor: c.surface,
                           borderRadius: 20,
-                          padding: 16,
                           marginBottom: 10,
                           flex: 1,
+                          flexDirection: "row",
+                          overflow: "hidden",
                         },
                         SHADOW,
                       ]}>
+                      {/* 메인 콘텐츠 */}
+                      <View style={{ flex: 1, padding: 16 }}>
                       <View
                         style={{
                           flexDirection: "row",
@@ -451,7 +454,6 @@ export default function RoutineManageModal() {
                             gap: 10,
                             alignItems: "center",
                           }}>
-                          <Icon name="menu" size={18} color="#D6E8E0" />
                           <TouchableOpacity onPress={() => openEdit(r)}>
                             <Icon name="pencil" size={18} color={c.textSecondary} />
                           </TouchableOpacity>
@@ -530,6 +532,11 @@ export default function RoutineManageModal() {
                           <Text style={{ fontSize: 14, color: c.onAccent, fontWeight: "900" }}>▶</Text>
                         </View>
                       </TouchableOpacity>
+                      </View>
+                      {/* 드래그 핸들 — 우측 중앙 스트립 */}
+                      <View style={{ width: 44, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderLeftColor: c.border }}>
+                        <Icon name="menu" size={22} color={c.textMuted} />
+                      </View>
                     </View>
                   )}
                 />
@@ -652,7 +659,8 @@ export default function RoutineManageModal() {
             <ScrollView
               ref={combineScrollRef}
               contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
-              keyboardShouldPersistTaps="handled">
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag">
               <Text
                 style={{
                   fontSize: 13,
@@ -772,6 +780,15 @@ export default function RoutineManageModal() {
                         }}>
                         {ex.fromRoutineName} · {ex.defaultSets}세트
                       </Text>
+                      {(ex.targetMuscles?.length ?? 0) > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {ex.targetMuscles!.map((m, mi) => (
+                            <View key={mi} style={{ backgroundColor: c.primary + '18', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: c.primary }}>{m}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                     <TouchableOpacity
                       onPress={() =>
@@ -826,7 +843,8 @@ export default function RoutineManageModal() {
           <ScrollView
             ref={editScrollRef}
             contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
             <Text
               style={{
                 fontSize: 13,
@@ -900,7 +918,6 @@ export default function RoutineManageModal() {
                       flex: 1,
                       gap: 8,
                     }}>
-                    <Icon name="menu" size={16} color={c.textMuted} />
                     {ex.gifUrl && (
                       <Image
                         source={{ uri: ex.gifUrl }}
@@ -952,6 +969,15 @@ export default function RoutineManageModal() {
                         {ex.defaultSets}세트
                         {ex.defaultWeight ? ` · ${ex.defaultWeight}kg` : ""}
                       </Text>
+                      {(ex.targetMuscles?.length ?? 0) > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {ex.targetMuscles!.map((m, mi) => (
+                            <View key={mi} style={{ backgroundColor: c.primary + '18', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: c.primary }}>{m}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                       {ex.tip ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 1 }}>
                           <Icon name="bulb" size={9} color={c.textMuted} />
@@ -972,6 +998,10 @@ export default function RoutineManageModal() {
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Icon name="trash" size={15} color={c.textMuted} />
                     </TouchableOpacity>
+                    {/* 드래그 핸들 — 우측 */}
+                    <View style={{ width: 32, alignItems: "center", justifyContent: "center" }}>
+                      <Icon name="menu" size={18} color={c.textMuted} />
+                    </View>
                   </TouchableOpacity>
                 )}
               />
@@ -1012,19 +1042,25 @@ export default function RoutineManageModal() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={{
-                backgroundColor: c.warning,
-                borderRadius: 999,
-                paddingVertical: 16,
-                alignItems: "center",
-              }}
-              onPress={handleSave}
-              activeOpacity={0.8}>
-              <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>
-                루틴 저장
-              </Text>
-            </TouchableOpacity>
+            {(() => {
+              const canSave = routineName.trim().length > 0 && exercises.length > 0;
+              return (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: c.warning,
+                    borderRadius: 999,
+                    paddingVertical: 16,
+                    alignItems: "center",
+                    opacity: canSave ? 1 : 0.4,
+                  }}
+                  onPress={canSave ? handleSave : undefined}
+                  activeOpacity={0.8}>
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>
+                    루틴 저장
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

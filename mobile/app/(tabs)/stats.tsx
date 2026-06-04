@@ -1,4 +1,5 @@
 import React from "react";
+import { calcSessionVolume, calcSetVolume } from "../../utils/workout";
 import {
   View,
   Text,
@@ -79,28 +80,10 @@ export default function StatsScreen() {
   const last7Sessions = last7.map((date) =>
     sessions
       .filter((s) => s.date === date)
-      .reduce(
-        (sum, s) =>
-          sum +
-          s.exercises.reduce(
-            (es, ex) =>
-              es + ex.sets.reduce((ss, st) => ss + st.weight * st.reps, 0),
-            0
-          ),
-        0
-      )
+      .reduce((sum, s) => sum + calcSessionVolume(s), 0)
   );
 
-  const totalVolume = sessions.reduce(
-    (sum, s) =>
-      sum +
-      s.exercises.reduce(
-        (es, ex) =>
-          es + ex.sets.reduce((ss, st) => ss + st.weight * st.reps, 0),
-        0
-      ),
-    0
-  );
+  const totalVolume = sessions.reduce((sum, s) => sum + calcSessionVolume(s), 0);
 
   const last7BurnData = last7.map((date) =>
     sessions
@@ -114,8 +97,8 @@ export default function StatsScreen() {
   sessions.forEach((s) => {
     s.exercises.forEach((ex) => {
       ex.sets.forEach((st) => {
-        const vol = st.weight * st.reps;
-        if (!prMap[ex.name] || prMap[ex.name] < vol) prMap[ex.name] = vol;
+        const vol = calcSetVolume(st, ex.isSingleArm, ex.differentSides);
+        if (vol > 0 && (!prMap[ex.name] || prMap[ex.name] < vol)) prMap[ex.name] = vol;
       });
     });
   });
@@ -188,7 +171,10 @@ export default function StatsScreen() {
           </View>
         }
       />
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         {/* 요약 2×2 */}
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
           <StatCard
