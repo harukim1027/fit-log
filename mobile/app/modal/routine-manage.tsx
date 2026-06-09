@@ -80,6 +80,8 @@ export default function RoutineManageModal() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState("");
   const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
+  const [nameError, setNameError] = useState("");
+  const [exercisesError, setExercisesError] = useState("");
   const [inlineEditIdx, setInlineEditIdx] = useState<number | null>(null);
   const [inlineName, setInlineName] = useState("");
   const [inlineCategory, setInlineCategory] = useState("");
@@ -155,6 +157,7 @@ export default function RoutineManageModal() {
   };
 
   const handleExerciseAdd = (data: ExerciseAddResult) => {
+    setExercisesError('');
     setExercises((prev) => [
       ...prev,
       {
@@ -192,8 +195,12 @@ export default function RoutineManageModal() {
   };
 
   const handleSave = async () => {
-    if (!routineName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '루틴 이름을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
-    if (exercises.length === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '최소 1개 종목을 추가해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    let hasError = false;
+    if (!routineName.trim()) { setNameError('루틴 이름을 입력해주세요'); hasError = true; }
+    else setNameError('');
+    if (exercises.length === 0) { setExercisesError('종목을 1개 이상 추가해주세요'); hasError = true; }
+    else setExercisesError('');
+    if (hasError) return;
     const payload = exercises.map(({ gifUrl, key, ...rest }) => rest);
     try {
       if (mode === "create")
@@ -815,7 +822,7 @@ export default function RoutineManageModal() {
                 color: c.textSecondary,
                 marginBottom: 8,
               }}>
-              루틴 이름
+              루틴 이름{" "}<Text style={{ color: c.danger }}>*</Text>
             </Text>
             <TextInput
               ref={nameRef}
@@ -827,16 +834,21 @@ export default function RoutineManageModal() {
                   fontSize: 16,
                   fontWeight: "700",
                   color: c.textPrimary,
-                  marginBottom: 20,
+                  marginBottom: nameError ? 6 : 20,
+                  borderWidth: nameError ? 1.5 : 0,
+                  borderColor: nameError ? c.danger : undefined,
                 },
                 SHADOW,
               ]}
               value={routineName}
-              onChangeText={setRoutineName}
+              onChangeText={(v) => { setRoutineName(v); if (v.trim()) setNameError(''); }}
               placeholder="예: 상체 루틴, 하체 데이"
               placeholderTextColor={c.textMuted}
               returnKeyType="next"
             />
+            {!!nameError && (
+              <Text style={{ fontSize: 11, color: c.danger, marginBottom: 14, marginTop: 2 }}>{nameError}</Text>
+            )}
 
             <Text
               style={{
@@ -845,14 +857,17 @@ export default function RoutineManageModal() {
                 color: c.textSecondary,
                 marginBottom: 8,
               }}>
-              종목 목록
+              종목 목록{" "}<Text style={{ color: c.danger }}>*</Text>
             </Text>
+            {!!exercisesError && (
+              <Text style={{ fontSize: 11, color: c.danger, marginBottom: 8, marginTop: -4 }}>{exercisesError}</Text>
+            )}
 
             {exercises.length === 0 ? (
               <View
-                style={{ alignItems: "center", paddingVertical: 20, gap: 4 }}>
+                style={{ alignItems: "center", paddingVertical: 20, gap: 4, borderWidth: exercisesError ? 1.5 : 0, borderColor: exercisesError ? c.danger : undefined, borderRadius: 14 }}>
                 <Text
-                  style={{ fontSize: 13, color: c.textMuted, fontWeight: "600" }}>
+                  style={{ fontSize: 13, color: exercisesError ? c.danger : c.textMuted, fontWeight: "600" }}>
                   아직 종목이 없어요
                 </Text>
               </View>
@@ -1006,25 +1021,12 @@ export default function RoutineManageModal() {
               </Text>
             </TouchableOpacity>
 
-            {(() => {
-              const canSave = routineName.trim().length > 0 && exercises.length > 0;
-              return (
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: c.warning,
-                    borderRadius: 999,
-                    paddingVertical: 16,
-                    alignItems: "center",
-                    opacity: canSave ? 1 : 0.4,
-                  }}
-                  onPress={canSave ? handleSave : undefined}
-                  activeOpacity={0.8}>
-                  <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>
-                    루틴 저장
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
+            <TouchableOpacity
+              style={{ backgroundColor: c.warning, borderRadius: 999, paddingVertical: 16, alignItems: "center" }}
+              onPress={handleSave}
+              activeOpacity={0.8}>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>루틴 저장</Text>
+            </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
 

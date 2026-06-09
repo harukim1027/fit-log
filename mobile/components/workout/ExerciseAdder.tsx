@@ -193,6 +193,9 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchIdRef = useRef(0);
 
+  // Validation errors
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   // Exercise selection
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -299,18 +302,17 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     clearResults();
     if (isKorean(q)) {
       const englishTerms = lookupAllEnglish(q);
-      if (englishTerms.length > 0) {
-        searchTimer.current = setTimeout(() => {
-          if (searchIdRef.current !== searchId) return;
-          searchExercises(englishTerms[0]);
-        }, 400);
-      }
+      searchTimer.current = setTimeout(() => {
+        if (searchIdRef.current !== searchId) return;
+        // 영문 매핑 있으면 영문으로, 없으면 한글 그대로 API 검색 (nameKo 필드)
+        searchExercises(englishTerms.length > 0 ? englishTerms[0] : q);
+      }, 300);
     } else {
       const byMap = lookupByEnglishContains(q);
       searchTimer.current = setTimeout(() => {
         if (searchIdRef.current !== searchId) return;
         searchExercises(byMap.length > 0 ? byMap[0] : q);
-      }, 400);
+      }, 300);
     }
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [searchQuery]);
@@ -378,8 +380,10 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   };
 
   const handleAddCustomExercise = () => {
-    if (!customName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '종목명을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
-    if (!customCat) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '카테고리를 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    const newErrs: Record<string, string> = {};
+    if (!customName.trim()) newErrs.customName = '종목명을 입력해주세요';
+    if (!customCat) newErrs.customCat = '카테고리를 선택해주세요';
+    if (Object.keys(newErrs).length > 0) { setErrors(prev => ({ ...prev, ...newErrs })); return; }
     const newEx: SelectedExercise = {
       name: customName.trim(),
       category: customCat,
@@ -526,19 +530,22 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // ─── Submit handler ───────────────────────────────────────────────────────
 
   const handleAdd = () => {
-    if (!selectedExercise) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '운동 종목을 선택해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (!selectedExercise) {
+      setErrors(prev => ({ ...prev, exercise: '운동 종목을 선택해주세요' }));
+      return;
+    }
 
     if (mode === "session") {
       let finalSets: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean; unit: 'kg' | 'lbs' }>;
       if (!perSetMode) {
         const count = Math.max(1, parseInt(defaultSets) || 3);
         const r = parseInt(defaultReps) || 0;
-        if (r === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '횟수를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+        if (r === 0) { setErrors(prev => ({ ...prev, reps: '횟수를 입력해주세요' })); return; }
         const w = parseFloat(defaultWeight) || 0;
         finalSets = Array.from({ length: count }, () => ({ weight: w, reps: r, completed: false, unit }));
       } else {
         const validSets = sets.filter(s => s.reps && parseInt(s.reps) > 0);
-        if (validSets.length === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '최소 1세트를 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+        if (validSets.length === 0) { setErrors(prev => ({ ...prev, sets: '최소 1세트를 입력해주세요' })); return; }
         finalSets = validSets.map(st => ({
           weight: parseFloat(st.weight) || 0,
           weightR: (isSingleArm && differentSides && st.weightR) ? parseFloat(st.weightR) || 0 : undefined,
@@ -726,22 +733,28 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
                   <TextInput
                     ref={customNameRef}
-                    style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, fontSize: 15, color: c.textPrimary, marginBottom: 12 }}
-                    placeholder="종목명 입력 (예: 케이블 플라이)"
+                    style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, fontSize: 15, color: c.textPrimary, marginBottom: errors.customName ? 4 : 12, borderWidth: errors.customName ? 1.5 : 0, borderColor: errors.customName ? c.danger : undefined }}
+                    placeholder="종목명 입력 (예: 케이블 플라이) *"
                     value={customName}
-                    onChangeText={setCustomName}
+                    onChangeText={(v) => { setCustomName(v); if (v.trim()) setErrors(prev => ({ ...prev, customName: '' })); }}
                     placeholderTextColor={c.textMuted}
                     returnKeyType="done"
                   />
+                  {!!errors.customName && (
+                    <Text style={{ fontSize: 11, color: c.danger, marginBottom: 8 }}>{errors.customName}</Text>
+                  )}
 
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 8 }}>카테고리</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: errors.customCat ? c.danger : c.textMuted, marginBottom: 8 }}>카테고리 <Text style={{ color: c.danger }}>*</Text></Text>
+                  {!!errors.customCat && (
+                    <Text style={{ fontSize: 11, color: c.danger, marginBottom: 6 }}>{errors.customCat}</Text>
+                  )}
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} keyboardShouldPersistTaps="handled">
                     {EXERCISE_CATEGORIES.map(cat => {
                       const on = customCat === cat;
                       return (
                         <TouchableOpacity key={cat}
                           style={[{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: on ? c.danger + "28" : c.surface }, SHADOW]}
-                          onPress={() => { setCustomCat(cat); setCustomTargetParts([]); setCustomTargetInput(''); setShowCustomTargetInput(false); }}>
+                          onPress={() => { setCustomCat(cat); setCustomTargetParts([]); setCustomTargetInput(''); setShowCustomTargetInput(false); setErrors(prev => ({ ...prev, customCat: '' })); }}>
                           <Text style={{ fontSize: 13, color: on ? c.danger : c.textSecondary, fontWeight: on ? "700" : "600" }}>{cat}</Text>
                         </TouchableOpacity>
                       );
@@ -1011,17 +1024,22 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   {!perSetMode ? (
                     <>
                       {/* 기본무게 · 목표횟수 */}
-                      <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 10 }}>기본무게 · 목표횟수</Text>
+                      <Text style={{ fontSize: 12, fontWeight: "700", color: errors.reps ? c.danger : c.textSecondary, marginBottom: 10 }}>
+                        무게 · 횟수 <Text style={{ color: c.danger }}>*</Text>
+                      </Text>
                       <SetInputRow
                         weight={defaultWeight}
                         reps={defaultReps}
                         unit={unit}
                         onWeightStep={delta => setDefaultWeight(w => String(Math.max(0, (parseFloat(w) || 0) + delta)))}
-                        onRepsStep={delta => setDefaultReps(r => String(Math.max(0, (parseInt(r) || 0) + delta)))}
+                        onRepsStep={delta => { setDefaultReps(r => String(Math.max(0, (parseInt(r) || 0) + delta))); setErrors(prev => ({ ...prev, reps: '' })); }}
                         onWeightPad={() => openPad(defaultWeight, true, unit, setDefaultWeight)}
-                        onRepsPad={() => openPad(defaultReps, false, '회', setDefaultReps)}
-                        containerStyle={{ marginBottom: 14 }}
+                        onRepsPad={() => openPad(defaultReps, false, '회', (v) => { setDefaultReps(v); if (parseInt(v) > 0) setErrors(prev => ({ ...prev, reps: '' })); })}
+                        containerStyle={{ marginBottom: errors.reps ? 4 : 14 }}
                       />
+                      {!!errors.reps && (
+                        <Text style={{ fontSize: 11, color: c.danger, marginBottom: 10 }}>{errors.reps}</Text>
+                      )}
                     </>
                   ) : (
                     <>
@@ -1183,6 +1201,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         onRepsPad={() => openPad(defaultReps, false, '회', setDefaultReps)}
                         containerStyle={{ marginBottom: 14 }}
                       />
+
                     </>
                   ) : (
                     <>
@@ -1339,6 +1358,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
         {/* Footer button */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.surfaceAlt, backgroundColor: c.background, paddingBottom: Math.max(insets.bottom, 12) }}>
+          {(errors.exercise || errors.sets || errors.reps) ? (
+            <Text style={{ fontSize: 12, color: c.danger, marginBottom: 8, textAlign: 'center' }}>
+              {errors.exercise || errors.sets || errors.reps}
+            </Text>
+          ) : null}
           <TouchableOpacity
             style={{ backgroundColor: c.primary, borderRadius: 24, paddingVertical: 16, alignItems: "center" }}
             onPress={handleAdd}

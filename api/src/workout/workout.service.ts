@@ -32,7 +32,7 @@ export class WorkoutService {
     return this.sessionRepo.find({
       where: { user: { id: userId } },
       relations: { exercises: { sets: true } },
-      order: { date: 'DESC' },
+      order: { date: 'DESC', exercises: { order: 'ASC' } },
     });
   }
 
@@ -40,6 +40,7 @@ export class WorkoutService {
     return this.sessionRepo.findOne({
       where: { user: { id: userId }, date },
       relations: { exercises: { sets: true } },
+      order: { exercises: { order: 'ASC' } },
     });
   }
 
@@ -51,7 +52,7 @@ export class WorkoutService {
     const sessions = await this.sessionRepo.find({
       where: { user: { id: userId } },
       relations: { exercises: { sets: true } },
-      order: { date: 'ASC' },
+      order: { date: 'ASC', exercises: { order: 'ASC' } },
     });
 
     type HistoryEntry = {
@@ -144,7 +145,7 @@ export class WorkoutService {
       await this.exerciseRepo.delete({ session: { id } });
 
       // Re-create exercises with sets
-      for (const exData of data.exercises) {
+      for (const [exIndex, exData] of data.exercises.entries()) {
         const exercise = this.exerciseRepo.create({
           name: exData.name ?? '',
           category: exData.category ?? '',
@@ -155,6 +156,7 @@ export class WorkoutService {
           targetMuscles: exData.targetMuscles ?? [],
           restSeconds: exData.restSeconds ?? null,
           targetReps: exData.targetReps ?? null,
+          order: exData.order ?? exIndex,
           session,
         });
         const savedEx = await this.exerciseRepo.save(exercise);
@@ -177,6 +179,7 @@ export class WorkoutService {
     return this.sessionRepo.findOne({
       where: { id },
       relations: { exercises: { sets: true } },
+      order: { exercises: { order: 'ASC' } },
     }) as Promise<WorkoutSession>;
   }
 

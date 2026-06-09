@@ -263,7 +263,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         durationMinutes,
         caloriesBurned,
         note: active.note,
-        exercises: active.exercises.map((ex) => ({
+        exercises: active.exercises.map((ex, idx) => ({
           name: ex.name,
           category: ex.category,
           settings: ex.settings ?? [],
@@ -273,6 +273,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           targetMuscles: ex.targetMuscles ?? [],
           restSeconds: ex.restSeconds ?? null,
           targetReps: ex.targetReps ?? "",
+          order: idx,
           sets: ex.sets.map((st) => ({
             weight: st.weight,
             weightR: st.weightR ?? null,
@@ -400,7 +401,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     }));
     try {
       await apiClient.patch(`/workout/${sessionId}`, {
-        exercises: exercises.map(ex => ({
+        exercises: exercises.map((ex, idx) => ({
           name: ex.name,
           category: ex.category,
           settings: ex.settings ?? [],
@@ -410,6 +411,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           targetMuscles: ex.targetMuscles ?? [],
           restSeconds: ex.restSeconds ?? null,
           targetReps: ex.targetReps ?? "",
+          order: idx,
           sets: ex.sets.map(st => ({
             weight: st.weight,
             weightR: st.weightR,
@@ -438,7 +440,11 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await apiClient.get("/workout");
-      set({ sessions: res.data, isLoading: false });
+      const sessions = (res.data as WorkoutSession[]).map(s => ({
+        ...s,
+        exercises: [...s.exercises].sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0)),
+      }));
+      set({ sessions, isLoading: false });
     } catch (e) {
       console.error("운동 기록 불러오기 실패", e);
       set({ isLoading: false });
@@ -451,7 +457,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       durationMinutes: 0,
       caloriesBurned: 0,
       note: "",
-      exercises: exercises.map((ex) => ({
+      exercises: exercises.map((ex, idx) => ({
         name: ex.name,
         category: ex.category,
         settings: ex.settings ?? [],
@@ -461,6 +467,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         targetMuscles: ex.targetMuscles ?? [],
         restSeconds: ex.restSeconds ?? null,
         targetReps: ex.targetReps ?? "",
+        order: idx,
         sets: ex.sets.map((st) => ({
           weight: st.weight,
           weightR: st.weightR ?? null,

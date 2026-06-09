@@ -34,6 +34,9 @@ export class WorkoutExercise {
   @Column({ nullable: true })
   targetReps: string;
 
+  @Column({ default: 0 })
+  order: number;
+
   @ManyToOne(() => WorkoutSession, session => session.exercises, { onDelete: 'CASCADE' })
   session: WorkoutSession;
 

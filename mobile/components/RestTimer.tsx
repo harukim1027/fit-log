@@ -6,19 +6,19 @@ import {
   AppState,
   Vibration,
   Animated,
+  TextInput,
 } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
-import { Icon, PlayIcon } from "./AppIcons";
+import { Icon } from "./AppIcons";
 import { useColors } from "../constants/colors";
-import { NumberPad } from "./ui/NumberPad";
 
 const PRESETS = [
-  { label: "5초", seconds: 5 },
-  { label: "10초", seconds: 10 },
-  { label: "30초", seconds: 30 },
-  { label: "1분", seconds: 60 },
+  { label: "+1분", seconds: 60 },
+  { label: "+30초", seconds: 30 },
+  { label: "+10초", seconds: 10 },
+  { label: "+5초", seconds: 5 },
 ];
 
 const STORAGE_KEY = (name?: string) => `restTimer2:${name ?? "_default_"}`;
@@ -62,19 +62,19 @@ export default function RestTimer({
     shadowRadius: 24,
     elevation: 4,
   };
+
   const [_seconds, _setSeconds] = useState(externalSeconds ?? 0);
   const [_remaining, _setRemaining] = useState(externalRemaining ?? 0);
   const [_running, _setRunning] = useState(externalRunning ?? false);
   const [_paused, _setPaused] = useState(externalPaused ?? false);
-  const [inputText, setInputText] = useState("");
-  const [timerPadVisible, setTimerPadVisible] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
   const [completed, setCompleted] = useState(false);
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [timeInput, setTimeInput] = useState("");
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const timeInputRef = useRef<TextInput>(null);
 
   const seconds = externalSeconds !== undefined ? externalSeconds : _seconds;
-  const remaining =
-    externalRemaining !== undefined ? externalRemaining : _remaining;
+  const remaining = externalRemaining !== undefined ? externalRemaining : _remaining;
   const running = externalRunning !== undefined ? externalRunning : _running;
   const paused = externalPaused !== undefined ? externalPaused : _paused;
 
@@ -97,8 +97,6 @@ export default function RestTimer({
   };
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // 타이머 시작 시각 기반 방식: 백그라운드에서도 정확한 계산
-  // startTsRef = Date.now() - (seconds - remaining_at_start) * 1000
   const startTsRef = useRef<number | null>(null);
   const remainingRef = useRef(remaining);
   const secondsRef = useRef(seconds);
@@ -149,15 +147,11 @@ export default function RestTimer({
 
   useEffect(() => {
     if (running && !paused) {
-      // 이 시점의 remaining 기준으로 가상 시작 시각 계산
-      // (일시정지 후 재개 시에도 올바른 기준점 설정)
       startTsRef.current = Date.now() - (secondsRef.current - remainingRef.current) * 1000;
-
       intervalRef.current = setInterval(() => {
         if (!startTsRef.current) return;
         const elapsed = Math.floor((Date.now() - startTsRef.current) / 1000);
         const next = Math.max(0, secondsRef.current - elapsed);
-
         if (next !== remainingRef.current) {
           remainingRef.current = next;
           _setRemaining(next);
@@ -170,14 +164,10 @@ export default function RestTimer({
       }, 500);
     }
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     };
   }, [running, paused]);
 
-  // 백그라운드 복귀 시 즉시 재계산 (setInterval이 백그라운드에서 멈추는 문제 보완)
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && startTsRef.current !== null) {
@@ -198,9 +188,7 @@ export default function RestTimer({
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   const applySeconds = async (n: number) => {
@@ -210,13 +198,6 @@ export default function RestTimer({
   };
 
   const addPreset = (p: number) => applySeconds(seconds + p);
-  const adjust = (delta: number) => applySeconds(seconds + delta);
-
-  const handleInput = (text: string) => {
-    setInputText(text);
-    const n = parseInt(text);
-    if (!isNaN(n) && n > 0 && n <= 3600) applySeconds(n);
-  };
 
   const reset = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
@@ -226,7 +207,7 @@ export default function RestTimer({
     setRemaining(0);
     setCompleted(false);
     setSetSeconds(0);
-    setInputText("");
+    setIsEditingTime(false);
     AsyncStorage.removeItem(STORAGE_KEY(exerciseName));
   };
 
@@ -263,20 +244,23 @@ export default function RestTimer({
 
   const togglePause = () => {
     if (paused) {
-      // 재개: useEffect가 startTsRef를 재설정하므로 별도 처리 불필요
       setPaused(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } else {
-      // 일시정지: startTsRef 유지 (재개 시 남은 시간 기준으로 재설정됨)
       startTsRef.current = null;
       setPaused(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
   };
 
+  const commitTimeEdit = () => {
+    const secs = parseInt(timeInput);
+    if (!isNaN(secs) && secs > 0) applySeconds(secs);
+    setIsEditingTime(false);
+  };
+
   const progress = remaining > 0 && seconds > 0 ? ((seconds - remaining) / seconds) * 100 : 0;
 
-  // paused를 먼저 체크: running=true,paused=true 케이스도 'paused'로 처리
   const timerState =
     paused ? 'paused' as const :
     running ? 'running' as const :
@@ -290,6 +274,27 @@ export default function RestTimer({
     timerState === 'completed' ? c.primary :
     seconds > 0 ? c.textPrimary : c.textMuted;
 
+  const actionLabel =
+    timerState === 'running' ? '⏸ 일시정지' :
+    timerState === 'paused' ? '▶ 재개' :
+    timerState === 'completed' ? '↺ 다시시작' :
+    seconds === 0 ? '시간 설정' : '▶ 시작';
+
+  const actionHandler =
+    timerState === 'running' ? togglePause :
+    timerState === 'paused' ? togglePause :
+    timerState === 'completed' ? restartTimer :
+    seconds === 0 ? undefined : start;
+
+  const actionDisabled = timerState === 'waiting' && seconds === 0;
+
+  const displayTime =
+    timerState === 'running' || timerState === 'paused'
+      ? formatTime(remaining)
+      : timerState === 'completed'
+      ? '완료!'
+      : seconds > 0 ? formatTime(seconds) : '--:--';
+
   return (
     <View
       style={[
@@ -300,36 +305,16 @@ export default function RestTimer({
           borderBottomRightRadius: 20,
           padding: 18,
           marginBottom: 12,
-          marginHorizontal: 0,
         },
         SHADOW,
       ]}>
-      {/* ── 헤더 ── */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: collapsed ? 0 : 12,
-        }}>
-        <TouchableOpacity
-          onPress={() => setCollapsed((v) => !v)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            flex: 1,
-          }}
-          activeOpacity={0.8}>
-          <Icon name="clock" size={16} color={c.textSecondary} />
-          <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>
-            휴식 타이머
-          </Text>
-          <Text style={{ fontSize: 13, color: c.textMuted, fontWeight: "900" }}>
-            {collapsed ? "▼" : "▲"}
-          </Text>
-        </TouchableOpacity>
 
+      {/* ── 헤더 ── */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Icon name="clock" size={16} color={c.textSecondary} />
+          <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>휴식 타이머</Text>
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           {(onPin || onUnpin) && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -343,241 +328,111 @@ export default function RestTimer({
               />
             </View>
           )}
-          <TouchableOpacity
-            onPress={reset}
-            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <TouchableOpacity onPress={reset} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Icon name="refresh" size={16} color={c.danger} />
-            <Text style={{ fontSize: 11, fontWeight: "700", color: c.danger }}>
-              리셋
-            </Text>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.danger }}>리셋</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── 접힌 상태 ── */}
-      {collapsed && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <Animated.Text
-            style={{
-              fontSize: 26,
-              fontWeight: "900",
-              letterSpacing: -1,
-              minWidth: 64,
-              color: timerColor,
-              transform: timerState === 'running' ? [{ scale: pulseAnim }] : [],
-            }}>
-            {timerState === 'running' || timerState === 'paused'
-              ? formatTime(remaining)
-              : timerState === 'completed'
-              ? '완료!'
-              : seconds > 0 ? formatTime(seconds) : '설정하기'}
-          </Animated.Text>
-
-          <View style={{ flex: 1, flexDirection: "row", gap: 6 }}>
-            {timerState === 'waiting' && seconds > 0 && (
-              <TouchableOpacity
-                style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
-                onPress={start} activeOpacity={0.8}>
-                <Text style={{ fontSize: 12, fontWeight: '900', color: c.onAccent }}>▶ 시작</Text>
-              </TouchableOpacity>
-            )}
-            {timerState === 'running' && (
-              <>
-                <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: c.warning + '18', borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
-                  onPress={togglePause} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.warning }}>⏸ 일시정지</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 999, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: c.border }}
-                  onPress={stopTimer} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>⏹ 초기화</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {timerState === 'paused' && (
-              <>
-                <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
-                  onPress={togglePause} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.onAccent }}>▶ 재개</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 999, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: c.border }}
-                  onPress={stopTimer} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: c.textSecondary }}>⏹ 초기화</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {timerState === 'completed' && (
-              <TouchableOpacity
-                style={{ flex: 1, backgroundColor: c.warning, borderRadius: 999, paddingVertical: 8, alignItems: 'center' }}
-                onPress={restartTimer} activeOpacity={0.8}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Icon name="refresh" size={12} color={c.onAccent} />
-                  <Text style={{ fontSize: 12, fontWeight: '900', color: c.onAccent }}>다시시작</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
+      {/* ── 진행바 (실행 중일 때) ── */}
+      {(timerState === 'running' || timerState === 'paused') && (
+        <View style={{ width: "100%", height: 4, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden", marginBottom: 12 }}>
+          <View style={{ height: "100%", backgroundColor: timerState === 'paused' ? c.textMuted : c.warning, borderRadius: 999, width: `${progress}%` as `${number}%` }} />
         </View>
       )}
 
-      {/* ── 펼친 상태 ── */}
-      {!collapsed && (
-        <>
-          {/* 1. 현재 카운트다운 (상단) */}
-          {(timerState === 'running' || timerState === 'paused') && (
-            <View style={{ alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <View style={{ width: "100%", height: 8, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden" }}>
-                <View style={{ height: "100%", backgroundColor: timerState === 'paused' ? c.textMuted : c.warning, borderRadius: 999, width: `${progress}%` as `${number}%` }} />
-              </View>
-              <Animated.Text style={{ fontSize: 48, fontWeight: "900", letterSpacing: -2, color: timerColor, transform: timerState === 'running' ? [{ scale: pulseAnim }] : [] }}>
-                {formatTime(remaining)}
-              </Animated.Text>
-              <TouchableOpacity
-                style={{ backgroundColor: c.surfaceAlt, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 22, borderWidth: 1, borderColor: c.border }}
-                onPress={stopTimer} activeOpacity={0.8}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: c.textSecondary }}>⏹ 초기화</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {timerState === 'completed' && (
-            <View style={{ alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 48, fontWeight: '900', letterSpacing: -2, color: c.primary }}>완료!</Text>
-            </View>
-          )}
-
-          {/* 2. 직접입력 + 시작/일시정지 버튼 */}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14 }}>
-            <TouchableOpacity
-              onPress={() => setTimerPadVisible(true)}
-              style={{
-                flex: 1,
-                backgroundColor: c.surfaceAlt,
-                borderRadius: 16,
-                paddingVertical: 12,
-                paddingHorizontal: 14,
-                alignItems: 'center',
-              }}>
-              <Text style={{
-                fontSize: 15,
-                fontWeight: "800",
-                color: inputText ? c.textPrimary : c.textMuted,
-                textAlign: "center",
-              }}>
-                {inputText || '직접 입력 (초)'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{
-                borderRadius: 16,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                minWidth: 90,
-                alignItems: 'center',
-                backgroundColor:
-                  timerState === 'running' ? c.warning + '18' :
-                  timerState === 'waiting' && seconds === 0 ? c.surfaceAlt : c.warning,
-              }}
-              onPress={
-                timerState === 'running' ? togglePause :
-                timerState === 'paused' ? togglePause :
-                timerState === 'completed' ? restartTimer :
-                seconds === 0 ? undefined : start
-              }
-              activeOpacity={timerState === 'waiting' && seconds === 0 ? 1 : 0.8}
-              disabled={timerState === 'waiting' && seconds === 0}>
-              <Text style={{
-                fontSize: 13,
-                fontWeight: '900',
-                color:
-                  timerState === 'running' ? c.warning :
-                  timerState === 'waiting' && seconds === 0 ? c.textMuted : c.surface,
-              }}>
-                {timerState === 'running' ? '⏸ 일시정지' :
-                 timerState === 'paused' ? '▶ 재개' :
-                 timerState === 'completed' ? '다시' :
-                 seconds === 0 ? '시간 설정' : '▶ 시작'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* ── 구분선 ── */}
-          <View style={{ height: 1, backgroundColor: c.border, marginBottom: 14 }} />
-
-          {/* 3. 설정시간 (하단) */}
-          <View
+      {/* ── 메인 영역: 시간 + 액션 버튼 ── */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        {/* 시간 표시 / 편집 */}
+        {isEditingTime ? (
+          <TextInput
+            ref={timeInputRef}
+            value={timeInput}
+            onChangeText={setTimeInput}
+            keyboardType="numeric"
+            autoFocus
+            onBlur={commitTimeEdit}
+            onSubmitEditing={commitTimeEdit}
+            returnKeyType="done"
             style={{
-              flexDirection: "row",
+              fontSize: 38,
+              fontWeight: "900",
+              letterSpacing: -1,
+              color: c.primary,
+              minWidth: 100,
+              borderBottomWidth: 2,
+              borderBottomColor: c.primary,
+              paddingVertical: 2,
+            }}
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={() => {
+              setTimeInput(String(seconds));
+              setIsEditingTime(true);
+            }}
+            activeOpacity={0.7}>
+            <Animated.Text
+              style={{
+                fontSize: 38,
+                fontWeight: "900",
+                letterSpacing: -1,
+                color: timerColor,
+                minWidth: 100,
+                transform: timerState === 'running' ? [{ scale: pulseAnim }] : [],
+              }}>
+              {displayTime}
+            </Animated.Text>
+          </TouchableOpacity>
+        )}
+
+        {/* 액션 버튼 */}
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            borderRadius: 16,
+            paddingVertical: 14,
+            alignItems: "center",
+            backgroundColor:
+              actionDisabled ? c.surfaceAlt :
+              timerState === 'running' ? c.warning + '22' : c.warning,
+          }}
+          onPress={actionHandler ?? undefined}
+          activeOpacity={actionDisabled ? 1 : 0.8}
+          disabled={actionDisabled}>
+          <Text style={{
+            fontSize: 15,
+            fontWeight: "900",
+            color:
+              actionDisabled ? c.textMuted :
+              timerState === 'running' ? c.warning : c.onAccent,
+          }}>
+            {actionLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── 구분선 ── */}
+      <View style={{ height: 1, backgroundColor: c.border, marginBottom: 12 }} />
+
+      {/* ── 빠른 추가 버튼: +1분 +30초 +10초 +5초 ── */}
+      <View style={{ flexDirection: "row", gap: 6 }}>
+        {PRESETS.map((p) => (
+          <TouchableOpacity
+            key={p.seconds}
+            onPress={() => addPreset(p.seconds)}
+            style={{
+              flex: 1,
+              borderRadius: 999,
+              paddingVertical: 8,
               alignItems: "center",
-              justifyContent: "center",
-              gap: 16,
-              marginBottom: 14,
+              backgroundColor: c.warning + '18',
             }}>
-            <TouchableOpacity
-              onPress={() => adjust(-5)}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: c.danger + '20',
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: c.danger, marginTop: -2 }}>−</Text>
-            </TouchableOpacity>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 34, fontWeight: "900", color: c.textPrimary, letterSpacing: -1 }}>
-                {formatTime(seconds)}
-              </Text>
-              <Text style={{ fontSize: 10, color: c.textMuted, fontWeight: "600", marginTop: 2 }}>설정 시간</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => adjust(5)}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: c.primary,
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: c.onAccent, marginTop: -2 }}>+</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 4. Preset 버튼 */}
-          <View style={{ flexDirection: "row", gap: 5, flexWrap: "wrap" }}>
-            {PRESETS.map((p) => (
-              <TouchableOpacity
-                key={p.seconds}
-                onPress={() => addPreset(p.seconds)}
-                style={{
-                  flex: 1,
-                  minWidth: 50,
-                  borderRadius: 999,
-                  paddingVertical: 7,
-                  alignItems: "center",
-                  backgroundColor: c.warning + '18',
-                }}>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: c.warning }}>+{p.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
-
-      <NumberPad
-        visible={timerPadVisible}
-        value={inputText}
-        decimal={false}
-        suffix="초"
-        max={3600}
-        onConfirm={(v) => { handleInput(v); setTimerPadVisible(false); }}
-        onCancel={() => setTimerPadVisible(false)}
-      />
+            <Text style={{ fontSize: 12, fontWeight: "800", color: c.warning }}>{p.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }

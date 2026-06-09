@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Animated } from "react-native";
-import Svg, { Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
@@ -30,41 +29,6 @@ function getWeekBounds() {
   return { start: mon, end: sun };
 }
 
-function GoalRing({ current, total, size = 100 }: { current: number; total: number; size?: number }) {
-  const c = useColors();
-  const r = size * 0.42;
-  const circ = 2 * Math.PI * r;
-  const pct = total > 0 ? Math.min(current / total, 1) : 0;
-  const offset = circ * (1 - pct);
-  const cx = size / 2;
-  const cy = size / 2;
-
-  return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size}>
-        <Circle cx={cx} cy={cy} r={r} fill="none" stroke={c.surfaceHigh} strokeWidth={size * 0.11} />
-        {pct > 0 && (
-          <Circle
-            cx={cx} cy={cy} r={r} fill="none" stroke={c.primary} strokeWidth={size * 0.11}
-            strokeLinecap="round"
-            strokeDasharray={`${circ}`}
-            strokeDashoffset={offset}
-            rotation={-90}
-            origin={`${cx}, ${cy}`}
-          />
-        )}
-      </Svg>
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: size * 0.30, fontWeight: "900", color: c.primary, lineHeight: size * 0.36 }}>
-          {current}
-          <Text style={{ fontSize: size * 0.15, fontWeight: "700", color: c.textSecondary }}>/{total}</Text>
-        </Text>
-        <Text style={{ fontSize: size * 0.11, fontWeight: "700", color: c.textSecondary }}>회 완료</Text>
-      </View>
-    </View>
-  );
-}
-
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   const diff = Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -84,8 +48,8 @@ export default function HomeScreen() {
   const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore();
   const { user } = useAuthStore();
 
-  const fadeAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
-  const slideAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(24))).current;
+  const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
 
   useEffect(() => {
     fetchSessions();
@@ -112,7 +76,7 @@ export default function HomeScreen() {
     elevation: 3,
   };
 
-  const { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, weekMuscles } = useMemo(() => {
+  const { prEntry, weekMuscles } = useMemo(() => {
     const { start, end } = getWeekBounds();
     const weekSessions = sessions.filter((s) => {
       const d = new Date(s.date + "T00:00:00");
@@ -123,12 +87,6 @@ export default function HomeScreen() {
       return d < start;
     });
 
-    const weekVolumeTon = parseFloat(
-      (weekSessions.reduce((sum, s) => sum + getTotalVolume(s), 0) / 1000).toFixed(1)
-    );
-    const weekMins = weekSessions.reduce((sum, s) => sum + (s.durationMinutes ?? 0), 0);
-    const weekHours = parseFloat((weekMins / 60).toFixed(1));
-
     const prevMax: Record<string, number> = {};
     for (const sess of prevSessions) {
       for (const ex of sess.exercises) {
@@ -137,7 +95,6 @@ export default function HomeScreen() {
       }
     }
 
-    let weekPRCount = 0;
     let prEntry: { name: string; weight: number; reps: number; date: string } | null = null;
     for (const sess of [...weekSessions].sort((a, b) => b.date.localeCompare(a.date))) {
       for (const ex of sess.exercises) {
@@ -146,7 +103,6 @@ export default function HomeScreen() {
           { weight: 0, reps: 0, id: "", completed: false }
         );
         if (best.weight > 0 && best.weight > (prevMax[ex.name] ?? 0)) {
-          weekPRCount++;
           if (!prEntry) prEntry = { name: ex.name, weight: best.weight, reps: best.reps, date: sess.date };
         }
       }
@@ -161,8 +117,8 @@ export default function HomeScreen() {
     }
     const weekMuscles = Array.from(weekMuscleSet);
 
-    return { weekSessions, weekVolumeTon, weekHours, weekPRCount, prEntry, weekMuscles };
-  }, [sessions, getTotalVolume]);
+    return { prEntry, weekMuscles };
+  }, [sessions]);
 
   const recentSession = useMemo(() => {
     const completed = sessions.filter((s) => !activeSession || s.id !== activeSession.id);
@@ -210,64 +166,8 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
-        {/* ── 이번 주 운동 목표 히어로 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], overflow: 'visible' }}>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18, paddingTop: 28, overflow: 'visible' }, SHADOW]}>
-            <LabelTag label="이번 주 운동 목표" color={c.tagCoral} />
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-              {user?.weeklyGoal ? (
-                <GoalRing current={weekSessions.length} total={user.weeklyGoal} size={100} />
-              ) : (
-                <TouchableOpacity
-                  style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: c.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 }}
-                  onPress={() => router.push('/modal/edit-profile' as any)}
-                  activeOpacity={0.7}>
-                  <Icon name="plus" size={20} color={c.textMuted} />
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, textAlign: 'center' }}>목표{'\n'}설정</Text>
-                </TouchableOpacity>
-              )}
-              <View style={{ flex: 1, gap: 10 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Icon name="dumbbell" size={14} color={c.primary} />
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>이번주 볼륨</Text>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: "900", color: c.textPrimary }}>
-                    {weekVolumeTon} <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>ton</Text>
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Icon name="clock" size={14} color={c.warning} />
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>운동 시간</Text>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: "900", color: c.textPrimary }}>
-                    {weekHours} <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>시간</Text>
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Icon name="trophy" size={14} color={c.warning} />
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>이번주 PR</Text>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: "900", color: c.textPrimary }}>
-                    {weekPRCount} <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>개</Text>
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={{ marginTop: 16, borderRadius: 16, backgroundColor: c.primary, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
-              onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
-              activeOpacity={0.85}>
-              <Icon name="play" size={18} color={c.onAccent} />
-              <Text style={{ fontSize: 15, fontWeight: "900", color: c.onAccent }}>오늘 운동 시작하기</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
         {/* ── 빠른 액션 ── */}
-        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
+        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
           <View style={{ flexDirection: "row", gap: 12 }}>
             <TouchableOpacity
               style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 20, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, transform: [{ rotate: "-1.5deg" }] }, SHADOW_SM]}
@@ -291,7 +191,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* ── 최근 기록 ── */}
-        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
+        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }], overflow: 'visible' }}>
           <View style={{ position: 'relative', overflow: 'visible', height: 20, marginBottom: 16, marginTop: 14 }}>
             <LabelTag label="최근 기록" color={c.tagMint} />
             <TouchableOpacity
@@ -339,7 +239,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* ── 이번 주 자극 부위 ── */}
-        <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }], overflow: 'visible' }}>
+        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
           <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, paddingTop: 28, borderWidth: 1, borderColor: c.border, overflow: 'visible' }, SHADOW_SM]}>
             <LabelTag label="이번 주 자극 부위" color={c.tagSun} />
             <MuscleMap muscles={weekMuscles} scale={0.55} />

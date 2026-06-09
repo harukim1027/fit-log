@@ -84,8 +84,17 @@ export class ExerciseService {
     if (!q) return [];
     const rows = await this.repo
       .createQueryBuilder('e')
-      .where('(e.name ILIKE :q OR e.bodyPart ILIKE :q OR e.target ILIKE :q)', { q: `%${q}%` })
+      .where(
+        '(e.name ILIKE :q OR e.nameKo ILIKE :q OR e.bodyPart ILIKE :q OR e.target ILIKE :q)',
+        { q: `%${q}%` },
+      )
       .andWhere('(e.userId IS NULL OR e.userId = :uid)', { uid: userId ?? '' })
+      .orderBy(
+        // nameKo 완전 일치 우선, 그 다음 name 완전 일치, 나머지는 알파벳 순
+        `CASE WHEN e.nameKo ILIKE :exact THEN 0 WHEN e.name ILIKE :exact THEN 1 ELSE 2 END`,
+        'ASC',
+      )
+      .setParameter('exact', q)
       .limit(limit)
       .getMany();
     return (await this.localizeAll(rows)).map(e => ({

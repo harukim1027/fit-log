@@ -754,7 +754,7 @@ export default function WorkoutScreen() {
                             <View style={{ flex: 1 }}>
                               <Text
                                 style={{
-                                  fontSize: 17,
+                                  fontSize: 22,
                                   fontWeight: "900",
                                   color: c.textPrimary,
                                 }}>
@@ -767,12 +767,7 @@ export default function WorkoutScreen() {
                                   fontWeight: "600",
                                   marginTop: 3,
                                 }}>
-                                {routine.exercises.length}종목 · 예상{" "}
-                                {routine.exercises.reduce(
-                                  (s, e) => s + e.defaultSets,
-                                  0
-                                ) * 3}
-                                분
+                                {routine.exercises.length}종목
                               </Text>
                             </View>
                             <View
@@ -874,7 +869,7 @@ export default function WorkoutScreen() {
                                     fontWeight: "700",
                                     color: c.success,
                                   }}>
-                                  {ex.name}
+                                  {ex.name} ×{ex.defaultSets}
                                 </Text>
                               </View>
                             ))}
