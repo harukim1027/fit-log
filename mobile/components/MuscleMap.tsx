@@ -23,6 +23,16 @@ export const MUSCLE_LABELS: Partial<Record<Slug, string>> = {
   gluteal: '둔근',
 };
 
+// ── Category → muscle slugs fallback ───────────────────────
+export const CATEGORY_TO_SLUGS: Partial<Record<string, Slug[]>> = {
+  '가슴':  ['chest'],
+  '등':    ['upper-back', 'lower-back', 'trapezius'],
+  '어깨':  ['deltoids'],
+  '팔':    ['biceps', 'triceps', 'forearm'],
+  '하체':  ['quadriceps', 'hamstring', 'gluteal', 'calves'],
+  '복근':  ['abs', 'obliques'],
+};
+
 // ── Exercise → muscle slugs mapping ────────────────────────
 export const MUSCLE_MAP: Record<string, Slug[]> = {
   '벤치프레스':          ['chest', 'triceps', 'deltoids'],

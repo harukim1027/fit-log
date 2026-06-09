@@ -101,6 +101,25 @@ export async function cancelRestEndNotification() {
   await Notifications.cancelScheduledNotificationAsync(REST_END_NOTIF_ID).catch(() => {});
 }
 
+export async function showRestWarningNotification(
+  remainingSeconds: number,
+  exerciseName?: string,
+) {
+  const body = exerciseName
+    ? `${remainingSeconds}초 남았어요 · ${exerciseName}`
+    : `${remainingSeconds}초 남았어요`;
+  await Notifications.scheduleNotificationAsync({
+    identifier: `rest-warning-${remainingSeconds}`,
+    content: {
+      title: '휴식 타이머',
+      body,
+      sound: true,
+      ...(Platform.OS === 'android' && { channelId: 'workout' }),
+    },
+    trigger: null,
+  });
+}
+
 export async function dismissWorkoutNotification() {
   await Notifications.cancelScheduledNotificationAsync(REST_END_NOTIF_ID).catch(() => {});
   await Notifications.dismissNotificationAsync(WORKOUT_NOTIF_ID).catch(() => {});

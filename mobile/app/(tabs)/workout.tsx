@@ -1,8 +1,9 @@
 import React, { useRef } from "react";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { calcExerciseVolume } from "../../utils/workout";
 import {
   showWorkoutNotification,
-  showRestNotification,
+  showRestWarningNotification,
   dismissWorkoutNotification,
   scheduleRestEndNotification,
   cancelRestEndNotification,
@@ -182,6 +183,7 @@ export default function WorkoutScreen() {
   // Refs to parent ScrollViews so we can synchronously disable scrolling when
   // a SortableList drag starts (prevents the ScrollView from stealing the gesture).
   const todayScrollRef = useRef<any>(null);
+  const todayKasRef = useRef<any>(null);
   const historyScrollRef = useRef<any>(null);
 
   const [tab, setTab] = useState<Tab>("today");
@@ -228,6 +230,7 @@ export default function WorkoutScreen() {
     running: false,
     paused: false,
   });
+  const [currentExName, setCurrentExName] = useState("");
   const [historyExpanded, setHistoryExpanded] = useState<
     Record<string, boolean>
   >({});
@@ -255,6 +258,16 @@ export default function WorkoutScreen() {
     onConfirm: (v: string) => void;
   };
   const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
+
+  // 카드 안 TextInput 포커스 시 부모 ScrollView를 해당 위치로 스크롤
+  const scrollToInput = (e: any) => {
+    setTimeout(() => {
+      e?.target?.measureInWindow?.((x: number, y: number) => {
+        todayScrollRef.current?.scrollTo({ y: y + 200, animated: true });
+      });
+    }, 350);
+  };
+
   const openPad = (
     value: string,
     decimal: boolean,
@@ -282,32 +295,20 @@ export default function WorkoutScreen() {
     if (activeSession) setTab("today");
   }, [activeSession]);
 
-  // 휴식 타이머 알림 연동
+  // 휴식 타이머 30초/10초 경고 알림
   useEffect(() => {
     if (!activeSession) return;
-    if (timerState.running && !timerState.paused && timerState.remaining > 0) {
-      const exerciseName =
-        activeSession.exercises[activeSession.exercises.length - 1]?.name;
-      showRestNotification(timerState.remaining, exerciseName).catch(() => {});
-    } else if (!timerState.running) {
-      // 휴식 종료 → 운동 타이머로 복귀
-      showWorkoutNotification(
-        workoutElapsed,
-        activeSession.exercises.length,
-        getTotalVolume(activeSession)
-      ).catch(() => {});
+    if (!timerState.running || timerState.paused || timerState.remaining <= 0) return;
+    if (timerState.remaining === 30 || timerState.remaining === 10) {
+      showRestWarningNotification(timerState.remaining, currentExName || undefined).catch(() => {});
     }
-  }, [timerState.running, timerState.remaining]);
+  }, [timerState.remaining]);
 
   // 휴식 종료 예약 알림 (백그라운드에서도 타이머 종료 알림)
   useEffect(() => {
     if (!activeSession) return;
-    const exerciseName =
-      activeSession.exercises[activeSession.exercises.length - 1]?.name;
     if (timerState.running && !timerState.paused && timerState.remaining > 0) {
-      scheduleRestEndNotification(timerState.remaining, exerciseName).catch(
-        () => {}
-      );
+      scheduleRestEndNotification(timerState.remaining, currentExName || undefined).catch(() => {});
     } else {
       cancelRestEndNotification().catch(() => {});
     }
@@ -468,11 +469,8 @@ export default function WorkoutScreen() {
 
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
-    const durationMinutes = sessionStartTime
-      ? Math.max(Math.round((Date.now() - sessionStartTime) / 60000), 1)
-      : 30;
     const calories = activeSession
-      ? calculateCaloriesBurned(activeSession, weightKg, durationMinutes)
+      ? calculateCaloriesBurned(activeSession, weightKg)
       : 0;
     const snapshot = activeSession;
 
@@ -553,8 +551,7 @@ export default function WorkoutScreen() {
 
   const timerProps = activeSession
     ? {
-        exerciseName:
-          activeSession.exercises[activeSession.exercises.length - 1]?.name,
+        exerciseName: currentExName || activeSession.exercises[activeSession.exercises.length - 1]?.name,
         externalSeconds: timerState.seconds,
         externalRemaining: timerState.remaining,
         externalRunning: timerState.running,
@@ -614,15 +611,15 @@ export default function WorkoutScreen() {
       )}
 
       {tab === "today" ? (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
-          <ScrollView
-            ref={todayScrollRef}
-            keyboardDismissMode="on-drag"
+          <KeyboardAwareScrollView
+            ref={todayKasRef}
+            innerRef={(ref) => { todayScrollRef.current = ref; }}
+            enableOnAndroid
+            enableAutomaticScroll
+            extraScrollHeight={180}
+            extraHeight={180}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+            contentContainerStyle={{ padding: 20, paddingBottom: 350 }}>
             {!activeSession ? (
               <>
                 {/* 제목 + 운동 시작 버튼 */}
@@ -1517,6 +1514,7 @@ export default function WorkoutScreen() {
                             Haptics.ImpactFeedbackStyle.Medium
                           );
                           if (ex.restSeconds && ex.restSeconds > 0) {
+                            setCurrentExName(ex.name);
                             setTimerState({
                               seconds: ex.restSeconds,
                               remaining: ex.restSeconds,
@@ -1576,6 +1574,7 @@ export default function WorkoutScreen() {
                                   }}
                                   value={draftExName}
                                   onChangeText={setDraftExName}
+                                  onFocus={scrollToInput}
                                   returnKeyType="done"
                                   onSubmitEditing={() => {
                                     if (
@@ -2435,6 +2434,7 @@ export default function WorkoutScreen() {
                                           placeholderTextColor={c.textMuted}
                                           value={newSettingVal}
                                           onChangeText={setNewSettingVal}
+                                          onFocus={scrollToInput}
                                         />
                                         <TouchableOpacity
                                           style={{
@@ -2493,6 +2493,11 @@ export default function WorkoutScreen() {
                                     onChangeText={(v) =>
                                       updateExercise(ex.id, { targetReps: v })
                                     }
+                                    onFocus={() => {
+                                      setTimeout(() => {
+                                        todayKasRef.current?.scrollToEnd({ animated: true });
+                                      }, 300);
+                                    }}
                                     placeholder="예: 12회, 15-20회"
                                     placeholderTextColor={c.textMuted}
                                     returnKeyType="done"
@@ -2500,7 +2505,9 @@ export default function WorkoutScreen() {
                                 </View>
 
                                 {/* ── 7. 운동 팁 ── */}
-                                <View style={{ marginBottom: 10 }}>
+                                <View
+                                  style={{ marginBottom: 10 }}
+                                  onLayout={() => {}}>
                                   <Text
                                     style={{
                                       fontSize: 11,
@@ -2523,12 +2530,20 @@ export default function WorkoutScreen() {
                                     onChangeText={(v) =>
                                       updateExercise(ex.id, { tip: v })
                                     }
+                                    onFocus={() => {
+                                      // 팁은 카드 최하단 — scrollToEnd가 가장 확실
+                                      setTimeout(() => {
+                                        todayKasRef.current?.scrollToEnd({ animated: true });
+                                      }, 300);
+                                    }}
                                     placeholder="예: 무릎이 발끝을 넘지 않게"
                                     placeholderTextColor={c.textMuted}
                                     multiline
                                     numberOfLines={3}
                                     textAlignVertical="top"
                                   />
+                                  {/* 키보드 올라올 때 팁 입력창이 보이도록 여백 */}
+                                  <View style={{ height: 320 }} />
                                 </View>
 
                                 {/* ── 8. 이전 기록 토글 ── */}
@@ -2568,7 +2583,7 @@ export default function WorkoutScreen() {
                                   const rows = [
                                     {
                                       label: "PR",
-                                      text: prH?.pr
+                                      text: prH?.pr && prH.pr.weight > 0
                                         ? `${prH.pr.weight}kg`
                                         : null,
                                     },
@@ -2684,8 +2699,7 @@ export default function WorkoutScreen() {
                 )}
               </>
             )}
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
       ) : (
         <ScrollView
           ref={historyScrollRef}
@@ -3016,8 +3030,9 @@ export default function WorkoutScreen() {
                             addSet(exId, {
                               id: `${exId}-${s}`,
                               weight: re.defaultWeight ?? 0,
-                              reps: 0,
+                              reps: re.defaultReps ?? 0,
                               completed: false,
+                              unit: re.defaultUnit ?? 'kg',
                             });
                           }
                           setAddedFromRoutine(
@@ -3146,8 +3161,9 @@ export default function WorkoutScreen() {
                                     addSet(exId, {
                                       id: `${exId}-${s}`,
                                       weight: re.defaultWeight ?? 0,
-                                      reps: 0,
+                                      reps: re.defaultReps ?? 0,
                                       completed: false,
+                                      unit: re.defaultUnit ?? 'kg',
                                     });
                                   }
                                   setAddedFromRoutine(
@@ -3332,8 +3348,12 @@ function ExerciseHistoryRow({
   allTimePR: number;
 }) {
   const c = useColors();
-  const curMaxWeight =
-    ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
+  const toKgLocal = (w: number, unit?: string) =>
+    unit === 'lbs' ? w / 2.20462 : w;
+  const validSetsLocal = ex.sets.filter((st) => st.weight > 0 && st.reps > 0);
+  const curMaxWeight = validSetsLocal.length > 0
+    ? Math.max(...validSetsLocal.map((st) => toKgLocal(st.weight, st.unit)))
+    : 0;
   const delta = allPrevMax != null ? curMaxWeight - allPrevMax : null;
   const isSessionPR =
     curMaxWeight > 0 && curMaxWeight >= allTimePR && allTimePR > 0;
@@ -3879,8 +3899,15 @@ function HistoryCard({
     });
   };
 
-  const getExMaxWeight = (ex: WorkoutSession["exercises"][0]) =>
-    ex.sets.length > 0 ? Math.max(...ex.sets.map((s) => s.weight)) : 0;
+  const toKgW = (weight: number, unit?: string) =>
+    unit === 'lbs' ? weight / 2.20462 : weight;
+
+  const getExMaxWeight = (ex: WorkoutSession["exercises"][0]) => {
+    const validSets = ex.sets.filter((s) => s.weight > 0 && s.reps > 0);
+    return validSets.length > 0
+      ? Math.max(...validSets.map((s) => toKgW(s.weight, s.unit)))
+      : 0;
+  };
 
   const getExVolume = calcExerciseVolume;
 
@@ -3892,10 +3919,10 @@ function HistoryCard({
       if (s.date >= session.date) continue;
       const match = s.exercises.find((e) => e.name === exName);
       if (!match) continue;
-      const mx =
-        match.sets.length > 0
-          ? Math.max(...match.sets.map((st) => st.weight))
-          : 0;
+      const validSets = match.sets.filter((st) => st.weight > 0 && st.reps > 0);
+      const mx = validSets.length > 0
+        ? Math.max(...validSets.map((st) => toKgW(st.weight, st.unit)))
+        : 0;
       if (!best || s.date > best.date) best = { maxWeight: mx, date: s.date };
     }
     return best;
@@ -3907,9 +3934,12 @@ function HistoryCard({
       if (s.date >= session.date) continue;
       const match = s.exercises.find((e) => e.name === exName);
       if (match)
-        match.sets.forEach((st) => {
-          if (st.weight > max) max = st.weight;
-        });
+        match.sets
+          .filter((st) => st.weight > 0 && st.reps > 0)
+          .forEach((st) => {
+            const w = toKgW(st.weight, st.unit);
+            if (w > max) max = w;
+          });
     }
     return max > 0 ? max : null;
   };
@@ -3919,9 +3949,12 @@ function HistoryCard({
     for (const s of allSessions) {
       const match = s.exercises.find((e) => e.name === exName);
       if (match)
-        match.sets.forEach((st) => {
-          if (st.weight > max) max = st.weight;
-        });
+        match.sets
+          .filter((st) => st.weight > 0 && st.reps > 0)
+          .forEach((st) => {
+            const w = toKgW(st.weight, st.unit);
+            if (w > max) max = w;
+          });
     }
     return max;
   };

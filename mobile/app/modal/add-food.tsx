@@ -8,8 +8,6 @@ import {
   ActivityIndicator,
   Image,
   Switch,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -22,6 +20,7 @@ import { useDietStore } from "../../store/dietStore";
 import { useFavoriteStore } from "../../store/favoriteStore";
 import { MEAL_LABELS } from "../../constants";
 import { useColors } from "../../constants/colors";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
@@ -53,6 +52,7 @@ interface CustomFood {
 export default function AddFoodModal() {
   const c = useColors();
   const router = useRouter();
+  const keyboardHeight = useKeyboardHeight();
   const params = useLocalSearchParams<{ mealType: MealType; snackCardId?: string; date?: string }>();
   const mealType = params.mealType ?? "breakfast";
   const snackCardId = params.snackCardId;
@@ -320,10 +320,6 @@ export default function AddFoodModal() {
         }
       />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
       <View className="px-5 flex-1">
         {/* 탭 */}
         <View style={{ flexDirection: 'row', backgroundColor: c.surfaceAlt, borderRadius: 999, padding: 4, marginBottom: 16, gap: 4 }}>
@@ -369,7 +365,8 @@ export default function AddFoodModal() {
             </View>
             <ScrollView
               keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
+              contentContainerStyle={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
               className="flex-1">
               {!hasSearched && !loading && (
                 <View className="items-center mt-10 gap-3">
@@ -493,7 +490,7 @@ export default function AddFoodModal() {
         )}
 
         {tab === "photo" && (
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" className="flex-1">
+          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }} className="flex-1">
             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 20, paddingVertical: 20, alignItems: 'center', gap: 8 }}
@@ -581,7 +578,8 @@ export default function AddFoodModal() {
         {tab === "favorites" && (
           <ScrollView
             keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
+            contentContainerStyle={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
             className="flex-1">
             {/* 내가 등록한 식품 섹션 */}
             <View style={{ marginBottom: 20 }}>
@@ -694,7 +692,7 @@ export default function AddFoodModal() {
         )}
 
         {tab === "manual" && (
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}>
             <View className="gap-3 mb-4">
               <Input label="식품명 *" value={manualName} onChangeText={setManualName} placeholder="예: 삶은 계란" />
               <View style={{ marginBottom: 4 }}>
@@ -758,7 +756,6 @@ export default function AddFoodModal() {
           </ScrollView>
         )}
       </View>
-      </KeyboardAvoidingView>
 
       <NumberPad
         visible={padConfig !== null}

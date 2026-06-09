@@ -5,6 +5,10 @@ import { WorkoutSession } from './workout-session.entity';
 import { WorkoutExercise } from './workout-exercise.entity';
 import { WorkoutSet } from './workout-set.entity';
 
+const LBS_TO_KG = 2.20462;
+const toKg = (weight: number, unit?: string): number =>
+  unit === 'lbs' ? weight / LBS_TO_KG : weight;
+
 @Injectable()
 export class WorkoutService {
   constructor(
@@ -55,7 +59,7 @@ export class WorkoutService {
       maxWeight: number;
       maxVolume: number;
       totalSets: number;
-      sets: { weight: number; reps: number }[];
+      sets: { weight: number; reps: number; unit?: string }[];
     };
 
     const history: HistoryEntry[] = [];
@@ -64,19 +68,21 @@ export class WorkoutService {
       const matches = session.exercises.filter((ex) => ex.name === exerciseName);
       if (matches.length === 0) continue;
       const allSets = matches.flatMap((ex) => ex.sets);
-      if (allSets.length === 0) continue;
-      const maxWeight = Math.max(...allSets.map((st) => st.weight));
+      const validSets = allSets.filter((st) => st.weight > 0 && st.reps > 0);
+      if (validSets.length === 0) continue;
+      const maxWeight = Math.max(...validSets.map((st) => toKg(st.weight, st.unit)));
       const maxVolume = Math.max(
-        ...matches.map((ex) =>
-          ex.sets.reduce((sum, st) => sum + st.weight * st.reps, 0),
-        ),
+        ...matches.map((ex) => {
+          const vSets = ex.sets.filter((st) => st.weight > 0 && st.reps > 0);
+          return vSets.reduce((sum, st) => sum + toKg(st.weight, st.unit) * st.reps, 0);
+        }),
       );
       history.push({
         date: session.date,
         maxWeight,
         maxVolume,
-        totalSets: allSets.length,
-        sets: allSets.map((st) => ({ weight: st.weight, reps: st.reps })),
+        totalSets: validSets.length,
+        sets: allSets.map((st) => ({ weight: st.weight, reps: st.reps, unit: st.unit ?? 'kg' })),
       });
     }
 
@@ -86,6 +92,9 @@ export class WorkoutService {
 
     const prWeight = Math.max(...history.map((h) => h.maxWeight));
     const prVolume = Math.max(...history.map((h) => h.maxVolume));
+    if (prWeight === 0) {
+      return { history, pr: null, comparisonSession: null };
+    }
     const prEntry = [...history].reverse().find((h) => h.maxWeight === prWeight)!;
 
     const cutoffDate = (daysBack: number) => {

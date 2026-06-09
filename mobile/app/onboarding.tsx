@@ -1,12 +1,6 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { showCuteAlert } from "../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -112,14 +106,14 @@ export default function OnboardingScreen() {
         onBack={goBack}
         rightElement={<StepIndicator current={step} total={2} />}
       />
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView
+        enableOnAndroid
+        enableAutomaticScroll
+        extraScrollHeight={180}
+        extraHeight={180}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 300 }}
+        style={{ flex: 1 }}>
 
           {/* ── STEP 0: 운동 목표 선택 ── */}
           {step === 0 && (
@@ -232,8 +226,6 @@ export default function OnboardingScreen() {
               ))}
             </View>
           )}
-        </ScrollView>
-
         {/* 하단 버튼 */}
         <View className="px-6 pt-3 pb-2 border-t border-border bg-background">
           {step < 1 ? (
@@ -255,7 +247,7 @@ export default function OnboardingScreen() {
             />
           )}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <NumberPad
         visible={padConfig !== null}

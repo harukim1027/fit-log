@@ -15,6 +15,7 @@ export interface RoutineExercise {
   category: string;
   defaultSets: number;
   defaultWeight?: number;
+  defaultUnit?: 'kg' | 'lbs';
   defaultReps?: number;
   sets?: RoutineSet[];
   restSeconds?: number;
@@ -108,7 +109,11 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
     const next = get().routines.map(r => r.id === id ? { ...r, ...data } : r);
     set({ routines: next });
     await persist(next);
-    apiClient.patch(`/routine/${id}`, data).catch(() => {});
+    try {
+      await apiClient.patch(`/routine/${id}`, data);
+    } catch (e) {
+      console.error('루틴 저장 실패 (서버)', e);
+    }
   },
 
   deleteRoutine: async (id) => {
@@ -187,17 +192,25 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
   },
 
   updateRoutineFromSession: async (routineId, session) => {
-    const exercises: RoutineExercise[] = session.exercises.map(ex => ({
-      name: ex.name,
-      category: ex.category,
-      defaultSets: ex.sets.length || 3,
-      defaultWeight: ex.sets.length > 0 ? Math.max(...ex.sets.map(s => s.weight)) : 0,
-      restSeconds: ex.restSeconds,
-      targetReps: ex.targetReps,
-      settings: ex.settings,
-      tip: ex.tip,
-      targetMuscles: ex.targetMuscles,
-    }));
+    const exercises: RoutineExercise[] = session.exercises.map(ex => {
+      const validSets = ex.sets.filter(s => s.weight > 0 || s.reps > 0);
+      const unit = (validSets[0]?.unit as 'kg' | 'lbs' | undefined) ?? 'kg';
+      return {
+        name: ex.name,
+        category: ex.category,
+        defaultSets: ex.sets.length || 3,
+        defaultWeight: validSets.length > 0 ? Math.max(...validSets.map(s => s.weight)) : 0,
+        defaultUnit: unit,
+        defaultReps: validSets[0]?.reps,
+        isSingleArm: ex.isSingleArm ?? false,
+        differentSides: ex.differentSides ?? false,
+        restSeconds: ex.restSeconds,
+        targetReps: ex.targetReps,
+        settings: ex.settings,
+        tip: ex.tip,
+        targetMuscles: ex.targetMuscles,
+      };
+    });
     await get().updateRoutine(routineId, { exercises });
   },
 }));

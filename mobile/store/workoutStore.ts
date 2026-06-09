@@ -13,7 +13,7 @@ export interface ExerciseHistoryEntry {
   maxWeight: number;
   maxVolume: number;
   totalSets: number;
-  sets: { weight: number; reps: number }[];
+  sets: { weight: number; reps: number; unit?: string }[];
 }
 
 export interface ExerciseHistory {
@@ -22,37 +22,22 @@ export interface ExerciseHistory {
   comparisonSession: ExerciseHistoryEntry | null;
 }
 
-const MET_MAP: Record<string, number> = {
-  벤치프레스: 6.0,
-  "인클라인 벤치프레스": 6.0,
-  딥스: 8.0,
-  데드리프트: 6.0,
-  "바벨 로우": 6.0,
-  오버헤드프레스: 6.0,
-  풀업: 8.0,
-  "사이드 레터럴 레이즈": 5.0,
-  "바벨 컬": 5.0,
-  "트라이셉스 익스텐션": 5.0,
-  스쿼트: 6.0,
-  레그프레스: 5.0,
-  런지: 5.0,
-  플랭크: 4.0,
-  크런치: 4.0,
-};
-
-const getMET = (name: string): number => MET_MAP[name] ?? 5.0;
-
 export const calculateCaloriesBurned = (
   session: WorkoutSession,
   weightKg: number,
-  durationMinutes: number
 ): number => {
-  if (!session.exercises.length || durationMinutes <= 0) return 0;
-  const hours = durationMinutes / 60;
-  const avgMET =
-    session.exercises.reduce((sum, ex) => sum + getMET(ex.name), 0) /
-    session.exercises.length;
-  return Math.round(avgMET * weightKg * hours);
+  let totalVolume = 0;
+  session.exercises.forEach((ex) => {
+    ex.sets
+      .filter((s) => s.completed && s.weight > 0 && s.reps > 0)
+      .forEach((s) => {
+        const kg = s.unit === 'lbs' ? s.weight / 2.20462 : s.weight;
+        totalVolume += kg * s.reps;
+      });
+  });
+  if (totalVolume === 0) return 0;
+  const bodyWeightFactor = weightKg / 70;
+  return Math.round(totalVolume * 0.1 * bodyWeightFactor);
 };
 
 interface WorkoutStore {
@@ -219,12 +204,14 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
             weight: rs.targetWeight,
             reps: rs.targetReps,
             completed: false,
+            unit: rs.unit ?? 'kg',
           }))
         : Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
             id: `${now}-${i}-${j}`,
             weight: ex.defaultWeight ?? 0,
             reps: ex.defaultReps ?? 0,
             completed: false,
+            unit: ex.defaultUnit ?? 'kg',
           })),
     }));
     const session: WorkoutSession = {

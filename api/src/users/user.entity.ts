@@ -39,6 +39,9 @@ export class User {
   @Column({ nullable: true })
   goal: string;
 
+  @Column({ nullable: true })
+  weeklyGoal: number;
+
   @Column({ default: false })
   isOnboardingDone: boolean;
 

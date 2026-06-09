@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { showCuteAlert } from "../CuteAlert";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  KeyboardAvoidingView, Platform, Modal, LayoutAnimation,
+  Platform, Modal, LayoutAnimation,
   UIManager, Image, ActivityIndicator, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +18,7 @@ import { EXERCISE_CATEGORIES, EXERCISE_MAPPING } from "../../constants";
 import { ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../MuscleMap";
 import { useColors } from "../../constants/colors";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -137,6 +138,7 @@ export type ExerciseAddResult = {
   // routine mode
   defaultSets?: number;
   defaultWeight?: number;
+  defaultUnit?: 'kg' | 'lbs';
   defaultReps?: number;
   routineSets?: Array<{ setNumber: number; targetWeight: number; targetReps: number; unit: 'kg' | 'lbs' }>;
 };
@@ -159,6 +161,7 @@ type ExerciseAdderProps = {
     sets?: Array<{ weight: number; reps: number; weightR?: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
     defaultSets?: number;
     defaultWeight?: number;
+    defaultUnit?: 'kg' | 'lbs';
     defaultReps?: number;
     routineSets?: Array<{ setNumber: number; targetWeight: number; targetReps: number; unit: 'kg' | 'lbs' }>;
   };
@@ -243,6 +246,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const [isSuccess, setIsSuccess] = useState(false);
   const successScale = useRef(new Animated.Value(0)).current;
 
+  const keyboardHeight = useKeyboardHeight();
+
   useEffect(() => {
     loadSettings().then(() => setUnit(useSettingsStore.getState().weightUnit));
     apiClient.get<CustomKey[]>("/workout-settings")
@@ -275,7 +280,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         setDifferentSides(ex.differentSides ?? false);
         if (ex.routineSets && ex.routineSets.length > 0) {
           setPerSetMode(true);
+          const savedUnit = ex.routineSets[0]?.unit ?? ex.defaultUnit ?? 'kg';
+          setUnit(savedUnit);
           setRoutineSets(ex.routineSets.map(s => ({ weight: String(s.targetWeight), reps: String(s.targetReps) })));
+        } else if (ex.defaultUnit) {
+          setUnit(ex.defaultUnit);
         }
       }
     }
@@ -568,6 +577,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         differentSides: isSingleArm ? differentSides : false,
         defaultSets: perSetMode ? routineSets.length : Math.max(1, parseInt(defaultSets) || 3),
         defaultWeight: perSetMode ? undefined : (parseFloat(defaultWeight) || undefined),
+        defaultUnit: perSetMode ? undefined : unit,
         defaultReps: perSetMode ? undefined : (parseInt(defaultReps) || undefined),
         routineSets: perSetMode && routineSets.length > 0 ? routineSets.map((s, i) => ({
           setNumber: i + 1,
@@ -598,15 +608,12 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       <BackgroundBlobs />
       <Header title={editMode ? "운동 수정" : "운동 추가"} showClose onClose={onClose} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
+      <View style={{ flex: 1 }}>
         <ScrollView
           ref={scrollRef}
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 20, paddingBottom: 16 }}>
+          keyboardShouldPersistTaps="always"
+          contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}>
 
           {/* ── Exercise selection phase ── */}
           {exerciseListCollapsed && selectedExercise ? (
@@ -1269,6 +1276,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 value={targetReps}
                 onChangeText={setTargetReps}
                 placeholderTextColor={c.textMuted}
+                onFocus={() => { setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100); }}
               />
 
               {/* Equipment settings */}
@@ -1323,6 +1331,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 textAlignVertical="top"
                 returnKeyType="done"
                 blurOnSubmit
+                onFocus={() => { setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100); }}
               />
             </View>
           )}
@@ -1347,7 +1356,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       {/* Number pad */}
       <NumberPad
@@ -1365,7 +1374,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
           style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,80,65,0.4)" }}
           activeOpacity={1}
           onPress={closeSettingsSheet}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ width: "100%" }}>
+          <View style={{ width: "100%" }}>
             <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 }}>
               <View style={{ width: 40, height: 4, backgroundColor: c.textMuted, borderRadius: 999, alignSelf: "center", marginBottom: 20 }} />
               <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary, marginBottom: 20 }}>기구 설정 추가</Text>
@@ -1440,7 +1449,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 <Text style={{ fontSize: 15, fontWeight: "800", color: c.surface }}>추가하기</Text>
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
+          </View>
         </TouchableOpacity>
       </Modal>
     </View>

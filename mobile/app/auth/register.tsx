@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
@@ -37,14 +38,14 @@ export default function RegisterScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <BackgroundBlobs />
       <Header title="회원가입" showBack />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 32 }}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView
+        enableOnAndroid
+        enableAutomaticScroll
+        extraScrollHeight={180}
+        extraHeight={180}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 32 }}
+        style={{ flex: 1 }}>
           <View className="items-center mb-3">
             <View style={{ transform: [{ rotate: "-5deg" }] }}>
               <LogoMark size={68} />
@@ -80,8 +81,7 @@ export default function RegisterScreen() {
               이미 계정이 있으신가요? <Text className="text-primary font-bold">로그인</Text>
             </Text>
           </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

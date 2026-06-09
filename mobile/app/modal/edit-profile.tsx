@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { showCuteAlert } from "../../components/CuteAlert";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -36,6 +29,7 @@ export default function EditProfileModal() {
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
   const { weightUnit, showBodypartSelector, loadSettings, setWeightUnit, setShowBodypartSelector } = useSettingsStore();
+  const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -45,6 +39,9 @@ export default function EditProfileModal() {
   const [age, setAge] = useState(String(user?.age ?? ""));
   const [gender, setGender] = useState(user?.gender ?? "");
   const [goal, setGoal] = useState(user?.goal ?? "");
+  const [weeklyGoal, setWeeklyGoal] = useState(
+    user?.weeklyGoal ? String(user.weeklyGoal) : ""
+  );
   const [targetCal, setTargetCal] = useState(
     String(user?.targetCalories ?? "")
   );
@@ -79,6 +76,7 @@ export default function EditProfileModal() {
     const heightNum = parseFloat(height);
     const ageNum = parseInt(age);
     const targetCalNum = parseInt(targetCal);
+    const weeklyGoalNum = parseInt(weeklyGoal);
 
     setIsSaving(true);
     try {
@@ -89,6 +87,7 @@ export default function EditProfileModal() {
         age: isNaN(ageNum) ? undefined : ageNum,
         gender: gender || undefined,
         goal: goal || undefined,
+        weeklyGoal: isNaN(weeklyGoalNum) || weeklyGoalNum <= 0 ? undefined : weeklyGoalNum,
         targetCalories: isNaN(targetCalNum) ? undefined : targetCalNum,
       });
       if (!isNaN(targetCalNum)) setTargetCalories(targetCalNum);
@@ -126,13 +125,11 @@ export default function EditProfileModal() {
         <View style={{ width: 36 }} />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 20, paddingBottom: 16 }}>
+      <ScrollView
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
+        style={{ flex: 1 }}>
 
           {/* 이름 */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>이름</Text>
@@ -224,6 +221,22 @@ export default function EditProfileModal() {
             <Text style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>kcal / 일</Text>
           </View>
 
+          {/* 주간 운동 목표 */}
+          <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>주간 운동 목표</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <TouchableOpacity
+              style={[inputStyle, { flex: 1, alignItems: 'center' }]}
+              onPress={() => openPad(weeklyGoal, false, '회', (v) => {
+                const n = parseInt(v);
+                setWeeklyGoal(n > 0 ? String(n) : '');
+              })}>
+              <Text style={{ fontSize: 15, color: weeklyGoal ? c.textPrimary : c.textMuted }}>
+                {weeklyGoal || '미설정'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>회 / 주</Text>
+          </View>
+
           {/* 앱 설정 */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>앱 설정</Text>
 
@@ -271,25 +284,24 @@ export default function EditProfileModal() {
               }} />
             </TouchableOpacity>
           </View>
-        </ScrollView>
+      </ScrollView>
 
-        <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.surfaceAlt, backgroundColor: c.background, paddingBottom: Math.max(insets.bottom, 12) }}>
-          <TouchableOpacity
-            style={[{
-              backgroundColor: c.primary,
-              borderRadius: 999,
-              paddingVertical: 16,
-              alignItems: "center",
-            }, isSaving ? { opacity: 0.6 } : undefined]}
-            onPress={handleSave}
-            disabled={isSaving}
-            activeOpacity={0.8}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: c.onAccent }}>
-              {isSaving ? "저장 중..." : "저장하기"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.surfaceAlt, backgroundColor: c.background, paddingBottom: Math.max(insets.bottom, 12) }}>
+        <TouchableOpacity
+          style={[{
+            backgroundColor: c.primary,
+            borderRadius: 999,
+            paddingVertical: 16,
+            alignItems: "center",
+          }, isSaving ? { opacity: 0.6 } : undefined]}
+          onPress={handleSave}
+          disabled={isSaving}
+          activeOpacity={0.8}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: c.onAccent }}>
+            {isSaving ? "저장 중..." : "저장하기"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <NumberPad
         visible={padConfig !== null}

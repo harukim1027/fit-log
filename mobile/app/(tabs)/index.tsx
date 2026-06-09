@@ -8,11 +8,10 @@ import { Icon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { ThemeToggle, LabelTag } from "../../components/ui";
-import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS } from "../../components/MuscleMap";
+import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 
-const WEEKLY_GOAL = 4;
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
 
 function eunNeun(s: string) {
@@ -156,8 +155,8 @@ export default function HomeScreen() {
     const weekMuscleSet = new Set<string>();
     for (const sess of weekSessions) {
       for (const ex of sess.exercises) {
-        const slugs = MUSCLE_MAP[ex.name];
-        if (slugs) for (const s of slugs) weekMuscleSet.add(s);
+        const slugs = MUSCLE_MAP[ex.name] ?? CATEGORY_TO_SLUGS[ex.category ?? ''] ?? [];
+        for (const s of slugs) weekMuscleSet.add(s);
       }
     }
     const weekMuscles = Array.from(weekMuscleSet);
@@ -216,7 +215,17 @@ export default function HomeScreen() {
           <View style={[{ backgroundColor: c.surface, borderRadius: 30, padding: 18, paddingTop: 28, overflow: 'visible' }, SHADOW]}>
             <LabelTag label="이번 주 운동 목표" color={c.tagCoral} />
             <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-              <GoalRing current={weekSessions.length} total={WEEKLY_GOAL} size={100} />
+              {user?.weeklyGoal ? (
+                <GoalRing current={weekSessions.length} total={user.weeklyGoal} size={100} />
+              ) : (
+                <TouchableOpacity
+                  style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: c.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                  onPress={() => router.push('/modal/edit-profile' as any)}
+                  activeOpacity={0.7}>
+                  <Icon name="plus" size={20} color={c.textMuted} />
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, textAlign: 'center' }}>목표{'\n'}설정</Text>
+                </TouchableOpacity>
+              )}
               <View style={{ flex: 1, gap: 10 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

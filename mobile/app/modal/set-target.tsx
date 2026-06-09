@@ -5,11 +5,10 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useDietStore } from "../../store/dietStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
@@ -132,6 +131,7 @@ export default function SetTargetModal() {
   const c = useColors();
   const MACRO_COLORS = getMacroColors(c);
   const router = useRouter();
+  const keyboardHeight = useKeyboardHeight();
   const {
     targetCalories,
     setTargetCalories,
@@ -225,14 +225,10 @@ export default function SetTargetModal() {
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <BackgroundBlobs />
       <Header title="목표 설정" showClose />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
       <ScrollView
         keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 32 }}>
+        keyboardShouldPersistTaps="always"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 32 }}>
         {/* 목표 칼로리 */}
         <Text className="text-base font-semibold text-text-secondary mb-3">
           하루 목표 칼로리
@@ -373,7 +369,6 @@ export default function SetTargetModal() {
       <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 }}>
         <Button title="저장" onPress={handleSave} fullWidth />
       </View>
-      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

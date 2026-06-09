@@ -1,5 +1,5 @@
 import React from "react";
-import { calcSessionVolume, calcSetVolume } from "../../utils/workout";
+import { calcSessionVolume } from "../../utils/workout";
 import {
   View,
   Text,
@@ -21,7 +21,8 @@ import { LineChart, BarChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
-const W = Dimensions.get("window").width - 40;
+// ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
+const W = Dimensions.get("window").width - 72;
 
 function makeChartConfig(c: ThemeColors) {
   return {
@@ -75,7 +76,13 @@ export default function StatsScreen() {
     );
   });
 
-  const avgCalories = Math.round(calorieData.reduce((a, b) => a + b, 0) / 7);
+  const daysWithCalories = calorieData.filter((d) => d > 0);
+  const avgCalories =
+    daysWithCalories.length > 0
+      ? Math.round(
+          daysWithCalories.reduce((a, b) => a + b, 0) / daysWithCalories.length
+        )
+      : 0;
 
   const last7Sessions = last7.map((date) =>
     sessions
@@ -96,10 +103,12 @@ export default function StatsScreen() {
   const prMap: Record<string, number> = {};
   sessions.forEach((s) => {
     s.exercises.forEach((ex) => {
-      ex.sets.forEach((st) => {
-        const vol = calcSetVolume(st, ex.isSingleArm, ex.differentSides);
-        if (vol > 0 && (!prMap[ex.name] || prMap[ex.name] < vol)) prMap[ex.name] = vol;
-      });
+      ex.sets
+        .filter((st) => st.weight > 0 && st.reps > 0)
+        .forEach((st) => {
+          const wKg = st.unit === 'lbs' ? st.weight / 2.20462 : st.weight;
+          if (!prMap[ex.name] || prMap[ex.name] < wKg) prMap[ex.name] = wKg;
+        });
     });
   });
   const prs = Object.entries(prMap)
@@ -215,20 +224,22 @@ export default function StatsScreen() {
             주간 운동 볼륨
           </Text>
           {last7Sessions.some((v) => v > 0) ? (
-            <BarChart
-              data={{ labels: dayLabels, datasets: [{ data: last7Sessions }] }}
-              width={W}
-              height={160}
-              chartConfig={{
-                ...chartConfig,
-                color: (opacity = 1) => `rgba(213,141,156,${opacity})`,
-              }}
-              style={{ borderRadius: 16, marginLeft: -10 }}
-              withInnerLines={false}
-              showValuesOnTopOfBars={false}
-              yAxisLabel=""
-              yAxisSuffix="kg"
-            />
+            <View style={{ overflow: 'hidden', borderRadius: 16 }}>
+              <BarChart
+                data={{ labels: dayLabels, datasets: [{ data: last7Sessions }] }}
+                width={W}
+                height={160}
+                chartConfig={{
+                  ...chartConfig,
+                  color: (opacity = 1) => `rgba(213,141,156,${opacity})`,
+                }}
+                style={{ borderRadius: 16, marginLeft: -10 }}
+                withInnerLines={false}
+                showValuesOnTopOfBars={false}
+                yAxisLabel=""
+                yAxisSuffix="kg"
+              />
+            </View>
           ) : (
             <View className="items-center py-5 gap-1">
               <Icon name="dumbbell" size={40} color={c.textMuted} />
@@ -245,20 +256,22 @@ export default function StatsScreen() {
             주간 운동 칼로리 소모
           </Text>
           {last7BurnData.some((v) => v > 0) ? (
-            <BarChart
-              data={{ labels: dayLabels, datasets: [{ data: last7BurnData }] }}
-              width={W}
-              height={160}
-              chartConfig={{
-                ...chartConfig,
-                color: (opacity = 1) => `rgba(205,177,120,${opacity})`,
-              }}
-              style={{ borderRadius: 16, marginLeft: -10 }}
-              withInnerLines={false}
-              showValuesOnTopOfBars={false}
-              yAxisLabel=""
-              yAxisSuffix="kcal"
-            />
+            <View style={{ overflow: 'hidden', borderRadius: 16 }}>
+              <BarChart
+                data={{ labels: dayLabels, datasets: [{ data: last7BurnData }] }}
+                width={W}
+                height={160}
+                chartConfig={{
+                  ...chartConfig,
+                  color: (opacity = 1) => `rgba(205,177,120,${opacity})`,
+                }}
+                style={{ borderRadius: 16, marginLeft: -10 }}
+                withInnerLines={false}
+                showValuesOnTopOfBars={false}
+                yAxisLabel=""
+                yAxisSuffix="kcal"
+              />
+            </View>
           ) : (
             <View className="items-center py-5 gap-1">
               <FlameIcon size={40} />
@@ -307,26 +320,28 @@ export default function StatsScreen() {
               })}
             </ScrollView>
             {exerciseGrowthData ? (
-              <LineChart
-                data={{
-                  labels: exerciseGrowthData.map((d) => d.date),
-                  datasets: [
-                    { data: exerciseGrowthData.map((d) => d.maxWeight) },
-                  ],
-                }}
-                width={W}
-                height={160}
-                chartConfig={{
-                  ...chartConfig,
-                  decimalPlaces: 1,
-                  color: (opacity = 1) => `rgba(61,139,224,${opacity})`,
-                  propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
-                }}
-                bezier
-                style={{ borderRadius: 16, marginLeft: -10 }}
-                withInnerLines={false}
-                yAxisSuffix="kg"
-              />
+              <View style={{ overflow: 'hidden', borderRadius: 16 }}>
+                <LineChart
+                  data={{
+                    labels: exerciseGrowthData.map((d) => d.date),
+                    datasets: [
+                      { data: exerciseGrowthData.map((d) => d.maxWeight) },
+                    ],
+                  }}
+                  width={W}
+                  height={160}
+                  chartConfig={{
+                    ...chartConfig,
+                    decimalPlaces: 1,
+                    color: (opacity = 1) => `rgba(61,139,224,${opacity})`,
+                    propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
+                  }}
+                  bezier
+                  style={{ borderRadius: 16, marginLeft: -10 }}
+                  withInnerLines={false}
+                  yAxisSuffix="kg"
+                />
+              </View>
             ) : (
               <View className="items-center py-5 gap-1">
                 <Icon name="chart" size={40} color={c.textMuted} />
@@ -354,7 +369,7 @@ export default function StatsScreen() {
               }}>
               종목별 최고 기록 PR
             </Text>
-            {prs.map(([name, vol], idx) => (
+            {prs.map(([name, maxW], idx) => (
               <View
                 key={name}
                 style={{
@@ -407,7 +422,7 @@ export default function StatsScreen() {
                 </View>
                 <Text
                   style={{ fontSize: 14, fontWeight: "900", color: c.success }}>
-                  {vol.toLocaleString()}kg
+                  {Math.round(maxW * 10) / 10}kg
                 </Text>
               </View>
             ))}

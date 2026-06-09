@@ -14,6 +14,7 @@ export interface User {
   age?: number;
   gender?: string;
   goal?: string;
+  weeklyGoal?: number;
   isOnboardingDone?: boolean;
   targetCalories?: number;
 }

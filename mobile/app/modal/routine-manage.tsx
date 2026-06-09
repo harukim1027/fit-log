@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   Image,
   Modal,
 } from "react-native";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -47,7 +46,9 @@ type CombineExercise = ExerciseDraft & {
   isDuplicate: boolean;
 };
 type Mode = "list" | "create" | "edit" | "combine-select" | "combine-edit";
-type SubMode = "main" | "addExercise" | "editExercise";
+type SubMode = "main" | "addExercise";
+
+const EXERCISE_CATEGORIES = ['가슴', '등', '어깨', '팔', '하체', '복근', '유산소'];
 
 // 루틴 목록 아이템 높이 (드래그 계산용)
 const ROUTINE_ITEM_H = 102; // 카드 높이 ~92 + marginBottom 10
@@ -55,6 +56,7 @@ const EXERCISE_ITEM_H = 80; // 카드 높이 ~72 + marginBottom 8
 
 export default function RoutineManageModal() {
   const c = useColors();
+  const keyboardHeight = useKeyboardHeight();
   const SHADOW = {
     shadowColor: c.primary,
     shadowOffset: { width: 0, height: 6 },
@@ -78,7 +80,9 @@ export default function RoutineManageModal() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState("");
   const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
-  const [editingExIdx, setEditingExIdx] = useState<number | null>(null);
+  const [inlineEditIdx, setInlineEditIdx] = useState<number | null>(null);
+  const [inlineName, setInlineName] = useState("");
+  const [inlineCategory, setInlineCategory] = useState("");
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [combineExercises, setCombineExercises] = useState<CombineExercise[]>(
@@ -96,6 +100,7 @@ export default function RoutineManageModal() {
       category: ex.category,
       defaultSets: ex.sets.length || 3,
       defaultWeight: ex.sets[0]?.weight,
+      defaultUnit: (ex.sets[0]?.unit as 'kg' | 'lbs' | undefined) ?? 'kg',
       defaultReps: ex.sets[0]?.reps,
       restSeconds: ex.restSeconds,
       targetReps: ex.targetReps,
@@ -157,6 +162,7 @@ export default function RoutineManageModal() {
         category: data.category,
         defaultSets: data.defaultSets ?? 3,
         defaultWeight: data.routineSets ? undefined : data.defaultWeight,
+        defaultUnit: data.routineSets ? undefined : data.defaultUnit,
         defaultReps: data.routineSets ? undefined : data.defaultReps,
         sets: data.routineSets,
         restSeconds: data.restSeconds,
@@ -173,47 +179,34 @@ export default function RoutineManageModal() {
     setSubMode("main");
   };
 
-  const handleExerciseEdit = (data: ExerciseAddResult) => {
-    if (editingExIdx === null) return;
+  const handleInlineEditSave = () => {
+    if (inlineEditIdx === null) return;
     setExercises((prev) =>
       prev.map((ex, i) =>
-        i !== editingExIdx
+        i !== inlineEditIdx
           ? ex
-          : {
-              ...ex,
-              name: data.name,
-              category: data.category,
-              defaultSets: data.defaultSets ?? ex.defaultSets,
-              defaultWeight: data.routineSets ? undefined : (data.defaultWeight ?? ex.defaultWeight),
-              defaultReps: data.routineSets ? undefined : data.defaultReps,
-              sets: data.routineSets,
-              restSeconds: data.restSeconds,
-              targetReps: data.targetReps,
-              settings: data.settings,
-              tip: data.tip,
-              targetMuscles: data.targetMuscles,
-              gifUrl: data.gifUrl ?? ex.gifUrl,
-              isSingleArm: data.isSingleArm,
-              differentSides: data.differentSides,
-            }
+          : { ...ex, name: inlineName.trim() || ex.name, category: inlineCategory || ex.category }
       )
     );
-    setEditingExIdx(null);
-    setSubMode("main");
+    setInlineEditIdx(null);
   };
 
   const handleSave = async () => {
     if (!routineName.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '루틴 이름을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     if (exercises.length === 0) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '최소 1개 종목을 추가해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
     const payload = exercises.map(({ gifUrl, key, ...rest }) => rest);
-    if (mode === "create")
-      await addRoutine({ name: routineName.trim(), exercises: payload });
-    else if (editingId)
-      await updateRoutine(editingId, {
-        name: routineName.trim(),
-        exercises: payload,
-      });
-    setMode("list");
+    try {
+      if (mode === "create")
+        await addRoutine({ name: routineName.trim(), exercises: payload });
+      else if (editingId)
+        await updateRoutine(editingId, {
+          name: routineName.trim(),
+          exercises: payload,
+        });
+      setMode("list");
+    } catch (e) {
+      showCuteAlert({ icon: 'alert', tone: 'danger', title: '저장 실패', message: '잠시 후 다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
+    }
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -269,35 +262,6 @@ export default function RoutineManageModal() {
       />
     );
   }
-  if (subMode === "editExercise" && editingExIdx !== null) {
-    const ex = exercises[editingExIdx];
-    return (
-      <ExerciseAdder
-        mode="routine"
-        editMode
-        initialExercise={{
-          name: ex.name,
-          category: ex.category,
-          settings: ex.settings,
-          tip: ex.tip,
-          restSeconds: ex.restSeconds,
-          targetReps: ex.targetReps,
-          targetMuscles: ex.targetMuscles,
-          defaultSets: ex.defaultSets,
-          defaultWeight: ex.defaultWeight,
-          defaultReps: ex.defaultReps,
-          routineSets: ex.sets,
-          isSingleArm: ex.isSingleArm,
-          differentSides: ex.differentSides,
-        }}
-        onAdd={handleExerciseEdit}
-        onClose={() => {
-          setEditingExIdx(null);
-          setSubMode("main");
-        }}
-      />
-    );
-  }
 
   // ── 루틴 목록 ──
   if (mode === "list") {
@@ -310,6 +274,8 @@ export default function RoutineManageModal() {
           <Header title="루틴 관리" showClose />
           <ScrollView
             ref={listScrollRef}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
             <TouchableOpacity
               style={[
@@ -565,7 +531,10 @@ export default function RoutineManageModal() {
           }}>
           결합할 루틴을 2개 이상 선택하세요
         </Text>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
           {routines.map((r) => (
             <TouchableOpacity
               key={r.id}
@@ -652,15 +621,12 @@ export default function RoutineManageModal() {
             showClose
             onClose={() => setMode("combine-select")}
           />
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
-            <ScrollView
-              ref={combineScrollRef}
-              contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag">
+          <ScrollView
+            ref={combineScrollRef}
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
+            style={{ flex: 1 }}>
               <Text
                 style={{
                   fontSize: 13,
@@ -817,8 +783,7 @@ export default function RoutineManageModal() {
                   결합 루틴 저장
                 </Text>
               </TouchableOpacity>
-            </ScrollView>
-          </KeyboardAvoidingView>
+          </ScrollView>
         </SafeAreaView>
       </View>
     );
@@ -836,15 +801,12 @@ export default function RoutineManageModal() {
           showClose
           onClose={() => setMode("list")}
         />
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
-          <ScrollView
-            ref={editScrollRef}
-            contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag">
+        <ScrollView
+          ref={editScrollRef}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
+          style={{ flex: 1 }}>
             <Text
               style={{
                 fontSize: 13,
@@ -905,8 +867,9 @@ export default function RoutineManageModal() {
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => {
-                      setEditingExIdx(idx);
-                      setSubMode("editExercise");
+                      setInlineEditIdx(idx);
+                      setInlineName(ex.name);
+                      setInlineCategory(ex.category ?? '');
                     }}
                     style={{
                       flexDirection: "row",
@@ -967,7 +930,7 @@ export default function RoutineManageModal() {
                           marginTop: 1,
                         }}>
                         {ex.defaultSets}세트
-                        {ex.defaultWeight ? ` · ${ex.defaultWeight}kg` : ""}
+                        {ex.defaultWeight ? ` · ${ex.defaultWeight}${ex.defaultUnit ?? 'kg'}` : ""}
                       </Text>
                       {(ex.targetMuscles?.length ?? 0) > 0 && (
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
@@ -1061,9 +1024,60 @@ export default function RoutineManageModal() {
                 </TouchableOpacity>
               );
             })()}
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </ScrollView>
       </SafeAreaView>
+
+      {/* 종목 인라인 편집 모달 */}
+      <Modal visible={inlineEditIdx !== null} transparent animationType="fade" onRequestClose={() => setInlineEditIdx(null)}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}
+          activeOpacity={1}
+          onPress={() => setInlineEditIdx(null)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 24, width: '100%' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: c.textPrimary, marginBottom: 20 }}>종목 수정</Text>
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 8 }}>운동명</Text>
+              <TextInput
+                style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, color: c.textPrimary, marginBottom: 20 }}
+                value={inlineName}
+                onChangeText={setInlineName}
+                placeholder="운동명"
+                placeholderTextColor={c.textMuted}
+                returnKeyType="done"
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 10 }}>카테고리</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+                {EXERCISE_CATEGORIES.map((cat) => {
+                  const on = inlineCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: on ? c.primary : c.surfaceAlt }}
+                      onPress={() => setInlineCategory(cat)}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: on ? c.onAccent : c.textSecondary }}>{cat}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: 'center' }}
+                  onPress={() => setInlineEditIdx(null)}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center' }}
+                  onPress={handleInlineEditSave}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: c.onAccent }}>저장</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* 히스토리에서 불러오기 시트 */}
       <Modal visible={showHistorySheet} transparent animationType="slide">
