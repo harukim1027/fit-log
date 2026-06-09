@@ -488,7 +488,8 @@ export default function RoutineManageModal() {
                             return;
                           }
                           startSessionWithRoutine(r);
-                          router.back();
+                          router.dismiss();
+                          setTimeout(() => router.push('/(tabs)/workout' as any), 50);
                         }}
                         activeOpacity={0.8}>
                         <Text style={{ fontSize: 13, fontWeight: "800", color: c.warning }}>

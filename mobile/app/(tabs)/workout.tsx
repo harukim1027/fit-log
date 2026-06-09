@@ -178,6 +178,7 @@ export default function WorkoutScreen() {
     copyRoutine,
     searchByCode,
     reorderRoutines,
+    reorderExercises: reorderRoutineExercises,
   } = useRoutineStore();
 
   // Refs to parent ScrollViews so we can synchronously disable scrolling when
@@ -1492,7 +1493,20 @@ export default function WorkoutScreen() {
                         scrollEnabled: true,
                       })
                     }
-                    onDragEnd={reorderSessionExercises}
+                    onDragEnd={(reordered) => {
+                      reorderSessionExercises(reordered);
+                      if (activeSession?.fromRoutineId) {
+                        const routine = routines.find(r => r.id === activeSession.fromRoutineId);
+                        if (routine) {
+                          const reorderedRoutineExercises = reordered
+                            .map(ex => routine.exercises.find(re => re.name === ex.name))
+                            .filter((re): re is NonNullable<typeof re> => re != null);
+                          if (reorderedRoutineExercises.length === routine.exercises.length) {
+                            reorderRoutineExercises(activeSession.fromRoutineId, reorderedRoutineExercises).catch(() => {});
+                          }
+                        }
+                      }
+                    }}
                     renderItem={(ex, _idx, isActive) => {
                       const isExpanded = !!detailExpanded[ex.id];
                       const completedSets = (() => {
