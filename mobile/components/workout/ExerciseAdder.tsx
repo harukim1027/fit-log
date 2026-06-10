@@ -250,7 +250,12 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => {
-    loadSettings().then(() => setUnit(useSettingsStore.getState().weightUnit));
+    loadSettings().then(() => {
+      // editMode에서는 두 번째 useEffect가 이미 initialExercise의 unit을 세팅했으므로 덮어쓰지 않는다
+      // loadSettings()는 비동기라 resolve 시점이 editMode unit 세팅 이후 → 여기서 덮어쓰면 lbs → kg으로 초기화됨
+      if (editMode && initialExercise) return;
+      setUnit(useSettingsStore.getState().weightUnit);
+    });
     apiClient.get<CustomKey[]>("/workout-settings")
       .then(res => setCustomSettingKeys(res.data))
       .catch(() => {});

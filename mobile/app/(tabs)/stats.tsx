@@ -16,6 +16,7 @@ import {
 import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
+import { useShallow } from "zustand/react/shallow";
 import { useColors, ThemeColors } from "../../constants/colors";
 import { LineChart, BarChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
@@ -46,9 +47,15 @@ function makeChartConfig(c: ThemeColors) {
 export default function StatsScreen() {
   const router = useRouter();
   const c = useColors();
-  const { dailyDiets, targetCalories } = useDietStore();
-  const { sessions, fetchSessions } = useWorkoutStore();
-  const { user, logout } = useAuthStore();
+  const { dailyDiets, targetCalories } = useDietStore(
+    useShallow((s) => ({ dailyDiets: s.dailyDiets, targetCalories: s.targetCalories }))
+  );
+  const { sessions, fetchSessions } = useWorkoutStore(
+    useShallow((s) => ({ sessions: s.sessions, fetchSessions: s.fetchSessions }))
+  );
+  const { user, logout } = useAuthStore(
+    useShallow((s) => ({ user: s.user, logout: s.logout }))
+  );
 
   const [selectedExercise, setSelectedExercise] = React.useState<string | null>(
     null

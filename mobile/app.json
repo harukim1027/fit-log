@@ -76,6 +76,13 @@
           "color": "#3D8BE0",
           "sounds": []
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "your-sentry-org-slug",
+          "project": "fitlog"
+        }
       ]
     ],
     "scheme": "fitlog",

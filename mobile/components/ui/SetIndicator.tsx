@@ -19,7 +19,7 @@ export interface SetIndicatorProps {
   onLongPress?: () => void;
 }
 
-export function SetIndicator({
+function SetIndicatorImpl({
   state,
   index,
   size = 40,
@@ -145,3 +145,13 @@ export function SetIndicator({
     </TouchableOpacity>
   );
 }
+
+export const SetIndicator = React.memo(SetIndicatorImpl, (prev, next) =>
+  prev.state === next.state &&
+  prev.index === next.index &&
+  prev.weight === next.weight &&
+  prev.reps === next.reps &&
+  prev.unit === next.unit &&
+  prev.size === next.size &&
+  prev.showLabel === next.showLabel
+);

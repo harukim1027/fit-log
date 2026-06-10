@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Animated } from "react-native
 import { useRouter } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
+import { useShallow } from "zustand/react/shallow";
 import { Icon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
@@ -45,7 +46,15 @@ function sessionTitle(sess: WorkoutSession): string {
 export default function HomeScreen() {
   const router = useRouter();
   const c = useColors();
-  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore();
+  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore(
+    useShallow((s) => ({
+      sessions: s.sessions,
+      activeSession: s.activeSession,
+      startSession: s.startSession,
+      fetchSessions: s.fetchSessions,
+      getTotalVolume: s.getTotalVolume,
+    }))
+  );
   const { user } = useAuthStore();
 
   const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;

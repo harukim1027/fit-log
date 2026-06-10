@@ -1,3 +1,29 @@
+/**
+ * @file components/RestTimer.tsx
+ * @description 세트 간 휴식 타이머 컴포넌트
+ *
+ * 핵심 설계 포인트:
+ *
+ * 1. "기준점 타이머" 패턴:
+ *    setInterval은 백그라운드에서 throttle(iOS) 또는 freeze(Android)되어
+ *    실제보다 느리게 실행된다. startTsRef에 시작 timestamp를 저장하고
+ *    매 tick마다 Date.now() - startTs로 경과 시간을 계산해 정확도를 보장한다.
+ *
+ * 2. stale closure 방지:
+ *    intervalRef.current 콜백 안에서 seconds/remaining/onStateChange를
+ *    직접 읽으면 클로저 문제로 초기값에 갇힌다. Ref를 미러링하는 패턴으로 해결:
+ *    remainingRef, secondsRef, onStateChangeRef → 항상 최신 값을 참조.
+ *
+ * 3. external/internal 이중 제어 패턴:
+ *    pinned 타이머(부모가 상태 소유)와 일반 타이머(내부 state) 모두 지원.
+ *    external* props가 있으면 우선하고, 없으면 내부 상태를 사용한다.
+ *    onStateChange로 부모에게 상태 변화를 통지한다.
+ *
+ * 4. AppState 복귀 보정:
+ *    foreground 전환 이벤트에서 startTs 기준으로 실제 경과 시간을 재계산한다.
+ *    덕분에 앱을 백그라운드로 보냈다가 돌아와도 타이머가 정확히 남은 시간을 표시한다.
+ */
+
 import {
   View,
   Text,
@@ -22,6 +48,7 @@ const PRESETS = [
   { label: "+5초", seconds: 5 },
 ];
 
+// 종목별로 마지막 사용 시간을 저장해 다음에 같은 종목을 할 때 자동 세팅
 const STORAGE_KEY = (name?: string) => `restTimer2:${name ?? "_default_"}`;
 
 const formatTime = (s: number) =>
@@ -66,6 +93,8 @@ export default function RestTimer({
     elevation: 4,
   };
 
+  // external* props가 undefined면 내부 state를 사용 (일반 모드)
+  // external* props가 있으면 부모가 상태를 소유 (pinned 모드)
   const [_seconds, _setSeconds] = useState(externalSeconds ?? 0);
   const [_remaining, _setRemaining] = useState(externalRemaining ?? 0);
   const [_running, _setRunning] = useState(externalRunning ?? false);
@@ -81,6 +110,7 @@ export default function RestTimer({
   const running = externalRunning !== undefined ? externalRunning : _running;
   const paused = externalPaused !== undefined ? externalPaused : _paused;
 
+  // 상태 변경 시 부모에도 통지하는 setter 래퍼
   const setSetSeconds = (v: number) => {
     _setSeconds(v);
     onStateChange?.({ seconds: v, remaining, running, paused });
@@ -100,15 +130,19 @@ export default function RestTimer({
   };
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 기준점 타이머: 이 timestamp를 기준으로 경과 시간을 계산
   const startTsRef = useRef<number | null>(null);
+  // stale closure 방지용 Ref 미러링 — interval/AppState 콜백에서 최신값 읽기 위해
   const remainingRef = useRef(remaining);
   const secondsRef = useRef(seconds);
   const onStateChangeRef = useRef(onStateChange);
 
   useEffect(() => { remainingRef.current = remaining; }, [remaining]);
   useEffect(() => { secondsRef.current = seconds; }, [seconds]);
+  // onStateChange는 매 렌더마다 새 함수가 오므로 Ref로만 추적 (의존성 배열 제외)
   useEffect(() => { onStateChangeRef.current = onStateChange; });
 
+  // 실행 중일 때 시간 숫자에 맥박 애니메이션 적용 — 타이머가 동작 중임을 시각적으로 표시
   useEffect(() => {
     if (running && !paused) {
       const anim = Animated.loop(
@@ -124,6 +158,7 @@ export default function RestTimer({
     }
   }, [running, paused]);
 
+  // 종목이 바뀌면 해당 종목의 저장된 시간을 불러옴
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY(exerciseName)).then((val) => {
       if (val) {
@@ -133,6 +168,11 @@ export default function RestTimer({
     });
   }, [exerciseName]);
 
+  /**
+   * 타이머 완료 처리:
+   * - intervalRef 직접 참조해 정리 (stale closure 안전)
+   * - Haptics 실패 시 Vibration으로 폴백 (구형 기기 대응)
+   */
   const handleTimerComplete = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
@@ -148,8 +188,15 @@ export default function RestTimer({
     });
   };
 
+  /**
+   * 타이머 카운트다운 인터벌:
+   * running/paused가 바뀔 때마다 재설정.
+   * 500ms 주기로 tick해 1초 단위 표시를 충분한 반응성으로 업데이트.
+   * Date.now() - startTs 기반이므로 interval 지연에 영향받지 않는다.
+   */
   useEffect(() => {
     if (running && !paused) {
+      // 기준점 계산: 이미 경과된 시간을 반영해 일시정지 후 재개도 자연스럽게
       startTsRef.current = Date.now() - (secondsRef.current - remainingRef.current) * 1000;
       intervalRef.current = setInterval(() => {
         if (!startTsRef.current) return;
@@ -171,6 +218,12 @@ export default function RestTimer({
     };
   }, [running, paused]);
 
+  /**
+   * 백그라운드에서 포그라운드로 복귀 시 시간 보정.
+   * iOS는 백그라운드에서 setInterval을 완전히 멈출 수 있어
+   * 앱 복귀 시 이미 타이머가 만료됐어도 화면에 안 보일 수 있다.
+   * startTsRef 기준으로 재계산해 실제 시간을 반영한다.
+   */
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && startTsRef.current !== null) {
@@ -190,11 +243,13 @@ export default function RestTimer({
     return () => sub.remove();
   }, []);
 
+  // 컴포넌트 언마운트 시 interval 정리 (메모리 누수 방지)
   useEffect(() => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   const applySeconds = async (n: number) => {
+    // 0~3600초로 클램핑 — 음수 또는 1시간 초과 방지
     const clamped = Math.max(0, Math.min(3600, n));
     setSetSeconds(clamped);
     await AsyncStorage.setItem(STORAGE_KEY(exerciseName), String(clamped));
@@ -202,6 +257,7 @@ export default function RestTimer({
 
   const addPreset = (p: number) => applySeconds(seconds + p);
 
+  /** 타이머 + 설정 시간 모두 초기화 */
   const reset = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     startTsRef.current = null;
@@ -217,6 +273,7 @@ export default function RestTimer({
     onStateChange?.({ seconds: 0, remaining: 0, running: false, paused: false });
   };
 
+  /** 타이머만 중단 (설정 시간 유지) */
   const stopTimer = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     startTsRef.current = null;
@@ -227,6 +284,11 @@ export default function RestTimer({
     onStateChangeRef.current?.({ seconds: secondsRef.current, remaining: 0, running: false, paused: false });
   };
 
+  /**
+   * 완료 후 같은 시간으로 다시 시작.
+   * setTimeout(0)으로 state flush를 보장한 뒤 running: true로 전환.
+   * 동일 렌더 사이클에서 running: false → true 전환 시 useEffect가 트리거되지 않을 수 있어 필요.
+   */
   const restartTimer = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     startTsRef.current = null;
@@ -253,6 +315,7 @@ export default function RestTimer({
       setPaused(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     } else {
+      // 일시정지 시 startTs 초기화 — 재개할 때 이미 경과된 시간을 반영해 기준점 재계산
       startTsRef.current = null;
       setPaused(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -265,6 +328,7 @@ export default function RestTimer({
     setIsEditingTime(false);
   };
 
+  // 0~100% 진행률 — 진행바 너비에 사용
   const progress = remaining > 0 && seconds > 0 ? ((seconds - remaining) / seconds) * 100 : 0;
 
   const timerState =
@@ -273,6 +337,7 @@ export default function RestTimer({
     completed ? 'completed' as const :
     'waiting' as const;
 
+  // 10초 이하이면 danger 색상으로 긴박감 표시
   const timerColor =
     (timerState === 'running' || timerState === 'paused') && remaining <= 10 ? c.danger :
     timerState === 'running' ? c.warning :

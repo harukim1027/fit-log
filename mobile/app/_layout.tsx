@@ -17,33 +17,16 @@ import * as Notifications from 'expo-notifications';
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CuteAlertHost } from "../components/CuteAlert";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { initSentry } from "../lib/sentry";
+
+// 앱 시작 시 즉시 초기화 (React 렌더 전)
+initSentry();
 
 if (!__DEV__) {
   ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
     console.error('Global error:', error, isFatal);
   });
-}
-
-interface ErrorBoundaryState { hasError: boolean }
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  ErrorBoundaryState
-> {
-  state: ErrorBoundaryState = { hasError: false };
-
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('앱 크래시:', error, info);
-  }
-
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children as React.ReactElement;
-  }
 }
 
 // NativeWind v4: CSS 변수는 컴파일 타임에 :root 값으로 고정되므로

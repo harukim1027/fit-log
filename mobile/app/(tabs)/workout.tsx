@@ -34,6 +34,7 @@ import {
 import { useEffect, useState, useMemo } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { useRoutineStore } from "../../store/routineStore";
+import { useShallow } from "zustand/react/shallow";
 import { Calendar } from "react-native-calendars";
 import {
   useWorkoutStore,
@@ -150,7 +151,6 @@ export default function WorkoutScreen() {
     updateExercise,
     fetchSessions,
     fetchExerciseHistory,
-
     sessions,
     isLoading,
     exerciseHistoryCache,
@@ -164,7 +164,35 @@ export default function WorkoutScreen() {
     updateSession,
     reorderSessionExercises,
     cancelSession,
-  } = useWorkoutStore();
+  } = useWorkoutStore(
+    useShallow((s) => ({
+      activeSession: s.activeSession,
+      sessionStartTime: s.sessionStartTime,
+      startSession: s.startSession,
+      startSessionWithRoutine: s.startSessionWithRoutine,
+      endSession: s.endSession,
+      deleteSession: s.deleteSession,
+      getTotalVolume: s.getTotalVolume,
+      removeSet: s.removeSet,
+      updateSet: s.updateSet,
+      updateExercise: s.updateExercise,
+      fetchSessions: s.fetchSessions,
+      fetchExerciseHistory: s.fetchExerciseHistory,
+      sessions: s.sessions,
+      isLoading: s.isLoading,
+      exerciseHistoryCache: s.exerciseHistoryCache,
+      workoutElapsed: s.workoutElapsed,
+      workoutPaused: s.workoutPaused,
+      setWorkoutElapsed: s.setWorkoutElapsed,
+      setWorkoutPaused: s.setWorkoutPaused,
+      addSet: s.addSet,
+      addExercise: s.addExercise,
+      removeExercise: s.removeExercise,
+      updateSession: s.updateSession,
+      reorderSessionExercises: s.reorderSessionExercises,
+      cancelSession: s.cancelSession,
+    }))
+  );
   const { user } = useAuthStore();
   const {
     routines,
@@ -178,7 +206,21 @@ export default function WorkoutScreen() {
     searchByCode,
     reorderRoutines,
     reorderExercises: reorderRoutineExercises,
-  } = useRoutineStore();
+  } = useRoutineStore(
+    useShallow((s) => ({
+      routines: s.routines,
+      publicRoutines: s.publicRoutines,
+      loadRoutines: s.loadRoutines,
+      deleteRoutine: s.deleteRoutine,
+      shareRoutine: s.shareRoutine,
+      unshareRoutine: s.unshareRoutine,
+      fetchPublicRoutines: s.fetchPublicRoutines,
+      copyRoutine: s.copyRoutine,
+      searchByCode: s.searchByCode,
+      reorderRoutines: s.reorderRoutines,
+      reorderExercises: s.reorderExercises,
+    }))
+  );
 
   // Refs to parent ScrollViews so we can synchronously disable scrolling when
   // a SortableList drag starts (prevents the ScrollView from stealing the gesture).
@@ -226,6 +268,7 @@ export default function WorkoutScreen() {
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
   const [timerHeight, setTimerHeight] = useState(0);
+  useEffect(() => { if (!timerPinned) setTimerHeight(0); }, [timerPinned]);
   const keyboardHeight = useKeyboardHeight();
   const [timerState, setTimerState] = useState({
     seconds: 0,
@@ -639,7 +682,7 @@ export default function WorkoutScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               padding: 20,
-              paddingTop: timerPinned ? timerHeight + 20 : 20,
+              paddingTop: timerPinned ? timerHeight + 8 : 20,
               paddingBottom: keyboardHeight > 0 ? keyboardHeight + 100 : 40,
             }}>
             {!activeSession ? (
@@ -2470,7 +2513,7 @@ export default function WorkoutScreen() {
 
                                 {/* ── 7. 운동 팁 ── */}
                                 <View
-                                  ref={(r) => tipContainerRefs.current.set(ex.id, r)}
+                                  ref={(r) => { tipContainerRefs.current.set(ex.id, r); }}
                                   style={{ marginBottom: 10 }}>
                                   <Text
                                     style={{
@@ -3818,6 +3861,7 @@ function HistoryCard({
             ...s,
             weight: parseFloat(s.weight) || 0,
             reps: parseInt(s.reps) || 0,
+            unit: (s.unit as 'kg' | 'lbs' | undefined) ?? 'kg',
           })),
         })
       );
