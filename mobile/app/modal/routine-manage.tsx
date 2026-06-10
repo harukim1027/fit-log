@@ -46,9 +46,7 @@ type CombineExercise = ExerciseDraft & {
   isDuplicate: boolean;
 };
 type Mode = "list" | "create" | "edit" | "combine-select" | "combine-edit";
-type SubMode = "main" | "addExercise";
-
-const EXERCISE_CATEGORIES = ['가슴', '등', '어깨', '팔', '하체', '복근', '유산소'];
+type SubMode = "main" | "addExercise" | "editExercise";
 
 // 루틴 목록 아이템 높이 (드래그 계산용)
 const ROUTINE_ITEM_H = 102; // 카드 높이 ~92 + marginBottom 10
@@ -82,9 +80,9 @@ export default function RoutineManageModal() {
   const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
   const [nameError, setNameError] = useState("");
   const [exercisesError, setExercisesError] = useState("");
-  const [inlineEditIdx, setInlineEditIdx] = useState<number | null>(null);
-  const [inlineName, setInlineName] = useState("");
-  const [inlineCategory, setInlineCategory] = useState("");
+  const [editingExerciseIdx, setEditingExerciseIdx] = useState<number | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [combineExercises, setCombineExercises] = useState<CombineExercise[]>(
@@ -110,7 +108,6 @@ export default function RoutineManageModal() {
       tip: ex.tip,
       targetMuscles: ex.targetMuscles,
       isSingleArm: ex.isSingleArm,
-      differentSides: ex.differentSides,
       key: `${ex.name}-hist-${i}-${Date.now()}`,
     }));
     setExercises(prev => {
@@ -175,23 +172,38 @@ export default function RoutineManageModal() {
         targetMuscles: data.targetMuscles,
         gifUrl: data.gifUrl,
         isSingleArm: data.isSingleArm,
-        differentSides: data.differentSides,
         key: `${data.name}-${Date.now()}`,
       },
     ]);
     setSubMode("main");
   };
 
-  const handleInlineEditSave = () => {
-    if (inlineEditIdx === null) return;
+  const handleExerciseEdit = (data: ExerciseAddResult) => {
+    if (editingExerciseIdx === null) return;
+    setExercisesError('');
     setExercises((prev) =>
       prev.map((ex, i) =>
-        i !== inlineEditIdx
-          ? ex
-          : { ...ex, name: inlineName.trim() || ex.name, category: inlineCategory || ex.category }
+        i !== editingExerciseIdx ? ex : {
+          ...ex,
+          name: data.name,
+          category: data.category,
+          defaultSets: data.defaultSets ?? ex.defaultSets,
+          defaultWeight: data.routineSets ? undefined : data.defaultWeight,
+          defaultUnit: data.routineSets ? undefined : data.defaultUnit,
+          defaultReps: data.routineSets ? undefined : data.defaultReps,
+          sets: data.routineSets,
+          restSeconds: data.restSeconds,
+          targetReps: data.targetReps,
+          settings: data.settings,
+          tip: data.tip,
+          targetMuscles: data.targetMuscles,
+          gifUrl: data.gifUrl,
+          isSingleArm: data.isSingleArm,
+        }
       )
     );
-    setInlineEditIdx(null);
+    setSubMode("main");
+    setEditingExerciseIdx(null);
   };
 
   const handleSave = async () => {
@@ -216,9 +228,6 @@ export default function RoutineManageModal() {
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    showCuteAlert({ icon: 'trash', tone: 'danger', title: '루틴 삭제', message: `"${name}" 루틴을 삭제할까요?`, buttons: [{ label: '취소', style: 'soft' }, { label: '삭제', style: 'primary', onPress: () => deleteRoutine(id) }] });
-  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -266,6 +275,33 @@ export default function RoutineManageModal() {
         mode="routine"
         onAdd={handleExerciseAdd}
         onClose={() => setSubMode("main")}
+      />
+    );
+  }
+
+  if (subMode === "editExercise" && editingExerciseIdx !== null) {
+    const ex = exercises[editingExerciseIdx];
+    return (
+      <ExerciseAdder
+        mode="routine"
+        editMode
+        initialExercise={{
+          name: ex.name,
+          category: ex.category,
+          settings: ex.settings,
+          tip: ex.tip,
+          restSeconds: ex.restSeconds,
+          targetReps: ex.targetReps,
+          targetMuscles: ex.targetMuscles,
+          isSingleArm: ex.isSingleArm,
+          defaultSets: ex.defaultSets,
+          defaultWeight: ex.defaultWeight,
+          defaultUnit: ex.defaultUnit ?? 'kg',
+          defaultReps: ex.defaultReps,
+          routineSets: ex.sets,
+        }}
+        onAdd={handleExerciseEdit}
+        onClose={() => { setSubMode("main"); setEditingExerciseIdx(null); }}
       />
     );
   }
@@ -431,7 +467,7 @@ export default function RoutineManageModal() {
                             <Icon name="pencil" size={18} color={c.textSecondary} />
                           </TouchableOpacity>
                           <TouchableOpacity
-                            onPress={() => handleDelete(r.id, r.name)}>
+                            onPress={() => setDeleteTarget(r.id)}>
                             <Icon name="trash" size={18} color={c.textMuted} />
                           </TouchableOpacity>
                         </View>
@@ -518,6 +554,39 @@ export default function RoutineManageModal() {
             )}
           </ScrollView>
         </SafeAreaView>
+        {/* 삭제 확인 오버레이 — Modal 위에 z-index로 렌더링 */}
+        {deleteTarget !== null && (() => {
+          const targetName = routines.find((r) => r.id === deleteTarget)?.name ?? '';
+          return (
+            <View style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <View style={{
+                backgroundColor: c.surface, borderRadius: 16, padding: 24,
+                marginHorizontal: 32, width: '80%',
+              }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 8 }}>루틴 삭제</Text>
+                <Text style={{ fontSize: 14, color: c.textSecondary, marginBottom: 24 }}>
+                  {`"${targetName}" 루틴을 삭제할까요?`}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => setDeleteTarget(null)}
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: c.textSecondary }}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { deleteRoutine(deleteTarget); setDeleteTarget(null); }}
+                    style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: c.danger, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>삭제</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
       </View>
     );
   }
@@ -882,11 +951,7 @@ export default function RoutineManageModal() {
                 renderItem={(ex, idx) => (
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => {
-                      setInlineEditIdx(idx);
-                      setInlineName(ex.name);
-                      setInlineCategory(ex.category ?? '');
-                    }}
+                    onPress={() => { setEditingExerciseIdx(idx); setSubMode("editExercise"); }}
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -1029,58 +1094,6 @@ export default function RoutineManageModal() {
             </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
-
-      {/* 종목 인라인 편집 모달 */}
-      <Modal visible={inlineEditIdx !== null} transparent animationType="fade" onRequestClose={() => setInlineEditIdx(null)}>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}
-          activeOpacity={1}
-          onPress={() => setInlineEditIdx(null)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <View style={{ backgroundColor: c.surface, borderRadius: 24, padding: 24, width: '100%' }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: c.textPrimary, marginBottom: 20 }}>종목 수정</Text>
-
-              <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 8 }}>운동명</Text>
-              <TextInput
-                style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, color: c.textPrimary, marginBottom: 20 }}
-                value={inlineName}
-                onChangeText={setInlineName}
-                placeholder="운동명"
-                placeholderTextColor={c.textMuted}
-                returnKeyType="done"
-              />
-
-              <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 10 }}>카테고리</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-                {EXERCISE_CATEGORIES.map((cat) => {
-                  const on = inlineCategory === cat;
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: on ? c.primary : c.surfaceAlt }}
-                      onPress={() => setInlineCategory(cat)}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: on ? c.onAccent : c.textSecondary }}>{cat}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: 'center' }}
-                  onPress={() => setInlineEditIdx(null)}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: c.textSecondary }}>취소</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center' }}
-                  onPress={handleInlineEditSave}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: c.onAccent }}>저장</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
 
       {/* 히스토리에서 불러오기 시트 */}
       <Modal visible={showHistorySheet} transparent animationType="slide">

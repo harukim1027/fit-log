@@ -1,6 +1,5 @@
 type SetLike = {
   weight: number;
-  weightR?: number | null;
   reps: number;
   completed: boolean;
   unit?: string;
@@ -9,7 +8,6 @@ type SetLike = {
 type ExerciseLike = {
   sets: SetLike[];
   isSingleArm?: boolean;
-  differentSides?: boolean;
 };
 
 type SessionLike = {
@@ -25,23 +23,16 @@ const toKg = (weight: number, unit?: string): number =>
 export const calcSetVolume = (
   st: SetLike,
   isSingleArm = false,
-  differentSides = false,
 ): number => {
   if (!st.completed) return 0;
   const w = toKg(st.weight, st.unit);
-  if (isSingleArm) {
-    if (differentSides && st.weightR != null) {
-      return (w + toKg(st.weightR, st.unit)) * st.reps;
-    }
-    return w * st.reps * 2;
-  }
-  return w * st.reps;
+  return isSingleArm ? w * st.reps * 2 : w * st.reps;
 };
 
 /** 완료된 세트만 합산한 종목 볼륨(kg) */
 export const calcExerciseVolume = (ex: ExerciseLike): number =>
   ex.sets.reduce(
-    (sum, st) => sum + calcSetVolume(st, ex.isSingleArm, ex.differentSides),
+    (sum, st) => sum + calcSetVolume(st, ex.isSingleArm),
     0,
   );
 

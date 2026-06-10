@@ -133,11 +133,9 @@ export function SetIndicator({
               {Number.isInteger(weight) ? weight : weight.toFixed(1)}{unitLabel}
             </Text>
           )}
-          {reps != null && reps > 0 && (
-            <Text style={{ fontSize: 10, fontWeight: '600', color: infoColor, textAlign: 'center' }}>
-              {reps}회
-            </Text>
-          )}
+          <Text style={{ fontSize: 10, fontWeight: '600', color: reps != null && reps > 0 ? infoColor : c.textMuted, textAlign: 'center' }}>
+            {reps != null && reps > 0 ? `${reps}회` : '—'}
+          </Text>
         </>
       ) : showLabel ? (
         <Text style={{ fontSize: 10.5, fontWeight: '800', color: isCurrent ? CORAL : c.textMuted }}>

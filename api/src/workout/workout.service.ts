@@ -152,7 +152,6 @@ export class WorkoutService {
           settings: exData.settings ?? [],
           tip: exData.tip ?? '',
           isSingleArm: exData.isSingleArm ?? false,
-          differentSides: exData.differentSides ?? false,
           targetMuscles: exData.targetMuscles ?? [],
           restSeconds: exData.restSeconds ?? null,
           targetReps: exData.targetReps ?? null,
@@ -164,7 +163,6 @@ export class WorkoutService {
           for (const setData of exData.sets) {
             const set = this.setRepo.create({
               weight: setData.weight ?? 0,
-              weightR: setData.weightR ?? null,
               reps: setData.reps ?? 0,
               completed: setData.completed ?? false,
               unit: setData.unit ?? 'kg',

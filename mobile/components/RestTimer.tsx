@@ -11,6 +11,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import { cancelRestEndNotification } from "../lib/workoutNotification";
 import { Icon } from "./AppIcons";
 import { useColors } from "../constants/colors";
 
@@ -41,6 +42,7 @@ interface Props {
     running: boolean;
     paused: boolean;
   }) => void;
+  onLayout?: (e: import('react-native').LayoutChangeEvent) => void;
 }
 
 export default function RestTimer({
@@ -53,6 +55,7 @@ export default function RestTimer({
   externalRunning,
   externalPaused,
   onStateChange,
+  onLayout,
 }: Props) {
   const c = useColors();
   const SHADOW = {
@@ -202,13 +205,16 @@ export default function RestTimer({
   const reset = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     startTsRef.current = null;
-    setRunning(false);
-    setPaused(false);
-    setRemaining(0);
+    remainingRef.current = 0;
+    _setRunning(false);
+    _setPaused(false);
+    _setRemaining(0);
+    _setSeconds(0);
     setCompleted(false);
-    setSetSeconds(0);
     setIsEditingTime(false);
     AsyncStorage.removeItem(STORAGE_KEY(exerciseName));
+    cancelRestEndNotification().catch(() => {});
+    onStateChange?.({ seconds: 0, remaining: 0, running: false, paused: false });
   };
 
   const stopTimer = () => {
@@ -297,6 +303,7 @@ export default function RestTimer({
 
   return (
     <View
+      onLayout={onLayout}
       style={[
         {
           backgroundColor: c.surface,

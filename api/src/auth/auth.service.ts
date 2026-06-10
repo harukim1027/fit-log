@@ -26,6 +26,11 @@ export class AuthService {
     return { access_token: token, user: { id: user.id, email: user.email, name: user.name } };
   }
 
+  async refreshToken(user: { id: number; email: string }) {
+    const token = this.jwtService.sign({ sub: user.id, email: user.email });
+    return { access_token: token };
+  }
+
   async loginWithGoogle(accessToken: string) {
     // Verify token and fetch profile via Google's userinfo endpoint.
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {

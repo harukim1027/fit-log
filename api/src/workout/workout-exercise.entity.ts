@@ -22,9 +22,6 @@ export class WorkoutExercise {
   @Column({ default: false })
   isSingleArm: boolean;
 
-  @Column({ default: false })
-  differentSides: boolean;
-
   @Column({ type: 'simple-json', nullable: true })
   targetMuscles: string[];
 

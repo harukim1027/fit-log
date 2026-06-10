@@ -132,9 +132,8 @@ export type ExerciseAddResult = {
   restSeconds?: number;
   targetReps?: string;
   // session mode
-  sets?: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
+  sets?: Array<{ weight: number; reps: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
   isSingleArm?: boolean;
-  differentSides?: boolean;
   // routine mode
   defaultSets?: number;
   defaultWeight?: number;
@@ -157,8 +156,7 @@ type ExerciseAdderProps = {
     targetReps?: string;
     targetMuscles?: string[];
     isSingleArm?: boolean;
-    differentSides?: boolean;
-    sets?: Array<{ weight: number; reps: number; weightR?: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
+    sets?: Array<{ weight: number; reps: number; completed?: boolean; unit?: 'kg' | 'lbs' }>;
     defaultSets?: number;
     defaultWeight?: number;
     defaultUnit?: 'kg' | 'lbs';
@@ -215,8 +213,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // Session mode state
   const [unit, setUnit] = useState<"kg" | "lbs">(weightUnit);
   const [isSingleArm, setIsSingleArm] = useState(false);
-  const [differentSides, setDifferentSides] = useState(false);
-  const [sets, setSets] = useState([{ weight: "", weightR: "", reps: "", completed: false }]);
+  
+  const [sets, setSets] = useState([{ weight: '', reps: '', completed: false }]);
 
   // Routine mode state
   const [defaultSets, setDefaultSets] = useState("3");
@@ -269,18 +267,16 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       setTargetReps(ex.targetReps ?? '');
       if (mode === 'session') {
         setIsSingleArm(ex.isSingleArm ?? false);
-        setDifferentSides(ex.differentSides ?? false);
         if (ex.sets && ex.sets.length > 0) {
           const savedUnit = ex.sets[0]?.unit ?? 'kg';
           setUnit(savedUnit);
-          setSets(ex.sets.map(s => ({ weight: String(s.weight), weightR: String(s.weightR ?? ''), reps: String(s.reps), completed: s.completed ?? false })));
+          setSets(ex.sets.map(s => ({ weight: String(s.weight), reps: String(s.reps), completed: s.completed ?? false })));
         }
       } else if (mode === 'routine') {
-        if (ex.defaultSets) setDefaultSets(String(ex.defaultSets));
-        if (ex.defaultWeight) setDefaultWeight(String(ex.defaultWeight));
-        if (ex.defaultReps) setDefaultReps(String(ex.defaultReps));
+        if (ex.defaultSets != null) setDefaultSets(String(ex.defaultSets));
+        if (ex.defaultWeight != null) setDefaultWeight(String(ex.defaultWeight));
+        if (ex.defaultReps != null) setDefaultReps(String(ex.defaultReps));
         setIsSingleArm(ex.isSingleArm ?? false);
-        setDifferentSides(ex.differentSides ?? false);
         if (ex.routineSets && ex.routineSets.length > 0) {
           setPerSetMode(true);
           const savedUnit = ex.routineSets[0]?.unit ?? ex.defaultUnit ?? 'kg';
@@ -365,7 +361,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedExercise(null);
     setExerciseListCollapsed(false);
-    setSets([{ weight: "", weightR: "", reps: "", completed: false }]);
+    setSets([{ weight: "", reps: "", completed: false }]);
     setSettings([]);
     setTip("");
     setRestSeconds("60");
@@ -373,7 +369,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     setDefaultSets("3");
     setDefaultWeight("");
     setIsSingleArm(false);
-    setDifferentSides(false);
     setPerSetMode(false);
     setRoutineSets([]);
     setShowCustomForm(false);
@@ -403,8 +398,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // ─── Session mode set handlers ────────────────────────────────────────────
 
   const handleAddSet = () => {
-    const last = sets[sets.length - 1] ?? { weight: '', weightR: '', reps: '', completed: false };
-    setSets(prev => [...prev, { weight: last.weight, weightR: last.weightR, reps: last.reps, completed: false }]);
+    const last = sets[sets.length - 1] ?? { weight: '', reps: '', completed: false };
+    setSets(prev => [...prev, { weight: last.weight, reps: last.reps, completed: false }]);
   };
 
   const adjustWeight = (idx: number, delta: number) => {
@@ -447,7 +442,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       const seed = Array.from({ length: count }, () => ({ weight: defaultWeight, reps: defaultReps }));
       setRoutineSets(seed);
       if (mode === 'session') {
-        setSets(seed.map(s => ({ weight: s.weight, weightR: '', reps: s.reps, completed: false })));
+        setSets(seed.map(s => ({ weight: s.weight, reps: s.reps, completed: false })));
       }
     }
     setPerSetMode(v => !v);
@@ -536,7 +531,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     }
 
     if (mode === "session") {
-      let finalSets: Array<{ weight: number; weightR?: number; reps: number; completed?: boolean; unit: 'kg' | 'lbs' }>;
+      let finalSets: Array<{ weight: number; reps: number; completed?: boolean; unit: 'kg' | 'lbs' }>;
       if (!perSetMode) {
         const count = Math.max(1, parseInt(defaultSets) || 3);
         const r = parseInt(defaultReps) || 0;
@@ -548,7 +543,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         if (validSets.length === 0) { setErrors(prev => ({ ...prev, sets: '최소 1세트를 입력해주세요' })); return; }
         finalSets = validSets.map(st => ({
           weight: parseFloat(st.weight) || 0,
-          weightR: (isSingleArm && differentSides && st.weightR) ? parseFloat(st.weightR) || 0 : undefined,
           reps: parseInt(st.reps),
           completed: st.completed,
           unit,
@@ -564,7 +558,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         restSeconds: parseInt(restSeconds) || undefined,
         targetReps: targetReps.trim() || undefined,
         isSingleArm,
-        differentSides: isSingleArm ? differentSides : false,
         sets: finalSets,
       });
       setIsSuccess(true);
@@ -581,11 +574,10 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         restSeconds: parseInt(restSeconds) || undefined,
         targetReps: targetReps.trim() || undefined,
         isSingleArm,
-        differentSides: isSingleArm ? differentSides : false,
         defaultSets: perSetMode ? routineSets.length : Math.max(1, parseInt(defaultSets) || 3),
         defaultWeight: perSetMode ? undefined : (parseFloat(defaultWeight) || undefined),
         defaultUnit: perSetMode ? undefined : unit,
-        defaultReps: perSetMode ? undefined : (parseInt(defaultReps) || undefined),
+        defaultReps: perSetMode ? undefined : (parseInt(defaultReps) || 0),
         routineSets: perSetMode && routineSets.length > 0 ? routineSets.map((s, i) => ({
           setNumber: i + 1,
           targetWeight: parseFloat(s.weight) || 0,
@@ -965,21 +957,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     <Text style={{ fontSize: 13, fontWeight: "600", color: c.textSecondary }}>한팔 기준</Text>
                     <TouchableOpacity
                       style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: isSingleArm ? c.primary : c.surfaceAlt, justifyContent: "center", paddingHorizontal: 2 }}
-                      onPress={() => { setIsSingleArm(v => !v); setDifferentSides(false); }}
+                      onPress={() => setIsSingleArm(v => !v)}
                       activeOpacity={0.8}>
                       <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.surface, transform: [{ translateX: isSingleArm ? 20 : 0 }], shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 }} />
                     </TouchableOpacity>
                   </View>
-                  {isSingleArm && (
-                    <TouchableOpacity
-                      style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-end", marginBottom: 10 }}
-                      onPress={() => setDifferentSides(v => !v)}>
-                      <View style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: differentSides ? c.primary : c.border, backgroundColor: differentSides ? c.primary : "transparent", alignItems: "center", justifyContent: "center" }}>
-                        {differentSides && <Icon name="check" size={10} color={c.surface} />}
-                      </View>
-                      <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "600" }}>좌우 다른 무게</Text>
-                    </TouchableOpacity>
-                  )}
 
                   {/* 세트수 stepper */}
                   <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>세트수</Text>
@@ -1075,28 +1057,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                             onRepsPad={() => openPad(st.reps, false, '회', v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, reps: v } : s)))}
                           />
 
-                          {isSingleArm && differentSides && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10, paddingHorizontal: 4 }}>
-                              <Text style={{ fontSize: 10, fontWeight: "700", color: c.warning, marginRight: 4 }}>R 무게</Text>
-                              <TouchableOpacity
-                                onPress={() => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: String(Math.max(0, (parseFloat(s.weightR ?? '') || 0) - 5)) } : s))}
-                                style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" }}>
-                                <Text style={{ fontSize: 12, fontWeight: "800", color: c.textSecondary }}>-5</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => openPad(st.weightR ?? '', true, unit, v => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: v } : s)))}
-                                style={{ paddingHorizontal: 10, height: 36, backgroundColor: c.surface, borderRadius: 12, alignItems: "center", justifyContent: "center", minWidth: 70, borderWidth: 1.5, borderColor: c.warning + "40" }}>
-                                <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
-                                  {st.weightR || '0'}<Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted }}>{' '}{unit}</Text>
-                                </Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, weightR: String((parseFloat(s.weightR ?? '') || 0) + 5) } : s))}
-                                style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.warning + "80", alignItems: "center", justifyContent: "center" }}>
-                                <Text style={{ fontSize: 12, fontWeight: "800", color: c.surface }}>+5</Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
                         </View>
                       ))}
                       <TouchableOpacity
@@ -1131,21 +1091,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     <Text style={{ fontSize: 13, fontWeight: "600", color: c.textSecondary }}>한팔 기준</Text>
                     <TouchableOpacity
                       style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: isSingleArm ? c.primary : c.surfaceAlt, justifyContent: "center", paddingHorizontal: 2 }}
-                      onPress={() => { setIsSingleArm(v => !v); setDifferentSides(false); }}
+                      onPress={() => setIsSingleArm(v => !v)}
                       activeOpacity={0.8}>
                       <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.surface, transform: [{ translateX: isSingleArm ? 20 : 0 }], shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 }} />
                     </TouchableOpacity>
                   </View>
-                  {isSingleArm && (
-                    <TouchableOpacity
-                      style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-end", marginBottom: 10 }}
-                      onPress={() => setDifferentSides(v => !v)}>
-                      <View style={{ width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: differentSides ? c.primary : c.border, backgroundColor: differentSides ? c.primary : "transparent", alignItems: "center", justifyContent: "center" }}>
-                        {differentSides && <Icon name="check" size={10} color={c.surface} />}
-                      </View>
-                      <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "600" }}>좌우 다른 무게</Text>
-                    </TouchableOpacity>
-                  )}
 
                   {/* 세트수 */}
                   <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>세트수</Text>

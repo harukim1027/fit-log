@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../constants/api';
 import apiClient from '../lib/apiClient';
+import { secureStorage } from '../lib/secureStorage';
 import { useDietStore } from './dietStore';
 
 export interface User {
@@ -29,6 +30,7 @@ interface AuthStore {
   loginWithGoogle: (accessToken: string) => Promise<void>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
+  setToken: (token: string) => void;
   fetchMe: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   updateWeight: (weight: number) => Promise<void>;
@@ -46,7 +48,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   loadToken: async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await secureStorage.getToken();
       const userStr = await AsyncStorage.getItem('user');
       if (token && userStr) {
         set({ token, user: JSON.parse(userStr) });
@@ -64,7 +66,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           }
         } catch (e: any) {
           if (e.response?.status === 401) {
-            await AsyncStorage.multiRemove(['token', 'user']);
+            await Promise.all([secureStorage.removeToken(), AsyncStorage.removeItem('user')]);
             set({ token: null, user: null });
           }
           // 네트워크 오류 등은 캐시된 유저/토큰 유지
@@ -79,7 +81,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const res = await axios.post(API_URL + '/auth/login', { email, password });
       const { access_token, user } = res.data;
-      await AsyncStorage.setItem('token', access_token);
+      await secureStorage.setToken(access_token);
       await saveUser(user);
       set({ token: access_token, user, isLoading: false });
       // 로그인 후 최신 프로필 가져오기
@@ -97,7 +99,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const res = await axios.post(API_URL + '/auth/google', { access_token: accessToken });
       const { access_token: token, user } = res.data;
-      await AsyncStorage.setItem('token', token);
+      await secureStorage.setToken(token);
       await saveUser(user);
       set({ token, user });
       get().fetchMe().catch(() => {});
@@ -115,7 +117,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const res = await axios.post(API_URL + '/auth/register', { email, password, name });
       const { access_token, user } = res.data;
-      await AsyncStorage.setItem('token', access_token);
+      await secureStorage.setToken(access_token);
       await saveUser(user);
       set({ token: access_token, user, isLoading: false });
     } catch (e: any) {
@@ -126,8 +128,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
+  setToken: (token) => {
+    set({ token });
+  },
+
   logout: async () => {
-    await AsyncStorage.removeItem('token');
+    await secureStorage.removeToken();
     await AsyncStorage.removeItem('user');
     set({ token: null, user: null });
   },

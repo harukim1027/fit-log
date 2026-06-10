@@ -1,10 +1,32 @@
 import { create } from "zustand";
-import { AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Exercise, WorkoutSession, WorkoutSet } from "../types/workout";
 import { Routine } from "./routineStore";
 import apiClient from "../lib/apiClient";
 import { calcSessionVolume } from "../utils/workout";
-import { showWorkoutNotification, dismissWorkoutNotification } from "../lib/workoutNotification";
+
+const WORKOUT_DRAFT_KEY = "workout_draft";
+
+let _draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+const saveWorkoutDraft = (
+  session: WorkoutSession | null,
+  sessionStartTime: number | null,
+  workoutElapsed: number,
+) => {
+  if (!session) {
+    if (_draftSaveTimer) { clearTimeout(_draftSaveTimer); _draftSaveTimer = null; }
+    AsyncStorage.removeItem(WORKOUT_DRAFT_KEY).catch(() => {});
+    return;
+  }
+  if (_draftSaveTimer) clearTimeout(_draftSaveTimer);
+  _draftSaveTimer = setTimeout(() => {
+    AsyncStorage.setItem(
+      WORKOUT_DRAFT_KEY,
+      JSON.stringify({ session, sessionStartTime, workoutElapsed, savedAt: Date.now() }),
+    ).catch(() => {});
+  }, 300);
+};
 
 export type CompareMode = "recent" | "pr" | "week" | "month";
 
@@ -22,22 +44,26 @@ export interface ExerciseHistory {
   comparisonSession: ExerciseHistoryEntry | null;
 }
 
+const getCategoryMET = (category: string): number => {
+  const lower = category?.toLowerCase() ?? '';
+  if (lower.includes('유산소') || lower.includes('cardio')) return 7.0;
+  if (lower.includes('하체')) return 5.0;
+  return 3.5;
+};
+
 export const calculateCaloriesBurned = (
   session: WorkoutSession,
   weightKg: number,
+  durationMinutes: number,
 ): number => {
-  let totalVolume = 0;
-  session.exercises.forEach((ex) => {
-    ex.sets
-      .filter((s) => s.completed && s.weight > 0 && s.reps > 0)
-      .forEach((s) => {
-        const kg = s.unit === 'lbs' ? s.weight / 2.20462 : s.weight;
-        totalVolume += kg * s.reps;
-      });
-  });
-  if (totalVolume === 0) return 0;
-  const bodyWeightFactor = weightKg / 70;
-  return Math.round(totalVolume * 0.1 * bodyWeightFactor);
+  if (durationMinutes <= 0) return 0;
+  const categories = session.exercises.map((ex) => ex.category ?? '');
+  const avgMET =
+    categories.length > 0
+      ? categories.reduce((sum, cat) => sum + getCategoryMET(cat), 0) / categories.length
+      : 3.5;
+  const hours = durationMinutes / 60;
+  return Math.round(avgMET * weightKg * hours);
 };
 
 interface WorkoutStore {
@@ -74,6 +100,8 @@ interface WorkoutStore {
     mode?: CompareMode
   ) => Promise<ExerciseHistory | null>;
 
+  cancelSession: () => void;
+  restoreDraft: () => Promise<boolean>;
   setWorkoutElapsed: (v: number) => void;
   setWorkoutPaused: (v: boolean) => void;
   resetWorkoutTimer: () => void;
@@ -88,7 +116,6 @@ let _workoutIntervalId: ReturnType<typeof setInterval> | null = null;
 // 타이머 시작 시각 기반 방식: 백그라운드에서도 정확한 경과 시간 계산
 let _workoutTimerBase = 0;    // 현재 세그먼트 시작 시점 (Date.now())
 let _workoutElapsedBase = 0;  // 현재 세그먼트 시작 시점의 누적 경과(초)
-let _appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 
 export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   sessions: [],
@@ -98,6 +125,29 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   exerciseHistoryCache: new Map(),
   workoutElapsed: 0,
   workoutPaused: false,
+
+  cancelSession: () => {
+    get().stopWorkoutTimer();
+    set({ activeSession: null, sessionStartTime: null, workoutElapsed: 0, workoutPaused: false });
+    saveWorkoutDraft(null, null, 0);
+  },
+
+  restoreDraft: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(WORKOUT_DRAFT_KEY);
+      if (!raw) return false;
+      const { session, sessionStartTime, workoutElapsed, savedAt } = JSON.parse(raw);
+      const hoursSince = (Date.now() - savedAt) / 1000 / 60 / 60;
+      if (hoursSince > 24) {
+        await AsyncStorage.removeItem(WORKOUT_DRAFT_KEY);
+        return false;
+      }
+      set({ activeSession: session, sessionStartTime, workoutElapsed: workoutElapsed ?? 0 });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
   setWorkoutElapsed: (v) => set({ workoutElapsed: v }),
 
@@ -131,31 +181,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
 
   startWorkoutTimer: () => {
     if (_workoutIntervalId) clearInterval(_workoutIntervalId);
-    // 현재 경과 시간을 베이스로, 벽시계 기준으로 증가 계산
     _workoutTimerBase = Date.now();
     _workoutElapsedBase = get().workoutElapsed;
     _workoutIntervalId = setInterval(() => {
       const elapsed = _workoutElapsedBase + Math.floor((Date.now() - _workoutTimerBase) / 1000);
       set({ workoutElapsed: elapsed });
-      const session = get().activeSession;
-      if (session) {
-        const vol = calcSessionVolume(session);
-        showWorkoutNotification(elapsed, session.exercises.length, vol).catch(() => {});
-      }
     }, 1000);
-    // 백그라운드 복귀 시 즉시 알림 갱신
-    if (!_appStateSubscription) {
-      _appStateSubscription = AppState.addEventListener('change', (state) => {
-        if (state === 'active') {
-          const session = get().activeSession;
-          if (session) {
-            const elapsed = _workoutElapsedBase + Math.floor((Date.now() - _workoutTimerBase) / 1000);
-            const vol = calcSessionVolume(session);
-            showWorkoutNotification(elapsed, session.exercises.length, vol).catch(() => {});
-          }
-        }
-      });
-    }
   },
 
   stopWorkoutTimer: () => {
@@ -163,8 +194,6 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       clearInterval(_workoutIntervalId);
       _workoutIntervalId = null;
     }
-    _appStateSubscription?.remove();
-    _appStateSubscription = null;
   },
 
   startSession: () => {
@@ -175,14 +204,15 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       durationMinutes: 0,
       note: "",
     };
+    const now = Date.now();
     set({
       activeSession: session,
-      sessionStartTime: Date.now(),
+      sessionStartTime: now,
       workoutElapsed: 0,
       workoutPaused: false,
     });
     get().startWorkoutTimer();
-    showWorkoutNotification(0, 0, 0).catch(() => {});
+    saveWorkoutDraft(session, now, 0);
   },
 
   startSessionWithRoutine: (routine) => {
@@ -197,19 +227,18 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       targetReps: ex.targetReps,
       targetMuscles: ex.targetMuscles,
       isSingleArm: ex.isSingleArm ?? false,
-      differentSides: ex.differentSides ?? false,
       sets: ex.sets && ex.sets.length > 0
         ? ex.sets.map((rs, j) => ({
             id: `${now}-${i}-${j}`,
-            weight: rs.targetWeight,
-            reps: rs.targetReps,
+            weight: Number(rs.targetWeight ?? 0),
+            reps: Number(rs.targetReps ?? 0),
             completed: false,
             unit: rs.unit ?? 'kg',
           }))
         : Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
             id: `${now}-${i}-${j}`,
-            weight: ex.defaultWeight ?? 0,
-            reps: ex.defaultReps ?? 0,
+            weight: Number(ex.defaultWeight ?? 0),
+            reps: Number(ex.defaultReps ?? 0),
             completed: false,
             unit: ex.defaultUnit ?? 'kg',
           })),
@@ -229,7 +258,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       workoutPaused: false,
     });
     get().startWorkoutTimer();
-    showWorkoutNotification(0, exercises.length, 0).catch(() => {});
+    saveWorkoutDraft(session, now, 0);
     exercises.forEach((ex) => {
       get().fetchExerciseHistory(ex.name, "recent");
       get().fetchExerciseHistory(ex.name, "pr");
@@ -269,14 +298,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           settings: ex.settings ?? [],
           tip: ex.tip ?? "",
           isSingleArm: ex.isSingleArm ?? false,
-          differentSides: ex.differentSides ?? false,
           targetMuscles: ex.targetMuscles ?? [],
           restSeconds: ex.restSeconds ?? null,
           targetReps: ex.targetReps ?? "",
           order: idx,
           sets: ex.sets.map((st) => ({
             weight: st.weight,
-            weightR: st.weightR ?? null,
             reps: st.reps,
             completed: st.completed,
             unit: st.unit ?? 'kg',
@@ -288,7 +315,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       console.error("운동 저장 실패", e);
     }
     set({ activeSession: null, sessionStartTime: null });
-    dismissWorkoutNotification().catch(() => {});
+    saveWorkoutDraft(null, null, 0);
   },
 
   addExercise: (exercise) => {
@@ -302,6 +329,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
     get().fetchExerciseHistory(exercise.name, "recent");
     get().fetchExerciseHistory(exercise.name, "pr");
   },
@@ -320,6 +349,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
   },
 
   updateSet: (exerciseId, setId, data) => {
@@ -341,6 +372,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
   },
 
   removeSet: (exerciseId, setId) => {
@@ -357,6 +390,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
   },
 
   updateExercise: (exerciseId, data) => {
@@ -371,6 +406,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
   },
 
   removeExercise: (exerciseId) => {
@@ -383,6 +420,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
   },
 
   reorderSessionExercises: (exercises) => {
@@ -390,6 +429,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       if (!s.activeSession) return s;
       return { activeSession: { ...s.activeSession, exercises } };
     });
+    const s = get();
+    saveWorkoutDraft(s.activeSession, s.sessionStartTime, s.workoutElapsed);
   },
 
   updateSession: async (sessionId, exercises) => {
@@ -407,14 +448,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           settings: ex.settings ?? [],
           tip: ex.tip ?? '',
           isSingleArm: ex.isSingleArm ?? false,
-          differentSides: ex.differentSides ?? false,
           targetMuscles: ex.targetMuscles ?? [],
           restSeconds: ex.restSeconds ?? null,
           targetReps: ex.targetReps ?? "",
           order: idx,
           sets: ex.sets.map(st => ({
             weight: st.weight,
-            weightR: st.weightR,
             reps: st.reps,
             completed: st.completed,
             unit: st.unit ?? 'kg',
@@ -463,14 +502,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         settings: ex.settings ?? [],
         tip: ex.tip ?? "",
         isSingleArm: ex.isSingleArm ?? false,
-        differentSides: ex.differentSides ?? false,
         targetMuscles: ex.targetMuscles ?? [],
         restSeconds: ex.restSeconds ?? null,
         targetReps: ex.targetReps ?? "",
         order: idx,
         sets: ex.sets.map((st) => ({
           weight: st.weight,
-          weightR: st.weightR ?? null,
           reps: st.reps,
           completed: st.completed,
           unit: st.unit ?? 'kg',

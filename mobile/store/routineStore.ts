@@ -25,7 +25,6 @@ export interface RoutineExercise {
   targetMuscles?: string[];
   gifUrl?: string;
   isSingleArm?: boolean;
-  differentSides?: boolean;
 }
 
 export interface Routine {
@@ -203,7 +202,6 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
         defaultUnit: unit,
         defaultReps: validSets[0]?.reps,
         isSingleArm: ex.isSingleArm ?? false,
-        differentSides: ex.differentSides ?? false,
         restSeconds: ex.restSeconds,
         targetReps: ex.targetReps,
         settings: ex.settings,

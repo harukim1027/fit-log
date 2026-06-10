@@ -8,8 +8,11 @@ import { useRouter, useSegments } from "expo-router";
 import { useAuthStore } from "../store/authStore";
 import { useThemeStore } from "../store/themeStore";
 import { useColors } from "../constants/colors";
-import { setUnauthorizedHandler } from "../lib/apiClient";
+import apiClient, { setUnauthorizedHandler } from "../lib/apiClient";
+import { secureStorage } from "../lib/secureStorage";
 import { requestNotificationPermission, setupNotificationChannel } from "../lib/workoutNotification";
+import { useWorkoutStore } from "../store/workoutStore";
+import { showCuteAlert } from "../components/CuteAlert";
 import * as Notifications from 'expo-notifications';
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -93,14 +96,19 @@ const darkVars = vars({
   "--color-protein":        "61 139 224",
 });
 
-// 알림을 foreground에서도 배너로 표시하지 않음 (ongoing 알림만 사용)
+// 운동 진행 알림은 무음, 휴식 종료 알림은 포그라운드에서도 소리+배너 표시
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    priority: Notifications.AndroidNotificationPriority.LOW,
-  } as Notifications.NotificationBehavior),
+  handleNotification: async (notification) => {
+    const isRestEnd = notification.request.content.data?.type === 'rest-end';
+    return {
+      shouldShowAlert: isRestEnd,
+      shouldPlaySound: isRestEnd,
+      shouldSetBadge: false,
+      priority: isRestEnd
+        ? Notifications.AndroidNotificationPriority.HIGH
+        : Notifications.AndroidNotificationPriority.LOW,
+    } as Notifications.NotificationBehavior;
+  },
 });
 
 function useThemeSync() {
@@ -113,9 +121,74 @@ function useThemeSync() {
 
 function useNotificationSetup() {
   useEffect(() => {
+    // 이전 세션에서 남아있던 예약 알림 전부 제거
+    Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
     setupNotificationChannel();
     requestNotificationPermission();
   }, []);
+}
+
+function usePreemptiveTokenRefresh() {
+  const isReady = useAuthStore((s) => s.isReady);
+  const token = useAuthStore((s) => s.token);
+
+  useEffect(() => {
+    if (!isReady || !token) return;
+
+    const refresh = async () => {
+      try {
+        const stored = await secureStorage.getToken();
+        if (!stored) return;
+        const parts = stored.split('.');
+        if (parts.length !== 3) return;
+        // base64url → base64 변환 후 디코딩
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(base64));
+        const expiresIn = payload.exp * 1000 - Date.now();
+        // 만료 3일 이내면 미리 갱신
+        if (expiresIn < 3 * 24 * 60 * 60 * 1000) {
+          const res = await apiClient.post<{ access_token: string }>('/auth/refresh');
+          const newToken = res.data.access_token;
+          await secureStorage.setToken(newToken);
+          useAuthStore.getState().setToken(newToken);
+        }
+      } catch {
+        // 실패해도 무시 — 실제 요청 시 인터셉터가 재시도
+      }
+    };
+
+    refresh();
+  }, [isReady, token]);
+}
+
+function useDraftRestore() {
+  const isReady = useAuthStore((s) => s.isReady);
+  const token = useAuthStore((s) => s.token);
+
+  useEffect(() => {
+    if (!isReady || !token) return;
+    useWorkoutStore.getState().restoreDraft().then((restored) => {
+      if (!restored) return;
+      showCuteAlert({
+        icon: 'check',
+        tone: 'info',
+        title: '운동 기록 복구',
+        message: '이전에 진행 중이던 운동 기록이 있어요.\n이어서 할까요?',
+        buttons: [
+          {
+            label: '새로 시작',
+            style: 'soft',
+            onPress: () => useWorkoutStore.getState().cancelSession(),
+          },
+          {
+            label: '이어하기',
+            style: 'primary',
+            onPress: () => useWorkoutStore.getState().startWorkoutTimer(),
+          },
+        ],
+      });
+    });
+  }, [isReady, token]);
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -170,6 +243,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   useThemeSync();
   useNotificationSetup();
+  usePreemptiveTokenRefresh();
+  useDraftRestore();
   const mode = useThemeStore((s) => s.mode);
   const colors = useColors();
 

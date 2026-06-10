@@ -2,9 +2,6 @@ import React, { useRef } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { calcExerciseVolume } from "../../utils/workout";
 import {
-  showWorkoutNotification,
-  showRestWarningNotification,
-  dismissWorkoutNotification,
   scheduleRestEndNotification,
   cancelRestEndNotification,
 } from "../../lib/workoutNotification";
@@ -51,6 +48,7 @@ import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { SetInputRow } from "../../components/workout/SetInputRow";
 import { WorkoutSession } from "../../types/workout";
 import WorkoutTimer from "../../components/WorkoutTimer";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -165,6 +163,7 @@ export default function WorkoutScreen() {
     removeExercise,
     updateSession,
     reorderSessionExercises,
+    cancelSession,
   } = useWorkoutStore();
   const { user } = useAuthStore();
   const {
@@ -186,6 +185,7 @@ export default function WorkoutScreen() {
   const todayScrollRef = useRef<any>(null);
   const todayKasRef = useRef<any>(null);
   const historyScrollRef = useRef<any>(null);
+  const tipContainerRefs = useRef<Map<string, any>>(new Map());
 
   const [tab, setTab] = useState<Tab>("today");
   const [compareModes, setCompareModes] = useState<Record<string, CompareMode>>(
@@ -225,6 +225,8 @@ export default function WorkoutScreen() {
   >([]);
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
+  const [timerHeight, setTimerHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight();
   const [timerState, setTimerState] = useState({
     seconds: 0,
     remaining: 0,
@@ -296,16 +298,7 @@ export default function WorkoutScreen() {
     if (activeSession) setTab("today");
   }, [activeSession]);
 
-  // 휴식 타이머 30초/10초 경고 알림
-  useEffect(() => {
-    if (!activeSession) return;
-    if (!timerState.running || timerState.paused || timerState.remaining <= 0) return;
-    if (timerState.remaining === 30 || timerState.remaining === 10) {
-      showRestWarningNotification(timerState.remaining, currentExName || undefined).catch(() => {});
-    }
-  }, [timerState.remaining]);
-
-  // 휴식 종료 예약 알림 (백그라운드에서도 타이머 종료 알림)
+  // 휴식 종료 예약 알림 (백그라운드에서도 타이머 종료 알림 + 30s/10s 경고)
   useEffect(() => {
     if (!activeSession) return;
     if (timerState.running && !timerState.paused && timerState.remaining > 0) {
@@ -450,6 +443,7 @@ export default function WorkoutScreen() {
           category: ex.category,
           defaultSets: ex.sets.length || 3,
           defaultWeight: ex.sets[0]?.weight,
+          defaultUnit: (ex.sets[0]?.unit as 'kg' | 'lbs' | undefined) ?? 'kg',
           defaultReps: ex.sets[0]?.reps,
           restSeconds: ex.restSeconds,
           targetReps: ex.targetReps,
@@ -457,7 +451,6 @@ export default function WorkoutScreen() {
           tip: ex.tip,
           targetMuscles: ex.targetMuscles,
           isSingleArm: ex.isSingleArm,
-          differentSides: ex.differentSides,
         })),
       });
     } finally {
@@ -468,10 +461,30 @@ export default function WorkoutScreen() {
     }
   };
 
+  const handleCancel = () => {
+    showCuteAlert({
+      icon: 'alert',
+      tone: 'danger',
+      title: '운동 종료',
+      message: '저장하지 않고 종료할까요?\n운동 기록이 저장되지 않아요.',
+      buttons: [
+        { label: '취소', style: 'soft' },
+        {
+          label: '저장 없이 종료',
+          style: 'primary',
+          onPress: () => cancelSession(),
+        },
+      ],
+    });
+  };
+
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
+    const durationMinutes = sessionStartTime
+      ? Math.max(Math.round((Date.now() - sessionStartTime) / 60000), 1)
+      : 30;
     const calories = activeSession
-      ? calculateCaloriesBurned(activeSession, weightKg)
+      ? calculateCaloriesBurned(activeSession, weightKg, durationMinutes)
       : 0;
     const snapshot = activeSession;
 
@@ -608,7 +621,11 @@ export default function WorkoutScreen() {
         })}
       </View>
       {activeSession && timerPinned && timerProps && (
-        <RestTimer {...timerProps} pinned={true} />
+        <RestTimer
+          {...timerProps}
+          pinned={true}
+          onLayout={(e) => setTimerHeight(e.nativeEvent.layout.height)}
+        />
       )}
 
       {tab === "today" ? (
@@ -620,7 +637,11 @@ export default function WorkoutScreen() {
             extraScrollHeight={180}
             extraHeight={180}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ padding: 20, paddingBottom: 350 }}>
+            contentContainerStyle={{
+              padding: 20,
+              paddingTop: timerPinned ? timerHeight + 20 : 20,
+              paddingBottom: keyboardHeight > 0 ? keyboardHeight + 100 : 40,
+            }}>
             {!activeSession ? (
               <>
                 {/* 제목 + 운동 시작 버튼 */}
@@ -1346,16 +1367,9 @@ export default function WorkoutScreen() {
                   paused={workoutPaused}
                   onPausedChange={(v) => {
                     setWorkoutPaused(v);
-                    if (!v) {
-                      // 재개 시 알림 즉시 갱신
-                      showWorkoutNotification(
-                        workoutElapsed,
-                        activeSession.exercises.length,
-                        getTotalVolume(activeSession)
-                      ).catch(() => {});
-                    }
                   }}
                   onEnd={handleEnd}
+                  onCancel={handleCancel}
                 />
                 {activeSession.fromRoutineId &&
                   (() => {
@@ -1840,20 +1854,8 @@ export default function WorkoutScreen() {
                                               }}
                                               onPress={() => {
                                                 if (curUnit !== u) {
-                                                  const factor =
-                                                    u === "lbs"
-                                                      ? 2.20462
-                                                      : 1 / 2.20462;
                                                   ex.sets.forEach((st) =>
-                                                    updateSet(ex.id, st.id, {
-                                                      weight:
-                                                        Math.round(
-                                                          st.weight *
-                                                            factor *
-                                                            10
-                                                        ) / 10,
-                                                      unit: u,
-                                                    })
+                                                    updateSet(ex.id, st.id, { unit: u })
                                                   );
                                                 }
                                               }}>
@@ -2155,7 +2157,6 @@ export default function WorkoutScreen() {
                                         addSet(ex.id, {
                                           id: `${ex.id}-add-${Date.now()}`,
                                           weight: last?.weight ?? 0,
-                                          weightR: last?.weightR,
                                           reps: last?.reps ?? 0,
                                           completed: false,
                                           unit:
@@ -2207,51 +2208,6 @@ export default function WorkoutScreen() {
                                       alignItems: "center",
                                       gap: 8,
                                     }}>
-                                    {ex.isSingleArm && (
-                                      <TouchableOpacity
-                                        style={{
-                                          flexDirection: "row",
-                                          alignItems: "center",
-                                          gap: 4,
-                                        }}
-                                        onPress={() =>
-                                          updateExercise(ex.id, {
-                                            differentSides: !ex.differentSides,
-                                          })
-                                        }>
-                                        <View
-                                          style={{
-                                            width: 15,
-                                            height: 15,
-                                            borderRadius: 4,
-                                            borderWidth: 1.5,
-                                            borderColor: ex.differentSides
-                                              ? c.primary
-                                              : c.border,
-                                            backgroundColor: ex.differentSides
-                                              ? c.primary
-                                              : "transparent",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                          }}>
-                                          {ex.differentSides && (
-                                            <Icon
-                                              name="check"
-                                              size={9}
-                                              color={c.surface}
-                                            />
-                                          )}
-                                        </View>
-                                        <Text
-                                          style={{
-                                            fontSize: 11,
-                                            color: c.textSecondary,
-                                            fontWeight: "600",
-                                          }}>
-                                          좌우 다른 무게
-                                        </Text>
-                                      </TouchableOpacity>
-                                    )}
                                     <TouchableOpacity
                                       style={{
                                         width: 40,
@@ -2266,7 +2222,6 @@ export default function WorkoutScreen() {
                                       onPress={() =>
                                         updateExercise(ex.id, {
                                           isSingleArm: !ex.isSingleArm,
-                                          differentSides: false,
                                         })
                                       }
                                       activeOpacity={0.8}>
@@ -2515,8 +2470,8 @@ export default function WorkoutScreen() {
 
                                 {/* ── 7. 운동 팁 ── */}
                                 <View
-                                  style={{ marginBottom: 10 }}
-                                  onLayout={() => {}}>
+                                  ref={(r) => tipContainerRefs.current.set(ex.id, r)}
+                                  style={{ marginBottom: 10 }}>
                                   <Text
                                     style={{
                                       fontSize: 11,
@@ -2540,10 +2495,16 @@ export default function WorkoutScreen() {
                                       updateExercise(ex.id, { tip: v })
                                     }
                                     onFocus={() => {
-                                      // 팁은 카드 최하단 — scrollToEnd가 가장 확실
                                       setTimeout(() => {
-                                        todayKasRef.current?.scrollToEnd({ animated: true });
-                                      }, 300);
+                                        const tipRef = tipContainerRefs.current.get(ex.id);
+                                        tipRef?.measureInWindow((_x: number, y: number) => {
+                                          const timerOffset = timerPinned ? timerHeight : 0;
+                                          todayScrollRef.current?.scrollTo({
+                                            y: Math.max(0, y - timerOffset - 20),
+                                            animated: true,
+                                          });
+                                        });
+                                      }, 350);
                                     }}
                                     placeholder="예: 무릎이 발끝을 넘지 않게"
                                     placeholderTextColor={c.textMuted}
@@ -2551,8 +2512,6 @@ export default function WorkoutScreen() {
                                     numberOfLines={3}
                                     textAlignVertical="top"
                                   />
-                                  {/* 키보드 올라올 때 팁 입력창이 보이도록 여백 */}
-                                  <View style={{ height: 320 }} />
                                 </View>
 
                                 {/* ── 8. 이전 기록 토글 ── */}
@@ -3030,7 +2989,6 @@ export default function WorkoutScreen() {
                             settings: re.settings,
                             tip: re.tip,
                             isSingleArm: false,
-                            differentSides: false,
                             targetMuscles: re.targetMuscles,
                             restSeconds: re.restSeconds,
                             targetReps: re.targetReps,
@@ -3157,7 +3115,6 @@ export default function WorkoutScreen() {
                                     settings: re.settings,
                                     tip: re.tip,
                                     isSingleArm: false,
-                                    differentSides: false,
                                     targetMuscles: re.targetMuscles,
                                     restSeconds: re.restSeconds,
                                     targetReps: re.targetReps,
@@ -3606,27 +3563,14 @@ function ExerciseHistoryRow({
       <View className="gap-1 mb-2">
         {ex.sets.map((st, i) => {
           const _w = st.unit === "lbs" ? st.weight / 2.20462 : st.weight;
-          const _wR =
-            st.weightR != null
-              ? st.unit === "lbs"
-                ? st.weightR / 2.20462
-                : st.weightR
-              : null;
-          const vol = ex.isSingleArm
-            ? ex.differentSides && _wR != null
-              ? (_w + _wR) * st.reps
-              : _w * st.reps * 2
-            : _w * st.reps;
+          const vol = ex.isSingleArm ? _w * st.reps * 2 : _w * st.reps;
           return (
             <View key={st.id} className="flex-row items-center">
               <Text className="text-xs font-semibold text-text-muted w-10">
                 {i + 1}세트
               </Text>
               <Text className="text-sm font-semibold text-text-primary flex-1">
-                {ex.isSingleArm && ex.differentSides && st.weightR != null
-                  ? `L${st.weight}/R${st.weightR}kg`
-                  : `${st.weight}kg`}
-                {ex.isSingleArm ? "(한팔)" : ""} × {st.reps}회
+                {st.weight}kg{ex.isSingleArm ? "(한팔)" : ""} × {st.reps}회
               </Text>
               <Text className="text-sm font-medium text-text-secondary">
                 = {vol.toLocaleString()}kg
@@ -3664,6 +3608,7 @@ type DraftSet = {
   weight: string;
   reps: string;
   completed: boolean;
+  unit?: string;
 };
 type DraftExercise = Omit<WorkoutSession["exercises"][0], "sets"> & {
   sets: DraftSet[];
@@ -3718,6 +3663,7 @@ function HistoryCard({
           category: ex.category,
           defaultSets: ex.sets.length || 3,
           defaultWeight: ex.sets[0]?.weight,
+          defaultUnit: (ex.sets[0]?.unit as 'kg' | 'lbs' | undefined) ?? 'kg',
           defaultReps: ex.sets[0]?.reps,
           restSeconds: ex.restSeconds,
           targetReps: ex.targetReps,
@@ -3725,7 +3671,6 @@ function HistoryCard({
           tip: ex.tip,
           targetMuscles: ex.targetMuscles,
           isSingleArm: ex.isSingleArm,
-          differentSides: ex.differentSides,
         })),
       });
     } finally {
@@ -3772,6 +3717,7 @@ function HistoryCard({
           weight: String(s.weight),
           reps: String(s.reps),
           completed: s.completed,
+          unit: s.unit ?? 'kg',
         })),
       }))
     );
@@ -3822,6 +3768,7 @@ function HistoryCard({
               weight: last?.weight ?? "0",
               reps: last?.reps ?? "0",
               completed: false,
+              unit: last?.unit ?? 'kg',
             },
           ],
         };
@@ -3857,7 +3804,6 @@ function HistoryCard({
         settings: [],
         tip: "",
         isSingleArm: false,
-        differentSides: false,
       },
     ]);
   };
@@ -4762,16 +4708,8 @@ function HistoryCard({
                               st.unit === "lbs"
                                 ? st.weight / 2.20462
                                 : st.weight;
-                            const _wR =
-                              st.weightR != null
-                                ? st.unit === "lbs"
-                                  ? st.weightR / 2.20462
-                                  : st.weightR
-                                : null;
                             const vol = ex.isSingleArm
-                              ? ex.differentSides && _wR != null
-                                ? (_w + _wR) * st.reps
-                                : _w * st.reps * 2
+                              ? _w * st.reps * 2
                               : _w * st.reps;
                             return (
                               <View
@@ -4798,11 +4736,7 @@ function HistoryCard({
                                     fontWeight: "700",
                                     color: c.textPrimary,
                                   }}>
-                                  {ex.isSingleArm &&
-                                  ex.differentSides &&
-                                  st.weightR != null
-                                    ? `${st.weight}/${st.weightR}`
-                                    : st.weight}
+                                  {st.weight}
                                 </Text>
                                 <Text
                                   style={{
