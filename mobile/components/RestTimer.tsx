@@ -346,10 +346,10 @@ export default function RestTimer({
     seconds > 0 ? c.textPrimary : c.textMuted;
 
   const actionLabel =
-    timerState === 'running' ? '⏸ 일시정지' :
-    timerState === 'paused' ? '▶ 재개' :
-    timerState === 'completed' ? '↺ 다시시작' :
-    seconds === 0 ? '시간 설정' : '▶ 시작';
+    timerState === 'running' ? '일시정지' :
+    timerState === 'paused' ? '재개' :
+    timerState === 'completed' ? '다시시작' :
+    seconds === 0 ? '시간 설정' : '시작';
 
   const actionHandler =
     timerState === 'running' ? togglePause :
@@ -452,6 +452,7 @@ export default function RestTimer({
                 letterSpacing: -1,
                 color: timerColor,
                 minWidth: 100,
+                fontVariant: ['tabular-nums'],
                 transform: timerState === 'running' ? [{ scale: pulseAnim }] : [],
               }}>
               {displayTime}
@@ -473,15 +474,28 @@ export default function RestTimer({
           onPress={actionHandler ?? undefined}
           activeOpacity={actionDisabled ? 1 : 0.8}
           disabled={actionDisabled}>
-          <Text style={{
-            fontSize: 15,
-            fontWeight: "900",
-            color:
-              actionDisabled ? c.textMuted :
-              timerState === 'running' ? c.warning : c.onAccent,
-          }}>
-            {actionLabel}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {timerState === 'running' && (
+              <Icon name="stop" size={15} color={c.warning} />
+            )}
+            {(timerState === 'paused' || (timerState === 'waiting' && seconds > 0)) && (
+              <View style={{ marginLeft: 2 }}>
+                <Icon name="play" size={15} color={c.onAccent} />
+              </View>
+            )}
+            {timerState === 'completed' && (
+              <Icon name="refresh" size={15} color={c.onAccent} />
+            )}
+            <Text style={{
+              fontSize: 15,
+              fontWeight: "900",
+              color:
+                actionDisabled ? c.textMuted :
+                timerState === 'running' ? c.warning : c.onAccent,
+            }}>
+              {actionLabel}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 

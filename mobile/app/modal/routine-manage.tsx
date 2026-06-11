@@ -539,7 +539,7 @@ export default function RoutineManageModal() {
                           시작
                         </Text>
                         <View style={{ backgroundColor: c.warning, borderRadius: 999, width: 28, height: 28, alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontSize: 14, color: c.onAccent, fontWeight: "900" }}>▶</Text>
+                          <Icon name="play" size={14} color={c.onAccent} />
                         </View>
                       </TouchableOpacity>
                       </View>

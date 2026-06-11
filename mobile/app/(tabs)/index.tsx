@@ -59,6 +59,12 @@ export default function HomeScreen() {
 
   const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
+  const scaleA = useRef(new Animated.Value(1)).current;
+  const scaleB = useRef(new Animated.Value(1)).current;
+  const pressIn = (sv: Animated.Value) =>
+    Animated.spring(sv, { toValue: 0.96, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
+  const pressOut = (sv: Animated.Value) =>
+    Animated.spring(sv, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
 
   useEffect(() => {
     fetchSessions();
@@ -178,24 +184,32 @@ export default function HomeScreen() {
         {/* ── 빠른 액션 ── */}
         <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <TouchableOpacity
-              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 20, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, transform: [{ rotate: "-1.5deg" }] }, SHADOW_SM]}
-              onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
-              activeOpacity={0.8}>
-              <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary + "22", alignItems: "center", justifyContent: "center" }}>
-                <Icon name="dumbbell" size={26} color={c.primary} />
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>운동 시작</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[{ flex: 1, backgroundColor: c.surface, borderRadius: 20, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, transform: [{ rotate: "1.5deg" }] }, SHADOW_SM]}
-              onPress={() => router.push("/modal/routine-manage" as any)}
-              activeOpacity={0.8}>
-              <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
-                <Icon name="list" size={24} color={c.textSecondary} />
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>루틴 관리</Text>
-            </TouchableOpacity>
+            <Animated.View style={{ flex: 1, transform: [{ scale: scaleA }, { rotate: "-1.5deg" }] }}>
+              <TouchableOpacity
+                style={[{ backgroundColor: c.surface, borderRadius: 26, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}
+                onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
+                onPressIn={() => pressIn(scaleA)}
+                onPressOut={() => pressOut(scaleA)}
+                activeOpacity={1}>
+                <View style={{ width: 46, height: 46, borderRadius: 10, backgroundColor: c.primary + "22", alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="dumbbell" size={26} color={c.primary} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>운동 시작</Text>
+              </TouchableOpacity>
+            </Animated.View>
+            <Animated.View style={{ flex: 1, transform: [{ scale: scaleB }, { rotate: "1.5deg" }] }}>
+              <TouchableOpacity
+                style={[{ backgroundColor: c.surface, borderRadius: 26, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}
+                onPress={() => router.push("/modal/routine-manage" as any)}
+                onPressIn={() => pressIn(scaleB)}
+                onPressOut={() => pressOut(scaleB)}
+                activeOpacity={1}>
+                <View style={{ width: 46, height: 46, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="list" size={24} color={c.textSecondary} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>루틴 관리</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </Animated.View>
 
@@ -218,11 +232,11 @@ export default function HomeScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{prEntry.name} PR 경신!</Text>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1, fontVariant: ['tabular-nums'] }}>
                   {formatDate(prEntry.date)} · {prEntry.weight}kg × {prEntry.reps}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: "900", color: c.primary }}>{prEntry.weight}kg</Text>
+              <Text style={{ fontSize: 14, fontWeight: "900", color: c.primary, fontVariant: ['tabular-nums'] }}>{prEntry.weight}kg</Text>
             </View>
           )}
 
@@ -233,11 +247,11 @@ export default function HomeScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{sessionTitle(recentSession)}</Text>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1, fontVariant: ['tabular-nums'] }}>
                   {formatDate(recentSession.date)} · {recentSession.exercises.length}종목 · {getTotalVolume(recentSession).toLocaleString()}kg
                 </Text>
               </View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>{recentSession.durationMinutes}분</Text>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, fontVariant: ['tabular-nums'] }}>{recentSession.durationMinutes}분</Text>
             </View>
           ) : (
             <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 24, alignItems: "center", borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>

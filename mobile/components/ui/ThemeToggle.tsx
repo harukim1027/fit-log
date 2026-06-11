@@ -12,6 +12,7 @@ export function ThemeToggle({ size = 36 }: { size?: number }) {
       style={{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center" }}
       className="bg-surface-alt"
       activeOpacity={0.7}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       accessibilityLabel={mode === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}>
       {mode === "dark" ? <SunIcon size={size * 0.5} /> : <MoonIcon size={size * 0.5} />}
     </TouchableOpacity>

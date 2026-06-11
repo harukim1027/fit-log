@@ -134,7 +134,7 @@ export default function WorkoutTimer({
           }}
           onPress={() => onPausedChange(!paused)}
           activeOpacity={0.8}>
-          <Text style={{ fontSize: 14 }}>{paused ? "▶" : "⏸"}</Text>
+          <Icon name={paused ? "play" : "stop"} size={14} color={paused ? c.surface : c.warning} />
           <Text
             style={{
               fontSize: 12,

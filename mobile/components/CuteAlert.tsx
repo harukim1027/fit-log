@@ -44,7 +44,7 @@ const PRESETS: Record<Preset, Omit<AlertOpts, "buttons"> & { _btns: (cb: any) =>
   emailDup:      { icon: "mail",   tone: "warn",   title: "이미 가입된 이메일이에요", message: "이 이메일로 로그인하거나\n다른 이메일로 가입해 주세요.", _btns: (cb) => [{ label: "로그인", style: "soft", onPress: cb.onSecondary }, { label: "다른 이메일", style: "primary", onPress: cb.onPrimary }] },
   emptyInput:    { icon: "pencil", tone: "info",   title: "아직 비어 있어요", message: "이메일과 비밀번호를\n모두 입력해 주세요.", _btns: (cb) => [{ label: "알겠어요", style: "primary", onPress: cb.onPrimary }] },
   network:       { icon: "wifi",   tone: "muted",  title: "연결이 느려요", message: "네트워크 상태를 확인하고\n다시 시도해 주세요.", _btns: (cb) => [{ label: "취소", style: "soft", onPress: cb.onSecondary }, { label: "다시 시도", style: "primary", onPress: cb.onPrimary }] },
-  signupSuccess: { icon: "check",  tone: "ok",     title: "환영해요! 🎉", message: "가입이 완료됐어요.\n첫 운동을 시작해볼까요?", _btns: (cb) => [{ label: "시작하기", style: "primary", onPress: cb.onPrimary }] },
+  signupSuccess: { icon: "check",  tone: "ok",     title: "환영해요!", message: "가입이 완료됐어요.\n첫 운동을 시작해볼까요?", _btns: (cb) => [{ label: "시작하기", style: "primary", onPress: cb.onPrimary }] },
 };
 
 let _open: ((o: AlertOpts) => void) | null = null;

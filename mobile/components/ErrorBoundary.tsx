@@ -19,6 +19,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { useColors } from '../constants/colors';
+import { Icon } from './AppIcons';
 
 interface State {
   hasError: boolean;
@@ -29,6 +30,7 @@ interface ClassProps {
   children: React.ReactNode;
   onReset?: () => void;
   primaryColor: string;
+  dangerColor: string;
   bgColor: string;
   textPrimaryColor: string;
   textSecondaryColor: string;
@@ -63,7 +65,7 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
       return this.props.children as React.ReactElement;
     }
 
-    const { primaryColor, bgColor, textPrimaryColor, textSecondaryColor } = this.props;
+    const { primaryColor, dangerColor, bgColor, textPrimaryColor, textSecondaryColor } = this.props;
 
     return (
       <View
@@ -74,7 +76,9 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
           padding: 24,
           backgroundColor: bgColor,
         }}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>😵</Text>
+        <View style={{ marginBottom: 16 }}>
+          <Icon name="closeCircle" size={52} color={dangerColor} />
+        </View>
         <Text
           style={{
             fontSize: 20,
@@ -130,6 +134,7 @@ export function ErrorBoundary({
     <ErrorBoundaryClass
       onReset={onReset}
       primaryColor={c.primary}
+      dangerColor={c.danger}
       bgColor={c.background}
       textPrimaryColor={c.textPrimary}
       textSecondaryColor={c.textSecondary}>

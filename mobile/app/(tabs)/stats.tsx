@@ -176,11 +176,13 @@ export default function StatsScreen() {
             <ThemeToggle size={36} />
             <TouchableOpacity
               className="w-9 h-9 items-center justify-center rounded-xl"
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               onPress={() => router.push("/modal/edit-profile" as any)}>
               <Icon name="person" size={22} color={c.success} />
             </TouchableOpacity>
             <TouchableOpacity
               className="w-9 h-9 items-center justify-center rounded-xl"
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               onPress={logout}>
               <Icon name="logout" size={22} color={c.danger} />
             </TouchableOpacity>
@@ -310,7 +312,7 @@ export default function StatsScreen() {
                   <TouchableOpacity
                     key={name}
                     className={[
-                      "rounded-[20px] px-3 py-[7px]",
+                      "rounded-[14px] px-3 py-[7px]",
                       isActive ? "bg-primary" : "bg-surface-alt",
                     ].join(" ")}
                     onPress={() => setSelectedExercise(name)}
@@ -384,7 +386,7 @@ export default function StatsScreen() {
                   justifyContent: "space-between",
                   alignItems: "center",
                   backgroundColor: c.surfaceAlt,
-                  borderRadius: 18,
+                  borderRadius: 12,
                   paddingHorizontal: 14,
                   paddingVertical: 11,
                   marginTop: 8,
@@ -428,7 +430,7 @@ export default function StatsScreen() {
                   </Text>
                 </View>
                 <Text
-                  style={{ fontSize: 14, fontWeight: "900", color: c.success }}>
+                  style={{ fontSize: 14, fontWeight: "900", color: c.success, fontVariant: ['tabular-nums'] }}>
                   {Math.round(maxW * 10) / 10}kg
                 </Text>
               </View>
@@ -466,7 +468,7 @@ function StatCard({
       <Text className="text-[11px] font-extrabold text-text-secondary">
         {label}
       </Text>
-      <Text style={{ fontSize: 22, fontWeight: "900", color }}>{value}</Text>
+      <Text style={{ fontSize: 22, fontWeight: "900", color, fontVariant: ['tabular-nums'] }}>{value}</Text>
       <Text style={{ fontSize: 11, fontWeight: "800", color: color + "BB" }}>
         {unit}
       </Text>
