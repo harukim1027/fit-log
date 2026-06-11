@@ -1,7 +1,15 @@
 node_modules
 dist
 .env
-.env.local
-.env.production
+.env.*
+.env*.local
 *.log
 seed-exercises.js
+
+# 인증서 및 키 파일
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+**/secrets/
