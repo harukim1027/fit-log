@@ -1,103 +1,219 @@
-# FitLog
+# Harulog
+> AI-era 풀스택 개발자가 만든 React Native 피트니스 트래커
 
-식단과 운동을 함께 기록하는 통합 트래커 앱. 모노레포 구조로 모바일 앱과 백엔드 API를 한 저장소에서 관리합니다.
+## 📱 서비스 소개
+- 운동 기록, 루틴 관리, 히스토리 분석
+- TestFlight 배포 완료
+- 실사용자 피드백 기반 지속 개선 중
 
----
-
-## 기술 스택
-
-| 영역 | 기술 |
-|------|------|
-| 모바일 | Expo, React Native, TypeScript |
-| 상태관리 | Zustand |
-| 라우팅 | Expo Router (파일 기반) |
-| 백엔드 | NestJS, TypeScript |
-| 데이터베이스 | PostgreSQL + TypeORM |
-| 인증 | JWT |
-| 외부 API | Open Food Facts (식품 DB) |
-
----
-
-## 프로젝트 구조
-
+## 🏗 시스템 아키텍처
 ```
-fitlog-mono/
-├── mobile/   ← Expo (React Native) 앱
-└── api/      ← NestJS 백엔드
+[Client Layer]
+  iOS App (Expo/React Native)
+       ↓ HTTPS
+[Server Layer]  
+  NestJS REST API (Railway)
+       ↓
+[Data Layer]
+  PostgreSQL (Railway)
+
+[External Services]
+  Google OAuth → JWT 인증
+  Expo Notifications → 푸시 알림
+  Sentry → 에러 모니터링
+  SecureStore → 토큰 저장
 ```
 
-### mobile/
+## 🛠 기술 스택
+### Frontend (Mobile)
+- React Native + Expo SDK 54
+- TypeScript
+- Zustand (전역 상태관리)
+- NativeWind v4 (스타일링)
+- Expo Router (파일 기반 라우팅)
+- expo-secure-store (토큰 보안 저장)
+- expo-notifications (푸시 알림)
+- Sentry (에러 모니터링)
 
+### Backend
+- NestJS + TypeScript
+- TypeORM + PostgreSQL
+- JWT (AccessToken + RefreshToken)
+- Passport.js
+- Railway (배포)
+
+### DevOps / Tools
+- GitHub Actions (CI/CD)
+- EAS Build (iOS 빌드/배포)
+- TestFlight (베타 배포)
+- CodeRabbit (AI 코드리뷰)
+
+## 📊 DB 설계 (ERD)
 ```
-mobile/
-├── app/                     ← Expo Router 파일 기반 라우팅
-│   ├── _layout.tsx          ← 루트 레이아웃 (인증 분기)
-│   ├── (tabs)/              ← 하단 탭 네비게이션
-│   │   ├── index.tsx        ← 홈 (대시보드)
-│   │   ├── diet.tsx         ← 식단 탭
-│   │   ├── workout.tsx      ← 운동 탭
-│   │   └── stats.tsx        ← 통계 탭
-│   ├── auth/
-│   │   ├── login.tsx
-│   │   └── register.tsx
-│   └── modal/
-│       ├── add-food.tsx     ← 음식 추가
-│       ├── add-workout.tsx  ← 운동 추가
-│       ├── barcode-scan.tsx ← 바코드 스캔
-│       └── set-target.tsx   ← 목표 칼로리 설정
-├── components/              ← 공용 컴포넌트
-│   ├── CalorieRing.tsx      ← 도넛 링 칼로리 차트
-│   ├── KeyboardToolbar.tsx  ← 키보드 닫기 툴바
-│   ├── RestTimer.tsx        ← 운동 휴식 타이머
-│   └── WaterTracker.tsx     ← 물 섭취 추적
-├── store/                   ← Zustand 전역 상태
-│   ├── authStore.ts
-│   ├── dietStore.ts
-│   ├── favoriteStore.ts
-│   ├── waterStore.ts
-│   └── workoutStore.ts
-├── lib/
-│   └── apiClient.ts         ← axios 클라이언트 (JWT 자동 첨부)
-├── constants/
-│   ├── api.ts               ← API 베이스 URL
-│   └── colors.ts            ← 테마 색상
-└── types/
-    ├── diet.ts
-    └── workout.ts
+users
+├── id (PK)
+├── email
+├── name
+├── weight
+├── height
+└── isOnboardingDone
+
+workout_sessions
+├── id (PK)
+├── userId (FK → users)
+├── date
+├── durationMinutes
+├── caloriesBurned
+└── fromRoutineId (FK → routines)
+
+workout_exercises
+├── id (PK)
+├── sessionId (FK → workout_sessions)
+├── name
+├── category
+├── targetMuscles
+├── restSeconds
+├── order
+└── isSingleArm
+
+workout_sets
+├── id (PK)
+├── exerciseId (FK → workout_exercises)
+├── weight
+├── reps
+├── unit (kg/lbs)
+├── completed
+└── order
+
+routines
+├── id (PK)
+├── userId (FK → users)
+├── name
+├── isPublic
+└── shareCode
+
+routine_exercises
+├── id (PK)
+├── routineId (FK → routines)
+├── name
+├── category
+├── defaultSets
+├── defaultWeight
+├── defaultReps
+├── defaultUnit
+├── restSeconds
+└── order
 ```
 
-### api/
-
-NestJS 도메인 모듈 구조입니다.
-
+## 🔐 인증 플로우
 ```
-api/src/
-├── auth/       ← JWT 로그인·회원가입, Guard, Strategy
-├── users/      ← 유저 엔티티 및 CRUD
-├── food/       ← Open Food Facts API 연동, 식품 검색
-├── diet/       ← 식단 로그 기록 및 조회
-├── water/      ← 물 섭취 로그
-├── workout/    ← 운동 세션·세트·종목 기록 (3개 엔티티)
-├── favorite/   ← 즐겨찾기 음식
-└── stats/      ← 날짜별 통계 집계
+[앱 시작]
+    ↓
+SecureStore에서 토큰 조회
+    ↓
+토큰 있음 → /users/me 호출
+    ↓
+200 OK → 앱 진입
+401 Unauthorized → /auth/refresh 호출
+    ↓
+refresh 성공 → 새 토큰 저장 → 앱 진입
+refresh 실패 → 로그인 화면
 ```
 
----
+## 📡 API 설계
+### 인증
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/google
+- POST /api/auth/refresh
 
-## 시작하기
+### 운동
+- GET /api/workout
+- POST /api/workout
+- GET /api/workout/:date
+- PATCH /api/workout/:id
+- DELETE /api/workout/:id
+- GET /api/workout/exercise-history
 
-### 백엔드 (api/)
+### 루틴
+- GET /api/routine
+- POST /api/routine
+- PATCH /api/routine/:id
+- DELETE /api/routine/:id
+- POST /api/routine/reorder
+- GET /api/routine/explore
+- POST /api/routine/:id/share
+- GET /api/routine/code/:shareCode
+- POST /api/routine/:id/copy
 
+### 운동 종목
+- GET /api/exercise/list
+- GET /api/exercise/search
+- GET /api/exercise/bodypart
+- POST /api/exercise/custom
+
+## ⚡ 성능 최적화
+- Zustand selector로 불필요한 리렌더링 방지
+- useMemo로 무거운 계산 메모이제이션
+- React.memo로 리스트 아이템 최적화
+- API 호출 디바운스 (루틴 자동저장)
+- JWT 만료 3일 전 사전 갱신
+
+## 🔄 CI/CD 파이프라인
+```
+Git Push → GitHub Actions
+    ↓
+백엔드: Railway 자동 배포
+    ↓
+프론트: EAS Build (수동)
+    → TestFlight 업로드
+    → OTA 업데이트 (코드 변경만)
+```
+
+## 🛡 에러 처리 전략
+- Sentry 에러 모니터링 (프로덕션)
+- 전역 ErrorBoundary (앱 크래시 방지)
+- API 인터셉터 (401 자동 갱신, 5xx Sentry 전송)
+- 운동 중 앱 종료 시 AsyncStorage 임시저장
+- 운동 중 401 발생 시 로그아웃 방지
+
+## 📈 향후 개선 계획
+- [ ] Apple Watch 연동
+- [ ] 운동 통계 고도화 (주간/월간 리포트)
+- [ ] 소셜 기능 (친구 운동 공유)
+- [ ] AI 운동 추천
+
+## 🚀 로컬 실행
 ```bash
+# 백엔드
 cd api
 npm install
 npm run start:dev
-```
 
-### 모바일 (mobile/)
-
-```bash
+# 프론트
 cd mobile
 npm install
 npx expo start
+```
+
+## 📁 프로젝트 구조
+```
+fitlog-mono/
+├── api/                    # NestJS 백엔드
+│   ├── src/
+│   │   ├── auth/          # JWT 인증
+│   │   ├── workout/       # 운동 CRUD
+│   │   ├── routine/       # 루틴 관리
+│   │   ├── exercise/      # 운동 종목
+│   │   └── users/         # 유저 관리
+│   └── ...
+└── mobile/                 # Expo React Native
+    ├── app/               # Expo Router 페이지
+    │   ├── (tabs)/        # 탭 화면
+    │   └── modal/         # 모달 화면
+    ├── components/        # 재사용 컴포넌트
+    ├── store/             # Zustand 상태관리
+    ├── hooks/             # 커스텀 훅
+    ├── lib/               # API 클라이언트, 유틸
+    └── utils/             # 순수 유틸 함수
 ```
