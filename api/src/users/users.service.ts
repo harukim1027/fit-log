@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -49,10 +50,20 @@ export class UsersService {
     return this.usersRepo.save(newUser);
   }
 
-  async updateProfile(id: string, data: Partial<User>): Promise<User> {
-    await this.usersRepo.update(id, data);
-    const user = await this.findById(id);
-    if (!user) throw new NotFoundException('유저를 찾을 수 없어요');
-    return user;
+  async updateProfile(id: string, data: UpdateUserDto): Promise<User> {
+    try {
+      // 화이트리스트 통과 후 실제로 갱신할 필드만 남는다. 빈 객체면 update 호출 시
+      // TypeORM이 "update values are not defined"로 던지므로 건너뛴다.
+      if (Object.keys(data).length > 0) {
+        await this.usersRepo.update(id, data);
+      }
+      const user = await this.findById(id);
+      if (!user) throw new NotFoundException('유저를 찾을 수 없어요');
+      return user;
+    } catch (error) {
+      // Railway/Sentry에서 정확한 원인(컬럼/타입 등)을 확인할 수 있게 로깅
+      console.error('프로필 업데이트 실패:', { id, data, error });
+      throw error;
+    }
   }
 }

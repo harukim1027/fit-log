@@ -44,3 +44,6 @@ yarn-error.*
 
 # EAS credentials (contains Apple secrets)
 eas.json
+
+# test coverage
+/coverage

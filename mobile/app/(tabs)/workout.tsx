@@ -31,15 +31,17 @@ import {
   NumberPad,
   SetIndicator,
 } from "../../components/ui";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { useRoutineStore } from "../../store/routineStore";
+import { useRestDayStore } from "../../store/restDayStore";
 import { useShallow } from "zustand/react/shallow";
 import { Calendar } from "react-native-calendars";
 import {
   useWorkoutStore,
   calculateCaloriesBurned,
   CompareMode,
+  buildSetsFromRoutineExercise,
 } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useColors } from "../../constants/colors";
@@ -47,15 +49,24 @@ import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import RestTimer from "../../components/RestTimer";
 import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { SetInputRow } from "../../components/workout/SetInputRow";
+import { TargetMuscleSelector } from "../../components/workout/TargetMuscleSelector";
+import { SettingSelector } from "../../components/workout/SettingSelector";
 import { WorkoutSession } from "../../types/workout";
 import WorkoutTimer from "../../components/WorkoutTimer";
-import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
 type Tab = "today" | "history";
+
+// 휴식 타이머 초기 상태 — 세션 시작/종료 시 이 값으로 리셋한다.
+const INITIAL_TIMER_STATE = {
+  seconds: 0,
+  remaining: 0,
+  running: false,
+  paused: false,
+};
 
 const SESSION_DATE_KEY = (s: WorkoutSession) =>
   new Date(s.date).toISOString().split("T")[0];
@@ -221,13 +232,22 @@ export default function WorkoutScreen() {
       reorderExercises: s.reorderExercises,
     }))
   );
+  const { restDays, fetchRestDays, toggleRestDay } = useRestDayStore(
+    useShallow((s) => ({
+      restDays: s.restDays,
+      fetchRestDays: s.fetchRestDays,
+      toggleRestDay: s.toggleRestDay,
+    }))
+  );
 
   // Refs to parent ScrollViews so we can synchronously disable scrolling when
   // a SortableList drag starts (prevents the ScrollView from stealing the gesture).
   const todayScrollRef = useRef<any>(null);
   const todayKasRef = useRef<any>(null);
   const historyScrollRef = useRef<any>(null);
-  const tipContainerRefs = useRef<Map<string, any>>(new Map());
+  // SortableList 자동 스크롤용 — 부모 ScrollView의 현재 offset(y) 추적
+  const todayScrollOffset = useRef(0);
+  const historyScrollOffset = useRef(0);
 
   const [tab, setTab] = useState<Tab>("today");
   const [compareModes, setCompareModes] = useState<Record<string, CompareMode>>(
@@ -240,6 +260,8 @@ export default function WorkoutScreen() {
   );
   const [activeEditExId, setActiveEditExId] = useState<string | null>(null);
   const [draftExName, setDraftExName] = useState("");
+  const [draftCategory, setDraftCategory] = useState("");
+  const [draftTargetMuscles, setDraftTargetMuscles] = useState<string[]>([]);
   const [draftUnit, setDraftUnit] = useState<"kg" | "lbs">("kg");
   const [draftSets, setDraftSets] = useState<
     Array<{
@@ -267,15 +289,7 @@ export default function WorkoutScreen() {
   >([]);
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
-  const [timerHeight, setTimerHeight] = useState(0);
-  useEffect(() => { if (!timerPinned) setTimerHeight(0); }, [timerPinned]);
-  const keyboardHeight = useKeyboardHeight();
-  const [timerState, setTimerState] = useState({
-    seconds: 0,
-    remaining: 0,
-    running: false,
-    paused: false,
-  });
+  const [timerState, setTimerState] = useState(INITIAL_TIMER_STATE);
   const [currentExName, setCurrentExName] = useState("");
   const [historyExpanded, setHistoryExpanded] = useState<
     Record<string, boolean>
@@ -287,8 +301,6 @@ export default function WorkoutScreen() {
     {}
   );
   const [addingSettingFor, setAddingSettingFor] = useState<string | null>(null);
-  const [newSettingKey, setNewSettingKey] = useState("시트높이");
-  const [newSettingVal, setNewSettingVal] = useState("");
   const [showRoutineSheet, setShowRoutineSheet] = useState(false);
   const [expandedRoutineInSheet, setExpandedRoutineInSheet] = useState<
     string | null
@@ -305,15 +317,6 @@ export default function WorkoutScreen() {
   };
   const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
 
-  // 카드 안 TextInput 포커스 시 부모 ScrollView를 해당 위치로 스크롤
-  const scrollToInput = (e: any) => {
-    setTimeout(() => {
-      e?.target?.measureInWindow?.((x: number, y: number) => {
-        todayScrollRef.current?.scrollTo({ y: y + 200, animated: true });
-      });
-    }, 350);
-  };
-
   const openPad = (
     value: string,
     decimal: boolean,
@@ -321,19 +324,10 @@ export default function WorkoutScreen() {
     onConfirm: (v: string) => void
   ) => setPadConfig({ value, decimal, suffix, onConfirm });
 
-  const SETTING_KEYS = [
-    "시트높이",
-    "등받이각도",
-    "그립종류",
-    "발판위치",
-    "바높이",
-    "인클라인각도",
-    "기타",
-  ];
-
   useEffect(() => {
     fetchSessions();
     loadRoutines();
+    fetchRestDays();
   }, []);
 
   // 운동 세션이 시작되면 항상 "오늘 운동" 탭으로 이동
@@ -350,6 +344,24 @@ export default function WorkoutScreen() {
       cancelRestEndNotification().catch(() => {});
     }
   }, [timerState.running, timerState.paused]);
+
+  /**
+   * 휴식 타이머 초기화.
+   * timerState/timerPinned/currentExName은 workout.tsx 로컬 상태라 탭이 언마운트되지
+   * 않는 한 세션이 끝나도 자동으로 비워지지 않는다(앱을 재시작해야 초기화되던 버그).
+   */
+  const resetTimer = useCallback(() => {
+    setTimerState(INITIAL_TIMER_STATE);
+    setTimerPinned(false);
+    setCurrentExName("");
+    cancelRestEndNotification().catch(() => {});
+  }, []);
+
+  // 세션이 바뀔 때마다(새 세션 시작 → 새 id / 종료·취소 → null) 타이머를 리셋해
+  // 이전 세션의 휴식 타이머 값이 다음 세션으로 넘어오지 않게 한다.
+  useEffect(() => {
+    resetTimer();
+  }, [activeSession?.id, resetTimer]);
 
   useEffect(() => {
     if (communityExpanded) fetchPublicRoutines(communitySort).catch(() => {});
@@ -464,13 +476,18 @@ export default function WorkoutScreen() {
 
   const enterEdit = (ex: WorkoutSession["exercises"][0]) => {
     setDraftExName(ex.name);
+    setDraftCategory(ex.category);
+    setDraftTargetMuscles(ex.targetMuscles ?? []);
     setActiveEditExId(ex.id);
   };
 
   const commitEdit = (ex: WorkoutSession["exercises"][0]) => {
-    if (draftExName.trim() && draftExName.trim() !== ex.name) {
-      updateExercise(ex.id, { name: draftExName.trim() } as any);
-    }
+    const patch: Partial<WorkoutSession["exercises"][0]> = {
+      category: draftCategory,
+      targetMuscles: draftTargetMuscles,
+    };
+    if (draftExName.trim()) patch.name = draftExName.trim();
+    updateExercise(ex.id, patch as any);
     setActiveEditExId(null);
   };
 
@@ -504,23 +521,6 @@ export default function WorkoutScreen() {
     }
   };
 
-  const handleCancel = () => {
-    showCuteAlert({
-      icon: 'alert',
-      tone: 'danger',
-      title: '운동 종료',
-      message: '저장하지 않고 종료할까요?\n운동 기록이 저장되지 않아요.',
-      buttons: [
-        { label: '취소', style: 'soft' },
-        {
-          label: '저장 없이 종료',
-          style: 'primary',
-          onPress: () => cancelSession(),
-        },
-      ],
-    });
-  };
-
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
     const durationMinutes = sessionStartTime
@@ -535,19 +535,28 @@ export default function WorkoutScreen() {
       icon: "check",
       tone: "ok",
       title: "운동 종료",
-      message: "오늘 운동을 저장하고 종료할까요?",
+      message: "오늘 운동을 종료할까요?",
+      showClose: true,
       buttons: [
-        { label: "취소", style: "soft" },
+        {
+          label: "저장하지 않고 종료",
+          style: "soft",
+          onPress: () => cancelSession(),
+        },
         {
           label: "저장 및 종료",
           style: "primary",
           onPress: async () => {
             await endSession(calories);
             setCompleteCalories(calories);
-            if (
-              !snapshot?.fromRoutineId &&
-              (snapshot?.exercises.length ?? 0) > 0
-            ) {
+            if (snapshot?.fromRoutineId) {
+              // 루틴으로 시작한 운동: 실제 수행한 세트(세트별 무게/횟수)를 루틴에 반영해
+              // 다음에 같은 루틴으로 시작할 때 마지막 값이 세트별로 그대로 복원되게 한다.
+              useRoutineStore
+                .getState()
+                .updateRoutineFromSession(snapshot.fromRoutineId, snapshot)
+                .catch(() => {});
+            } else if ((snapshot?.exercises.length ?? 0) > 0) {
               setSaveRoutineExercises(snapshot!.exercises);
               setSaveRoutineName("");
               setShowSaveRoutineModal(true);
@@ -564,16 +573,58 @@ export default function WorkoutScreen() {
       const key = SESSION_DATE_KEY(s);
       result[key] = { marked: true, dotColor: c.danger };
     });
+    // 쉬는날: 회색 채움 + 옅은 점으로 운동한 날(빨간 점)과 구분
+    restDays.forEach((date) => {
+      result[date] = {
+        ...(result[date] ?? {}),
+        marked: true,
+        dotColor: c.textMuted,
+        selected: true,
+        selectedColor: c.surfaceAlt,
+        selectedTextColor: c.textMuted,
+      };
+    });
     if (selectedDate) {
       result[selectedDate] = {
         ...(result[selectedDate] ?? {}),
         selected: true,
         selectedColor: c.primary,
+        selectedTextColor: c.surface,
         dotColor: result[selectedDate]?.marked ? c.surface : c.danger,
       };
     }
     return result;
-  }, [sessions, selectedDate]);
+  }, [sessions, restDays, selectedDate]);
+
+  const isSelectedRestDay = useMemo(
+    () => (selectedDate ? restDays.includes(selectedDate) : false),
+    [restDays, selectedDate]
+  );
+
+  /**
+   * 쉬는날 지정/해제 핸들러.
+   * 지정 시에는 확인 다이얼로그를 띄우고, 해제는 바로 처리한다.
+   */
+  const handleToggleRestDay = (date: string) => {
+    if (restDays.includes(date)) {
+      toggleRestDay(date);
+      return;
+    }
+    showCuteAlert({
+      icon: "check",
+      tone: "info",
+      title: "쉬는날 지정",
+      message: "이 날을 쉬는날로 표시할까요?",
+      buttons: [
+        { label: "취소", style: "soft" },
+        {
+          label: "쉬는날로 지정",
+          style: "primary",
+          onPress: () => toggleRestDay(date),
+        },
+      ],
+    });
+  };
 
   const monthSessions = useMemo(
     () => sessions.filter((s) => SESSION_DATE_KEY(s).startsWith(visibleMonth)),
@@ -664,17 +715,17 @@ export default function WorkoutScreen() {
         })}
       </View>
       {activeSession && timerPinned && timerProps && (
-        <RestTimer
-          {...timerProps}
-          pinned={true}
-          onLayout={(e) => setTimerHeight(e.nativeEvent.layout.height)}
-        />
+        <RestTimer {...timerProps} pinned={true} />
       )}
 
       {tab === "today" ? (
           <KeyboardAwareScrollView
             ref={todayKasRef}
             innerRef={(ref) => { todayScrollRef.current = ref; }}
+            onScroll={(e) => {
+              todayScrollOffset.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
             enableOnAndroid
             enableAutomaticScroll
             extraScrollHeight={180}
@@ -682,8 +733,10 @@ export default function WorkoutScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               padding: 20,
-              paddingTop: timerPinned ? timerHeight + 8 : 20,
-              paddingBottom: keyboardHeight > 0 ? keyboardHeight + 100 : 40,
+              // pinned 타이머는 이 ScrollView 위에 일반 흐름(sibling)으로 배치돼 이미 공간을
+              // 차지하므로, paddingTop으로 타이머 높이를 또 더하지 않는다 (중복 여백 제거).
+              // KAS의 extraScrollHeight가 키보드 인셋을 처리하므로 하단도 정적값만 둔다.
+              paddingBottom: 40,
             }}>
             {!activeSession ? (
               <>
@@ -784,6 +837,8 @@ export default function WorkoutScreen() {
                       data={routines}
                       keyExtractor={(r) => r.id}
                       itemHeight={136}
+                      scrollRef={todayScrollRef}
+                      scrollOffsetRef={todayScrollOffset}
                       onDragStart={() =>
                         todayScrollRef.current?.setNativeProps?.({
                           scrollEnabled: false,
@@ -1412,7 +1467,6 @@ export default function WorkoutScreen() {
                     setWorkoutPaused(v);
                   }}
                   onEnd={handleEnd}
-                  onCancel={handleCancel}
                 />
                 {activeSession.fromRoutineId &&
                   (() => {
@@ -1535,6 +1589,8 @@ export default function WorkoutScreen() {
                     data={activeSession.exercises}
                     keyExtractor={(ex) => ex.id}
                     itemHeight={300}
+                    scrollRef={todayScrollRef}
+                    scrollOffsetRef={todayScrollOffset}
                     onDragStart={() =>
                       todayScrollRef.current?.setNativeProps?.({
                         scrollEnabled: false,
@@ -1640,7 +1696,6 @@ export default function WorkoutScreen() {
                                   }}
                                   value={draftExName}
                                   onChangeText={setDraftExName}
-                                  onFocus={scrollToInput}
                                   returnKeyType="done"
                                   onSubmitEditing={() => {
                                     if (
@@ -1680,54 +1735,118 @@ export default function WorkoutScreen() {
                                   {fmtRestSeconds(ex.restSeconds)}
                                 </Text>
                               )}
-                              {/* 카테고리 뱃지 */}
+                              {/* 카테고리 뱃지 (수정 중에는 아래 선택 UI로 대체) */}
+                              {activeEditExId !== ex.id && (
+                                <View
+                                  style={{
+                                    backgroundColor: c.surfaceAlt,
+                                    borderRadius: 999,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 5,
+                                    flexShrink: 0,
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "800",
+                                      color: c.success,
+                                    }}>
+                                    {ex.category}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            {/* ── 1. 타겟 부위 ── 수정 중에는 선택 UI, 평소엔 뱃지 */}
+                            {activeEditExId === ex.id ? (
                               <View
                                 style={{
                                   backgroundColor: c.surfaceAlt,
-                                  borderRadius: 999,
-                                  paddingHorizontal: 10,
-                                  paddingVertical: 5,
-                                  flexShrink: 0,
+                                  borderRadius: 14,
+                                  padding: 12,
+                                  marginTop: 8,
                                 }}>
-                                <Text
+                                <TargetMuscleSelector
+                                  category={draftCategory}
+                                  onCategoryChange={setDraftCategory}
+                                  targetMuscles={draftTargetMuscles}
+                                  onTargetMusclesChange={setDraftTargetMuscles}
+                                />
+                                <View
                                   style={{
-                                    fontSize: 11,
-                                    fontWeight: "800",
-                                    color: c.success,
+                                    flexDirection: "row",
+                                    gap: 8,
+                                    marginTop: 12,
                                   }}>
-                                  {ex.category}
-                                </Text>
-                              </View>
-                            </View>
-                            {/* ── 1. 타겟 부위 뱃지 ── */}
-                            {(ex.targetMuscles?.length ?? 0) > 0 && (
-                              <View
-                                style={{
-                                  flexDirection: "row",
-                                  flexWrap: "wrap",
-                                  gap: 4,
-                                  marginTop: 6,
-                                }}>
-                                {ex.targetMuscles!.map((m, mi) => (
-                                  <View
-                                    key={mi}
+                                  <TouchableOpacity
                                     style={{
-                                      backgroundColor: c.primary + "18",
-                                      borderRadius: 999,
-                                      paddingHorizontal: 7,
-                                      paddingVertical: 2,
-                                    }}>
+                                      flex: 1,
+                                      backgroundColor: c.surface,
+                                      borderRadius: 12,
+                                      paddingVertical: 10,
+                                      alignItems: "center",
+                                    }}
+                                    onPress={() => setActiveEditExId(null)}
+                                    activeOpacity={0.8}>
                                     <Text
                                       style={{
-                                        fontSize: 10,
-                                        fontWeight: "700",
-                                        color: c.primary,
+                                        fontSize: 13,
+                                        fontWeight: "800",
+                                        color: c.textSecondary,
                                       }}>
-                                      {m}
+                                      취소
                                     </Text>
-                                  </View>
-                                ))}
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={{
+                                      flex: 1,
+                                      backgroundColor: c.primary,
+                                      borderRadius: 12,
+                                      paddingVertical: 10,
+                                      alignItems: "center",
+                                    }}
+                                    onPress={() => commitEdit(ex)}
+                                    activeOpacity={0.8}>
+                                    <Text
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: "800",
+                                        color: c.surface,
+                                      }}>
+                                      저장
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
                               </View>
+                            ) : (
+                              (ex.targetMuscles?.length ?? 0) > 0 && (
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    gap: 4,
+                                    marginTop: 6,
+                                  }}>
+                                  {ex.targetMuscles!.map((m, mi) => (
+                                    <View
+                                      key={mi}
+                                      style={{
+                                        backgroundColor: c.primary + "18",
+                                        borderRadius: 999,
+                                        paddingHorizontal: 7,
+                                        paddingVertical: 2,
+                                      }}>
+                                      <Text
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "700",
+                                          color: c.primary,
+                                        }}>
+                                        {m}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )
                             )}
 
                             {/* ── 2. 세트 아이콘 ── */}
@@ -2381,97 +2500,18 @@ export default function WorkoutScreen() {
                                     </TouchableOpacity>
                                   </View>
                                   {addingSettingFor === ex.id && (
-                                    <View style={{ marginTop: 8, gap: 6 }}>
-                                      <ScrollView
-                                        horizontal
-                                        showsHorizontalScrollIndicator={false}>
-                                        <View
-                                          style={{
-                                            flexDirection: "row",
-                                            gap: 4,
-                                          }}>
-                                          {SETTING_KEYS.map((k) => (
-                                            <TouchableOpacity
-                                              key={k}
-                                              style={{
-                                                backgroundColor:
-                                                  newSettingKey === k
-                                                    ? c.primary
-                                                    : c.surfaceAlt,
-                                                borderRadius: 999,
-                                                paddingHorizontal: 10,
-                                                paddingVertical: 5,
-                                              }}
-                                              onPress={() =>
-                                                setNewSettingKey(k)
-                                              }>
-                                              <Text
-                                                style={{
-                                                  fontSize: 11,
-                                                  fontWeight: "700",
-                                                  color:
-                                                    newSettingKey === k
-                                                      ? c.surface
-                                                      : c.textSecondary,
-                                                }}>
-                                                {k}
-                                              </Text>
-                                            </TouchableOpacity>
-                                          ))}
-                                        </View>
-                                      </ScrollView>
-                                      <View
-                                        style={{
-                                          flexDirection: "row",
-                                          gap: 6,
-                                          alignItems: "center",
-                                        }}>
-                                        <TextInput
-                                          style={{
-                                            flex: 1,
-                                            backgroundColor: c.surfaceAlt,
-                                            borderRadius: 10,
-                                            height: 36,
-                                            paddingHorizontal: 10,
-                                            fontSize: 13,
-                                            fontWeight: "700",
-                                            color: c.textPrimary,
-                                          }}
-                                          placeholder="값 입력"
-                                          placeholderTextColor={c.textMuted}
-                                          value={newSettingVal}
-                                          onChangeText={setNewSettingVal}
-                                          onFocus={scrollToInput}
-                                        />
-                                        <TouchableOpacity
-                                          style={{
-                                            backgroundColor: c.primary,
-                                            borderRadius: 10,
-                                            height: 36,
-                                            paddingHorizontal: 14,
-                                            justifyContent: "center",
-                                          }}
-                                          onPress={() => {
-                                            if (!newSettingVal.trim()) return;
-                                            updateExercise(ex.id, {
-                                              settings: [
-                                                ...(ex.settings ?? []),
-                                                {
-                                                  key: newSettingKey,
-                                                  value: newSettingVal.trim(),
-                                                },
-                                              ],
-                                            });
-                                            setNewSettingVal("");
-                                            setAddingSettingFor(null);
-                                          }}>
-                                          <Icon
-                                            name="check"
-                                            size={14}
-                                            color={c.surface}
-                                          />
-                                        </TouchableOpacity>
-                                      </View>
+                                    <View style={{ marginTop: 8 }}>
+                                      <SettingSelector
+                                        onAdd={(key, value) => {
+                                          updateExercise(ex.id, {
+                                            settings: [
+                                              ...(ex.settings ?? []),
+                                              { key, value },
+                                            ],
+                                          });
+                                          setAddingSettingFor(null);
+                                        }}
+                                      />
                                     </View>
                                   )}
                                 </View>
@@ -2500,11 +2540,6 @@ export default function WorkoutScreen() {
                                     onChangeText={(v) =>
                                       updateExercise(ex.id, { targetReps: v })
                                     }
-                                    onFocus={() => {
-                                      setTimeout(() => {
-                                        todayKasRef.current?.scrollToEnd({ animated: true });
-                                      }, 300);
-                                    }}
                                     placeholder="예: 12회, 15-20회"
                                     placeholderTextColor={c.textMuted}
                                     returnKeyType="done"
@@ -2512,9 +2547,7 @@ export default function WorkoutScreen() {
                                 </View>
 
                                 {/* ── 7. 운동 팁 ── */}
-                                <View
-                                  ref={(r) => { tipContainerRefs.current.set(ex.id, r); }}
-                                  style={{ marginBottom: 10 }}>
+                                <View style={{ marginBottom: 10 }}>
                                   <Text
                                     style={{
                                       fontSize: 11,
@@ -2537,18 +2570,6 @@ export default function WorkoutScreen() {
                                     onChangeText={(v) =>
                                       updateExercise(ex.id, { tip: v })
                                     }
-                                    onFocus={() => {
-                                      setTimeout(() => {
-                                        const tipRef = tipContainerRefs.current.get(ex.id);
-                                        tipRef?.measureInWindow((_x: number, y: number) => {
-                                          const timerOffset = timerPinned ? timerHeight : 0;
-                                          todayScrollRef.current?.scrollTo({
-                                            y: Math.max(0, y - timerOffset - 20),
-                                            animated: true,
-                                          });
-                                        });
-                                      }, 350);
-                                    }}
                                     placeholder="예: 무릎이 발끝을 넘지 않게"
                                     placeholderTextColor={c.textMuted}
                                     multiline
@@ -2714,6 +2735,10 @@ export default function WorkoutScreen() {
       ) : (
         <ScrollView
           ref={historyScrollRef}
+          onScroll={(e) => {
+            historyScrollOffset.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
@@ -2806,14 +2831,20 @@ export default function WorkoutScreen() {
                         alignItems: "center",
                         gap: 12,
                       }}>
-                      <Icon name="dumbbell" size={36} color={c.textMuted} />
+                      <Icon
+                        name={isSelectedRestDay ? "calendar" : "dumbbell"}
+                        size={36}
+                        color={isSelectedRestDay ? c.primary : c.textMuted}
+                      />
                       <Text
                         style={{
                           fontSize: 14,
                           fontWeight: "700",
-                          color: c.textMuted,
+                          color: isSelectedRestDay ? c.primary : c.textMuted,
                         }}>
-                        이 날 운동 기록이 없어요
+                        {isSelectedRestDay
+                          ? "쉬는날로 지정된 날이에요"
+                          : "이 날 운동 기록이 없어요"}
                       </Text>
                       <TouchableOpacity
                         style={{
@@ -2838,6 +2869,36 @@ export default function WorkoutScreen() {
                           운동 추가 +
                         </Text>
                       </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                          backgroundColor: isSelectedRestDay
+                            ? c.danger + "18"
+                            : c.surfaceAlt,
+                          borderRadius: 999,
+                          paddingHorizontal: 22,
+                          paddingVertical: 10,
+                        }}
+                        onPress={() => handleToggleRestDay(selectedDate)}
+                        activeOpacity={0.8}>
+                        <Icon
+                          name={isSelectedRestDay ? "trash" : "calendar"}
+                          size={14}
+                          color={isSelectedRestDay ? c.danger : c.textSecondary}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "800",
+                            color: isSelectedRestDay
+                              ? c.danger
+                              : c.textSecondary,
+                          }}>
+                          {isSelectedRestDay ? "쉬는날 해제" : "쉬는날로 지정"}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   ) : (
                     <>
@@ -2851,6 +2912,8 @@ export default function WorkoutScreen() {
                             onUpdate={(exercises) =>
                               updateSession(session.id, exercises)
                             }
+                            scrollRef={historyScrollRef}
+                            scrollOffsetRef={historyScrollOffset}
                             onExerciseDragStart={() =>
                               historyScrollRef.current?.setNativeProps?.({
                                 scrollEnabled: false,
@@ -3036,15 +3099,10 @@ export default function WorkoutScreen() {
                             restSeconds: re.restSeconds,
                             targetReps: re.targetReps,
                           });
-                          for (let s = 0; s < (re.defaultSets || 3); s++) {
-                            addSet(exId, {
-                              id: `${exId}-${s}`,
-                              weight: re.defaultWeight ?? 0,
-                              reps: re.defaultReps ?? 0,
-                              completed: false,
-                              unit: re.defaultUnit ?? 'kg',
-                            });
-                          }
+                          // per-set 목표(sets)·기본값을 동일 규칙으로 처리 (헬퍼 공유)
+                          buildSetsFromRoutineExercise(re, exId).forEach((st) =>
+                            addSet(exId, st)
+                          );
                           setAddedFromRoutine(
                             (prev) => new Set([...prev, re.name])
                           );
@@ -3120,7 +3178,7 @@ export default function WorkoutScreen() {
                                 {re.defaultSets}세트{" "}
                                 {re.targetReps ? `· ${re.targetReps}` : ""}{" "}
                                 {re.defaultWeight
-                                  ? `· ${re.defaultWeight}kg`
+                                  ? `· ${re.defaultWeight}${re.defaultUnit ?? "kg"}`
                                   : ""}
                               </Text>
                             </View>
@@ -3162,19 +3220,10 @@ export default function WorkoutScreen() {
                                     restSeconds: re.restSeconds,
                                     targetReps: re.targetReps,
                                   });
-                                  for (
-                                    let s = 0;
-                                    s < (re.defaultSets || 3);
-                                    s++
-                                  ) {
-                                    addSet(exId, {
-                                      id: `${exId}-${s}`,
-                                      weight: re.defaultWeight ?? 0,
-                                      reps: re.defaultReps ?? 0,
-                                      completed: false,
-                                      unit: re.defaultUnit ?? 'kg',
-                                    });
-                                  }
+                                  // per-set 목표(sets)·기본값을 동일 규칙으로 처리 (헬퍼 공유)
+                                  buildSetsFromRoutineExercise(re, exId).forEach(
+                                    (st) => addSet(exId, st)
+                                  );
                                   setAddedFromRoutine(
                                     (prev) => new Set([...prev, re.name])
                                   );
@@ -3665,6 +3714,8 @@ function HistoryCard({
   onUpdate,
   onExerciseDragStart,
   onExerciseDragRelease,
+  scrollRef,
+  scrollOffsetRef,
 }: {
   session: WorkoutSession;
   getVolume: (s: WorkoutSession) => number;
@@ -3673,6 +3724,8 @@ function HistoryCard({
   onUpdate: (exercises: WorkoutSession["exercises"]) => Promise<void>;
   onExerciseDragStart?: () => void;
   onExerciseDragRelease?: () => void;
+  scrollRef?: React.RefObject<any>;
+  scrollOffsetRef?: React.RefObject<number>;
 }) {
   const c = useColors();
   const [expanded, setExpanded] = useState(false);
@@ -4466,6 +4519,8 @@ function HistoryCard({
                 data={orderedExercises}
                 keyExtractor={(ex) => ex.id}
                 itemHeight={64}
+                scrollRef={scrollRef}
+                scrollOffsetRef={scrollOffsetRef}
                 onDragStart={() => {
                   setExExpanded({});
                   onExerciseDragStart?.();

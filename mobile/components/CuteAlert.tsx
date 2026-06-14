@@ -19,7 +19,7 @@ import { useColors } from "../constants/colors";
 type IconKey = "lock" | "mail" | "pencil" | "wifi" | "check" | "alert" | "trash";
 type Tone = "danger" | "warn" | "info" | "muted" | "ok";
 type Btn = { label: string; style?: "primary" | "soft"; onPress?: () => void };
-type AlertOpts = { icon: IconKey; tone: Tone; title: string; message?: string; buttons?: Btn[]; shake?: boolean };
+type AlertOpts = { icon: IconKey; tone: Tone; title: string; message?: string; buttons?: Btn[]; shake?: boolean; showClose?: boolean };
 
 // ── 손그림 라인 아이콘 ──
 function Icon({ name, color, size = 34 }: { name: IconKey; color: string; size?: number }) {
@@ -97,6 +97,13 @@ export function CuteAlertHost() {
     <Modal transparent visible={visible} animationType="none" onRequestClose={() => close()}>
       <Animated.View style={[s.scrim, { opacity }]}>
         <Animated.View style={[s.card, { backgroundColor: c.surface, borderColor: c.border, transform: [{ scale }, { translateX: shakeX }] }]}>
+          {opts.showClose && (
+            <Pressable onPress={() => close()} hitSlop={10} style={s.closeBtn}>
+              <Svg width={20} height={20} viewBox="0 0 24 24">
+                <Path d="M6 6 L18 18 M18 6 L6 18" stroke={c.textMuted} strokeWidth={2.2} strokeLinecap="round" />
+              </Svg>
+            </Pressable>
+          )}
           <View style={[s.iconring, { backgroundColor: col + "22" }]}>
             <Icon name={opts.icon} color={col} size={opts.icon === "check" ? 28 : 26} />
           </View>
@@ -122,6 +129,7 @@ export function CuteAlertHost() {
 const s = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: "rgba(5,9,14,0.55)", alignItems: "center", justifyContent: "center", padding: 28 },
   card: { width: 300, borderWidth: 1, borderRadius: 24, paddingTop: 24, paddingHorizontal: 18, paddingBottom: 18, alignItems: "center" },
+  closeBtn: { position: "absolute", top: 12, right: 12, width: 28, height: 28, alignItems: "center", justifyContent: "center", zIndex: 2 },
   iconring: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   title: { fontSize: 17, fontWeight: "900", textAlign: "center" },
   msg: { fontSize: 14, fontWeight: "600", textAlign: "center", lineHeight: 21, marginTop: 6 },

@@ -24,10 +24,12 @@ export class User {
   @Column({ default: 2000 })
   targetCalories: number;
 
-  @Column({ nullable: true })
+  // double precision: 몸무게/키는 소수점(예: 70.5kg, 175.5cm)이 들어올 수 있어
+  // integer 컬럼이면 소수 저장 시 Postgres가 에러를 던져 500이 난다.
+  @Column({ type: 'double precision', nullable: true })
   weight: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   height: number;
 
   @Column({ nullable: true })

@@ -109,6 +109,8 @@ export default function DietScreen() {
   const isAnimating = useRef(false);
   const currentDateRef = useRef(currentDate);
   const dietScrollRef = useRef<any>(null);
+  // SortableList 자동 스크롤용 — ScrollView의 현재 offset(y) 추적
+  const dietScrollOffset = useRef(0);
 
   useEffect(() => { currentDateRef.current = currentDate; }, [currentDate]);
 
@@ -329,6 +331,8 @@ export default function DietScreen() {
           style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
           <ScrollView
             ref={dietScrollRef}
+            onScroll={(e) => { dietScrollOffset.current = e.nativeEvent.contentOffset.y; }}
+            scrollEventThrottle={16}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
@@ -649,6 +653,8 @@ export default function DietScreen() {
               data={orderedSnackCards.length > 0 ? orderedSnackCards : (diet?.snackCards ?? [{ id: 'snack-default', name: '간식', foods: [] }])}
               keyExtractor={(card) => card.id}
               itemHeight={snackCardHeight}
+              scrollRef={dietScrollRef}
+              scrollOffsetRef={dietScrollOffset}
               onDragStart={() => dietScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
               onDragRelease={() => dietScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
               onDragEnd={setOrderedSnackCards}

@@ -222,24 +222,31 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
   },
 
   /**
-   * 실제 운동 수행 결과로 루틴 기본값을 업데이트한다.
+   * 실제 운동 수행 결과로 루틴을 업데이트한다.
    * "지난번에 이 무게로 했으니 오늘도 이 무게로 시작" 기능의 핵심.
    *
-   * defaultWeight는 세션에서의 최고 무게를 저장해 다음 세션의 시작점으로 사용.
-   * 0kg 세트는 제외해 빈 세트가 기본값을 오염시키지 않도록 처리.
+   * 세트별 무게/횟수를 sets(RoutineSet[])에 그대로 보존한다.
+   * 예전처럼 단일 defaultWeight(max)/defaultReps(첫 세트)로 합치면, 세트마다 다르게
+   * 수행한 무게/횟수가 다음 시작 때 같은 값으로 뭉개진다.
+   * defaultWeight/defaultReps는 목록 카드 표시용 대표값으로만 남긴다(세트 생성은 sets 우선).
    */
   updateRoutineFromSession: async (routineId, session) => {
     const exercises: RoutineExercise[] = session.exercises.map(ex => {
-      // 무게나 횟수가 있는 유효한 세트만 집계
-      const validSets = ex.sets.filter(s => s.weight > 0 || s.reps > 0);
-      const unit = (validSets[0]?.unit as 'kg' | 'lbs' | undefined) ?? 'kg';
+      const unit = (ex.sets[0]?.unit as 'kg' | 'lbs' | undefined) ?? 'kg';
+      const sets: RoutineSet[] = ex.sets.map((s, i) => ({
+        setNumber: i + 1,
+        targetWeight: s.weight,
+        targetReps: s.reps,
+        unit: (s.unit as 'kg' | 'lbs' | undefined) ?? 'kg',
+      }));
       return {
         name: ex.name,
         category: ex.category,
         defaultSets: ex.sets.length || 3,
-        defaultWeight: validSets.length > 0 ? Math.max(...validSets.map(s => s.weight)) : 0,
+        defaultWeight: ex.sets[0]?.weight,
+        defaultReps: ex.sets[0]?.reps,
         defaultUnit: unit,
-        defaultReps: validSets[0]?.reps,
+        sets,
         isSingleArm: ex.isSingleArm ?? false,
         restSeconds: ex.restSeconds,
         targetReps: ex.targetReps,

@@ -13,12 +13,17 @@ import {
   SaladIcon,
   FlameIcon,
 } from "../../components/AppIcons";
-import { useDietStore } from "../../store/dietStore";
 import { useWorkoutStore } from "../../store/workoutStore";
+import { useRestDayStore } from "../../store/restDayStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { useColors, ThemeColors } from "../../constants/colors";
-import { LineChart, BarChart } from "react-native-chart-kit";
+import { LineChart } from "react-native-chart-kit";
+import {
+  RestBarChart,
+  RestBarLegend,
+  BarDatum,
+} from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
@@ -47,11 +52,11 @@ function makeChartConfig(c: ThemeColors) {
 export default function StatsScreen() {
   const router = useRouter();
   const c = useColors();
-  const { dailyDiets, targetCalories } = useDietStore(
-    useShallow((s) => ({ dailyDiets: s.dailyDiets, targetCalories: s.targetCalories }))
-  );
   const { sessions, fetchSessions } = useWorkoutStore(
     useShallow((s) => ({ sessions: s.sessions, fetchSessions: s.fetchSessions }))
+  );
+  const { restDays, fetchRestDays } = useRestDayStore(
+    useShallow((s) => ({ restDays: s.restDays, fetchRestDays: s.fetchRestDays }))
   );
   const { user, logout } = useAuthStore(
     useShallow((s) => ({ user: s.user, logout: s.logout }))
@@ -65,6 +70,7 @@ export default function StatsScreen() {
 
   React.useEffect(() => {
     if (sessions.length === 0) fetchSessions();
+    fetchRestDays();
   }, []);
 
   const last7 = [...Array(7)].map((_, i) => {
@@ -72,24 +78,6 @@ export default function StatsScreen() {
     d.setDate(d.getDate() - (6 - i));
     return d.toISOString().split("T")[0];
   });
-
-  const calorieData = last7.map((date) => {
-    const diet = dailyDiets.find((d) => d.date === date);
-    return (
-      diet?.meals.reduce(
-        (s, m) => s + m.foods.reduce((f, food) => f + food.calories, 0),
-        0
-      ) ?? 0
-    );
-  });
-
-  const daysWithCalories = calorieData.filter((d) => d > 0);
-  const avgCalories =
-    daysWithCalories.length > 0
-      ? Math.round(
-          daysWithCalories.reduce((a, b) => a + b, 0) / daysWithCalories.length
-        )
-      : 0;
 
   const last7Sessions = last7.map((date) =>
     sessions
@@ -104,8 +92,6 @@ export default function StatsScreen() {
       .filter((s) => s.date === date)
       .reduce((sum, s) => sum + (s.caloriesBurned ?? 0), 0)
   );
-
-  const totalBurnWeek = last7BurnData.reduce((a, b) => a + b, 0);
 
   const prMap: Record<string, number> = {};
   sessions.forEach((s) => {
@@ -157,6 +143,35 @@ export default function StatsScreen() {
     new Date(d).toLocaleDateString("ko-KR", { weekday: "short" })
   );
 
+  // 날짜별 막대 종류 결정: 운동함 → 실제 값 / 쉬는날 지정 → 체크무늬 / 그 외 → 빈 막대
+  const barType = (dateStr: string, value: number): BarDatum["type"] =>
+    value > 0 ? "workout" : restDays.includes(dateStr) ? "rest" : "empty";
+
+  const volumeBarsAll: BarDatum[] = last7.map((date, i) => ({
+    label: dayLabels[i],
+    value: last7Sessions[i],
+    type: barType(date, last7Sessions[i]),
+  }));
+
+  const burnBarsAll: BarDatum[] = last7.map((date, i) => ({
+    label: dayLabels[i],
+    value: last7BurnData[i],
+    type: barType(date, last7BurnData[i]),
+  }));
+
+  // 그래프엔 운동/쉬는날만 표시 — 운동 안 한 날(값 0 & 쉬는날 아님)은 제외
+  const volumeBars = volumeBarsAll.filter((b) => b.type !== "empty");
+  const burnBars = burnBarsAll.filter((b) => b.type !== "empty");
+
+  // 평균은 "운동한 날만" 기준 (쉬는날·미수행일 모두 제외)
+  const workoutDayAvg = (bars: BarDatum[]): number => {
+    const days = bars.filter((b) => b.type === "workout");
+    if (days.length === 0) return 0;
+    return Math.round(days.reduce((s, b) => s + b.value, 0) / days.length);
+  };
+  const avgVolume = workoutDayAvg(volumeBarsAll);
+  const avgBurn = workoutDayAvg(burnBarsAll);
+
   const SHADOW = {
     shadowColor: c.primary,
     shadowOffset: { width: 0, height: 10 },
@@ -196,15 +211,15 @@ export default function StatsScreen() {
         {/* 요약 2×2 */}
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
           <StatCard
-            label="7일 평균"
-            value={String(avgCalories)}
-            unit="kcal"
+            label="운동일 평균 볼륨"
+            value={String(avgVolume)}
+            unit="kg"
             color={c.success}
             bg={c.success + "18"}
           />
           <StatCard
-            label="주간 소모"
-            value={String(totalBurnWeek)}
+            label="운동일 평균 소모"
+            value={String(avgBurn)}
             unit="kcal"
             color={c.danger}
             bg={c.danger + "18"}
@@ -229,25 +244,25 @@ export default function StatsScreen() {
 
         {/* 주간 운동 볼륨 */}
         <Card className="mb-4">
-          <Text className="text-[15px] font-bold text-text-secondary mb-4">
+          <Text className="text-[15px] font-bold text-text-secondary mb-1">
             주간 운동 볼륨
           </Text>
-          {last7Sessions.some((v) => v > 0) ? (
-            <View style={{ overflow: 'hidden', borderRadius: 16 }}>
-              <BarChart
-                data={{ labels: dayLabels, datasets: [{ data: last7Sessions }] }}
+          {volumeBars.length > 0 ? (
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 10 }}>
+                운동일 평균 {avgVolume.toLocaleString()}kg
+              </Text>
+              <RestBarChart
+                data={volumeBars}
+                color={c.danger}
                 width={W}
-                height={160}
-                chartConfig={{
-                  ...chartConfig,
-                  color: (opacity = 1) => `rgba(213,141,156,${opacity})`,
-                }}
-                style={{ borderRadius: 16, marginLeft: -10 }}
-                withInnerLines={false}
-                showValuesOnTopOfBars={false}
-                yAxisLabel=""
-                yAxisSuffix="kg"
+                suffix="kg"
+                c={c}
+                patternId="restVolume"
               />
+              <View style={{ alignItems: "center", marginTop: 6 }}>
+                <RestBarLegend color={c.danger} c={c} />
+              </View>
             </View>
           ) : (
             <View className="items-center py-5 gap-1">
@@ -261,25 +276,25 @@ export default function StatsScreen() {
 
         {/* 주간 칼로리 소모 */}
         <Card className="mb-4">
-          <Text className="text-[15px] font-bold text-text-secondary mb-4">
+          <Text className="text-[15px] font-bold text-text-secondary mb-1">
             주간 운동 칼로리 소모
           </Text>
-          {last7BurnData.some((v) => v > 0) ? (
-            <View style={{ overflow: 'hidden', borderRadius: 16 }}>
-              <BarChart
-                data={{ labels: dayLabels, datasets: [{ data: last7BurnData }] }}
+          {burnBars.length > 0 ? (
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 10 }}>
+                운동일 평균 {avgBurn.toLocaleString()}kcal
+              </Text>
+              <RestBarChart
+                data={burnBars}
+                color={c.warning}
                 width={W}
-                height={160}
-                chartConfig={{
-                  ...chartConfig,
-                  color: (opacity = 1) => `rgba(205,177,120,${opacity})`,
-                }}
-                style={{ borderRadius: 16, marginLeft: -10 }}
-                withInnerLines={false}
-                showValuesOnTopOfBars={false}
-                yAxisLabel=""
-                yAxisSuffix="kcal"
+                suffix="kcal"
+                c={c}
+                patternId="restBurn"
               />
+              <View style={{ alignItems: "center", marginTop: 6 }}>
+                <RestBarLegend color={c.warning} c={c} />
+              </View>
             </View>
           ) : (
             <View className="items-center py-5 gap-1">

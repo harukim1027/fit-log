@@ -121,6 +121,10 @@ export default function RoutineManageModal() {
   const listScrollRef = useRef<ScrollView>(null);
   const editScrollRef = useRef<ScrollView>(null);
   const combineScrollRef = useRef<ScrollView>(null);
+  // SortableList 자동 스크롤용 — 각 ScrollView의 현재 offset(y) 추적
+  const listScrollOffset = useRef(0);
+  const editScrollOffset = useRef(0);
+  const combineScrollOffset = useRef(0);
 
   useEffect(() => {
     loadRoutines().then(() => {
@@ -317,6 +321,8 @@ export default function RoutineManageModal() {
           <Header title="루틴 관리" showClose />
           <ScrollView
             ref={listScrollRef}
+            onScroll={(e) => { listScrollOffset.current = e.nativeEvent.contentOffset.y; }}
+            scrollEventThrottle={16}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
@@ -405,6 +411,8 @@ export default function RoutineManageModal() {
                   data={routines}
                   keyExtractor={(r) => r.id}
                   itemHeight={ROUTINE_ITEM_H}
+                  scrollRef={listScrollRef}
+                  scrollOffsetRef={listScrollOffset}
                   onDragStart={() => listScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
                   onDragRelease={() => listScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                   onDragEnd={(ordered) =>
@@ -700,6 +708,8 @@ export default function RoutineManageModal() {
           />
           <ScrollView
             ref={combineScrollRef}
+            onScroll={(e) => { combineScrollOffset.current = e.nativeEvent.contentOffset.y; }}
+            scrollEventThrottle={16}
             keyboardShouldPersistTaps="always"
             keyboardDismissMode="on-drag"
             contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
@@ -745,6 +755,8 @@ export default function RoutineManageModal() {
                 data={combineExercises}
                 keyExtractor={(ex) => ex.key}
                 itemHeight={EXERCISE_ITEM_H}
+                scrollRef={combineScrollRef}
+                scrollOffsetRef={combineScrollOffset}
                 onDragStart={() => combineScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
                 onDragRelease={() => combineScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                 onDragEnd={setCombineExercises}
@@ -880,6 +892,8 @@ export default function RoutineManageModal() {
         />
         <ScrollView
           ref={editScrollRef}
+          onScroll={(e) => { editScrollOffset.current = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
@@ -945,6 +959,8 @@ export default function RoutineManageModal() {
                 data={exercises}
                 keyExtractor={(ex) => ex.key}
                 itemHeight={EXERCISE_ITEM_H}
+                scrollRef={editScrollRef}
+                scrollOffsetRef={editScrollOffset}
                 onDragStart={() => editScrollRef.current?.setNativeProps?.({ scrollEnabled: false })}
                 onDragRelease={() => editScrollRef.current?.setNativeProps?.({ scrollEnabled: true })}
                 onDragEnd={setExercises}

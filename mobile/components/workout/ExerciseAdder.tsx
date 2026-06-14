@@ -17,6 +17,8 @@ import { useWorkoutStore } from "../../store/workoutStore";
 import { EXERCISE_CATEGORIES, EXERCISE_MAPPING } from "../../constants";
 import { ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../MuscleMap";
+import { TargetMuscleSelector } from "./TargetMuscleSelector";
+import { SettingSelector, DEFAULT_SETTING_KEYS } from "./SettingSelector";
 import { useColors } from "../../constants/colors";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 
@@ -30,22 +32,6 @@ const BODYPART_TO_CATEGORY: Record<string, string> = {
   "upper legs": "하체", "lower legs": "하체",
   waist: "복근", cardio: "유산소",
 };
-
-const CATEGORY_TARGETS: Record<string, string[]> = {
-  '가슴': ['상부', '중부', '하부', '내측', '직접 입력'],
-  '등': ['상부 승모', '중부 승모', '광배', '척추기립근', '직접 입력'],
-  '어깨': ['전면', '측면', '후면', '직접 입력'],
-  '팔': ['이두', '삼두', '전완', '직접 입력'],
-  '하체': ['대퇴사두', '햄스트링', '둔근', '종아리', '직접 입력'],
-  '복근': ['상복부', '하복부', '측복부', '직접 입력'],
-  '유산소': ['전신', '직접 입력'],
-  '기타': ['직접 입력'],
-};
-
-
-const PRESET_SETTING_KEYS = [
-  "시트높이", "등받이각도", "그립종류", "발판위치", "바높이", "인클라인각도", "기타",
-];
 
 type PresetExercise = { name: string; category: string };
 
@@ -185,7 +171,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const scrollRef = useRef<ScrollView>(null);
   const setsSectionY = useRef(0);
   const customFormY = useRef(0);
-  const customKeyInputRef = useRef<TextInput>(null);
   const customNameRef = useRef<TextInput>(null);
   const tipRef = useRef<TextInput>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -204,8 +189,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const [customName, setCustomName] = useState("");
   const [customCat, setCustomCat] = useState("");
   const [customTargetParts, setCustomTargetParts] = useState<string[]>([]);
-  const [customTargetInput, setCustomTargetInput] = useState('');
-  const [showCustomTargetInput, setShowCustomTargetInput] = useState(false);
   const [customRestSeconds, setCustomRestSeconds] = useState("60");
   const [customTargetReps, setCustomTargetReps] = useState("");
   const [customNote, setCustomNote] = useState("");
@@ -237,11 +220,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   // Equipment settings sheet
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
-  const [settingKey, setSettingKey] = useState(PRESET_SETTING_KEYS[0]);
-  const [settingValue, setSettingValue] = useState("");
   const [customSettingKeys, setCustomSettingKeys] = useState<CustomKey[]>([]);
-  const [isCustomKeyMode, setIsCustomKeyMode] = useState(false);
-  const [customKeyName, setCustomKeyName] = useState("");
 
   // Success animation (session mode)
   const [isSuccess, setIsSuccess] = useState(false);
@@ -439,6 +418,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       const cur = parseInt(s.reps) || 0;
       return { ...s, reps: String(Math.max(0, cur + delta)) };
     }));
+    setErrors(prev => ({ ...prev, sets: '' }));
   };
 
   const togglePerSetMode = () => {
@@ -486,32 +466,23 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   // ─── Settings sheet handlers ──────────────────────────────────────────────
 
-  const openSettingsSheet = () => {
-    setIsCustomKeyMode(false);
-    setCustomKeyName("");
-    setSettingKey(PRESET_SETTING_KEYS[0]);
-    setSettingValue("");
-    setShowSettingsSheet(true);
-  };
+  const openSettingsSheet = () => setShowSettingsSheet(true);
+  const closeSettingsSheet = () => setShowSettingsSheet(false);
 
-  const closeSettingsSheet = () => {
-    setShowSettingsSheet(false);
-    setIsCustomKeyMode(false);
-    setCustomKeyName("");
-    setSettingValue("");
-  };
-
-  const handleAddSetting = async () => {
-    const key = isCustomKeyMode ? customKeyName.trim() : settingKey;
-    if (!key) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '항목명을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
-    if (!settingValue.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '값을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
-    if (isCustomKeyMode && key && !customSettingKeys.some(k => k.name === key)) {
+  /**
+   * SettingSelector에서 항목 추가 시 호출.
+   * 프리셋/기존 커스텀 키에 없는 새 키(=직접 입력)면 서버에 저장해 다음에도 재사용.
+   */
+  const handleAddSetting = async (key: string, value: string) => {
+    const isNewCustomKey =
+      !DEFAULT_SETTING_KEYS.includes(key) && !customSettingKeys.some(k => k.name === key);
+    if (isNewCustomKey) {
       try {
         const res = await apiClient.post<CustomKey>("/workout-settings", { name: key });
         setCustomSettingKeys(prev => [...prev, res.data]);
       } catch {}
     }
-    setSettings(prev => [...prev, { key, value: settingValue.trim() }]);
+    setSettings(prev => [...prev, { key, value }]);
     closeSettingsSheet();
   };
 
@@ -519,7 +490,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     try {
       await apiClient.delete(`/workout-settings/${id}`);
       setCustomSettingKeys(prev => prev.filter(k => k.id !== id));
-      if (customSettingKeys.find(k => k.id === id)?.name === settingKey) setSettingKey(PRESET_SETTING_KEYS[0]);
     } catch {
       showCuteAlert({ icon: 'alert', tone: 'danger', title: '삭제 실패', message: '잠시 후 다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     }
@@ -569,6 +539,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       Animated.spring(successScale, { toValue: 1, damping: 8, stiffness: 200, useNativeDriver: true }).start();
       setTimeout(onClose, 650);
     } else {
+      // 루틴 모드도 session 모드와 동일하게 횟수 검증 — reps가 비면 0으로 저장돼
+      // 다음에 이 루틴으로 운동을 시작할 때 횟수가 0으로 나오는 버그를 원천 차단한다.
+      if (!perSetMode) {
+        if ((parseInt(defaultReps) || 0) === 0) {
+          setErrors(prev => ({ ...prev, reps: '횟수를 입력해주세요' }));
+          return;
+        }
+      } else {
+        if (!routineSets.some(s => (parseInt(s.reps) || 0) > 0)) {
+          setErrors(prev => ({ ...prev, sets: '세트 횟수를 입력해주세요' }));
+          return;
+        }
+      }
       onAdd({
         name: selectedExercise.name,
         category: selectedExercise.category,
@@ -604,6 +587,37 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const prevRecord = selectedExercise
     ? exerciseHistoryCache.get(`${selectedExercise.name}:recent`)
     : null;
+
+  // ─── Prefill last weight/reps from previous record (session mode) ──────────
+  // 운동을 종료하면 activeSession이 비워지므로, 다음에 같은 종목을 다시 추가할 때
+  // 입력란이 0으로 보인다. 직전 기록의 마지막 세트 값을 미리 채워 "마지막 무게/횟수"가
+  // 항상 남아 있도록 한다. (히스토리는 비동기 로드라 도착 시점에 한 번만 채운다)
+  // editMode에서는 위 useEffect가 기존 값을 세팅하므로 건드리지 않는다.
+  const prefilledForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (mode !== "session" || editMode) return;
+    if (!selectedExercise) {
+      prefilledForRef.current = null;
+      return;
+    }
+    if (prefilledForRef.current === selectedExercise.name) return;
+    const rec = prevRecord?.comparisonSession;
+    if (!rec || !rec.sets || rec.sets.length === 0) return;
+    prefilledForRef.current = selectedExercise.name;
+    const lastSet = rec.sets[rec.sets.length - 1];
+    const prevUnit = (lastSet.unit as "kg" | "lbs") ?? "kg";
+    setUnit(prevUnit);
+    setDefaultSets(String(rec.sets.length));
+    setDefaultWeight(lastSet.weight != null ? String(lastSet.weight) : "");
+    setDefaultReps(lastSet.reps != null ? String(lastSet.reps) : "");
+    setSets(
+      rec.sets.map((s) => ({
+        weight: s.weight != null ? String(s.weight) : "",
+        reps: s.reps != null ? String(s.reps) : "",
+        completed: false,
+      })),
+    );
+  }, [prevRecord, selectedExercise?.name, mode, editMode]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -751,78 +765,21 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       return (
                         <TouchableOpacity key={cat}
                           style={[{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: on ? c.danger + "28" : c.surface }, SHADOW]}
-                          onPress={() => { setCustomCat(cat); setCustomTargetParts([]); setCustomTargetInput(''); setShowCustomTargetInput(false); setErrors(prev => ({ ...prev, customCat: '' })); }}>
+                          onPress={() => { setCustomCat(cat); setCustomTargetParts([]); setErrors(prev => ({ ...prev, customCat: '' })); }}>
                           <Text style={{ fontSize: 13, color: on ? c.danger : c.textSecondary, fontWeight: on ? "700" : "600" }}>{cat}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
 
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 8 }}>타겟 부위 (다중 선택)</Text>
-                  {!customCat ? (
-                    <Text style={{ fontSize: 12, color: c.textMuted, marginBottom: 16 }}>카테고리를 먼저 선택해주세요</Text>
-                  ) : (
-                    <View style={{ marginBottom: 16 }}>
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: showCustomTargetInput ? 10 : 0 }}>
-                        {(CATEGORY_TARGETS[customCat] ?? ['직접 입력']).map(part => {
-                          if (part === '직접 입력') {
-                            return (
-                              <TouchableOpacity key="custom"
-                                style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: showCustomTargetInput ? c.primary : c.surfaceAlt }}
-                                onPress={() => setShowCustomTargetInput(v => !v)}>
-                                <Text style={{ fontSize: 12, fontWeight: "700", color: showCustomTargetInput ? c.surface : c.textSecondary }}>+ 직접 입력</Text>
-                              </TouchableOpacity>
-                            );
-                          }
-                          const on = customTargetParts.includes(part);
-                          return (
-                            <TouchableOpacity key={part}
-                              style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: on ? c.primary : c.surfaceAlt }}
-                              onPress={() => setCustomTargetParts(prev => on ? prev.filter(p => p !== part) : [...prev, part])}>
-                              <Text style={{ fontSize: 12, fontWeight: "700", color: on ? c.surface : c.textSecondary }}>{part}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                        {/* 직접 입력으로 추가된 항목 태그 */}
-                        {customTargetParts.filter(p => !(CATEGORY_TARGETS[customCat] ?? []).includes(p)).map(p => (
-                          <TouchableOpacity key={p}
-                            style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                            onPress={() => setCustomTargetParts(prev => prev.filter(x => x !== p))}>
-                            <Text style={{ fontSize: 12, fontWeight: "700", color: c.surface }}>{p}</Text>
-                            <Text style={{ fontSize: 10, color: c.surface, opacity: 0.7 }}>×</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                      {showCustomTargetInput && (
-                        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8 }}>
-                          <TextInput
-                            style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, fontSize: 13, color: c.textPrimary }}
-                            placeholder="타겟 부위 직접 입력"
-                            placeholderTextColor={c.textMuted}
-                            value={customTargetInput}
-                            onChangeText={setCustomTargetInput}
-                            returnKeyType="done"
-                            onSubmitEditing={() => {
-                              const v = customTargetInput.trim();
-                              if (v && !customTargetParts.includes(v)) setCustomTargetParts(prev => [...prev, v]);
-                              setCustomTargetInput('');
-                              setShowCustomTargetInput(false);
-                            }}
-                          />
-                          <TouchableOpacity
-                            style={{ backgroundColor: c.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 }}
-                            onPress={() => {
-                              const v = customTargetInput.trim();
-                              if (v && !customTargetParts.includes(v)) setCustomTargetParts(prev => [...prev, v]);
-                              setCustomTargetInput('');
-                              setShowCustomTargetInput(false);
-                            }}>
-                            <Text style={{ fontSize: 13, fontWeight: '700', color: c.surface }}>추가</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  )}
+                  <View style={{ marginBottom: 16 }}>
+                    <TargetMuscleSelector
+                      showCategory={false}
+                      category={customCat}
+                      targetMuscles={customTargetParts}
+                      onTargetMusclesChange={setCustomTargetParts}
+                    />
+                  </View>
 
                   <Text style={{ fontSize: 11, color: c.textMuted, marginBottom: 12, textAlign: "center" }}>
                     세트, 쉬는 시간, 팁은 다음 단계에서 설정해요
@@ -1151,9 +1108,9 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         reps={defaultReps}
                         unit={unit}
                         onWeightStep={delta => setDefaultWeight(w => String(Math.max(0, (parseFloat(w) || 0) + delta)))}
-                        onRepsStep={delta => setDefaultReps(r => String(Math.max(0, (parseInt(r) || 0) + delta)))}
+                        onRepsStep={delta => { setDefaultReps(r => String(Math.max(0, (parseInt(r) || 0) + delta))); setErrors(prev => ({ ...prev, reps: '' })); }}
                         onWeightPad={() => openPad(defaultWeight, true, unit, setDefaultWeight)}
-                        onRepsPad={() => openPad(defaultReps, false, '회', setDefaultReps)}
+                        onRepsPad={() => openPad(defaultReps, false, '회', (v) => { setDefaultReps(v); if (parseInt(v) > 0) setErrors(prev => ({ ...prev, reps: '' })); })}
                         containerStyle={{ marginBottom: 14 }}
                       />
 
@@ -1218,6 +1175,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   )}
                 </>
               )}
+
+              {/* ── Common: 타겟 부위 (수정 시에도 변경 가능) ── */}
+              <View style={{ height: 1, backgroundColor: c.surfaceAlt, marginVertical: 14 }} />
+              <TargetMuscleSelector
+                category={selectedExercise.category}
+                onCategoryChange={(cat) =>
+                  setSelectedExercise((prev) => (prev ? { ...prev, category: cat } : prev))
+                }
+                targetMuscles={selectedExercise.targetMuscles ?? []}
+                onTargetMusclesChange={(m) =>
+                  setSelectedExercise((prev) => (prev ? { ...prev, targetMuscles: m } : prev))
+                }
+              />
 
               {/* ── Common: Rest time & Target reps ── */}
               <View style={{ height: 1, backgroundColor: c.surfaceAlt, marginVertical: 14 }} />
@@ -1358,75 +1328,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
               <View style={{ width: 40, height: 4, backgroundColor: c.textMuted, borderRadius: 999, alignSelf: "center", marginBottom: 20 }} />
               <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary, marginBottom: 20 }}>기구 설정 추가</Text>
 
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 10 }}>항목 선택</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
-                {PRESET_SETTING_KEYS.map(k => {
-                  const on = !isCustomKeyMode && settingKey === k;
-                  return (
-                    <TouchableOpacity key={k}
-                      style={{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: on ? c.primary + "28" : c.surfaceAlt }}
-                      onPress={() => { setSettingKey(k); setIsCustomKeyMode(false); setCustomKeyName(""); }}>
-                      <Text style={{ fontSize: 13, color: on ? c.primary : c.textSecondary, fontWeight: on ? "700" : "600" }}>{k}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-                {customSettingKeys.map(k => {
-                  const on = !isCustomKeyMode && settingKey === k.name;
-                  return (
-                    <View key={k.id} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                      <TouchableOpacity
-                        style={{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: c.primary + "50", backgroundColor: on ? c.primary + "28" : c.surfaceAlt }}
-                        onPress={() => { setSettingKey(k.name); setIsCustomKeyMode(false); setCustomKeyName(""); }}>
-                        <Text style={{ fontSize: 13, color: on ? c.primary : c.textSecondary, fontWeight: on ? "700" : "600" }}>{k.name}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={{ marginLeft: -6, marginTop: -8 }}
-                        onPress={() => deleteCustomKey(k.id)}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                        <Icon name="close" size={13} color={c.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </View>
-
-              <View style={{ height: 1, backgroundColor: c.surfaceAlt, marginVertical: 12 }} />
-              <TouchableOpacity
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: isCustomKeyMode ? c.primary + "18" : c.surfaceAlt }}
-                onPress={() => { setIsCustomKeyMode(true); setSettingKey(""); setTimeout(() => customKeyInputRef.current?.focus(), 100); }}>
-                <Icon name="plus" size={15} color={isCustomKeyMode ? c.primary : c.textSecondary} />
-                <Text style={{ fontSize: 13, color: isCustomKeyMode ? c.primary : c.textSecondary, fontWeight: isCustomKeyMode ? "700" : "600" }}>직접 입력</Text>
-              </TouchableOpacity>
-
-              {isCustomKeyMode && (
-                <TextInput
-                  ref={customKeyInputRef}
-                  style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 13, fontSize: 15, color: c.textPrimary, marginTop: 10, borderWidth: 1.5, borderColor: c.primary + "60" }}
-                  placeholder="항목명 입력 (예: 케이블각도, 풀리높이)"
-                  value={customKeyName}
-                  onChangeText={setCustomKeyName}
-                  placeholderTextColor={c.textMuted}
-                  returnKeyType="next"
-                />
-              )}
-
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginTop: 16, marginBottom: 10 }}>값 입력</Text>
-              <TextInput
-                style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, padding: 14, fontSize: 15, color: c.textPrimary, marginBottom: 16 }}
-                placeholder="예: 3단계, 45도, 오버핸드"
-                value={settingValue}
-                onChangeText={setSettingValue}
-                placeholderTextColor={c.textMuted}
-                returnKeyType="done"
-                onSubmitEditing={handleAddSetting}
+              <SettingSelector
+                key={showSettingsSheet ? "open" : "closed"}
+                variant="sheet"
+                extraKeys={customSettingKeys}
+                onDeleteExtraKey={deleteCustomKey}
+                onAdd={handleAddSetting}
               />
-
-              <TouchableOpacity
-                style={{ backgroundColor: c.primary, borderRadius: 24, padding: 15, alignItems: "center" }}
-                onPress={handleAddSetting}
-                activeOpacity={0.8}>
-                <Text style={{ fontSize: 15, fontWeight: "800", color: c.surface }}>추가하기</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>

@@ -17,7 +17,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Exercise, WorkoutSession, WorkoutSet } from "../types/workout";
-import { Routine } from "./routineStore";
+import { Routine, RoutineExercise } from "./routineStore";
 import apiClient from "../lib/apiClient";
 import { calcSessionVolume } from "../utils/workout";
 import { logger } from "../lib/logger";
@@ -106,6 +106,39 @@ export const calculateCaloriesBurned = (
       : 3.5;
   const hours = durationMinutes / 60;
   return Math.round(avgMET * weightKg * hours);
+};
+
+/**
+ * 루틴 종목(RoutineExercise) → 운동 세션 세트(WorkoutSet[]) 변환.
+ *
+ * 루틴 → 세트 변환 로직이 여러 화면에 중복되면서, per-set 목표(`sets`)를
+ * 처리하지 않는 복사본 때문에 "세트별 목표" 루틴의 무게/횟수가 0으로 떨어지는
+ * 버그가 반복됐다. 단일 헬퍼로 통합해 모든 진입점이 동일하게 동작하도록 한다.
+ *
+ * 우선순위:
+ * 1) 세트별 목표(sets)가 있으면 targetWeight/targetReps 사용
+ * 2) 없으면 defaultSets 개수만큼 defaultWeight/defaultReps로 채움
+ */
+export const buildSetsFromRoutineExercise = (
+  re: RoutineExercise,
+  idPrefix: string,
+): WorkoutSet[] => {
+  if (re.sets && re.sets.length > 0) {
+    return re.sets.map((rs, j) => ({
+      id: `${idPrefix}-${j}`,
+      weight: Number(rs.targetWeight ?? 0),
+      reps: Number(rs.targetReps ?? 0),
+      completed: false,
+      unit: rs.unit ?? 'kg',
+    }));
+  }
+  return Array.from({ length: re.defaultSets ?? 3 }, (_, j) => ({
+    id: `${idPrefix}-${j}`,
+    weight: Number(re.defaultWeight ?? 0),
+    reps: Number(re.defaultReps ?? 0),
+    completed: false,
+    unit: re.defaultUnit ?? 'kg',
+  }));
 };
 
 interface WorkoutStore {
@@ -287,22 +320,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       targetReps: ex.targetReps,
       targetMuscles: ex.targetMuscles,
       isSingleArm: ex.isSingleArm ?? false,
-      sets: ex.sets && ex.sets.length > 0
-        ? ex.sets.map((rs, j) => ({
-            id: `${now}-${i}-${j}`,
-            weight: Number(rs.targetWeight ?? 0),
-            reps: Number(rs.targetReps ?? 0),
-            completed: false,
-            unit: rs.unit ?? 'kg',
-          }))
-        // 목표 세트 없으면 defaultSets만큼 빈 세트 생성
-        : Array.from({ length: ex.defaultSets ?? 3 }, (_, j) => ({
-            id: `${now}-${i}-${j}`,
-            weight: Number(ex.defaultWeight ?? 0),
-            reps: Number(ex.defaultReps ?? 0),
-            completed: false,
-            unit: ex.defaultUnit ?? 'kg',
-          })),
+      sets: buildSetsFromRoutineExercise(ex, `${now}-${i}`),
     }));
     const session: WorkoutSession = {
       id: now.toString(),

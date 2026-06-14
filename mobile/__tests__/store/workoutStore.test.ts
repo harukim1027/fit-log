@@ -239,6 +239,31 @@ describe('workoutStore', () => {
       // 기존 세트 그대로
       expect(result.current.activeSession?.exercises[0].sets[0].weight).toBe(100);
     });
+
+    // 회귀 방지: "세트별 개별 설정" OFF로 추가하면 모든 세트가 같은 초기값으로 생성되지만,
+    // 각 세트는 독립적이어야 한다. 운동 중 세트마다 다르게 수정해도 서로 묶이거나
+    // 1세트 값으로 덮어써지면 안 된다.
+    it('동일 초기값으로 만든 여러 세트를 각각 다르게 수정해도 독립 유지', async () => {
+      const { result } = renderHook(() => useWorkoutStore());
+      await act(async () => {
+        result.current.startSession();
+        result.current.addExercise(BASE_EXERCISE);
+        // 개별설정 OFF → 같은 무게/횟수로 3세트 생성 (id만 고유)
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-1', weight: 100, reps: 10 });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-2', weight: 100, reps: 10 });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-3', weight: 100, reps: 10 });
+        // 운동 중 세트마다 다르게 수정
+        result.current.updateSet('ex-1', 'set-2', { weight: 110, reps: 8 });
+        result.current.updateSet('ex-1', 'set-3', { weight: 120, reps: 6 });
+      });
+
+      const sets = result.current.activeSession?.exercises[0].sets;
+      expect(sets?.map((s) => [s.weight, s.reps])).toEqual([
+        [100, 10],
+        [110, 8],
+        [120, 6],
+      ]);
+    });
   });
 
   // ─── removeSet ──────────────────────────────────────────────────────────────
@@ -354,6 +379,39 @@ describe('workoutStore', () => {
         id: 's-1', date: '2026-06-10', durationMinutes: 0, note: '', exercises: [],
       };
       expect(result.current.getTotalVolume(session)).toBe(0);
+    });
+  });
+
+  // ─── endSession 저장 payload ────────────────────────────────────────────────
+  // 회귀 방지: 저장은 "세트별 개별 설정" 토글과 무관하게 항상 각 세트의 실제 현재 값을
+  // 보내야 한다. 세트가 1세트 값/초기값으로 묶여 덮어써지면 안 된다.
+  describe('endSession', () => {
+    it('수정된 세트별 실제 값을 그대로 POST', async () => {
+      const apiClient = require('../../lib/apiClient').default;
+      const { result } = renderHook(() => useWorkoutStore());
+      await act(async () => {
+        result.current.startSession();
+        result.current.addExercise(BASE_EXERCISE);
+        // 개별설정 OFF → 동일 초기값 3세트
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-1', weight: 100, reps: 10 });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-2', weight: 100, reps: 10 });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-3', weight: 100, reps: 10 });
+        // 운동 중 세트마다 다르게 수정
+        result.current.updateSet('ex-1', 'set-2', { weight: 110, reps: 8 });
+        result.current.updateSet('ex-1', 'set-3', { weight: 120, reps: 6 });
+        await result.current.endSession(0);
+      });
+
+      const postCall = (apiClient.post as jest.Mock).mock.calls.find(
+        ([url]: [string]) => url === '/workout',
+      );
+      expect(postCall).toBeDefined();
+      const savedSets = postCall[1].exercises[0].sets;
+      expect(savedSets.map((s: any) => [s.weight, s.reps])).toEqual([
+        [100, 10],
+        [110, 8],
+        [120, 6],
+      ]);
     });
   });
 });

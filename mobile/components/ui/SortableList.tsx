@@ -1,6 +1,10 @@
-import React, { useRef, useState } from "react";
-import { View, PanResponder, Animated, ViewStyle } from "react-native";
+import React, { useRef, useState, useEffect } from "react";
+import { View, PanResponder, Animated, ViewStyle, Dimensions } from "react-native";
 import * as Haptics from "expo-haptics";
+
+// 자동 스크롤: 드래그 중 손가락이 화면 위/아래 가장자리에 닿으면 부모 ScrollView를 스크롤한다.
+const EDGE_THRESHOLD = 120; // 화면 위/아래에서 이 거리(px) 안에 들어오면 자동 스크롤
+const AUTO_SCROLL_SPEED = 10; // tick(16ms)당 스크롤 픽셀
 
 export interface SortableListProps<T> {
   data: T[];
@@ -11,6 +15,17 @@ export interface SortableListProps<T> {
   onDragRelease?: () => void;
   itemHeight?: number;
   style?: ViewStyle;
+  /**
+   * 부모 스크롤 컨테이너 ref. 넘기면 드래그 중 가장자리 자동 스크롤이 활성화된다.
+   * ScrollView( scrollTo )와 KeyboardAwareScrollView( scrollToPosition ) 모두 지원.
+   */
+  scrollRef?: React.RefObject<any>;
+  /**
+   * 부모 스크롤의 현재 offset(y)을 담은 ref. 부모 ScrollView의
+   * onScroll에서 contentOffset.y로 갱신해줘야 한다(scrollEventThrottle={16}).
+   * 자동 스크롤로 컨테이너가 움직여도 hover 인덱스/드래그 카드 위치를 보정하는 데 쓴다.
+   */
+  scrollOffsetRef?: React.RefObject<number>;
 }
 
 export function SortableList<T>({
@@ -21,6 +36,8 @@ export function SortableList<T>({
   onDragStart,
   onDragRelease,
   style,
+  scrollRef,
+  scrollOffsetRef,
 }: SortableListProps<T>) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [totalHeight, setTotalHeight] = useState(0);
@@ -36,6 +53,14 @@ export function SortableList<T>({
   // Container-relative top Y of the dragged item at drag start
   const dragItemOriginalTopY = useRef(0);
 
+  // 자동 스크롤 상태
+  const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoScrollDir = useRef<0 | -1 | 1>(0);
+  // 드래그 시작 시점의 스크롤 offset — 이후 scrollDelta 계산 기준
+  const scrollStartOffset = useRef(0);
+  // 마지막 손가락 dy — 자동 스크롤 tick에서 카드/인덱스 재계산에 사용
+  const lastDy = useRef(0);
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<View>(null);
 
@@ -43,10 +68,14 @@ export function SortableList<T>({
   const onDragEndRef = useRef(onDragEnd);
   const onDragStartRef = useRef(onDragStart);
   const onDragReleaseRef = useRef(onDragRelease);
+  const scrollRefRef = useRef(scrollRef);
+  const scrollOffsetRefRef = useRef(scrollOffsetRef);
   dataRef.current = data;
   onDragEndRef.current = onDragEnd;
   onDragStartRef.current = onDragStart;
   onDragReleaseRef.current = onDragRelease;
+  scrollRefRef.current = scrollRef;
+  scrollOffsetRefRef.current = scrollOffsetRef;
 
   const dragY = useRef(new Animated.Value(0)).current;
   const dragScale = useRef(new Animated.Value(1)).current;
@@ -67,9 +96,8 @@ export function SortableList<T>({
     return y;
   };
 
-  // Fix: return 0 when above the container (previous code returned n-1)
-  const indexFromPageY = (pageY: number): number => {
-    const relY = pageY - containerPageY.current;
+  // 컨테이너 상대 Y → 인덱스. (스크롤 보정은 호출부에서 relY에 더해 전달)
+  const indexFromRelY = (relY: number): number => {
     if (relY <= 0) return 0;
     const n = dataRef.current.length;
     let acc = 0;
@@ -123,6 +151,71 @@ export function SortableList<T>({
     }
   };
 
+  // ── 자동 스크롤 ──────────────────────────────────────────────────────────
+
+  // 드래그 시작 이후 부모 스크롤이 움직인 양. 컨테이너가 함께 움직이므로
+  // hover 인덱스/드래그 카드 위치 계산에 이 값을 더해 보정한다.
+  const currentScrollDelta = (): number =>
+    (scrollOffsetRefRef.current?.current ?? 0) - scrollStartOffset.current;
+
+  const doScrollTo = (y: number) => {
+    const ref = scrollRefRef.current?.current;
+    if (!ref) return;
+    if (typeof ref.scrollTo === "function") {
+      ref.scrollTo({ y, animated: false });
+    } else if (typeof ref.scrollToPosition === "function") {
+      // KeyboardAwareScrollView
+      ref.scrollToPosition(0, y, false);
+    }
+  };
+
+  // 드래그 카드 위치 + hover 인덱스 갱신 (손가락 이동/자동 스크롤 양쪽에서 호출)
+  const updateDrag = (dy: number) => {
+    lastDy.current = dy;
+    const scrollDelta = currentScrollDelta();
+    dragY.setValue(dragItemOriginalTopY.current + dy + scrollDelta);
+    const relY = grantPageY.current + dy - containerPageY.current + scrollDelta;
+    const newHover = indexFromRelY(relY);
+    if (newHover !== hoverIndexRef.current) {
+      hoverIndexRef.current = newHover;
+      applyShifts(dragStartIndex.current, newHover);
+    }
+  };
+
+  const stopAutoScroll = () => {
+    if (autoScrollTimer.current) {
+      clearInterval(autoScrollTimer.current);
+      autoScrollTimer.current = null;
+    }
+    autoScrollDir.current = 0;
+  };
+
+  const startAutoScroll = (dir: -1 | 1) => {
+    if (!scrollRefRef.current?.current) return; // scrollRef 없으면 자동 스크롤 비활성
+    if (autoScrollDir.current === dir) return; // 이미 같은 방향으로 스크롤 중
+    stopAutoScroll();
+    autoScrollDir.current = dir;
+    autoScrollTimer.current = setInterval(() => {
+      if (!isDragging.current) {
+        stopAutoScroll();
+        return;
+      }
+      const cur = scrollOffsetRefRef.current?.current ?? 0;
+      const next = Math.max(0, cur + dir * AUTO_SCROLL_SPEED);
+      doScrollTo(next);
+      // 손가락은 멈춰 있어도 스크롤로 컨테이너가 움직이므로 카드/인덱스 재계산
+      updateDrag(lastDy.current);
+    }, 16);
+  };
+
+  // 손가락 절대 Y가 화면 가장자리에 들어오면 자동 스크롤 시작/정지
+  const handleEdgeAutoScroll = (fingerPageY: number) => {
+    const { height } = Dimensions.get("window");
+    if (fingerPageY < EDGE_THRESHOLD) startAutoScroll(-1);
+    else if (fingerPageY > height - EDGE_THRESHOLD) startAutoScroll(1);
+    else stopAutoScroll();
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -139,22 +232,19 @@ export function SortableList<T>({
 
       onPanResponderMove: (_, gs) => {
         if (!isDragging.current) return;
-        // Move card by the same delta as the finger from the grant point,
-        // starting from the item's original position — smooth, no jump.
-        dragY.setValue(dragItemOriginalTopY.current + gs.dy);
-
-        const currentPageY = grantPageY.current + gs.dy;
-        const newHoverIndex = indexFromPageY(currentPageY);
-        if (newHoverIndex !== hoverIndexRef.current) {
-          hoverIndexRef.current = newHoverIndex;
-          applyShifts(dragStartIndex.current, newHoverIndex);
-        }
+        // 카드 위치 + hover 인덱스 갱신 (스크롤 보정 포함)
+        updateDrag(gs.dy);
+        // 손가락 절대 위치로 가장자리 자동 스크롤 판단
+        handleEdgeAutoScroll(grantPageY.current + gs.dy);
       },
 
       onPanResponderRelease: (_, gs) => {
         if (!isDragging.current) return;
-        const currentPageY = grantPageY.current + gs.dy;
-        const finalIndex = indexFromPageY(currentPageY);
+        stopAutoScroll();
+        const scrollDelta = currentScrollDelta();
+        const relY =
+          grantPageY.current + gs.dy - containerPageY.current + scrollDelta;
+        const finalIndex = indexFromRelY(relY);
 
         isDragging.current = false;
         hoverIndexRef.current = null;
@@ -174,6 +264,7 @@ export function SortableList<T>({
       },
 
       onPanResponderTerminate: () => {
+        stopAutoScroll();
         isDragging.current = false;
         hoverIndexRef.current = null;
         setDragIndex(null);
@@ -182,6 +273,14 @@ export function SortableList<T>({
       },
     })
   ).current;
+
+  // 언마운트 시 타이머/인터벌 정리 (메모리 누수 방지)
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
+    };
+  }, []);
 
   return (
     <View
@@ -193,8 +292,13 @@ export function SortableList<T>({
         timerRef.current = setTimeout(() => {
           containerRef.current?.measure((_x, _y, _w, _h, _px, py) => {
             containerPageY.current = py;
+            // 드래그 시작 시점의 스크롤 offset 기록 — 이후 보정 기준
+            scrollStartOffset.current = scrollOffsetRefRef.current?.current ?? 0;
+            lastDy.current = 0;
 
-            const idx = indexFromPageY(touchStartPageY.current);
+            const idx = indexFromRelY(
+              touchStartPageY.current - containerPageY.current
+            );
             const topY = getTopY(idx);
 
             // Set dragY to the item's original position before any movement.

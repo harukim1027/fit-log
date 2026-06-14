@@ -12,6 +12,7 @@ import { WaterModule } from './water/water.module';
 import { WorkoutSettingsModule } from './workout-settings/workout-settings.module';
 import { ExerciseModule } from './exercise/exercise.module';
 import { RoutineModule } from './routine/routine.module';
+import { RestDayModule } from './rest-day/rest-day.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { RoutineModule } from './routine/routine.module';
     WorkoutSettingsModule,
     ExerciseModule,
     RoutineModule,
+    RestDayModule,
   ],
 })
 export class AppModule {}

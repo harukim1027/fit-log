@@ -18,7 +18,6 @@ interface Props {
   paused: boolean;
   onPausedChange: (v: boolean) => void;
   onEnd: () => void;
-  onCancel: () => void;
 }
 
 export default function WorkoutTimer({
@@ -28,7 +27,6 @@ export default function WorkoutTimer({
   paused,
   onPausedChange,
   onEnd,
-  onCancel,
 }: Props) {
   const c = useColors();
   const SHADOW = {
@@ -49,42 +47,26 @@ export default function WorkoutTimer({
         },
         SHADOW,
       ]}>
-      {/* 상단: X버튼 + 운동 중 + 저장 및 종료 */}
+      {/* 상단: 운동 중 + 운동 종료 */}
       <View
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
         }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <TouchableOpacity
+        <View>
+          <Text style={{ fontSize: 20, fontWeight: "900", color: c.textPrimary }}>
+            운동 중
+          </Text>
+          <Text
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
-              backgroundColor: c.surfaceAlt,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={onCancel}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Icon name="close" size={14} color={c.textMuted} />
-          </TouchableOpacity>
-          <View>
-            <Text style={{ fontSize: 20, fontWeight: "900", color: c.textPrimary }}>
-              운동 중
-            </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: "700",
-                color: c.textSecondary,
-                marginTop: 3,
-              }}>
-              {exerciseCount}종목 · 총 볼륨 {totalVolume.toLocaleString()}kg
-            </Text>
-          </View>
+              fontSize: 12,
+              fontWeight: "700",
+              color: c.textSecondary,
+              marginTop: 3,
+            }}>
+            {exerciseCount}종목 · 총 볼륨 {totalVolume.toLocaleString()}kg
+          </Text>
         </View>
         <TouchableOpacity
           style={{
@@ -96,7 +78,7 @@ export default function WorkoutTimer({
           onPress={onEnd}
           activeOpacity={0.8}>
           <Text style={{ fontSize: 12, fontWeight: "800", color: c.success }}>
-            저장 및 종료
+            운동 종료
           </Text>
         </TouchableOpacity>
       </View>
