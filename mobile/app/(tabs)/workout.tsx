@@ -262,6 +262,8 @@ export default function WorkoutScreen() {
   const [draftExName, setDraftExName] = useState("");
   const [draftCategory, setDraftCategory] = useState("");
   const [draftTargetMuscles, setDraftTargetMuscles] = useState<string[]>([]);
+  // 운동 중 카드에서 타겟부위 뱃지 탭 → 모달로 타겟부위/카테고리 변경
+  const [editingTargetExId, setEditingTargetExId] = useState<string | null>(null);
   const [draftUnit, setDraftUnit] = useState<"kg" | "lbs">("kg");
   const [draftSets, setDraftSets] = useState<
     Array<{
@@ -490,6 +492,10 @@ export default function WorkoutScreen() {
     updateExercise(ex.id, patch as any);
     setActiveEditExId(null);
   };
+
+  /** 타겟부위 뱃지 탭 → 변경 모달 열기 (변경은 모달에서 즉시 반영) */
+  const openTargetEditor = (ex: WorkoutSession["exercises"][0]) =>
+    setEditingTargetExId(ex.id);
 
   const handleSaveAsRoutine = async () => {
     const name = saveRoutineName.trim();
@@ -1735,16 +1741,22 @@ export default function WorkoutScreen() {
                                   {fmtRestSeconds(ex.restSeconds)}
                                 </Text>
                               )}
-                              {/* 카테고리 뱃지 (수정 중에는 아래 선택 UI로 대체) */}
+                              {/* 카테고리 뱃지 — 탭하면 타겟부위 변경 모달 (수정 중에는 숨김) */}
                               {activeEditExId !== ex.id && (
-                                <View
+                                <TouchableOpacity
                                   style={{
                                     backgroundColor: c.surfaceAlt,
                                     borderRadius: 999,
                                     paddingHorizontal: 10,
                                     paddingVertical: 5,
                                     flexShrink: 0,
-                                  }}>
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 3,
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  activeOpacity={0.7}
+                                  onPress={() => openTargetEditor(ex)}>
                                   <Text
                                     style={{
                                       fontSize: 11,
@@ -1753,7 +1765,8 @@ export default function WorkoutScreen() {
                                     }}>
                                     {ex.category}
                                   </Text>
-                                </View>
+                                  <Icon name="pencil" size={9} color={c.success} />
+                                </TouchableOpacity>
                               )}
                             </View>
                             {/* ── 1. 타겟 부위 ── 수정 중에는 선택 UI, 평소엔 뱃지 */}
@@ -1819,13 +1832,16 @@ export default function WorkoutScreen() {
                               </View>
                             ) : (
                               (ex.targetMuscles?.length ?? 0) > 0 && (
-                                <View
+                                <TouchableOpacity
                                   style={{
                                     flexDirection: "row",
                                     flexWrap: "wrap",
                                     gap: 4,
                                     marginTop: 6,
-                                  }}>
+                                  }}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                  activeOpacity={0.7}
+                                  onPress={() => openTargetEditor(ex)}>
                                   {ex.targetMuscles!.map((m, mi) => (
                                     <View
                                       key={mi}
@@ -1845,7 +1861,7 @@ export default function WorkoutScreen() {
                                       </Text>
                                     </View>
                                   ))}
-                                </View>
+                                </TouchableOpacity>
                               )
                             )}
 
@@ -2983,6 +2999,77 @@ export default function WorkoutScreen() {
         calories={completeCalories ?? 0}
         onDismiss={() => setCompleteCalories(null)}
       />
+
+      {/* 타겟부위 변경 모달 — 운동 중 카드 뱃지 탭 시. 변경은 즉시 반영(updateExercise). */}
+      {(() => {
+        const ex = activeSession?.exercises.find(
+          (e) => e.id === editingTargetExId
+        );
+        return (
+          <Modal
+            visible={!!editingTargetExId && !!ex}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setEditingTargetExId(null)}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.5)",
+                justifyContent: "center",
+              }}
+              activeOpacity={1}
+              onPress={() => setEditingTargetExId(null)}>
+              {/* 카드 내부 탭은 닫히지 않도록 흡수 */}
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => {}}
+                style={{
+                  margin: 24,
+                  backgroundColor: c.surface,
+                  borderRadius: 20,
+                  padding: 20,
+                }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "900",
+                    color: c.textPrimary,
+                    marginBottom: 14,
+                  }}>
+                  타겟 부위 변경
+                </Text>
+                {ex && (
+                  <TargetMuscleSelector
+                    category={ex.category}
+                    onCategoryChange={(cat) =>
+                      updateExercise(ex.id, { category: cat } as any)
+                    }
+                    targetMuscles={ex.targetMuscles ?? []}
+                    onTargetMusclesChange={(m) =>
+                      updateExercise(ex.id, { targetMuscles: m } as any)
+                    }
+                  />
+                )}
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: c.primary,
+                    borderRadius: 14,
+                    paddingVertical: 12,
+                    alignItems: "center",
+                    marginTop: 16,
+                  }}
+                  activeOpacity={0.85}
+                  onPress={() => setEditingTargetExId(null)}>
+                  <Text
+                    style={{ fontSize: 14, fontWeight: "800", color: c.surface }}>
+                    완료
+                  </Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </Modal>
+        );
+      })()}
 
       {/* 루틴에서 가져오기 모달 */}
       <Modal

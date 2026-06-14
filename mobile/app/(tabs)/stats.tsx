@@ -129,13 +129,16 @@ export default function StatsScreen() {
       .slice()
       .reverse()
       .filter((s) => s.exercises.some((ex) => ex.name === activeExercise))
-      .slice(-8)
       .map((s) => {
         const ex = s.exercises.find((e) => e.name === activeExercise)!;
         const maxWeight =
           ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
         return { date: s.date.slice(5), maxWeight };
-      });
+      })
+      // 0kg(맨몸/무게 미기록)인 날은 선그래프가 바닥으로 떨어지므로 제외 —
+      // 실제 무게를 든 날만 데이터 포인트로 남겨 운동한 날끼리 연결한다.
+      .filter((d) => d.maxWeight > 0)
+      .slice(-8);
     return points.length >= 2 ? points : null;
   }, [sessions, activeExercise]);
 

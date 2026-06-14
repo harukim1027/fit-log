@@ -58,6 +58,9 @@ export function SortableList<T>({
   const autoScrollDir = useRef<0 | -1 | 1>(0);
   // 드래그 시작 시점의 스크롤 offset — 이후 scrollDelta 계산 기준
   const scrollStartOffset = useRef(0);
+  // 자동 스크롤이 목표로 하는 offset. onScroll 되읽기에 의존하면 콜백 지연 시
+  // 목표값이 안 늘어나 한 스텝만 찍고 멈춘다(과거 실패 원인). 자체 카운터로 항상 전진시킨다.
+  const targetOffset = useRef(0);
   // 마지막 손가락 dy — 자동 스크롤 tick에서 카드/인덱스 재계산에 사용
   const lastDy = useRef(0);
 
@@ -200,9 +203,12 @@ export function SortableList<T>({
         stopAutoScroll();
         return;
       }
-      const cur = scrollOffsetRefRef.current?.current ?? 0;
-      const next = Math.max(0, cur + dir * AUTO_SCROLL_SPEED);
-      doScrollTo(next);
+      // 자체 카운터로 목표 offset을 직접 전진(되읽기 의존 X). 하단 초과분은 ScrollView가 클램프.
+      targetOffset.current = Math.max(
+        0,
+        targetOffset.current + dir * AUTO_SCROLL_SPEED
+      );
+      doScrollTo(targetOffset.current);
       // 손가락은 멈춰 있어도 스크롤로 컨테이너가 움직이므로 카드/인덱스 재계산
       updateDrag(lastDy.current);
     }, 16);
@@ -222,6 +228,13 @@ export function SortableList<T>({
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: () => isDragging.current,
       onMoveShouldSetPanResponderCapture: () => isDragging.current,
+
+      // 드래그 중에는 책임(responder)을 절대 양보하지 않는다. 기본값(true)이면
+      // 아이템을 가장자리로 끌고 갈 때 부모 ScrollView가 제스처를 가로채
+      // onPanResponderTerminate가 발생 → 드래그가 갑자기 끊기고 자동 스크롤도 멈춘다.
+      onPanResponderTerminationRequest: () => !isDragging.current,
+      // Android: 네이티브 스크롤 컴포넌트가 책임을 빼앗지 못하게 차단
+      onShouldBlockNativeResponder: () => true,
 
       onPanResponderGrant: (e) => {
         // Record the grant position as anchor for gs.dy.
@@ -292,8 +305,9 @@ export function SortableList<T>({
         timerRef.current = setTimeout(() => {
           containerRef.current?.measure((_x, _y, _w, _h, _px, py) => {
             containerPageY.current = py;
-            // 드래그 시작 시점의 스크롤 offset 기록 — 이후 보정 기준
+            // 드래그 시작 시점의 스크롤 offset 기록 — 이후 보정 기준 + 자동 스크롤 카운터 시드
             scrollStartOffset.current = scrollOffsetRefRef.current?.current ?? 0;
+            targetOffset.current = scrollStartOffset.current;
             lastDy.current = 0;
 
             const idx = indexFromRelY(
