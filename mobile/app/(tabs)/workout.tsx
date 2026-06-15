@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { calcExerciseVolume } from "../../utils/workout";
+import { calcExerciseVolume, getMuscleSetCounts, getMuscleColor } from "../../utils/workout";
 import {
   scheduleRestEndNotification,
   cancelRestEndNotification,
@@ -180,6 +180,8 @@ export default function WorkoutScreen() {
     updateSession,
     reorderSessionExercises,
     cancelSession,
+    historyJumpDate,
+    setHistoryJumpDate,
   } = useWorkoutStore(
     useShallow((s) => ({
       activeSession: s.activeSession,
@@ -207,6 +209,8 @@ export default function WorkoutScreen() {
       updateSession: s.updateSession,
       reorderSessionExercises: s.reorderSessionExercises,
       cancelSession: s.cancelSession,
+      historyJumpDate: s.historyJumpDate,
+      setHistoryJumpDate: s.setHistoryJumpDate,
     }))
   );
   const { user } = useAuthStore();
@@ -336,6 +340,15 @@ export default function WorkoutScreen() {
     loadRoutines();
     fetchRestDays();
   }, []);
+
+  // 기록 캘린더에서 날짜 탭 → 히스토리 탭으로 점프 (해당 날짜 선택)
+  useEffect(() => {
+    if (!historyJumpDate) return;
+    setTab("history");
+    setVisibleMonth(historyJumpDate.slice(0, 7));
+    setSelectedDate(historyJumpDate);
+    setHistoryJumpDate(null);
+  }, [historyJumpDate]);
 
   // 운동 세션이 시작되면 항상 "오늘 운동" 탭으로 이동
   useEffect(() => {
@@ -2840,6 +2853,27 @@ export default function WorkoutScreen() {
             />
           </Card>
 
+          {/* 부위별 세트 수까지 보이는 월간 기록 캘린더 */}
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              backgroundColor: c.surface,
+              borderRadius: 16,
+              paddingVertical: 13,
+              marginBottom: 20,
+            }}
+            onPress={() => router.push("/modal/full-calendar" as any)}
+            activeOpacity={0.85}>
+            <Icon name="calendar" size={16} color={c.primary} />
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>
+              기록 캘린더 보기
+            </Text>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>▶</Text>
+          </TouchableOpacity>
+
           {selectedDate &&
             (() => {
               const todayDate = new Date().toISOString().split("T")[0];
@@ -3918,9 +3952,8 @@ function HistoryCard({
     return `${m}분`;
   })();
 
-  const bodyParts = [
-    ...new Set(session.exercises.map((ex) => ex.category).filter(Boolean)),
-  ];
+  // 부위별 완료 세트 수 (targetMuscles 우선, 없으면 category)
+  const muscleCounts = getMuscleSetCounts(session);
 
   const enterHistoryEdit = () => {
     setDraftExercises(
@@ -4209,31 +4242,31 @@ function HistoryCard({
               ? ` +${session.exercises.length - 4}`
               : ""}
           </Text>
-          {/* 부위 태그 */}
-          {bodyParts.length > 0 && (
+          {/* 부위별 완료 세트 수 */}
+          {Object.keys(muscleCounts).length > 0 && (
             <View
               style={{
                 flexDirection: "row",
                 flexWrap: "wrap",
-                gap: 4,
-                marginTop: 6,
+                gap: 10,
+                marginTop: 8,
               }}>
-              {bodyParts.map((bp) => (
+              {Object.entries(muscleCounts).map(([muscle, count]) => (
                 <View
-                  key={bp}
-                  style={{
-                    backgroundColor: c.surfaceAlt,
-                    borderRadius: 999,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                  }}>
-                  <Text
+                  key={muscle}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <View
                     style={{
-                      fontSize: 11,
-                      fontWeight: "700",
-                      color: c.success,
-                    }}>
-                    {bp}
+                      width: 3,
+                      height: 14,
+                      backgroundColor: getMuscleColor(muscle),
+                      borderRadius: 2,
+                    }}
+                  />
+                  <Text style={{ fontSize: 12, color: c.textSecondary }}>{muscle}</Text>
+                  <Text
+                    style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>
+                    {count}
                   </Text>
                 </View>
               ))}

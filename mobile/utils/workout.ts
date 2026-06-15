@@ -72,3 +72,59 @@ export const calcExerciseVolume = (ex: ExerciseLike): number =>
  */
 export const calcSessionVolume = (session: SessionLike): number =>
   session.exercises.reduce((sum, ex) => sum + calcExerciseVolume(ex), 0);
+
+// ── 타겟부위별 세트 수 집계 ─────────────────────────────────────────────────
+
+type MuscleExerciseLike = {
+  sets: { completed: boolean }[];
+  targetMuscles?: string[];
+  category: string;
+};
+type MuscleSessionLike = { exercises: MuscleExerciseLike[] };
+
+/** 카테고리(부위) → 색상. 통계/캘린더에서 부위별 막대 색으로 사용 */
+export const MUSCLE_COLORS: Record<string, string> = {
+  가슴: '#2E82F0',
+  등: '#EF5E80',
+  어깨: '#4FA98C',
+  팔: '#9B7EDE',
+  하체: '#7C8B3D',
+  유산소: '#E89B4F',
+  복근: '#54B0C4',
+};
+
+export const getMuscleColor = (muscle: string): string =>
+  MUSCLE_COLORS[muscle] ?? '#888';
+
+/**
+ * 세션의 타겟부위별 "완료" 세트 수 집계.
+ * targetMuscles가 있으면 부위별로, 없으면 category로 분류한다.
+ */
+export function getMuscleSetCounts(
+  session: MuscleSessionLike,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  session.exercises.forEach((ex) => {
+    const completedSets = ex.sets.filter((s) => s.completed).length;
+    if (completedSets === 0) return;
+    const muscles = ex.targetMuscles?.length ? ex.targetMuscles : [ex.category];
+    muscles.forEach((muscle) => {
+      counts[muscle] = (counts[muscle] ?? 0) + completedSets;
+    });
+  });
+  return counts;
+}
+
+/** 같은 날 여러 세션의 부위별 세트 수 통합 집계 */
+export function getMuscleSetCountsForDate(
+  sessions: MuscleSessionLike[],
+): Record<string, number> {
+  const total: Record<string, number> = {};
+  sessions.forEach((s) => {
+    const counts = getMuscleSetCounts(s);
+    Object.entries(counts).forEach(([m, cnt]) => {
+      total[m] = (total[m] ?? 0) + cnt;
+    });
+  });
+  return total;
+}

@@ -146,6 +146,9 @@ interface WorkoutStore {
   activeSession: WorkoutSession | null;
   sessionStartTime: number | null;
   isLoading: boolean;
+  /** 기록 캘린더에서 날짜 탭 시 히스토리 탭으로 점프할 날짜 (YYYY-MM-DD). 소비 후 null. */
+  historyJumpDate: string | null;
+  setHistoryJumpDate: (date: string | null) => void;
   exerciseHistoryCache: Map<string, ExerciseHistory>;
   workoutElapsed: number;
   workoutPaused: boolean;
@@ -191,6 +194,8 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   activeSession: null,
   sessionStartTime: null,
   isLoading: false,
+  historyJumpDate: null,
+  setHistoryJumpDate: (date) => set({ historyJumpDate: date }),
   exerciseHistoryCache: new Map(),
   workoutElapsed: 0,
   workoutPaused: false,
