@@ -155,7 +155,8 @@ interface WorkoutStore {
 
   startSession: () => void;
   startSessionWithRoutine: (routine: Routine) => void;
-  endSession: (caloriesBurned: number) => Promise<void>;
+  /** 완료 세트가 있는 종목만 저장. 저장할 게 없으면 'empty' 반환(저장/정리 안 함). */
+  endSession: (caloriesBurned: number) => Promise<'empty' | 'saved'>;
   deleteSession: (id: string) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, "sets">) => void;
   addSet: (exerciseId: string, set: WorkoutSet) => void;
@@ -367,14 +368,21 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   endSession: async (caloriesBurned: number) => {
     const active = get().activeSession;
     const startTime = get().sessionStartTime;
-    if (!active) return;
+    if (!active) return 'empty';
+
+    // 완료 세트가 1개 이상인 종목만 저장 (빈 종목 제외)
+    const exercisesToSave = active.exercises.filter((ex) =>
+      ex.sets.some((s) => s.completed)
+    );
+    // 저장할 운동이 없으면 저장/정리하지 않고 호출부에 알림 (안내 후 cancelSession)
+    if (exercisesToSave.length === 0) return 'empty';
 
     const durationMinutes = startTime
       ? Math.max(Math.round((Date.now() - startTime) / 60000), 1)
       : 0;
 
     logger.info('운동 세션 종료', {
-      exercises: active.exercises.length,
+      exercises: exercisesToSave.length,
       durationMinutes,
       caloriesBurned,
     });
@@ -389,7 +397,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         caloriesBurned,
         note: active.note,
         fromRoutineId: active.fromRoutineId ?? null,
-        exercises: active.exercises.map((ex, idx) => ({
+        exercises: exercisesToSave.map((ex, idx) => ({
           name: ex.name,
           category: ex.category,
           settings: ex.settings ?? [],
@@ -399,12 +407,15 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           restSeconds: ex.restSeconds ?? null,
           targetReps: ex.targetReps ?? "",
           order: idx,
-          sets: ex.sets.map((st) => ({
-            weight: st.weight,
-            reps: st.reps,
-            completed: st.completed,
-            unit: st.unit ?? 'kg',
-          })),
+          // 완료된 세트만 저장
+          sets: ex.sets
+            .filter((st) => st.completed)
+            .map((st) => ({
+              weight: st.weight,
+              reps: st.reps,
+              completed: true,
+              unit: st.unit ?? 'kg',
+            })),
         })),
       });
       await get().fetchSessions();
@@ -413,6 +424,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     }
     set({ activeSession: null, sessionStartTime: null });
     saveWorkoutDraft(null, null, 0);
+    return 'saved';
   },
 
   /**

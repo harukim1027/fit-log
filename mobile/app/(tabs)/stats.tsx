@@ -142,7 +142,7 @@ export default function StatsScreen() {
   sessions.forEach((s) => {
     s.exercises.forEach((ex) => {
       ex.sets
-        .filter((st) => st.weight > 0 && st.reps > 0)
+        .filter((st) => st.completed && st.weight > 0 && st.reps > 0)
         .forEach((st) => {
           const wKg = st.unit === 'lbs' ? st.weight / 2.20462 : st.weight;
           if (!prMap[ex.name] || prMap[ex.name] < wKg) prMap[ex.name] = wKg;
@@ -176,8 +176,10 @@ export default function StatsScreen() {
       .filter((s) => s.exercises.some((ex) => ex.name === activeExercise))
       .map((s) => {
         const ex = s.exercises.find((e) => e.name === activeExercise)!;
-        const maxWeight =
-          ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
+        const doneWeights = ex.sets
+          .filter((st) => st.completed)
+          .map((st) => st.weight);
+        const maxWeight = doneWeights.length > 0 ? Math.max(...doneWeights) : 0;
         return { date: s.date.slice(5), maxWeight };
       })
       // 0kg(맨몸/무게 미기록)인 날은 선그래프가 바닥으로 떨어지므로 제외 —

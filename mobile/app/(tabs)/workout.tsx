@@ -598,7 +598,19 @@ export default function WorkoutScreen() {
           label: "저장 및 종료",
           style: "primary",
           onPress: async () => {
-            await endSession(calories);
+            const result = await endSession(calories);
+            if (result === "empty") {
+              showCuteAlert({
+                icon: "alert",
+                tone: "info",
+                title: "저장할 운동이 없어요",
+                message: "완료한 세트가 없어서 기록이 저장되지 않아요",
+                buttons: [
+                  { label: "확인", style: "primary", onPress: () => cancelSession() },
+                ],
+              });
+              return;
+            }
             setCompleteCalories(calories);
             if (snapshot?.fromRoutineId) {
               // 루틴으로 시작한 운동: 실제 수행한 세트(세트별 무게/횟수)를 루틴에 반영해
@@ -3850,6 +3862,10 @@ function HistoryCard({
   // 부위별 완료 세트 수 (targetMuscles 우선, 없으면 category)
   const muscleCounts = getMuscleSetCounts(session);
   const getCategoryColor = useCategoryColor();
+  // 완료 세트가 1개 이상인 종목만 표시 (기존 데이터의 빈 종목 숨김)
+  const visibleExercises = orderedExercises.filter((ex) =>
+    ex.sets.some((s) => s.completed)
+  );
 
   const enterHistoryEdit = () => {
     setDraftExercises(
@@ -4006,7 +4022,8 @@ function HistoryCard({
   const getExMaxWeight = (
     ex: WorkoutSession["exercises"][0]
   ): { kg: number; weight: number; unit: "kg" | "lbs" } | null => {
-    const validSets = ex.sets.filter((s) => s.weight > 0 && s.reps > 0);
+    // 완료된 세트 중에서만 최고 무게 계산
+    const validSets = ex.sets.filter((s) => s.completed && s.weight > 0 && s.reps > 0);
     if (validSets.length === 0) return null;
     let best = validSets[0];
     let bestKg = toKgW(best.weight, best.unit);
@@ -4131,7 +4148,7 @@ function HistoryCard({
                 color: c.textMuted,
                 marginLeft: "auto" as any,
               }}>
-              {session.exercises.length}종목 {expanded ? "▲" : "▼"}
+              {visibleExercises.length}종목 {expanded ? "▲" : "▼"}
             </Text>
           </View>
           {/* 종목 이름 목록 */}
@@ -4142,12 +4159,12 @@ function HistoryCard({
               color: c.textSecondary,
               lineHeight: 20,
             }}>
-            {session.exercises
+            {visibleExercises
               .slice(0, 4)
               .map((ex) => ex.name)
               .join(" · ")}
-            {session.exercises.length > 4
-              ? ` +${session.exercises.length - 4}`
+            {visibleExercises.length > 4
+              ? ` +${visibleExercises.length - 4}`
               : ""}
           </Text>
           {/* 부위별 완료 세트 수 */}
@@ -4301,7 +4318,7 @@ function HistoryCard({
                     color: c.textSecondary,
                     marginBottom: 16,
                   }}>
-                  {session.date} · {session.exercises.length}종목
+                  {session.date} · {visibleExercises.length}종목
                 </Text>
                 <TextInput
                   style={{
@@ -4575,7 +4592,7 @@ function HistoryCard({
           ) : (
             <View>
               <SortableList
-                data={orderedExercises}
+                data={visibleExercises}
                 keyExtractor={(ex) => ex.id}
                 itemHeight={64}
                 scrollRef={scrollRef}
@@ -4596,6 +4613,7 @@ function HistoryCard({
                   const maxInfo = getExMaxWeight(ex);
                   const maxKg = maxInfo?.kg ?? 0; // 비교/PR용 (kg 통일)
                   const exVol = getExVolume(ex);
+                  const doneSetCount = ex.sets.filter((s) => s.completed).length;
                   const allTimePR = getAllTimePR(ex.name);
                   const isPR = maxKg > 0 && maxKg >= allTimePR && allTimePR > 0;
                   const prevInfo = getPrevSessionInfo(ex.name);
@@ -4729,7 +4747,7 @@ function HistoryCard({
                               marginTop: 2,
                             }}>
                             {maxInfo ? `최고 ${maxInfo.weight}${maxInfo.unit} · ` : ""}
-                            {ex.sets.length}세트 · {exVol.toLocaleString()}kg
+                            {doneSetCount}세트 · {exVol.toLocaleString()}kg
                           </Text>
                         </View>
                         <Text
@@ -4951,7 +4969,7 @@ function HistoryCard({
                                 fontWeight: "700",
                                 color: c.textPrimary,
                               }}>
-                              총 {ex.sets.length}세트
+                              총 {doneSetCount}세트
                             </Text>
                             <Text
                               style={{

@@ -392,14 +392,15 @@ describe('workoutStore', () => {
       await act(async () => {
         result.current.startSession();
         result.current.addExercise(BASE_EXERCISE);
-        // 개별설정 OFF → 동일 초기값 3세트
-        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-1', weight: 100, reps: 10 });
-        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-2', weight: 100, reps: 10 });
-        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-3', weight: 100, reps: 10 });
+        // 개별설정 OFF → 동일 초기값 3세트 (모두 완료 처리)
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-1', weight: 100, reps: 10, completed: true });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-2', weight: 100, reps: 10, completed: true });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-3', weight: 100, reps: 10, completed: true });
         // 운동 중 세트마다 다르게 수정
         result.current.updateSet('ex-1', 'set-2', { weight: 110, reps: 8 });
         result.current.updateSet('ex-1', 'set-3', { weight: 120, reps: 6 });
-        await result.current.endSession(0);
+        const r = await result.current.endSession(0);
+        expect(r).toBe('saved');
       });
 
       const postCall = (apiClient.post as jest.Mock).mock.calls.find(
@@ -412,6 +413,43 @@ describe('workoutStore', () => {
         [110, 8],
         [120, 6],
       ]);
+    });
+
+    it('완료 세트만 저장 — 미완료 세트는 제외', async () => {
+      const apiClient = require('../../lib/apiClient').default;
+      (apiClient.post as jest.Mock).mockClear();
+      const { result } = renderHook(() => useWorkoutStore());
+      await act(async () => {
+        result.current.startSession();
+        result.current.addExercise(BASE_EXERCISE);
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-1', weight: 100, reps: 10, completed: true });
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-2', weight: 100, reps: 10, completed: false });
+        await result.current.endSession(0);
+      });
+      const postCall = (apiClient.post as jest.Mock).mock.calls.find(
+        ([url]: [string]) => url === '/workout',
+      );
+      const savedSets = postCall[1].exercises[0].sets;
+      expect(savedSets).toHaveLength(1);
+      expect(savedSets[0].completed).toBe(true);
+    });
+
+    it('완료 세트가 하나도 없으면 저장하지 않고 empty 반환', async () => {
+      const apiClient = require('../../lib/apiClient').default;
+      (apiClient.post as jest.Mock).mockClear();
+      const { result } = renderHook(() => useWorkoutStore());
+      let r: 'empty' | 'saved' | undefined;
+      await act(async () => {
+        result.current.startSession();
+        result.current.addExercise(BASE_EXERCISE);
+        result.current.addSet('ex-1', { ...BASE_SET, id: 'set-1', completed: false });
+        r = await result.current.endSession(0);
+      });
+      expect(r).toBe('empty');
+      const postCall = (apiClient.post as jest.Mock).mock.calls.find(
+        ([url]: [string]) => url === '/workout',
+      );
+      expect(postCall).toBeUndefined();
     });
   });
 });
