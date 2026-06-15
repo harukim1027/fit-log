@@ -4105,11 +4105,23 @@ function HistoryCard({
   const toKgW = (weight: number, unit?: string) =>
     unit === 'lbs' ? weight / 2.20462 : weight;
 
-  const getExMaxWeight = (ex: WorkoutSession["exercises"][0]) => {
+  // 가장 무거운 세트를 kg 환산 기준으로 고르되, 표시는 그 세트의 원래 단위/값으로.
+  // (lbs로 입력한 종목이 kg로 둔갑하던 버그 수정 — 비교/PR 판정은 kg로 통일)
+  const getExMaxWeight = (
+    ex: WorkoutSession["exercises"][0]
+  ): { kg: number; weight: number; unit: "kg" | "lbs" } | null => {
     const validSets = ex.sets.filter((s) => s.weight > 0 && s.reps > 0);
-    return validSets.length > 0
-      ? Math.max(...validSets.map((s) => toKgW(s.weight, s.unit)))
-      : 0;
+    if (validSets.length === 0) return null;
+    let best = validSets[0];
+    let bestKg = toKgW(best.weight, best.unit);
+    for (const s of validSets) {
+      const kg = toKgW(s.weight, s.unit);
+      if (kg > bestKg) {
+        best = s;
+        bestKg = kg;
+      }
+    }
+    return { kg: bestKg, weight: best.weight, unit: (best.unit ?? "kg") as "kg" | "lbs" };
   };
 
   const getExVolume = calcExerciseVolume;
@@ -4685,10 +4697,11 @@ function HistoryCard({
                   onUpdate(reordered);
                 }}
                 renderItem={(ex, _idx, isActive) => {
-                  const maxW = getExMaxWeight(ex);
+                  const maxInfo = getExMaxWeight(ex);
+                  const maxKg = maxInfo?.kg ?? 0; // 비교/PR용 (kg 통일)
                   const exVol = getExVolume(ex);
                   const allTimePR = getAllTimePR(ex.name);
-                  const isPR = maxW > 0 && maxW >= allTimePR && allTimePR > 0;
+                  const isPR = maxKg > 0 && maxKg >= allTimePR && allTimePR > 0;
                   const prevInfo = getPrevSessionInfo(ex.name);
                   const isOpen = exExpanded[ex.id] ?? false;
 
@@ -4819,7 +4832,7 @@ function HistoryCard({
                               fontWeight: "600",
                               marginTop: 2,
                             }}>
-                            {maxW > 0 ? `최고 ${maxW}kg · ` : ""}
+                            {maxInfo ? `최고 ${maxInfo.weight}${maxInfo.unit} · ` : ""}
                             {ex.sets.length}세트 · {exVol.toLocaleString()}kg
                           </Text>
                         </View>
@@ -4937,7 +4950,7 @@ function HistoryCard({
                               borderBottomWidth: 1,
                               borderBottomColor: c.surfaceAlt,
                             }}>
-                            {["세트", "무게(kg)", "횟수", "볼륨"].map((h) => (
+                            {["세트", "무게", "횟수", "볼륨(kg)"].map((h) => (
                               <Text
                                 key={h}
                                 style={{
@@ -4987,6 +5000,9 @@ function HistoryCard({
                                     color: c.textPrimary,
                                   }}>
                                   {st.weight}
+                                  <Text style={{ fontSize: 10, color: c.textMuted, fontWeight: "600" }}>
+                                    {st.unit ?? "kg"}
+                                  </Text>
                                 </Text>
                                 <Text
                                   style={{
@@ -5023,14 +5039,14 @@ function HistoryCard({
                               borderTopWidth: 1,
                               borderTopColor: c.surfaceAlt,
                             }}>
-                            {maxW > 0 && (
+                            {maxInfo && (
                               <Text
                                 style={{
                                   fontSize: 12,
                                   fontWeight: "700",
                                   color: c.textPrimary,
                                 }}>
-                                최고 {maxW}kg
+                                최고 {maxInfo.weight}{maxInfo.unit}
                               </Text>
                             )}
                             <Text
@@ -5053,20 +5069,27 @@ function HistoryCard({
 
                           {/* 이전 대비 */}
                           {prevInfo &&
-                            maxW > 0 &&
+                            maxKg > 0 &&
+                            maxInfo &&
                             (() => {
-                              const diff = maxW - prevInfo.maxWeight;
+                              // 비교는 kg로, 표시는 현재 종목 단위로 환산
+                              const unit = maxInfo.unit;
+                              const kgDiff = maxKg - prevInfo.maxWeight;
+                              const dispDiff =
+                                Math.round(
+                                  (unit === "lbs" ? kgDiff * 2.20462 : kgDiff) * 10
+                                ) / 10;
                               const color =
-                                diff > 0
+                                dispDiff > 0
                                   ? c.success
-                                  : diff < 0
+                                  : dispDiff < 0
                                   ? c.danger
                                   : c.textSecondary;
                               const label =
-                                diff > 0
-                                  ? `+${diff}kg ↑`
-                                  : diff < 0
-                                  ? `${diff}kg ↓`
+                                dispDiff > 0
+                                  ? `+${dispDiff}${unit} ↑`
+                                  : dispDiff < 0
+                                  ? `${dispDiff}${unit} ↓`
                                   : "변동없음";
                               return (
                                 <View
