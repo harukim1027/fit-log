@@ -189,6 +189,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   updateProfile: async (data: Partial<User>) => {
     try {
+      console.log('[PATCH users/me] payload:', JSON.stringify(data));
       const res = await apiClient.patch<User>('/users/me', data);
       const updated = res.data;
       set((s) => ({ user: s.user ? { ...s.user, ...updated } : updated }));

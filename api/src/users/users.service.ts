@@ -51,18 +51,19 @@ export class UsersService {
   }
 
   async updateProfile(id: string, data: UpdateUserDto): Promise<User> {
+    console.log('[updateProfile] id:', id, 'data:', JSON.stringify(data));
     try {
-      // 화이트리스트 통과 후 실제로 갱신할 필드만 남는다. 빈 객체면 update 호출 시
-      // TypeORM이 "update values are not defined"로 던지므로 건너뛴다.
-      if (Object.keys(data).length > 0) {
-        await this.usersRepo.update(id, data);
-      }
+      // update() 대신 findOne + Object.assign + save:
+      // - PK/relation 키가 섞여 들어가도 안전하고, 엔티티 타입 변환을 거친다.
       const user = await this.findById(id);
       if (!user) throw new NotFoundException('유저를 찾을 수 없어요');
-      return user;
-    } catch (error) {
+      Object.assign(user, data);
+      const saved = await this.usersRepo.save(user);
+      console.log('[updateProfile] saved:', saved.id);
+      return saved;
+    } catch (error: any) {
       // Railway/Sentry에서 정확한 원인(컬럼/타입 등)을 확인할 수 있게 로깅
-      console.error('프로필 업데이트 실패:', { id, data, error });
+      console.error('[updateProfile] FAILED:', error?.message, error?.stack);
       throw error;
     }
   }
