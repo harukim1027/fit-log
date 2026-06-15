@@ -86,8 +86,9 @@ type MuscleSessionLike = { exercises: MuscleExerciseLike[] };
 // (사용자 커스터마이즈 지원). 여기서는 집계 함수만 유지한다.
 
 /**
- * 세션의 타겟부위별 "완료" 세트 수 집계.
- * targetMuscles가 있으면 부위별로, 없으면 category로 분류한다.
+ * 세션의 카테고리별 "완료" 세트 수 집계.
+ * 종목의 category(가슴/어깨/팔 등) 기준으로 합산한다. (targetMuscles는 무시)
+ * categoryColorStore의 getColor(category)와 색상이 일관되게 맞물린다.
  */
 export function getMuscleSetCounts(
   session: MuscleSessionLike,
@@ -96,10 +97,8 @@ export function getMuscleSetCounts(
   session.exercises.forEach((ex) => {
     const completedSets = ex.sets.filter((s) => s.completed).length;
     if (completedSets === 0) return;
-    const muscles = ex.targetMuscles?.length ? ex.targetMuscles : [ex.category];
-    muscles.forEach((muscle) => {
-      counts[muscle] = (counts[muscle] ?? 0) + completedSets;
-    });
+    const category = ex.category ?? '기타';
+    counts[category] = (counts[category] ?? 0) + completedSets;
   });
   return counts;
 }
