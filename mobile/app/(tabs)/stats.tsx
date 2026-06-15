@@ -15,6 +15,7 @@ import {
 } from "../../components/AppIcons";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useRestDayStore } from "../../store/restDayStore";
+import { useRoutineStore } from "../../store/routineStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { useColors, ThemeColors } from "../../constants/colors";
@@ -29,6 +30,37 @@ import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
+
+/** 로컬 기준 YYYY-MM-DD (세션 date 형식과 일치, UTC 변환으로 인한 날짜 밀림 방지) */
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+
+/** offset주 전/후의 월~일 범위 (0=이번주, -1=지난주). 월요일 시작. */
+function getWeekRange(offset: number) {
+  const now = new Date();
+  const day = now.getDay(); // 0=일 ~ 6=토
+  const diffToMonday = day === 0 ? -6 : 1 - day; // 일요일이면 직전 월요일(-6)
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { start: monday, end: sunday };
+}
+
+/** 기간 라벨: "이번주 · 6/9 ~ 6/15" 형태 */
+function formatWeekRange(offset: number) {
+  const { start, end } = getWeekRange(offset);
+  const r = `${start.getMonth() + 1}/${start.getDate()} ~ ${
+    end.getMonth() + 1
+  }/${end.getDate()}`;
+  if (offset === 0) return `이번주 · ${r}`;
+  if (offset === -1) return `지난주 · ${r}`;
+  return r;
+}
 
 function makeChartConfig(c: ThemeColors) {
   return {
@@ -58,6 +90,9 @@ export default function StatsScreen() {
   const { restDays, fetchRestDays } = useRestDayStore(
     useShallow((s) => ({ restDays: s.restDays, fetchRestDays: s.fetchRestDays }))
   );
+  const { routines, loadRoutines } = useRoutineStore(
+    useShallow((s) => ({ routines: s.routines, loadRoutines: s.loadRoutines }))
+  );
   const { user, logout } = useAuthStore(
     useShallow((s) => ({ user: s.user, logout: s.logout }))
   );
@@ -65,33 +100,39 @@ export default function StatsScreen() {
   const [selectedExercise, setSelectedExercise] = React.useState<string | null>(
     null
   );
+  // 주간 차트 기간 오프셋 (0=이번주, -1=지난주, ...). 미래(>0)로는 이동 불가.
+  const [weekOffset, setWeekOffset] = React.useState(0);
 
   const chartConfig = React.useMemo(() => makeChartConfig(c), [c]);
 
   React.useEffect(() => {
     if (sessions.length === 0) fetchSessions();
     fetchRestDays();
+    if (routines.length === 0) loadRoutines();
   }, []);
 
-  const last7 = [...Array(7)].map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().split("T")[0];
+  // 선택된 주(월~일)의 날짜별 볼륨/소모
+  const { start: weekStart } = getWeekRange(weekOffset);
+  const weekDays = [...Array(7)].map((_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return { dateStr: ymd(d), label: d.toLocaleDateString("ko-KR", { weekday: "short" }) };
   });
 
-  const last7Sessions = last7.map((date) =>
+  const weekVolumes = weekDays.map((w) =>
     sessions
-      .filter((s) => s.date === date)
+      .filter((s) => s.date === w.dateStr)
       .reduce((sum, s) => sum + calcSessionVolume(s), 0)
   );
 
-  const totalVolume = sessions.reduce((sum, s) => sum + calcSessionVolume(s), 0);
-
-  const last7BurnData = last7.map((date) =>
+  const weekBurns = weekDays.map((w) =>
     sessions
-      .filter((s) => s.date === date)
+      .filter((s) => s.date === w.dateStr)
       .reduce((sum, s) => sum + (s.caloriesBurned ?? 0), 0)
   );
+
+  // 총 볼륨/총 운동 등 요약은 전체 기간 기준(기간 이동과 무관)
+  const totalVolume = sessions.reduce((sum, s) => sum + calcSessionVolume(s), 0);
 
   const prMap: Record<string, number> = {};
   sessions.forEach((s) => {
@@ -142,24 +183,50 @@ export default function StatsScreen() {
     return points.length >= 2 ? points : null;
   }, [sessions, activeExercise]);
 
-  const dayLabels = last7.map((d) =>
-    new Date(d).toLocaleDateString("ko-KR", { weekday: "short" })
-  );
-
   // 날짜별 막대 종류 결정: 운동함 → 실제 값 / 쉬는날 지정 → 체크무늬 / 그 외 → 빈 막대
   const barType = (dateStr: string, value: number): BarDatum["type"] =>
     value > 0 ? "workout" : restDays.includes(dateStr) ? "rest" : "empty";
 
-  const volumeBarsAll: BarDatum[] = last7.map((date, i) => ({
-    label: dayLabels[i],
-    value: last7Sessions[i],
-    type: barType(date, last7Sessions[i]),
+  // 세션 → 루틴 색 (루틴 없거나 삭제된 루틴이면 개별 운동 색)
+  const sessionColor = (s: (typeof sessions)[number]): string => {
+    const r = s.fromRoutineId ? routines.find((x) => x.id === s.fromRoutineId) : undefined;
+    return r?.color ?? c.textMuted;
+  };
+
+  // 해당 날짜 막대 색 = 그 날 볼륨이 가장 큰 세션의 루틴 색
+  const dayRoutineColor = (dateStr: string): string | undefined => {
+    const day = sessions.filter((s) => s.date === dateStr);
+    if (day.length === 0) return undefined;
+    let best = day[0];
+    let bestVol = calcSessionVolume(day[0]);
+    for (const s of day) {
+      const v = calcSessionVolume(s);
+      if (v > bestVol) { best = s; bestVol = v; }
+    }
+    return sessionColor(best);
+  };
+
+  const volumeBarsAll: BarDatum[] = weekDays.map((w, i) => ({
+    label: w.label,
+    value: weekVolumes[i],
+    type: barType(w.dateStr, weekVolumes[i]),
+    color: dayRoutineColor(w.dateStr),
   }));
 
-  const burnBarsAll: BarDatum[] = last7.map((date, i) => ({
-    label: dayLabels[i],
-    value: last7BurnData[i],
-    type: barType(date, last7BurnData[i]),
+  // 볼륨 차트 범례용: 이번 주에 사용된 루틴 + 개별 운동 여부
+  const weekDateSet = new Set(weekDays.map((w) => w.dateStr));
+  const weekSessions = sessions.filter((s) => weekDateSet.has(s.date));
+  const usedRoutines = routines.filter((r) =>
+    weekSessions.some((s) => s.fromRoutineId === r.id)
+  );
+  const hasNonRoutine = weekSessions.some(
+    (s) => !s.fromRoutineId || !routines.find((r) => r.id === s.fromRoutineId)
+  );
+
+  const burnBarsAll: BarDatum[] = weekDays.map((w, i) => ({
+    label: w.label,
+    value: weekBurns[i],
+    type: barType(w.dateStr, weekBurns[i]),
   }));
 
   // 그래프엔 운동/쉬는날만 표시 — 운동 안 한 날(값 0 & 쉬는날 아님)은 제외
@@ -245,6 +312,42 @@ export default function StatsScreen() {
           />
         </View>
 
+        {/* 주간 기간 네비게이션 (볼륨·칼로리 차트 공통) */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: c.surface,
+            borderRadius: 16,
+            paddingHorizontal: 8,
+            paddingVertical: 6,
+            marginBottom: 10,
+          }}>
+          <TouchableOpacity
+            onPress={() => setWeekOffset((o) => o - 1)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary }}>◀</Text>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+            {formatWeekRange(weekOffset)}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
+            disabled={weekOffset >= 0}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{
+              width: 40,
+              height: 32,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: weekOffset >= 0 ? 0.3 : 1,
+            }}>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary }}>▶</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 주간 운동 볼륨 */}
         <Card className="mb-4">
           <Text className="text-[15px] font-bold text-text-secondary mb-1">
@@ -263,8 +366,54 @@ export default function StatsScreen() {
                 c={c}
                 patternId="restVolume"
               />
-              <View style={{ alignItems: "center", marginTop: 6 }}>
-                <RestBarLegend color={c.danger} c={c} />
+              {/* 루틴별 색상 범례 */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  marginTop: 12,
+                  justifyContent: "center",
+                }}>
+                {usedRoutines.map((r) => (
+                  <View
+                    key={r.id}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: r.color ?? c.textMuted,
+                      }}
+                    />
+                    <Text style={{ fontSize: 12, color: c.textSecondary }}>{r.name}</Text>
+                  </View>
+                ))}
+                {hasNonRoutine && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View
+                      style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.textMuted }}
+                    />
+                    <Text style={{ fontSize: 12, color: c.textSecondary }}>개별 운동</Text>
+                  </View>
+                )}
+                {/* 쉬는날(체크무늬)이 있으면 함께 안내 */}
+                {volumeBars.some((b) => b.type === "rest") && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 3,
+                        borderWidth: 1,
+                        borderColor: c.border,
+                        backgroundColor: c.surfaceAlt,
+                      }}
+                    />
+                    <Text style={{ fontSize: 12, color: c.textSecondary }}>쉬는날</Text>
+                  </View>
+                )}
               </View>
             </View>
           ) : (

@@ -28,6 +28,8 @@ export interface BarDatum {
   label: string;
   value: number;
   type: BarType;
+  /** workout 막대 개별 색 (루틴 색). 없으면 props.color 사용 */
+  color?: string;
 }
 
 interface Props {
@@ -151,7 +153,7 @@ export function RestBarChart({
         const y = baseline - barH;
         return (
           <React.Fragment key={i}>
-            <Rect x={x} y={y} width={barW} height={barH} rx={5} fill={color} />
+            <Rect x={x} y={y} width={barW} height={barH} rx={5} fill={d.color ?? color} />
             <SvgText
               x={cx}
               y={y - 4}

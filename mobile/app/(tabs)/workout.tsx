@@ -6,6 +6,11 @@ import {
   cancelRestEndNotification,
 } from "../../lib/workoutNotification";
 import {
+  startRestLiveActivity,
+  updateRestLiveActivity,
+  endRestLiveActivity,
+} from "../../lib/liveActivity";
+import {
   View,
   Text,
   TextInput,
@@ -347,6 +352,30 @@ export default function WorkoutScreen() {
     }
   }, [timerState.running, timerState.paused]);
 
+  // iOS Live Activity (잠금화면 + 다이나믹 아일랜드)에 휴식 타이머 표시.
+  // 네이티브 미빌드/Android에서는 wrapper가 no-op이라 안전.
+  const liveActivityActiveRef = useRef(false);
+  useEffect(() => {
+    if (!activeSession) return;
+    const { running, paused, remaining } = timerState;
+    if (running && remaining > 0) {
+      const endDateMs = Date.now() + remaining * 1000;
+      const name =
+        currentExName ||
+        activeSession.exercises[activeSession.exercises.length - 1]?.name ||
+        "휴식";
+      if (!liveActivityActiveRef.current) {
+        startRestLiveActivity(name, endDateMs, paused, remaining);
+        liveActivityActiveRef.current = true;
+      } else {
+        updateRestLiveActivity(endDateMs, paused, remaining);
+      }
+    } else if (liveActivityActiveRef.current) {
+      endRestLiveActivity();
+      liveActivityActiveRef.current = false;
+    }
+  }, [timerState.running, timerState.paused]);
+
   /**
    * 휴식 타이머 초기화.
    * timerState/timerPinned/currentExName은 workout.tsx 로컬 상태라 탭이 언마운트되지
@@ -357,6 +386,8 @@ export default function WorkoutScreen() {
     setTimerPinned(false);
     setCurrentExName("");
     cancelRestEndNotification().catch(() => {});
+    endRestLiveActivity();
+    liveActivityActiveRef.current = false;
   }, []);
 
   // 세션이 바뀔 때마다(새 세션 시작 → 새 id / 종료·취소 → null) 타이머를 리셋해

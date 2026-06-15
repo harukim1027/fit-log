@@ -383,6 +383,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         durationMinutes,
         caloriesBurned,
         note: active.note,
+        fromRoutineId: active.fromRoutineId ?? null,
         exercises: active.exercises.map((ex, idx) => ({
           name: ex.name,
           category: ex.category,

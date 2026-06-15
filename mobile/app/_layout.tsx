@@ -15,6 +15,7 @@ import { useWorkoutStore } from "../store/workoutStore";
 import { showCuteAlert } from "../components/CuteAlert";
 import * as Notifications from 'expo-notifications';
 import { View, ActivityIndicator } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CuteAlertHost } from "../components/CuteAlert";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -233,6 +234,7 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       {/* vars()로 NativeWind CSS 변수를 런타임에 교체 — bg-surface, bg-background 등 모든 클래스가 여기서 동적으로 해결됩니다 */}
       <View style={[{ flex: 1 }, mode === "dark" ? darkVars : lightVars]}>
@@ -277,6 +279,7 @@ export default function RootLayout() {
       </View>
     </SafeAreaProvider>
     <CuteAlertHost />
+    </GestureHandlerRootView>
     </ErrorBoundary>
   );
 }

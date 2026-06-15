@@ -19,12 +19,15 @@ import {
   useRoutineStore,
   Routine,
   RoutineExercise,
+  ROUTINE_COLOR_POOL,
+  getNextRoutineColor,
 } from "../../store/routineStore";
 import ExerciseAdder, {
   ExerciseAddResult,
 } from "../../components/workout/ExerciseAdder";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
+import { RoutineColorPicker } from "../../components/RoutineColorPicker";
 
 const fmtRest = (sec: number): string => {
   if (sec < 60) return `${sec}초`;
@@ -77,6 +80,7 @@ export default function RoutineManageModal() {
   const [subMode, setSubMode] = useState<SubMode>("main");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState("");
+  const [routineColor, setRoutineColor] = useState<string>(ROUTINE_COLOR_POOL[0]);
   const [exercises, setExercises] = useState<ExerciseDraft[]>([]);
   const [nameError, setNameError] = useState("");
   const [exercisesError, setExercisesError] = useState("");
@@ -141,6 +145,8 @@ export default function RoutineManageModal() {
     if (mode === "create") {
       setRoutineName("");
       setExercises([]);
+      // 새 루틴: 아직 안 쓰인 색상 자동 선택
+      setRoutineColor(getNextRoutineColor(routines));
       setTimeout(() => nameRef.current?.focus(), 300);
     }
   }, [mode]);
@@ -153,6 +159,7 @@ export default function RoutineManageModal() {
   const openEdit = (r: Routine) => {
     setEditingId(r.id);
     setRoutineName(r.name);
+    setRoutineColor(r.color ?? getNextRoutineColor(routines));
     setExercises(r.exercises.map((e, i) => toKey(e, i)));
     setMode("edit");
   };
@@ -220,11 +227,12 @@ export default function RoutineManageModal() {
     const payload = exercises.map(({ gifUrl, key, ...rest }) => rest);
     try {
       if (mode === "create")
-        await addRoutine({ name: routineName.trim(), exercises: payload });
+        await addRoutine({ name: routineName.trim(), exercises: payload, color: routineColor });
       else if (editingId)
         await updateRoutine(editingId, {
           name: routineName.trim(),
           exercises: payload,
+          color: routineColor,
         });
       setMode("list");
     } catch (e) {
@@ -932,6 +940,11 @@ export default function RoutineManageModal() {
             {!!nameError && (
               <Text style={{ fontSize: 11, color: c.danger, marginBottom: 14, marginTop: 2 }}>{nameError}</Text>
             )}
+
+            {/* 루틴 색상 — 추천 팔레트 + 자유 색상 휠 */}
+            <View style={{ marginBottom: 20 }}>
+              <RoutineColorPicker value={routineColor} onChange={setRoutineColor} />
+            </View>
 
             <Text
               style={{

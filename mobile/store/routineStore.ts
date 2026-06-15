@@ -53,7 +53,28 @@ export interface Routine {
   shareCode?: string;
   copyCount?: number;
   authorName?: string;
+  /** 통계 차트 루틴별 색상 (hex). 생성 시 자동 할당, 사용자가 변경 가능. */
+  color?: string;
 }
+
+// 루틴 자동 색상 풀 (백엔드 routine.service의 ROUTINE_COLOR_POOL과 동일 순서)
+export const ROUTINE_COLOR_POOL = [
+  '#F07A95', // 분홍
+  '#2E82F0', // 파랑
+  '#4FA98C', // 초록
+  '#9B7EDE', // 보라
+  '#E89B4F', // 주황
+  '#54B0C4', // 청록
+  '#D97AB8', // 자홍
+  '#7C8B3D', // 올리브
+];
+
+/** 안 쓰인 색상 우선, 다 쓰면 개수 기준 순환 */
+export const getNextRoutineColor = (existing: Routine[]): string => {
+  const used = existing.map((r) => r.color).filter(Boolean);
+  const unused = ROUTINE_COLOR_POOL.find((c) => !used.includes(c));
+  return unused ?? ROUTINE_COLOR_POOL[existing.length % ROUTINE_COLOR_POOL.length];
+};
 
 interface RoutineStore {
   routines: Routine[];
@@ -116,8 +137,10 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
    * 임시 ID는 서버 ID와 다를 수 있어 다음 loadRoutines 시 서버 데이터로 교체된다.
    */
   addRoutine: async (data) => {
+    // 색상 미지정 시 자동 할당 (오프라인 폴백에서도 색이 보이도록 클라이언트에서 결정)
+    const payload = { ...data, color: data.color ?? getNextRoutineColor(get().routines) };
     try {
-      const res = await apiClient.post('/routine', data);
+      const res = await apiClient.post('/routine', payload);
       const routine: Routine = res.data;
       const next = [...get().routines, routine];
       set({ routines: next });
@@ -125,7 +148,7 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
     } catch {
       // 오프라인 폴백: 임시 ID로 로컬 저장
       const routine: Routine = {
-        ...data,
+        ...payload,
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
       };
@@ -272,7 +295,7 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
       await persist(next);
     } catch {
       // 오프라인 폴백
-      const routine: Routine = { id: Date.now().toString(), name, exercises, createdAt: new Date().toISOString() };
+      const routine: Routine = { id: Date.now().toString(), name, exercises, createdAt: new Date().toISOString(), color: getNextRoutineColor(get().routines) };
       const next = [...get().routines, routine];
       set({ routines: next });
       await persist(next);

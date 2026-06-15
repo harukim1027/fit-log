@@ -19,6 +19,10 @@ export class WorkoutSession {
   @Column({ type: 'float', nullable: true, default: null })
   caloriesBurned: number;
 
+  // 이 세션이 시작된 루틴 id (통계 차트 루틴별 색상용). 개별 운동이면 null.
+  @Column({ nullable: true })
+  fromRoutineId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
