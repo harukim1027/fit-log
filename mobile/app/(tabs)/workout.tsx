@@ -1679,6 +1679,7 @@ export default function WorkoutScreen() {
                       const currentSet = ex.sets[curIdx] ?? null;
                       const allDone =
                         ex.sets.length > 0 && completedSets === ex.sets.length;
+                      const exVol = calcExerciseVolume(ex);
 
                       const handleSetTap = (i: number) => {
                         if (i === completedSets) {
@@ -1713,31 +1714,25 @@ export default function WorkoutScreen() {
                       };
 
                       return (
-                        <View style={{ marginBottom: 12 }}>
+                        <View style={{ marginBottom: 8 }}>
                           <Card className="mb-0">
                             {/* Header: chevron + drag + name + pencil + category */}
+                            {/* 한 줄 요약 행: 드래그 · 종목명/카테고리/메타 · 세트 원 · 펼침 */}
                             <View
                               style={{
                                 flexDirection: "row",
                                 alignItems: "center",
-                                gap: 6,
-                                marginBottom: 10,
+                                gap: 10,
                               }}>
-                              <View
-                                style={{
-                                  opacity: isActive ? 1 : 0.35,
-                                  flexShrink: 0,
-                                }}>
-                                <Icon
-                                  name="menu"
-                                  size={16}
-                                  color={c.textSecondary}
-                                />
+                              <View style={{ opacity: isActive ? 1 : 0.35, flexShrink: 0 }}>
+                                <Icon name="menu" size={16} color={c.textSecondary} />
                               </View>
+
+                              {/* 좌측 텍스트 블록 */}
                               {activeEditExId === ex.id ? (
                                 <TextInput
                                   style={{
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: "900",
                                     color: c.textPrimary,
                                     flex: 1,
@@ -1749,13 +1744,8 @@ export default function WorkoutScreen() {
                                   onChangeText={setDraftExName}
                                   returnKeyType="done"
                                   onSubmitEditing={() => {
-                                    if (
-                                      draftExName.trim() &&
-                                      draftExName.trim() !== ex.name
-                                    )
-                                      updateExercise(ex.id, {
-                                        name: draftExName.trim(),
-                                      } as any);
+                                    if (draftExName.trim() && draftExName.trim() !== ex.name)
+                                      updateExercise(ex.id, { name: draftExName.trim() } as any);
                                   }}
                                 />
                               ) : (
@@ -1763,59 +1753,89 @@ export default function WorkoutScreen() {
                                   style={{ flex: 1 }}
                                   onPress={() => enterEdit(ex)}
                                   activeOpacity={0.7}>
-                                  <Text
+                                  {/* 카테고리 배지 — 종목명 위에 배치(이름 가림 방지) */}
+                                  <TouchableOpacity
                                     style={{
-                                      fontSize: 16,
-                                      fontWeight: "900",
-                                      color: c.textPrimary,
+                                      alignSelf: "flex-start",
+                                      backgroundColor: c.surfaceAlt,
+                                      borderRadius: 999,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 2,
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      gap: 2,
+                                      marginBottom: 3,
                                     }}
-                                    numberOfLines={1}>
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    activeOpacity={0.7}
+                                    onPress={() => openTargetEditor(ex)}>
+                                    <Text style={{ fontSize: 10, fontWeight: "800", color: c.success }}>
+                                      {ex.category}
+                                    </Text>
+                                    <Icon name="pencil" size={8} color={c.success} />
+                                  </TouchableOpacity>
+                                  <Text
+                                    style={{ fontSize: 14.5, fontWeight: "900", color: c.textPrimary, lineHeight: 19 }}
+                                    numberOfLines={2}
+                                    ellipsizeMode="tail">
                                     {ex.name}
+                                  </Text>
+                                  <Text
+                                    style={{ fontSize: 11.5, color: c.textSecondary, marginTop: 2, fontVariant: ["tabular-nums"] }}
+                                    numberOfLines={1}>
+                                    {completedSets}/{ex.sets.length}세트
+                                    {exVol > 0 ? ` · ${exVol.toLocaleString()}kg` : ""}
                                   </Text>
                                 </TouchableOpacity>
                               )}
 
-                              {ex.restSeconds && ex.restSeconds > 0 && (
-                                <Text
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: "700",
-                                    color: c.textMuted,
-                                    flexShrink: 0,
-                                  }}>
-                                  {fmtRestSeconds(ex.restSeconds)}
+                              {/* 세트 원 (편집 중 아닐 때, 가로·좌측정렬, 최대 6 + N) */}
+                              {activeEditExId !== ex.id && ex.sets.length > 0 && (
+                                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
+                                  {ex.sets.slice(0, 6).map((st, i) => (
+                                    <SetIndicator
+                                      key={st.id}
+                                      size={34}
+                                      state={i < completedSets ? "done" : i === completedSets ? "current" : "todo"}
+                                      index={i}
+                                      showLabel={false}
+                                      weight={st.weight}
+                                      reps={st.reps}
+                                      unit={st.unit}
+                                      onPress={() => handleSetTap(i)}
+                                      onLongPress={() => {
+                                        if (ex.sets.length <= 1) {
+                                          showCuteAlert({ icon: "alert", tone: "info", title: "알림", message: "세트는 최소 1개가 필요해요", buttons: [{ label: "확인", style: "primary" }] });
+                                          return;
+                                        }
+                                        showCuteAlert({ icon: "trash", tone: "danger", title: "세트 삭제", message: "이 세트를 삭제할까요?", buttons: [{ label: "취소", style: "soft" }, { label: "삭제", style: "primary", onPress: () => removeSet(ex.id, st.id) }] });
+                                      }}
+                                    />
+                                  ))}
+                                  {ex.sets.length > 6 && (
+                                    <View style={{ height: 34, justifyContent: "center", alignItems: "center", paddingHorizontal: 2 }}>
+                                      <Text style={{ fontSize: 11, fontWeight: "800", color: c.textMuted }}>
+                                        +{ex.sets.length - 6}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                              )}
+
+                              {/* 펼침 chevron (기존 상세보기 토글 동작 유지) */}
+                              <TouchableOpacity
+                                onPress={() =>
+                                  setDetailExpanded((prev) => ({ ...prev, [ex.id]: !isExpanded }))
+                                }
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                style={{ flexShrink: 0, paddingHorizontal: 2 }}>
+                                <Text style={{ fontSize: 14, color: c.textMuted }}>
+                                  {isExpanded ? "▴" : "▾"}
                                 </Text>
-                              )}
-                              {/* 카테고리 뱃지 — 탭하면 타겟부위 변경 모달 (수정 중에는 숨김) */}
-                              {activeEditExId !== ex.id && (
-                                <TouchableOpacity
-                                  style={{
-                                    backgroundColor: c.surfaceAlt,
-                                    borderRadius: 999,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 5,
-                                    flexShrink: 0,
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: 3,
-                                  }}
-                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                  activeOpacity={0.7}
-                                  onPress={() => openTargetEditor(ex)}>
-                                  <Text
-                                    style={{
-                                      fontSize: 11,
-                                      fontWeight: "800",
-                                      color: c.success,
-                                    }}>
-                                    {ex.category}
-                                  </Text>
-                                  <Icon name="pencil" size={9} color={c.success} />
-                                </TouchableOpacity>
-                              )}
+                              </TouchableOpacity>
                             </View>
-                            {/* ── 1. 타겟 부위 ── 수정 중에는 선택 UI, 평소엔 뱃지 */}
-                            {activeEditExId === ex.id ? (
+                            {/* ── 타겟 부위 편집 (수정 중에만) ── */}
+                            {activeEditExId === ex.id && (
                               <View
                                 style={{
                                   backgroundColor: c.surfaceAlt,
@@ -1875,135 +1895,9 @@ export default function WorkoutScreen() {
                                   </TouchableOpacity>
                                 </View>
                               </View>
-                            ) : (
-                              (ex.targetMuscles?.length ?? 0) > 0 && (
-                                <TouchableOpacity
-                                  style={{
-                                    flexDirection: "row",
-                                    flexWrap: "wrap",
-                                    gap: 4,
-                                    marginTop: 6,
-                                  }}
-                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                  activeOpacity={0.7}
-                                  onPress={() => openTargetEditor(ex)}>
-                                  {ex.targetMuscles!.map((m, mi) => (
-                                    <View
-                                      key={mi}
-                                      style={{
-                                        backgroundColor: c.primary + "18",
-                                        borderRadius: 999,
-                                        paddingHorizontal: 7,
-                                        paddingVertical: 2,
-                                      }}>
-                                      <Text
-                                        style={{
-                                          fontSize: 10,
-                                          fontWeight: "700",
-                                          color: c.primary,
-                                        }}>
-                                        {m}
-                                      </Text>
-                                    </View>
-                                  ))}
-                                </TouchableOpacity>
-                              )
                             )}
 
-                            {/* ── 2. 세트 아이콘 ── */}
-                            {ex.sets.length > 0 && (
-                              <View
-                                style={{
-                                  flexDirection: "row",
-                                  alignItems: "flex-start",
-                                  justifyContent: "center",
-                                  flexWrap: "wrap",
-                                  gap: 8,
-                                  marginTop: 10,
-                                  marginBottom: 6,
-                                }}>
-                                {ex.sets.map((st, i) => (
-                                  <SetIndicator
-                                    key={st.id}
-                                    state={
-                                      i < completedSets
-                                        ? "done"
-                                        : i === completedSets
-                                        ? "current"
-                                        : "todo"
-                                    }
-                                    index={i}
-                                    showLabel={false}
-                                    weight={st.weight}
-                                    reps={st.reps}
-                                    unit={st.unit}
-                                    onPress={() => handleSetTap(i)}
-                                    onLongPress={() => {
-                                      if (ex.sets.length <= 1) {
-                                        showCuteAlert({
-                                          icon: "alert",
-                                          tone: "info",
-                                          title: "알림",
-                                          message: "세트는 최소 1개가 필요해요",
-                                          buttons: [
-                                            { label: "확인", style: "primary" },
-                                          ],
-                                        });
-                                        return;
-                                      }
-                                      showCuteAlert({
-                                        icon: "trash",
-                                        tone: "danger",
-                                        title: "세트 삭제",
-                                        message: "이 세트를 삭제할까요?",
-                                        buttons: [
-                                          { label: "취소", style: "soft" },
-                                          {
-                                            label: "삭제",
-                                            style: "primary",
-                                            onPress: () =>
-                                              removeSet(ex.id, st.id),
-                                          },
-                                        ],
-                                      });
-                                    }}
-                                  />
-                                ))}
-                              </View>
-                            )}
-
-                            {/* ── 상세보기 토글 버튼 ── */}
-                            <TouchableOpacity
-                              onPress={() =>
-                                setDetailExpanded((prev) => ({
-                                  ...prev,
-                                  [ex.id]: !isExpanded,
-                                }))
-                              }
-                              activeOpacity={0.7}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 4,
-                                paddingVertical: 10,
-                                marginTop: 6,
-                                borderTopWidth: 1,
-                                borderTopColor: c.border,
-                              }}>
-                              <Text
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: "700",
-                                  color: c.textMuted,
-                                }}>
-                                {isExpanded ? "접기" : "상세보기"}
-                              </Text>
-                              <Text
-                                style={{ fontSize: 11, color: c.textMuted }}>
-                                {isExpanded ? " ▲" : " ▼"}
-                              </Text>
-                            </TouchableOpacity>
+                            {/* 세트 원·펼침(▾)은 상단 한 줄 행으로 이동됨 */}
 
                             {/* ── 상세 정보 (토글) ── */}
                             {isExpanded && (
