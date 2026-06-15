@@ -1,5 +1,6 @@
 import React from "react";
-import { calcSessionVolume } from "../../utils/workout";
+import { calcSessionVolume, calcExerciseVolume } from "../../utils/workout";
+import { useCategoryColor } from "../../store/categoryColorStore";
 import {
   View,
   Text,
@@ -102,6 +103,9 @@ export default function StatsScreen() {
   );
   // 주간 차트 기간 오프셋 (0=이번주, -1=지난주, ...). 미래(>0)로는 이동 불가.
   const [weekOffset, setWeekOffset] = React.useState(0);
+  // 주간 볼륨 차트 막대 색 기준: 부위별(기본) / 루틴별
+  const [chartColorMode, setChartColorMode] = React.useState<"category" | "routine">("category");
+  const getCategoryColor = useCategoryColor();
 
   const chartConfig = React.useMemo(() => makeChartConfig(c), [c]);
 
@@ -206,21 +210,43 @@ export default function StatsScreen() {
     return sessionColor(best);
   };
 
+  // 해당 날짜 막대 색 = 그 날 볼륨이 가장 큰 "부위"의 색
+  const dayCategoryColor = (dateStr: string): string | undefined => {
+    const day = sessions.filter((s) => s.date === dateStr);
+    if (day.length === 0) return undefined;
+    const byCat: Record<string, number> = {};
+    day.forEach((s) =>
+      s.exercises.forEach((ex) => {
+        byCat[ex.category] = (byCat[ex.category] ?? 0) + calcExerciseVolume(ex);
+      })
+    );
+    const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+    return top ? getCategoryColor(top[0]) : undefined;
+  };
+
   const volumeBarsAll: BarDatum[] = weekDays.map((w, i) => ({
     label: w.label,
     value: weekVolumes[i],
     type: barType(w.dateStr, weekVolumes[i]),
-    color: dayRoutineColor(w.dateStr),
+    color:
+      chartColorMode === "routine"
+        ? dayRoutineColor(w.dateStr)
+        : dayCategoryColor(w.dateStr),
   }));
 
-  // 볼륨 차트 범례용: 이번 주에 사용된 루틴 + 개별 운동 여부
+  // 볼륨 차트 범례용
   const weekDateSet = new Set(weekDays.map((w) => w.dateStr));
   const weekSessions = sessions.filter((s) => weekDateSet.has(s.date));
+  // 루틴 모드 범례
   const usedRoutines = routines.filter((r) =>
     weekSessions.some((s) => s.fromRoutineId === r.id)
   );
   const hasNonRoutine = weekSessions.some(
     (s) => !s.fromRoutineId || !routines.find((r) => r.id === s.fromRoutineId)
+  );
+  // 부위 모드 범례 (이번 주 등장한 카테고리)
+  const usedCategories = Array.from(
+    new Set(weekSessions.flatMap((s) => s.exercises.map((ex) => ex.category)).filter(Boolean))
   );
 
   const burnBarsAll: BarDatum[] = weekDays.map((w, i) => ({
@@ -350,9 +376,28 @@ export default function StatsScreen() {
 
         {/* 주간 운동 볼륨 */}
         <Card className="mb-4">
-          <Text className="text-[15px] font-bold text-text-secondary mb-1">
-            주간 운동 볼륨
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <Text className="text-[15px] font-bold text-text-secondary">
+              주간 운동 볼륨
+            </Text>
+            {/* 막대 색 기준 토글 */}
+            <View style={{ flexDirection: "row", backgroundColor: c.surfaceAlt, borderRadius: 999, padding: 3 }}>
+              {(["category", "routine"] as const).map((m) => {
+                const on = chartColorMode === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => setChartColorMode(m)}
+                    activeOpacity={0.8}
+                    style={{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: on ? c.surface : "transparent" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: on ? c.primary : c.textMuted }}>
+                      {m === "category" ? "부위별" : "루틴별"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
           {volumeBars.length > 0 ? (
             <View>
               <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 10 }}>
@@ -375,28 +420,48 @@ export default function StatsScreen() {
                   marginTop: 12,
                   justifyContent: "center",
                 }}>
-                {usedRoutines.map((r) => (
-                  <View
-                    key={r.id}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {chartColorMode === "routine" ? (
+                  <>
+                    {usedRoutines.map((r) => (
+                      <View
+                        key={r.id}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <View
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: 6,
+                            backgroundColor: r.color ?? c.textMuted,
+                          }}
+                        />
+                        <Text style={{ fontSize: 12, color: c.textSecondary }}>{r.name}</Text>
+                      </View>
+                    ))}
+                    {hasNonRoutine && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <View
+                          style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.textMuted }}
+                        />
+                        <Text style={{ fontSize: 12, color: c.textSecondary }}>개별 운동</Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  usedCategories.map((cat) => (
                     <View
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: r.color ?? c.textMuted,
-                      }}
-                    />
-                    <Text style={{ fontSize: 12, color: c.textSecondary }}>{r.name}</Text>
-                  </View>
-                ))}
-                {hasNonRoutine && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <View
-                      style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.textMuted }}
-                    />
-                    <Text style={{ fontSize: 12, color: c.textSecondary }}>개별 운동</Text>
-                  </View>
+                      key={cat}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 6,
+                          backgroundColor: getCategoryColor(cat),
+                        }}
+                      />
+                      <Text style={{ fontSize: 12, color: c.textSecondary }}>{cat}</Text>
+                    </View>
+                  ))
                 )}
                 {/* 쉬는날(체크무늬)이 있으면 함께 안내 */}
                 {volumeBars.some((b) => b.type === "rest") && (

@@ -17,3 +17,4 @@ dist
 # EAS 빌드 시크릿
 eas.json
 **/secrets/
+ios/sentry.properties

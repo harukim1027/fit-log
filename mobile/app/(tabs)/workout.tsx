@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { calcExerciseVolume, getMuscleSetCounts, getMuscleColor } from "../../utils/workout";
+import { calcExerciseVolume, getMuscleSetCounts } from "../../utils/workout";
+import { useCategoryColor } from "../../store/categoryColorStore";
 import {
   scheduleRestEndNotification,
   cancelRestEndNotification,
@@ -3954,6 +3955,7 @@ function HistoryCard({
 
   // 부위별 완료 세트 수 (targetMuscles 우선, 없으면 category)
   const muscleCounts = getMuscleSetCounts(session);
+  const getCategoryColor = useCategoryColor();
 
   const enterHistoryEdit = () => {
     setDraftExercises(
@@ -4271,7 +4273,7 @@ function HistoryCard({
                     style={{
                       width: 3,
                       height: 14,
-                      backgroundColor: getMuscleColor(muscle),
+                      backgroundColor: getCategoryColor(muscle),
                       borderRadius: 2,
                     }}
                   />

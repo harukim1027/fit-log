@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { showCuteAlert } from "../../components/CuteAlert";
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal } from "react-native";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import {
   SafeAreaView,
@@ -10,6 +10,9 @@ import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
 import { useDietStore } from "../../store/dietStore";
 import { useSettingsStore } from "../../store/settingsStore";
+import { useCategoryColorStore, useCategoryColor } from "../../store/categoryColorStore";
+import { DEFAULT_CATEGORY_COLORS } from "../../constants/categoryColors";
+import { CategoryColorPicker } from "../../components/CategoryColorPicker";
 import { useColors } from "../../constants/colors";
 import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { GoalIcon, Icon } from "../../components/AppIcons";
@@ -29,6 +32,11 @@ export default function EditProfileModal() {
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
   const { weightUnit, showBodypartSelector, notifyBeforeRestEnd, loadSettings, setWeightUnit, setShowBodypartSelector, setNotifyBeforeRestEnd } = useSettingsStore();
+  const categoryColors = useCategoryColorStore((s) => s.colors);
+  const setCategoryColor = useCategoryColorStore((s) => s.setColor);
+  const resetCategoryColor = useCategoryColorStore((s) => s.resetColor);
+  const getCategoryColor = useCategoryColor();
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => { loadSettings(); }, []);
@@ -311,6 +319,40 @@ export default function EditProfileModal() {
               }} />
             </TouchableOpacity>
           </View>
+
+          {/* 부위별 색상 (통계/부위 뱃지/캘린더 공통) */}
+          <Text style={{ fontSize: 13, fontWeight: '700', color: c.textSecondary, marginTop: 20, marginBottom: 8 }}>
+            부위별 색상
+          </Text>
+          {Object.keys(DEFAULT_CATEGORY_COLORS).map((cat) => {
+            const isCustom = !!categoryColors[cat];
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setEditingCategory(cat)}
+                activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    backgroundColor: getCategoryColor(cat),
+                    borderWidth: 1,
+                    borderColor: c.border,
+                  }}
+                />
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary }}>{cat}</Text>
+                {isCustom && (
+                  <TouchableOpacity
+                    onPress={() => resetCategoryColor(cat)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={{ fontSize: 12, color: c.textMuted, fontWeight: '700' }}>초기화</Text>
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            );
+          })}
       </ScrollView>
 
       <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.surfaceAlt, backgroundColor: c.background, paddingBottom: Math.max(insets.bottom, 12) }}>
@@ -338,6 +380,22 @@ export default function EditProfileModal() {
         onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
         onCancel={() => setPadConfig(null)}
       />
+
+      {/* 부위 색상 변경 모달 */}
+      <Modal
+        visible={!!editingCategory}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingCategory(null)}>
+        {editingCategory && (
+          <CategoryColorPicker
+            category={editingCategory}
+            value={getCategoryColor(editingCategory)}
+            onChange={(color) => setCategoryColor(editingCategory, color)}
+            onClose={() => setEditingCategory(null)}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }

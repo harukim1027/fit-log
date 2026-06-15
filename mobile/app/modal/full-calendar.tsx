@@ -11,11 +11,9 @@ import { useShallow } from "zustand/react/shallow";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useColors } from "../../constants/colors";
 import { Icon } from "../../components/AppIcons";
-import {
-  getMuscleSetCountsForDate,
-  getMuscleColor,
-  MUSCLE_COLORS,
-} from "../../utils/workout";
+import { getMuscleSetCountsForDate } from "../../utils/workout";
+import { useCategoryColor } from "../../store/categoryColorStore";
+import { DEFAULT_CATEGORY_COLORS } from "../../constants/categoryColors";
 import { WorkoutSession } from "../../types/workout";
 
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -33,6 +31,7 @@ export default function FullCalendarScreen() {
     }))
   );
   const [monthOffset, setMonthOffset] = useState(0);
+  const getColor = useCategoryColor();
 
   useEffect(() => {
     if (sessions.length === 0) fetchSessions();
@@ -132,12 +131,12 @@ export default function FullCalendarScreen() {
           marginBottom: 10,
           justifyContent: "center",
         }}>
-        {Object.entries(MUSCLE_COLORS).map(([m, color]) => (
+        {Object.keys(DEFAULT_CATEGORY_COLORS).map((m) => (
           <View
             key={m}
             style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <View
-              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }}
+              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: getColor(m) }}
             />
             <Text style={{ fontSize: 11, color: c.textSecondary }}>{m}</Text>
           </View>
@@ -217,7 +216,7 @@ export default function FullCalendarScreen() {
                         key={m}
                         style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
                         <View
-                          style={{ width: 2, height: 10, backgroundColor: getMuscleColor(m) }}
+                          style={{ width: 2, height: 10, backgroundColor: getColor(m) }}
                         />
                         <Text style={{ fontSize: 8, color: c.textSecondary }} numberOfLines={1}>
                           {m}

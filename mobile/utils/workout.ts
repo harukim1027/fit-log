@@ -82,19 +82,8 @@ type MuscleExerciseLike = {
 };
 type MuscleSessionLike = { exercises: MuscleExerciseLike[] };
 
-/** 카테고리(부위) → 색상. 통계/캘린더에서 부위별 막대 색으로 사용 */
-export const MUSCLE_COLORS: Record<string, string> = {
-  가슴: '#2E82F0',
-  등: '#EF5E80',
-  어깨: '#4FA98C',
-  팔: '#9B7EDE',
-  하체: '#7C8B3D',
-  유산소: '#E89B4F',
-  복근: '#54B0C4',
-};
-
-export const getMuscleColor = (muscle: string): string =>
-  MUSCLE_COLORS[muscle] ?? '#888';
+// 부위별 색상은 categoryColorStore / constants/categoryColors로 이전됨
+// (사용자 커스터마이즈 지원). 여기서는 집계 함수만 유지한다.
 
 /**
  * 세션의 타겟부위별 "완료" 세트 수 집계.
