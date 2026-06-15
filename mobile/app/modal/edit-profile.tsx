@@ -28,7 +28,7 @@ export default function EditProfileModal() {
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuthStore();
   const { setTargetCalories } = useDietStore();
-  const { weightUnit, showBodypartSelector, loadSettings, setWeightUnit, setShowBodypartSelector } = useSettingsStore();
+  const { weightUnit, showBodypartSelector, notifyBeforeRestEnd, loadSettings, setWeightUnit, setShowBodypartSelector, setNotifyBeforeRestEnd } = useSettingsStore();
   const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => { loadSettings(); }, []);
@@ -280,6 +280,33 @@ export default function EditProfileModal() {
               <View style={{
                 width: 22, height: 22, borderRadius: 11, backgroundColor: c.surface,
                 transform: [{ translateX: showBodypartSelector ? 20 : 0 }],
+                shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2,
+              }} />
+            </TouchableOpacity>
+          </View>
+
+          {/* 휴식 30초 전 알림 */}
+          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Icon name="timer" size={16} color={c.textSecondary} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>휴식 30초 전 알림</Text>
+              </View>
+              <Text style={{ fontSize: 12, color: c.textSecondary, marginTop: 2, marginLeft: 24 }}>
+                휴식 종료 30초 전에 미리 알려드려요
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={{
+                width: 46, height: 26, borderRadius: 13,
+                backgroundColor: notifyBeforeRestEnd ? c.primary : c.surfaceAlt,
+                justifyContent: 'center', paddingHorizontal: 2,
+              }}
+              onPress={() => setNotifyBeforeRestEnd(!notifyBeforeRestEnd)}
+              activeOpacity={0.8}>
+              <View style={{
+                width: 22, height: 22, borderRadius: 11, backgroundColor: c.surface,
+                transform: [{ translateX: notifyBeforeRestEnd ? 20 : 0 }],
                 shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2,
               }} />
             </TouchableOpacity>

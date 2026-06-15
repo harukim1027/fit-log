@@ -13,6 +13,7 @@
 import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Platform } from 'react-native';
+import { useSettingsStore } from '../store/settingsStore';
 
 /** 알림 권한 요청 — 앱 최초 실행 시 호출 */
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -63,7 +64,9 @@ export async function scheduleRestEndNotification(
   await Notifications.cancelAllScheduledNotificationsAsync();
   if (seconds <= 0) return;
 
-  if (seconds > 31) {
+  // 30초 전 예고 알림: 설정 ON + 남은 시간이 31초 초과일 때만
+  const notifyBefore = useSettingsStore.getState().notifyBeforeRestEnd;
+  if (notifyBefore && seconds > 31) {
     await Notifications.scheduleNotificationAsync({
       identifier: 'rest-warning-30',
       content: {
