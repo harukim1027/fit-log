@@ -18,6 +18,10 @@ export class WorkoutSet {
   @Column({ nullable: true, default: 'kg' })
   unit: string;
 
+  // 이 세트가 어디서 입력됐는지: 'nl'(자연어 빠른 기록) | 'manual'(수동 폼) | null(기존 앱 로거)
+  @Column({ nullable: true })
+  source: string;
+
   @ManyToOne(() => WorkoutExercise, exercise => exercise.sets, { onDelete: 'CASCADE' })
   exercise: WorkoutExercise;
 }
