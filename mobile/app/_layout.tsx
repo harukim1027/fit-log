@@ -283,6 +283,10 @@ export default function RootLayout() {
               name="modal/full-calendar"
               options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
             />
+            <Stack.Screen
+              name="modal/add-exercises"
+              options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
+            />
           </Stack>
         </AuthGate>
       </View>

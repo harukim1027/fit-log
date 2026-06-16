@@ -44,32 +44,29 @@ function makeService() {
 const parseSpy = () => jest.spyOn(parser, 'parseWorkout');
 afterEach(() => jest.restoreAllMocks());
 
-describe('addExercisesToSession (저장 코어)', () => {
-  it('카탈로그 resolve된 exerciseId만 저장하고 source를 세트에 태깅', async () => {
-    const { service, catalog, sessionRepo } = makeService();
+describe('addNamedExercisesToSession (저장 코어)', () => {
+  it('이름+카테고리로 저장하고 각 세트에 source 태깅', async () => {
+    const { service, sessionRepo } = makeService();
     sessionRepo.findOne.mockResolvedValue({ id: 'sess-1', exercises: [] });
-    catalog.resolveById.mockResolvedValue({ catalogId: 'c1', name: '벤치프레스', category: '가슴' });
 
-    const saved = await service.addExercisesToSession(
+    const saved = await service.addNamedExercisesToSession(
       'u1',
       'sess-1',
-      [{ exerciseId: 'c1', sets: [{ weight: 60, reps: 5 }, { weight: 60, reps: 5 }] }],
+      [{ name: '벤치프레스', category: '가슴', sets: [{ weight: 60, reps: 5 }, { weight: 60, reps: 5 }] }],
       'manual',
     );
 
     expect(saved).toHaveLength(1);
-    expect(saved[0]).toMatchObject({ exerciseId: 'c1', name: '벤치프레스', category: '가슴', setCount: 2, source: 'manual' });
+    expect(saved[0]).toMatchObject({ name: '벤치프레스', category: '가슴', setCount: 2, source: 'manual' });
   });
 
-  it('카탈로그에 없는 exerciseId는 건너뛴다 (LLM/클라 출력 직접 신뢰 금지)', async () => {
-    const { service, catalog, sessionRepo } = makeService();
+  it('이름 없는 종목은 건너뛴다', async () => {
+    const { service, sessionRepo } = makeService();
     sessionRepo.findOne.mockResolvedValue({ id: 'sess-1', exercises: [] });
-    catalog.resolveById.mockResolvedValue(null);
-
-    const saved = await service.addExercisesToSession(
+    const saved = await service.addNamedExercisesToSession(
       'u1',
       'sess-1',
-      [{ exerciseId: '존재안함', sets: [{ weight: 0, reps: 0 }] }],
+      [{ name: '   ', category: '가슴', sets: [{ weight: 0, reps: 0 }] }],
       'manual',
     );
     expect(saved).toHaveLength(0);
@@ -79,7 +76,7 @@ describe('addExercisesToSession (저장 코어)', () => {
     const { service, sessionRepo } = makeService();
     sessionRepo.findOne.mockResolvedValue(null);
     await expect(
-      service.addExercisesToSession('u1', 'sess-x', [], 'manual'),
+      service.addNamedExercisesToSession('u1', 'sess-x', [], 'manual'),
     ).rejects.toThrow('운동 기록을 찾을 수 없어요');
   });
 });
@@ -93,7 +90,6 @@ describe('quickLog (NL → 코어)', () => {
       clarification_question: null,
     });
     catalog.resolve.mockResolvedValue({ catalogId: 'c1', name: '벤치프레스', category: '가슴' });
-    catalog.resolveById.mockResolvedValue({ catalogId: 'c1', name: '벤치프레스', category: '가슴' });
 
     const res = await service.quickLog('u1', '벤치 60 5x5');
 
@@ -137,7 +133,6 @@ describe('quickLog (NL → 코어)', () => {
     setSession({ id: 'sess-1', exercises: [{ id: 'old', order: 0 }] });
     const createSpy = jest.spyOn(sessionRepo, 'create');
     catalog.resolve.mockResolvedValue({ catalogId: 'c1', name: '스쿼트', category: '하체' });
-    catalog.resolveById.mockResolvedValue({ catalogId: 'c1', name: '스쿼트', category: '하체' });
     parseSpy().mockResolvedValue({
       exercises: [{ name: '스쿼트', sets: 3, reps: 8, weight_kg: 100, confidence: 'high' }],
       ambiguous: false,
@@ -151,19 +146,29 @@ describe('quickLog (NL → 코어)', () => {
   });
 });
 
-describe('addManual (수동 → 코어)', () => {
-  it('source manual로 저장하고 undoIds 반환', async () => {
-    const { service, catalog, sessionRepo } = makeService();
-    sessionRepo.findOne.mockResolvedValue({ id: 'sess-1', exercises: [] });
-    catalog.resolveById.mockResolvedValue({ catalogId: 'c1', name: '데드리프트', category: '등' });
-
-    const res = await service.addManual('u1', 'sess-1', [
-      { exerciseId: 'c1', sets: [{ weight: 140, reps: 3 }] },
+describe('addManual (수동 → 코어, 이름 기반)', () => {
+  it('sessionId 없으면 오늘 세션 get-or-create 후 source manual로 저장', async () => {
+    const { service, sessionRepo } = makeService();
+    // getOrCreateToday: 처음엔 null → 생성, 이후 코어 findOne은 생성된 세션 반환
+    const res = await service.addManual('u1', [
+      { name: '데드리프트', category: '등', sets: [{ weight: 140, reps: 3 }] },
     ]);
-
     expect(res.status).toBe('saved');
-    expect(res.saved![0]).toMatchObject({ source: 'manual', name: '데드리프트' });
+    expect(res.saved![0]).toMatchObject({ source: 'manual', name: '데드리프트', category: '등' });
     expect(res.undoIds).toEqual(['ex-1']);
+    expect(sessionRepo.findOne).toHaveBeenCalled();
+  });
+
+  it('sessionId 주면 그 세션에 누적 (소유권 검증)', async () => {
+    const { service, sessionRepo, setSession } = makeService();
+    setSession({ id: 'nl-sess', exercises: [{ id: 'a', order: 0 }] });
+    const res = await service.addManual(
+      'u1',
+      [{ name: '풀업', category: '등', sets: [{ weight: 0, reps: 10 }] }],
+      'nl-sess',
+    );
+    expect(res.sessionId).toBe('nl-sess');
+    expect(res.saved![0]).toMatchObject({ name: '풀업', source: 'manual' });
   });
 });
 

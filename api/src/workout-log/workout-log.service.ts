@@ -22,15 +22,19 @@ export interface SetInput {
   completed?: boolean;
 }
 
-/** 코어 입력: 카탈로그에서 resolve된 exerciseId + 세트들 */
-export interface ExerciseInput {
-  exerciseId: string;
+/**
+ * 코어 입력: 이름+카테고리 기반.
+ * 앱이 운동을 이름+카테고리로 다루므로(카탈로그 id 미사용) 동일 모델로 저장한다.
+ */
+export interface NamedExerciseInput {
+  name: string;
+  category: string;
+  targetMuscles?: string[];
   sets: SetInput[];
 }
 
 export interface SavedExercise {
   id: string; // WorkoutExercise id (되돌리기 단위)
-  exerciseId: string; // 카탈로그 id
   name: string;
   category: string;
   setCount: number;
@@ -82,18 +86,16 @@ export class WorkoutLogService {
     return { status: 'saved', exercises: parsed.exercises };
   }
 
-  // ── 저장 코어: NL/수동 모두 이 함수 하나로 수렴 ─────────────────────────────
+  // ── 저장 코어: NL/수동 모두 이 함수 하나로 수렴 (이름+카테고리 기반) ─────────
   /**
    * 세션에 종목들을 추가하는 단일 저장 코어.
-   * - exerciseId는 카탈로그에서 resolve 가능한 값만 저장 (LLM/클라 출력 직접 신뢰 금지).
-   * - name/category는 카탈로그에서 파생 (클라가 보낸 값을 신뢰하지 않음).
+   * - 이름+카테고리는 앱의 운동 모델 그대로 저장 (NL은 카탈로그 resolve된 이름, 수동은 picker 선택값).
    * - 각 세트에 source('nl'|'manual') 태깅.
-   * @returns 저장된 종목 목록 (resolve 불가한 exerciseId는 건너뜀)
    */
-  async addExercisesToSession(
+  async addNamedExercisesToSession(
     userId: string,
     sessionId: string,
-    exercises: ExerciseInput[],
+    exercises: NamedExerciseInput[],
     source: LogSource,
   ): Promise<SavedExercise[]> {
     const session = await this.sessionRepo.findOne({
@@ -110,8 +112,7 @@ export class WorkoutLogService {
 
     const saved: SavedExercise[] = [];
     for (const item of exercises) {
-      const match = await this.catalog.resolveById(item.exerciseId);
-      if (!match) continue; // 카탈로그에 없는 id는 무시 (안전장치)
+      if (!item.name?.trim()) continue; // 이름 없는 종목은 건너뜀 (안전장치)
 
       const sets = (item.sets?.length ? item.sets : [{ weight: 0, reps: 0 }]).map(
         (s) =>
@@ -125,9 +126,9 @@ export class WorkoutLogService {
       );
 
       const exercise = this.exerciseRepo.create({
-        name: match.name,
-        category: match.category,
-        targetMuscles: [],
+        name: item.name,
+        category: item.category ?? '기타',
+        targetMuscles: item.targetMuscles ?? [],
         order: nextOrder++,
         session,
         sets,
@@ -136,7 +137,6 @@ export class WorkoutLogService {
 
       saved.push({
         id: savedEx.id,
-        exerciseId: match.catalogId,
         name: savedEx.name,
         category: savedEx.category,
         setCount: sets.length,
@@ -170,8 +170,8 @@ export class WorkoutLogService {
       };
     }
 
-    // 2) 입력 정규화: 운동명 → 카탈로그 exerciseId resolve. 실패는 unmatched로 분리.
-    const inputs: ExerciseInput[] = [];
+    // 2) 입력 정규화: 운동명 → 카탈로그 resolve(이름+카테고리). 실패는 unmatched로 분리.
+    const inputs: NamedExerciseInput[] = [];
     const unmatched: QuickLogResult['unmatched'] = [];
     for (const ex of parsed.exercises) {
       const match = await this.catalog.resolve(ex.name);
@@ -186,7 +186,8 @@ export class WorkoutLogService {
       }
       const setCount = ex.sets && ex.sets > 0 ? ex.sets : 1;
       inputs.push({
-        exerciseId: match.catalogId,
+        name: match.name,
+        category: match.category,
         sets: Array.from({ length: setCount }, () => ({
           weight: ex.weight_kg,
           reps: ex.reps,
@@ -198,7 +199,7 @@ export class WorkoutLogService {
 
     // 3) 오늘 세션(없으면 생성/있으면 누적)에 코어로 저장
     const session = await this.getOrCreateToday(userId);
-    const saved = await this.addExercisesToSession(
+    const saved = await this.addNamedExercisesToSession(
       userId,
       session.id,
       inputs,
@@ -215,21 +216,35 @@ export class WorkoutLogService {
     };
   }
 
-  // ── 수동 입력: 카탈로그 picker 기반 → 코어 저장 (source 'manual') ────────────
+  // ── 수동 입력: 카탈로그 picker로 고른 이름+카테고리 → 코어 저장 ──────────────
+  /**
+   * @param sessionId 있으면 그 세션에 누적(소유권 검증), 없으면 오늘 세션 get-or-create.
+   *   (NL unmatched 매칭은 NL이 만든 세션 id를 넘겨 같은 세션에 붙인다.)
+   */
   async addManual(
     userId: string,
-    sessionId: string,
-    exercises: ExerciseInput[],
+    exercises: NamedExerciseInput[],
+    sessionId?: string,
   ): Promise<QuickLogResult> {
-    const saved = await this.addExercisesToSession(
+    let targetId = sessionId;
+    if (targetId) {
+      const owned = await this.sessionRepo.findOne({
+        where: { id: targetId, user: { id: userId } },
+        select: { id: true },
+      });
+      if (!owned) throw new NotFoundException('운동 기록을 찾을 수 없어요');
+    } else {
+      targetId = (await this.getOrCreateToday(userId)).id;
+    }
+    const saved = await this.addNamedExercisesToSession(
       userId,
-      sessionId,
+      targetId,
       exercises,
       'manual',
     );
     return {
       status: 'saved',
-      sessionId,
+      sessionId: targetId,
       saved,
       undoIds: saved.map((r) => r.id),
     };

@@ -30,11 +30,20 @@ class SetInputDto {
   completed?: boolean;
 }
 
-class ExerciseInputDto {
-  // 카탈로그 운동 id (string PK). picker에서 온 값만 허용 — 서버에서 다시 검증.
+class NamedExerciseDto {
+  // 운동 이름 (picker가 제공 — 앱은 이름+카테고리 기반, 카탈로그 id 미사용)
   @IsString()
   @IsNotEmpty()
-  exerciseId: string;
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  category: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  targetMuscles?: string[];
 
   @IsArray()
   @ArrayMaxSize(50)
@@ -44,10 +53,15 @@ class ExerciseInputDto {
 }
 
 export class AddExercisesDto {
+  // 있으면 해당 세션에 누적, 없으면 오늘 세션 get-or-create.
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(50)
   @ValidateNested({ each: true })
-  @Type(() => ExerciseInputDto)
-  exercises: ExerciseInputDto[];
+  @Type(() => NamedExerciseDto)
+  exercises: NamedExerciseDto[];
 }

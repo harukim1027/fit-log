@@ -55,6 +55,8 @@ import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import RestTimer from "../../components/RestTimer";
 import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { SetInputRow } from "../../components/workout/SetInputRow";
+import { NLQuickLogBox } from "../../components/workout/NLQuickLogBox";
+import { NLResultBanner } from "../../components/workout/NLResultBanner";
 import { TargetMuscleSelector } from "../../components/workout/TargetMuscleSelector";
 import { SettingSelector } from "../../components/workout/SettingSelector";
 import { WorkoutSession } from "../../types/workout";
@@ -801,6 +803,9 @@ export default function WorkoutScreen() {
               // KAS의 extraScrollHeight가 키보드 인셋을 처리하므로 하단도 정적값만 둔다.
               paddingBottom: 40,
             }}>
+            {/* AI 빠른 기록: 결과 배너 + 입력 박스 (오늘 운동 상단) */}
+            <NLResultBanner />
+            <NLQuickLogBox />
             {!activeSession ? (
               <>
                 {/* 제목 + 운동 시작 버튼 */}
