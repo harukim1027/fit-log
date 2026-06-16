@@ -14,6 +14,7 @@ import { requestNotificationPermission, setupNotificationChannel } from "../lib/
 import { useWorkoutStore } from "../store/workoutStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { useCategoryColorStore } from "../store/categoryColorStore";
+import { useRecoverySettingsStore } from "../store/recoverySettingsStore";
 import { showCuteAlert } from "../components/CuteAlert";
 import * as Notifications from 'expo-notifications';
 import { View, ActivityIndicator } from "react-native";
@@ -114,6 +115,7 @@ function useNotificationSetup() {
     // 휴식 알림 설정(30초 전 알림 등)을 미리 로드 — 첫 휴식 타이머가 설정을 반영하도록
     useSettingsStore.getState().loadSettings();
     useCategoryColorStore.getState().loadColors();
+    useRecoverySettingsStore.getState().loadSettings();
   }, []);
 }
 
@@ -281,6 +283,10 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="modal/full-calendar"
+              options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
+            />
+            <Stack.Screen
+              name="modal/recovery-settings"
               options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
             />
           </Stack>
