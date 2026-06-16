@@ -139,3 +139,17 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+// ── 코치 인사이트 ─────────────────────────────────────────────────────────────
+export interface CoachInsight {
+  kind: 'long_break' | 'low_frequency' | 'imbalance_2w' | 'steady' | 'first_time';
+  message: string;
+  actionLabel?: string;
+  actionTarget?: 'workout_start' | 'add_exercise' | 'history';
+}
+
+/** 오늘의 코치 인사이트 (서버가 캐시 우선 처리, 하루 최대 1회 LLM) */
+export const getCoachToday = async (): Promise<CoachInsight> => {
+  const res = await apiClient.get<CoachInsight>('/coach/today');
+  return res.data;
+};

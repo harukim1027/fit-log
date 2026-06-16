@@ -14,6 +14,7 @@ import { ExerciseModule } from './exercise/exercise.module';
 import { RoutineModule } from './routine/routine.module';
 import { RestDayModule } from './rest-day/rest-day.module';
 import { WorkoutLogModule } from './workout-log/workout-log.module';
+import { CoachModule } from './coach/coach.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { WorkoutLogModule } from './workout-log/workout-log.module';
     RoutineModule,
     RestDayModule,
     WorkoutLogModule,
+    CoachModule,
   ],
 })
 export class AppModule {}

@@ -10,6 +10,7 @@ import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { ThemeToggle, LabelTag } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import { RecoveryStatusCard } from "../../components/home/RecoveryStatusCard";
+import { CoachInsightCard } from "../../components/home/CoachInsightCard";
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 
@@ -216,6 +217,9 @@ export default function HomeScreen() {
 
         {/* ── 오늘 추천 부위 (회복 상태) ── */}
         <RecoveryStatusCard />
+
+        {/* ── 오늘의 코치 한마디 (누적 패턴) ── */}
+        <CoachInsightCard />
 
         {/* ── 최근 기록 ── */}
         <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }], overflow: 'visible' }}>
