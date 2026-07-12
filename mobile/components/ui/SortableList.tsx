@@ -45,6 +45,11 @@ export function SortableList<T>({
   const isDragging = useRef(false);
   const dragStartIndex = useRef(0);
   const hoverIndexRef = useRef<number | null>(null);
+  // PanResponder가 실제로 responder를 잡았는지(=손가락이 이동했는지) 추적.
+  // 롱프레스로 드래그만 활성화하고 이동 없이 손을 떼면 onMoveShouldSetPanResponder가
+  // 안 불려 PanResponder가 responder가 되지 않고, release/terminate 콜백도 안 온다.
+  // 그 경우 onTouchEnd에서 직접 드래그 상태를 정리하기 위한 플래그.
+  const panGranted = useRef(false);
 
   const itemHeights = useRef<number[]>([]);
   const containerPageY = useRef(0);
@@ -222,6 +227,17 @@ export function SortableList<T>({
     else stopAutoScroll();
   };
 
+  // 드래그 상태 완전 정리 (reorder 없이). terminate 및 이동 없는 손 뗌에서 공용 사용.
+  const resetDragState = () => {
+    stopAutoScroll();
+    isDragging.current = false;
+    hoverIndexRef.current = null;
+    panGranted.current = false;
+    setDragIndex(null);
+    resetAnimations();
+    onDragReleaseRef.current?.();
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -241,6 +257,8 @@ export function SortableList<T>({
         // dragY is already set to the item's original top in the timer callback,
         // so we don't reset it here — this prevents the "card jumps to finger" bug.
         grantPageY.current = e.nativeEvent.pageY;
+        // PanResponder가 responder를 잡음(=이동 발생) → 종료는 release/terminate가 담당.
+        panGranted.current = true;
       },
 
       onPanResponderMove: (_, gs) => {
@@ -261,6 +279,7 @@ export function SortableList<T>({
 
         isDragging.current = false;
         hoverIndexRef.current = null;
+        panGranted.current = false;
         setDragIndex(null);
         resetAnimations();
         onDragReleaseRef.current?.();
@@ -277,12 +296,7 @@ export function SortableList<T>({
       },
 
       onPanResponderTerminate: () => {
-        stopAutoScroll();
-        isDragging.current = false;
-        hoverIndexRef.current = null;
-        setDragIndex(null);
-        resetAnimations();
-        onDragReleaseRef.current?.();
+        resetDragState();
       },
     })
   ).current;
@@ -343,8 +357,17 @@ export function SortableList<T>({
         const dy = Math.abs(e.nativeEvent.pageY - touchStartPageY.current);
         if (dy > 8) cancelTimer();
       }}
-      onTouchEnd={cancelTimer}
-      onTouchCancel={cancelTimer}
+      onTouchEnd={() => {
+        cancelTimer();
+        // 롱프레스로 드래그가 켜졌지만 이동 없이 손을 뗀 경우:
+        // PanResponder가 responder를 잡지 않아(panGranted=false) release/terminate가
+        // 안 온다 → 여기서 직접 드래그 상태를 정리(원위치 복귀, 재정렬 없음).
+        if (isDragging.current && !panGranted.current) resetDragState();
+      }}
+      onTouchCancel={() => {
+        cancelTimer();
+        if (isDragging.current && !panGranted.current) resetDragState();
+      }}
       {...panResponder.panHandlers}>
       <View style={{ height: totalHeight }}>
         {data.map((item, index) => {
