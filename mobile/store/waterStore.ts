@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import apiClient from '../lib/apiClient';
+import { localDateStr } from '../utils/date';
 
 interface WaterStore {
   total: number;
@@ -9,7 +10,7 @@ interface WaterStore {
   resetWater: (date?: string) => Promise<void>;
 }
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => localDateStr();
 
 export const useWaterStore = create<WaterStore>((set) => ({
   total: 0,

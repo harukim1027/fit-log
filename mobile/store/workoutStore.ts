@@ -20,6 +20,7 @@ import { Exercise, WorkoutSession, WorkoutSet } from "../types/workout";
 import { Routine, RoutineExercise } from "./routineStore";
 import apiClient from "../lib/apiClient";
 import { calcSessionVolume } from "../utils/workout";
+import { localDateStr } from "../utils/date";
 import { logger } from "../lib/logger";
 
 const WORKOUT_DRAFT_KEY = "workout_draft";
@@ -60,6 +61,12 @@ export interface ExerciseHistoryEntry {
   maxVolume: number;
   totalSets: number;
   sets: { weight: number; reps: number; unit?: string }[];
+  // 종목 상세 — 다음 추가 시 폼 기본값 복원용 (구버전 서버 응답 호환 위해 optional)
+  isSingleArm?: boolean;
+  settings?: { key: string; value: string }[];
+  tip?: string;
+  restSeconds?: number | null;
+  targetReps?: string;
 }
 
 export interface ExerciseHistory {
@@ -155,7 +162,8 @@ interface WorkoutStore {
 
   startSession: () => void;
   startSessionWithRoutine: (routine: Routine) => void;
-  endSession: (caloriesBurned: number) => Promise<void>;
+  /** 완료 세트가 있는 종목만 저장. 저장할 게 없으면 'empty' 반환(저장/정리 안 함). */
+  endSession: (caloriesBurned: number) => Promise<'empty' | 'saved'>;
   deleteSession: (id: string) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, "sets">) => void;
   addSet: (exerciseId: string, set: WorkoutSet) => void;
@@ -164,6 +172,7 @@ interface WorkoutStore {
   updateExercise: (exerciseId: string, data: Partial<Omit<Exercise, 'id' | 'sets'>>) => void;
   removeExercise: (exerciseId: string) => void;
   updateSession: (sessionId: string, exercises: WorkoutSession['exercises']) => Promise<void>;
+  updateSessionDate: (sessionId: string, date: string) => Promise<void>;
   reorderSessionExercises: (exercises: Exercise[]) => void;
   getTodaySession: () => WorkoutSession | null;
   getTotalVolume: (session: WorkoutSession) => number;
@@ -180,7 +189,7 @@ interface WorkoutStore {
   stopWorkoutTimer: () => void;
 }
 
-const todayStr = () => new Date().toISOString().split("T")[0];
+const todayStr = () => localDateStr();
 
 // 모듈 스코프 타이머 변수 — Zustand state에 넣으면 직렬화 문제 발생
 let _workoutIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -367,14 +376,22 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   endSession: async (caloriesBurned: number) => {
     const active = get().activeSession;
     const startTime = get().sessionStartTime;
-    if (!active) return;
+    if (!active) return 'empty';
+
+    // 완료 세트 없는 종목은 히스토리에 남지 않게 저장 단계에서 제외 (요청 이력)
+    // 완료 세트가 1개 이상인 종목만 저장 (빈 종목 제외)
+    const exercisesToSave = active.exercises.filter((ex) =>
+      ex.sets.some((s) => s.completed)
+    );
+    // 저장할 운동이 없으면 저장/정리하지 않고 호출부에 알림 (안내 후 cancelSession)
+    if (exercisesToSave.length === 0) return 'empty';
 
     const durationMinutes = startTime
       ? Math.max(Math.round((Date.now() - startTime) / 60000), 1)
       : 0;
 
     logger.info('운동 세션 종료', {
-      exercises: active.exercises.length,
+      exercises: exercisesToSave.length,
       durationMinutes,
       caloriesBurned,
     });
@@ -389,7 +406,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
         caloriesBurned,
         note: active.note,
         fromRoutineId: active.fromRoutineId ?? null,
-        exercises: active.exercises.map((ex, idx) => ({
+        exercises: exercisesToSave.map((ex, idx) => ({
           name: ex.name,
           category: ex.category,
           settings: ex.settings ?? [],
@@ -399,12 +416,15 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
           restSeconds: ex.restSeconds ?? null,
           targetReps: ex.targetReps ?? "",
           order: idx,
-          sets: ex.sets.map((st) => ({
-            weight: st.weight,
-            reps: st.reps,
-            completed: st.completed,
-            unit: st.unit ?? 'kg',
-          })),
+          // 완료된 세트만 저장
+          sets: ex.sets
+            .filter((st) => st.completed)
+            .map((st) => ({
+              weight: st.weight,
+              reps: st.reps,
+              completed: true,
+              unit: st.unit ?? 'kg',
+            })),
         })),
       });
       await get().fetchSessions();
@@ -413,6 +433,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     }
     set({ activeSession: null, sessionStartTime: null });
     saveWorkoutDraft(null, null, 0);
+    return 'saved';
   },
 
   /**
@@ -571,6 +592,26 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       // 낙관적 업데이트 롤백
       await get().fetchSessions();
       console.error('운동 기록 수정 실패', e);
+      throw e;
+    }
+  },
+
+  /**
+   * 히스토리 세션의 날짜를 변경한다 (Optimistic Update).
+   * 로컬 date를 즉시 바꾸고 date DESC로 재정렬 → 서버 PATCH → 실패 시 롤백.
+   */
+  updateSessionDate: async (sessionId, date) => {
+    const prev = get().sessions;
+    set((s) => ({
+      sessions: s.sessions
+        .map((sess) => (sess.id === sessionId ? { ...sess, date } : sess))
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    }));
+    try {
+      await apiClient.patch(`/workout/${sessionId}`, { date });
+    } catch (e) {
+      set({ sessions: prev });
+      logger.error('운동 날짜 변경 실패', e instanceof Error ? e : new Error(String(e)));
       throw e;
     }
   },

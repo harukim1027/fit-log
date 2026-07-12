@@ -18,6 +18,7 @@ import { Repository } from 'typeorm';
 import { WorkoutSession } from './workout-session.entity';
 import { WorkoutExercise } from './workout-exercise.entity';
 import { WorkoutSet } from './workout-set.entity';
+import { kstDateStrDaysAgo } from '../common/date.util';
 
 // lbs → kg 변환 상수 (1 lbs = 0.4536 kg)
 const LBS_TO_KG = 2.20462;
@@ -90,6 +91,12 @@ export class WorkoutService {
       maxVolume: number;
       totalSets: number;
       sets: { weight: number; reps: number; unit?: string }[];
+      // 종목 상세(세트가 아닌 종목 행에 저장됨) — 다음 추가 시 폼 기본값 복원용
+      isSingleArm: boolean;
+      settings: { key: string; value: string }[];
+      tip: string;
+      restSeconds: number | null;
+      targetReps: string;
     };
 
     const history: HistoryEntry[] = [];
@@ -109,6 +116,8 @@ export class WorkoutService {
           return vSets.reduce((sum, st) => sum + toKg(st.weight, st.unit) * st.reps, 0);
         }),
       );
+      // 종목 상세는 종목 행에 저장됨 — 같은 세션에 분할로 두 번 등장하면 첫 번째 것 사용
+      const detail = matches[0];
       history.push({
         date: session.date,
         maxWeight,
@@ -116,6 +125,11 @@ export class WorkoutService {
         totalSets: validSets.length,
         // 클라이언트 표시용으로 원본 단위 포함해 반환
         sets: allSets.map((st) => ({ weight: st.weight, reps: st.reps, unit: st.unit ?? 'kg' })),
+        isSingleArm: detail.isSingleArm ?? false,
+        settings: detail.settings ?? [],
+        tip: detail.tip ?? '',
+        restSeconds: detail.restSeconds ?? null,
+        targetReps: detail.targetReps ?? '',
       });
     }
 
@@ -131,12 +145,8 @@ export class WorkoutService {
     // 같은 무게를 여러 번 달성했으면 가장 최근 것을 PR 날짜로 표시
     const prEntry = [...history].reverse().find((h) => h.maxWeight === prWeight)!;
 
-    /** n일 전 날짜 문자열 반환 (YYYY-MM-DD 형식) */
-    const cutoffDate = (daysBack: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() - daysBack);
-      return d.toISOString().split('T')[0];
-    };
+    /** n일 전 날짜 문자열 반환 (KST 기준 YYYY-MM-DD 형식) */
+    const cutoffDate = (daysBack: number) => kstDateStrDaysAgo(daysBack);
 
     let comparisonSession: HistoryEntry | null = null;
     switch (mode) {
@@ -183,6 +193,10 @@ export class WorkoutService {
     if (!session) throw new NotFoundException('운동 기록을 찾을 수 없어요');
     if (data.note !== undefined) session.note = data.note;
     if (data.durationMinutes !== undefined) session.durationMinutes = data.durationMinutes;
+    // date는 로컬(KST) 기준 'YYYY-MM-DD' 문자열을 그대로 저장한다 (date 컬럼, tz 없음)
+    if (data.date !== undefined) session.date = data.date;
+    // 스칼라 필드(note/durationMinutes/date) 변경을 반드시 저장 — 이전엔 save 호출이 없어 유실됐음
+    await this.sessionRepo.save(session);
 
     if (Array.isArray(data.exercises)) {
       // 기존 종목 일괄 삭제 (cascade → sets도 삭제)

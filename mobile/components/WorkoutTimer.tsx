@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { Icon } from "./AppIcons";
 import { useColors } from "../constants/colors";
+import { useWorkoutStore } from "../store/workoutStore";
 
 const formatElapsed = (s: number) => {
   const h = Math.floor(s / 3600);
@@ -14,7 +15,6 @@ const formatElapsed = (s: number) => {
 interface Props {
   exerciseCount: number;
   totalVolume: number;
-  elapsed: number;
   paused: boolean;
   onPausedChange: (v: boolean) => void;
   onEnd: () => void;
@@ -23,12 +23,14 @@ interface Props {
 export default function WorkoutTimer({
   exerciseCount,
   totalVolume,
-  elapsed,
   paused,
   onPausedChange,
   onEnd,
 }: Props) {
   const c = useColors();
+  // 경과 시간은 1초마다 갱신되므로 이 컴포넌트에서 직접 구독한다.
+  // (부모 WorkoutScreen이 구독하면 매초 전체 종목/세트 트리가 리렌더돼 입력이 버벅임)
+  const elapsed = useWorkoutStore((s) => s.workoutElapsed);
   const SHADOW = {
     shadowColor: c.primary,
     shadowOffset: { width: 0, height: 10 },

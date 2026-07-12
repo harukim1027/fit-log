@@ -11,6 +11,7 @@ import { ThemeToggle, LabelTag } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
+import { toKg } from "../../utils/workout";
 
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
 
@@ -102,23 +103,31 @@ export default function HomeScreen() {
       return d < start;
     });
 
+    // PR 비교는 통계 화면과 동일하게 kg 환산 + 완료 세트(weight>0 && reps>0) 기준으로 통일한다.
+    // (raw weight로 비교하면 lbs 기록이 kg 기록보다 크게 잡혀 실제보다 낮은 무게가 PR로 오인됨)
     const prevMax: Record<string, number> = {};
     for (const sess of prevSessions) {
       for (const ex of sess.exercises) {
-        const max = Math.max(0, ...ex.sets.map((st) => st.weight));
-        if (max > (prevMax[ex.name] ?? 0)) prevMax[ex.name] = max;
+        for (const st of ex.sets) {
+          if (st.weight <= 0 || st.reps <= 0) continue;
+          const wKg = toKg(st.weight, st.unit);
+          if (wKg > (prevMax[ex.name] ?? 0)) prevMax[ex.name] = wKg;
+        }
       }
     }
 
     let prEntry: { name: string; weight: number; reps: number; date: string } | null = null;
     for (const sess of [...weekSessions].sort((a, b) => b.date.localeCompare(a.date))) {
       for (const ex of sess.exercises) {
-        const best = ex.sets.reduce(
-          (b, st) => (st.weight > b.weight ? st : b),
-          { weight: 0, reps: 0, id: "", completed: false }
-        );
-        if (best.weight > 0 && best.weight > (prevMax[ex.name] ?? 0)) {
-          if (!prEntry) prEntry = { name: ex.name, weight: best.weight, reps: best.reps, date: sess.date };
+        // 완료 세트 중 kg 환산 최고 무게 세트를 찾는다
+        let best: { weightKg: number; reps: number } | null = null;
+        for (const st of ex.sets) {
+          if (st.weight <= 0 || st.reps <= 0) continue;
+          const wKg = toKg(st.weight, st.unit);
+          if (!best || wKg > best.weightKg) best = { weightKg: wKg, reps: st.reps };
+        }
+        if (best && best.weightKg > (prevMax[ex.name] ?? 0)) {
+          if (!prEntry) prEntry = { name: ex.name, weight: best.weightKg, reps: best.reps, date: sess.date };
         }
       }
     }
@@ -233,10 +242,10 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{prEntry.name} PR 경신!</Text>
                 <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1, fontVariant: ['tabular-nums'] }}>
-                  {formatDate(prEntry.date)} · {prEntry.weight}kg × {prEntry.reps}
+                  {formatDate(prEntry.date)} · {Math.round(prEntry.weight * 10) / 10}kg × {prEntry.reps}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: "900", color: c.primary, fontVariant: ['tabular-nums'] }}>{prEntry.weight}kg</Text>
+              <Text style={{ fontSize: 14, fontWeight: "900", color: c.primary, fontVariant: ['tabular-nums'] }}>{Math.round(prEntry.weight * 10) / 10}kg</Text>
             </View>
           )}
 

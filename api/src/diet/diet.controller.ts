@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { DietService } from './diet.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { kstDateStr } from '../common/date.util';
 
 @Controller('diet')
 @UseGuards(JwtAuthGuard)
@@ -9,7 +10,7 @@ export class DietController {
 
   @Get()
   getByDate(@Request() req: any, @Query('date') date: string) {
-    const d = date || new Date().toISOString().split('T')[0];
+    const d = date || kstDateStr();
     return this.dietService.getByDate(req.user.id, d);
   }
 
@@ -20,7 +21,7 @@ export class DietController {
 
   @Get('summary')
   getSummary(@Request() req: any, @Query('date') date: string) {
-    const d = date || new Date().toISOString().split('T')[0];
+    const d = date || kstDateStr();
     return this.dietService.getSummary(req.user.id, d);
   }
 

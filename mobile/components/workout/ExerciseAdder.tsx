@@ -617,6 +617,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
         completed: false,
       })),
     );
+    // 직전 기록의 세트가 서로 다르면(세트별 개별값) 개별설정 모드를 켜서
+    // 저장 시 uniform(defaultWeight×N)으로 뭉개지지 않게 한다.
+    const nonUniform = rec.sets.some(
+      (s) => s.weight !== rec.sets[0].weight || s.reps !== rec.sets[0].reps,
+    );
+    setPerSetMode(nonUniform);
+    // 종목 상세(한팔기준·기구 설정·운동 팁·쉬는 시간·목표 횟수)도 직전 기록에서 복원한다.
+    // (카탈로그 선택 시 세팅된 기본값을 직전 기록 값으로 덮어써 "마지막 설정"이 유지되게 함)
+    setIsSingleArm(rec.isSingleArm ?? false);
+    setSettings(rec.settings ?? []);
+    setTip(rec.tip ?? "");
+    if (rec.restSeconds != null) setRestSeconds(String(rec.restSeconds));
+    if (rec.targetReps) setTargetReps(rec.targetReps);
   }, [prevRecord, selectedExercise?.name, mode, editMode]);
 
   // ─── Render ───────────────────────────────────────────────────────────────

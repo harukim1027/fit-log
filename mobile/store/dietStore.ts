@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { DailyDiet, FoodItem, MealType, SnackCard } from '../types/diet';
 import { DEFAULT_TARGET_CALORIES } from '../constants';
 import apiClient from '../lib/apiClient';
+import { localDateStr } from '../utils/date';
 
 interface NutrientSummary {
   calories: number;
@@ -33,7 +34,7 @@ interface DietStore {
   setMacroRatios: (carbs: number, protein: number, fat: number) => void;
 }
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => localDateStr();
 
 const DEFAULT_SNACK_CARD_ID = 'snack-default';
 

@@ -366,56 +366,54 @@ export default function RestTimer({
       ? '완료!'
       : seconds > 0 ? formatTime(seconds) : '--:--';
 
+  // 실행/일시정지 시 하단 진행바 표시 (컨테이너 paddingBottom 확보)
+  const showProgress = timerState === 'running' || timerState === 'paused';
+
   return (
     <View
       onLayout={onLayout}
       style={[
         {
           backgroundColor: c.surface,
-          borderRadius: pinned ? 0 : 30,
-          borderBottomLeftRadius: 20,
-          borderBottomRightRadius: 20,
-          padding: 18,
-          marginBottom: 12,
+          borderRadius: pinned ? 0 : 18,
+          borderBottomLeftRadius: 18,
+          borderBottomRightRadius: 18,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          paddingBottom: showProgress ? 13 : 10,
+          marginBottom: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          position: "relative",
         },
         SHADOW,
       ]}>
 
-      {/* ── 헤더 ── */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Icon name="clock" size={16} color={c.textSecondary} />
-          <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>휴식 타이머</Text>
+      {/* [좌] 미니 블록: 휴식 라벨 / 고정·리셋 */}
+      <View style={{ flexShrink: 0, gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Icon name="clock" size={15} color={c.textSecondary} />
+          <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>휴식</Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           {(onPin || onUnpin) && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: pinned ? c.warning : c.textSecondary }}>고정</Text>
-              <Switch
-                value={!!pinned}
-                onValueChange={(v) => v ? onPin?.() : onUnpin?.()}
-                trackColor={{ false: c.border, true: c.primary }}
-                thumbColor={c.surface}
-                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-              />
-            </View>
+            <Switch
+              value={!!pinned}
+              onValueChange={(v) => v ? onPin?.() : onUnpin?.()}
+              trackColor={{ false: c.border, true: c.primary }}
+              thumbColor={c.surface}
+              style={{ transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }] }}
+            />
           )}
-          <TouchableOpacity onPress={reset} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Icon name="refresh" size={16} color={c.danger} />
-            <Text style={{ fontSize: 11, fontWeight: "700", color: c.danger }}>리셋</Text>
+          <TouchableOpacity onPress={reset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name="refresh" size={14} color={c.danger} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── 진행바 (실행 중일 때) ── */}
-      {(timerState === 'running' || timerState === 'paused') && (
-        <View style={{ width: "100%", height: 4, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden", marginBottom: 12 }}>
-          <View style={{ height: "100%", backgroundColor: timerState === 'paused' ? c.textMuted : c.warning, borderRadius: 999, width: `${progress}%` as `${number}%` }} />
-        </View>
-      )}
-
-      {/* ── 메인 영역: 시간 + 액션 버튼 ── */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 }}>
+      {/* [중앙] 시간 + 액션 버튼 */}
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
         {/* 시간 표시 / 편집 */}
         {isEditingTime ? (
           <TextInput
@@ -428,11 +426,11 @@ export default function RestTimer({
             onSubmitEditing={commitTimeEdit}
             returnKeyType="done"
             style={{
-              fontSize: 38,
+              fontSize: 24,
               fontWeight: "900",
               letterSpacing: -1,
               color: c.primary,
-              minWidth: 100,
+              minWidth: 66,
               borderBottomWidth: 2,
               borderBottomColor: c.primary,
               paddingVertical: 2,
@@ -447,11 +445,12 @@ export default function RestTimer({
             activeOpacity={0.7}>
             <Animated.Text
               style={{
-                fontSize: 38,
+                fontSize: 24,
                 fontWeight: "900",
                 letterSpacing: -1,
                 color: timerColor,
-                minWidth: 100,
+                minWidth: 66,
+                textAlign: "center",
                 fontVariant: ['tabular-nums'],
                 transform: timerState === 'running' ? [{ scale: pulseAnim }] : [],
               }}>
@@ -464,8 +463,9 @@ export default function RestTimer({
         <TouchableOpacity
           style={{
             flex: 1,
-            borderRadius: 16,
-            paddingVertical: 14,
+            borderRadius: 11,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
             alignItems: "center",
             backgroundColor:
               actionDisabled ? c.surfaceAlt :
@@ -474,20 +474,20 @@ export default function RestTimer({
           onPress={actionHandler ?? undefined}
           activeOpacity={actionDisabled ? 1 : 0.8}
           disabled={actionDisabled}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             {timerState === 'running' && (
-              <Icon name="stop" size={15} color={c.warning} />
+              <Icon name="stop" size={13} color={c.warning} />
             )}
             {(timerState === 'paused' || (timerState === 'waiting' && seconds > 0)) && (
               <View style={{ marginLeft: 2 }}>
-                <Icon name="play" size={15} color={c.onAccent} />
+                <Icon name="play" size={13} color={c.onAccent} />
               </View>
             )}
             {timerState === 'completed' && (
-              <Icon name="refresh" size={15} color={c.onAccent} />
+              <Icon name="refresh" size={13} color={c.onAccent} />
             )}
             <Text style={{
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: "900",
               color:
                 actionDisabled ? c.textMuted :
@@ -499,26 +499,31 @@ export default function RestTimer({
         </TouchableOpacity>
       </View>
 
-      {/* ── 구분선 ── */}
-      <View style={{ height: 1, backgroundColor: c.border, marginBottom: 12 }} />
-
-      {/* ── 빠른 추가 버튼: +1분 +30초 +10초 +5초 ── */}
-      <View style={{ flexDirection: "row", gap: 6 }}>
+      {/* [우] 프리셋 2×2 그리드: +1분 +30초 +10초 +5초 */}
+      <View style={{ flexShrink: 0, width: 84, flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
         {PRESETS.map((p) => (
           <TouchableOpacity
             key={p.seconds}
             onPress={() => addPreset(p.seconds)}
             style={{
-              flex: 1,
-              borderRadius: 999,
-              paddingVertical: 8,
+              flexBasis: "48%",
+              minWidth: 38,
+              borderRadius: 8,
+              paddingVertical: 5,
               alignItems: "center",
               backgroundColor: c.warning + '18',
             }}>
-            <Text style={{ fontSize: 12, fontWeight: "800", color: c.warning }}>{p.label}</Text>
+            <Text style={{ fontSize: 10.5, fontWeight: "800", color: c.warning }}>{p.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* 하단 진행바 (실행/일시정지 시) */}
+      {showProgress && (
+        <View style={{ position: "absolute", left: 12, right: 12, bottom: 4, height: 3, backgroundColor: c.surfaceAlt, borderRadius: 999, overflow: "hidden" }}>
+          <View style={{ height: "100%", backgroundColor: timerState === 'paused' ? c.textMuted : c.warning, borderRadius: 999, width: `${progress}%` as `${number}%` }} />
+        </View>
+      )}
     </View>
   );
 }
