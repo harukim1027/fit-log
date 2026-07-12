@@ -263,12 +263,6 @@ export default function WorkoutScreen() {
   const [completeCalories, setCompleteCalories] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(() => localMonthStr());
-  const [activeEditExId, setActiveEditExId] = useState<string | null>(null);
-  const [draftExName, setDraftExName] = useState("");
-  const [draftCategory, setDraftCategory] = useState("");
-  const [draftTargetMuscles, setDraftTargetMuscles] = useState<string[]>([]);
-  // 운동 중 카드에서 타겟부위 뱃지 탭 → 모달로 타겟부위/카테고리 변경
-  const [editingTargetExId, setEditingTargetExId] = useState<string | null>(null);
   const [draftUnit, setDraftUnit] = useState<"kg" | "lbs">("kg");
   const [draftSets, setDraftSets] = useState<
     Array<{
@@ -515,27 +509,6 @@ export default function WorkoutScreen() {
       setCodeSearching(false);
     }
   };
-
-  const enterEdit = (ex: WorkoutSession["exercises"][0]) => {
-    setDraftExName(ex.name);
-    setDraftCategory(ex.category);
-    setDraftTargetMuscles(ex.targetMuscles ?? []);
-    setActiveEditExId(ex.id);
-  };
-
-  const commitEdit = (ex: WorkoutSession["exercises"][0]) => {
-    const patch: Partial<WorkoutSession["exercises"][0]> = {
-      category: draftCategory,
-      targetMuscles: draftTargetMuscles,
-    };
-    if (draftExName.trim()) patch.name = draftExName.trim();
-    updateExercise(ex.id, patch as any);
-    setActiveEditExId(null);
-  };
-
-  /** 타겟부위 뱃지 탭 → 변경 모달 열기 (변경은 모달에서 즉시 반영) */
-  const openTargetEditor = (ex: WorkoutSession["exercises"][0]) =>
-    setEditingTargetExId(ex.id);
 
   const handleSaveAsRoutine = async () => {
     const name = saveRoutineName.trim();
@@ -1734,69 +1707,38 @@ export default function WorkoutScreen() {
                                 <Icon name="menu" size={16} color={c.textSecondary} />
                               </View>
 
-                              {/* 좌측 텍스트 블록 */}
-                              {activeEditExId === ex.id ? (
-                                <TextInput
+                              {/* 좌측 텍스트 블록 (표시 전용 — 편집은 상세보기에서) */}
+                              <View style={{ flex: 1 }}>
+                                {/* 카테고리 배지 — 종목명 위에 배치(이름 가림 방지) */}
+                                <View
                                   style={{
-                                    fontSize: 15,
-                                    fontWeight: "900",
-                                    color: c.textPrimary,
-                                    flex: 1,
-                                    borderBottomWidth: 1.5,
-                                    borderBottomColor: c.primary,
-                                    paddingBottom: 2,
-                                  }}
-                                  value={draftExName}
-                                  onChangeText={setDraftExName}
-                                  returnKeyType="done"
-                                  onSubmitEditing={() => {
-                                    if (draftExName.trim() && draftExName.trim() !== ex.name)
-                                      updateExercise(ex.id, { name: draftExName.trim() } as any);
-                                  }}
-                                />
-                              ) : (
-                                <TouchableOpacity
-                                  style={{ flex: 1 }}
-                                  onPress={() => enterEdit(ex)}
-                                  activeOpacity={0.7}>
-                                  {/* 카테고리 배지 — 종목명 위에 배치(이름 가림 방지) */}
-                                  <TouchableOpacity
-                                    style={{
-                                      alignSelf: "flex-start",
-                                      backgroundColor: c.surfaceAlt,
-                                      borderRadius: 999,
-                                      paddingHorizontal: 8,
-                                      paddingVertical: 2,
-                                      flexDirection: "row",
-                                      alignItems: "center",
-                                      gap: 2,
-                                      marginBottom: 3,
-                                    }}
-                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                    activeOpacity={0.7}
-                                    onPress={() => openTargetEditor(ex)}>
-                                    <Text style={{ fontSize: 10, fontWeight: "800", color: c.success }}>
-                                      {ex.category}
-                                    </Text>
-                                    <Icon name="pencil" size={8} color={c.success} />
-                                  </TouchableOpacity>
-                                  <Text
-                                    style={{ fontSize: 14.5, fontWeight: "900", color: c.textPrimary, lineHeight: 19 }}
-                                    numberOfLines={2}
-                                    ellipsizeMode="tail">
-                                    {ex.name}
+                                    alignSelf: "flex-start",
+                                    backgroundColor: c.surfaceAlt,
+                                    borderRadius: 999,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 2,
+                                    marginBottom: 3,
+                                  }}>
+                                  <Text style={{ fontSize: 10, fontWeight: "800", color: c.success }}>
+                                    {ex.category}
                                   </Text>
-                                  <Text
-                                    style={{ fontSize: 11.5, color: c.textSecondary, marginTop: 2, fontVariant: ["tabular-nums"] }}
-                                    numberOfLines={1}>
-                                    {completedSets}/{ex.sets.length}세트
-                                    {exVol > 0 ? ` · ${exVol.toLocaleString()}kg` : ""}
-                                  </Text>
-                                </TouchableOpacity>
-                              )}
+                                </View>
+                                <Text
+                                  style={{ fontSize: 14.5, fontWeight: "900", color: c.textPrimary, lineHeight: 19 }}
+                                  numberOfLines={2}
+                                  ellipsizeMode="tail">
+                                  {ex.name}
+                                </Text>
+                                <Text
+                                  style={{ fontSize: 11.5, color: c.textSecondary, marginTop: 2, fontVariant: ["tabular-nums"] }}
+                                  numberOfLines={1}>
+                                  {completedSets}/{ex.sets.length}세트
+                                  {exVol > 0 ? ` · ${exVol.toLocaleString()}kg` : ""}
+                                </Text>
+                              </View>
 
-                              {/* 세트 원 (편집 중 아닐 때, 가로·좌측정렬, 최대 6 + N) */}
-                              {activeEditExId !== ex.id && ex.sets.length > 0 && (
+                              {/* 세트 원 (가로·좌측정렬, 최대 6 + N) */}
+                              {ex.sets.length > 0 && (
                                 <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
                                   {ex.sets.slice(0, 6).map((st, i) => (
                                     <SetIndicator
@@ -1840,74 +1782,66 @@ export default function WorkoutScreen() {
                                 </Text>
                               </TouchableOpacity>
                             </View>
-                            {/* ── 타겟 부위 편집 (수정 중에만) ── */}
-                            {activeEditExId === ex.id && (
-                              <View
-                                style={{
-                                  backgroundColor: c.surfaceAlt,
-                                  borderRadius: 14,
-                                  padding: 12,
-                                  marginTop: 8,
-                                }}>
-                                <TargetMuscleSelector
-                                  category={draftCategory}
-                                  onCategoryChange={setDraftCategory}
-                                  targetMuscles={draftTargetMuscles}
-                                  onTargetMusclesChange={setDraftTargetMuscles}
-                                />
-                                <View
-                                  style={{
-                                    flexDirection: "row",
-                                    gap: 8,
-                                    marginTop: 12,
-                                  }}>
-                                  <TouchableOpacity
-                                    style={{
-                                      flex: 1,
-                                      backgroundColor: c.surface,
-                                      borderRadius: 12,
-                                      paddingVertical: 10,
-                                      alignItems: "center",
-                                    }}
-                                    onPress={() => setActiveEditExId(null)}
-                                    activeOpacity={0.8}>
-                                    <Text
-                                      style={{
-                                        fontSize: 13,
-                                        fontWeight: "800",
-                                        color: c.textSecondary,
-                                      }}>
-                                      취소
-                                    </Text>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity
-                                    style={{
-                                      flex: 1,
-                                      backgroundColor: c.primary,
-                                      borderRadius: 12,
-                                      paddingVertical: 10,
-                                      alignItems: "center",
-                                    }}
-                                    onPress={() => commitEdit(ex)}
-                                    activeOpacity={0.8}>
-                                    <Text
-                                      style={{
-                                        fontSize: 13,
-                                        fontWeight: "800",
-                                        color: c.surface,
-                                      }}>
-                                      저장
-                                    </Text>
-                                  </TouchableOpacity>
-                                </View>
-                              </View>
-                            )}
-
                             {/* 세트 원·펼침(▾)은 상단 한 줄 행으로 이동됨 */}
 
                             {/* ── 상세 정보 (토글) ── */}
                             {isExpanded && (
                               <>
+                                {/* ── 종목 정보 편집 (운동명 / 카테고리 / 타겟부위) ── */}
+                                <View
+                                  style={{
+                                    height: 1,
+                                    backgroundColor: c.border,
+                                    marginTop: 6,
+                                    marginBottom: 10,
+                                  }}
+                                />
+                                <View style={{ marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "800", color: c.textMuted, marginBottom: 4 }}>
+                                    운동명
+                                  </Text>
+                                  <TextInput
+                                    key={ex.name}
+                                    defaultValue={ex.name}
+                                    placeholder="운동명"
+                                    placeholderTextColor={c.textMuted}
+                                    returnKeyType="done"
+                                    onEndEditing={(e) => {
+                                      const v = e.nativeEvent.text.trim();
+                                      if (v && v !== ex.name)
+                                        updateExercise(ex.id, { name: v } as any);
+                                    }}
+                                    style={{
+                                      fontSize: 14,
+                                      fontWeight: "700",
+                                      color: c.textPrimary,
+                                      backgroundColor: c.surfaceAlt,
+                                      borderRadius: 10,
+                                      paddingHorizontal: 12,
+                                      paddingVertical: 9,
+                                    }}
+                                  />
+                                </View>
+                                <View
+                                  style={{
+                                    backgroundColor: c.surfaceAlt,
+                                    borderRadius: 12,
+                                    padding: 12,
+                                    marginBottom: 10,
+                                  }}>
+                                  {/* 카테고리 칩 + 타겟부위 다중 선택 (카테고리 변경 시 타겟 리셋) */}
+                                  <TargetMuscleSelector
+                                    category={ex.category}
+                                    onCategoryChange={(cat) =>
+                                      updateExercise(ex.id, { category: cat, targetMuscles: [] } as any)
+                                    }
+                                    targetMuscles={ex.targetMuscles ?? []}
+                                    onTargetMusclesChange={(m) =>
+                                      updateExercise(ex.id, { targetMuscles: m } as any)
+                                    }
+                                  />
+                                </View>
+
                                 {/* ── 3. 세트 편집 테이블 ── */}
                                 <View
                                   style={{
@@ -3057,77 +2991,6 @@ export default function WorkoutScreen() {
         calories={completeCalories ?? 0}
         onDismiss={() => setCompleteCalories(null)}
       />
-
-      {/* 타겟부위 변경 모달 — 운동 중 카드 뱃지 탭 시. 변경은 즉시 반영(updateExercise). */}
-      {(() => {
-        const ex = activeSession?.exercises.find(
-          (e) => e.id === editingTargetExId
-        );
-        return (
-          <Modal
-            visible={!!editingTargetExId && !!ex}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setEditingTargetExId(null)}>
-            <TouchableOpacity
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.5)",
-                justifyContent: "center",
-              }}
-              activeOpacity={1}
-              onPress={() => setEditingTargetExId(null)}>
-              {/* 카드 내부 탭은 닫히지 않도록 흡수 */}
-              <TouchableOpacity
-                activeOpacity={1}
-                onPress={() => {}}
-                style={{
-                  margin: 24,
-                  backgroundColor: c.surface,
-                  borderRadius: 20,
-                  padding: 20,
-                }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "900",
-                    color: c.textPrimary,
-                    marginBottom: 14,
-                  }}>
-                  타겟 부위 변경
-                </Text>
-                {ex && (
-                  <TargetMuscleSelector
-                    category={ex.category}
-                    onCategoryChange={(cat) =>
-                      updateExercise(ex.id, { category: cat } as any)
-                    }
-                    targetMuscles={ex.targetMuscles ?? []}
-                    onTargetMusclesChange={(m) =>
-                      updateExercise(ex.id, { targetMuscles: m } as any)
-                    }
-                  />
-                )}
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: c.primary,
-                    borderRadius: 14,
-                    paddingVertical: 12,
-                    alignItems: "center",
-                    marginTop: 16,
-                  }}
-                  activeOpacity={0.85}
-                  onPress={() => setEditingTargetExId(null)}>
-                  <Text
-                    style={{ fontSize: 14, fontWeight: "800", color: c.surface }}>
-                    완료
-                  </Text>
-                </TouchableOpacity>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          </Modal>
-        );
-      })()}
 
       {/* 루틴에서 가져오기 모달 */}
       <Modal

@@ -506,8 +506,9 @@ export default function RestTimer({
             key={p.seconds}
             onPress={() => addPreset(p.seconds)}
             style={{
-              flexBasis: "48%",
-              minWidth: 38,
+              // flexBasis:"48%"는 48%×2 + gap4 = 84.6px > 컨테이너 84px라 매 버튼이
+              // wrap되어 1열 4행으로 렌더됐다. 명시적 폭으로 40+40+gap4=84 정확히 맞춰 2열 보장.
+              width: 40,
               borderRadius: 8,
               paddingVertical: 5,
               alignItems: "center",
