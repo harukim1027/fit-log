@@ -1,5 +1,5 @@
 import React from "react";
-import { calcSessionVolume } from "../../utils/workout";
+import { calcSessionVolume, toKg, buildExerciseGrowthData } from "../../utils/workout";
 import {
   View,
   Text,
@@ -138,9 +138,9 @@ export default function StatsScreen() {
   sessions.forEach((s) => {
     s.exercises.forEach((ex) => {
       ex.sets
-        .filter((st) => st.weight > 0 && st.reps > 0)
+        .filter((st) => st.completed && st.weight > 0 && st.reps > 0)
         .forEach((st) => {
-          const wKg = st.unit === 'lbs' ? st.weight / 2.20462 : st.weight;
+          const wKg = toKg(st.weight, st.unit);
           if (!prMap[ex.name] || prMap[ex.name] < wKg) prMap[ex.name] = wKg;
         });
     });
@@ -164,24 +164,12 @@ export default function StatsScreen() {
 
   const activeExercise = selectedExercise ?? exerciseNames[0] ?? null;
 
-  const exerciseGrowthData = React.useMemo(() => {
-    if (!activeExercise) return null;
-    const points = sessions
-      .slice()
-      .reverse()
-      .filter((s) => s.exercises.some((ex) => ex.name === activeExercise))
-      .map((s) => {
-        const ex = s.exercises.find((e) => e.name === activeExercise)!;
-        const maxWeight =
-          ex.sets.length > 0 ? Math.max(...ex.sets.map((st) => st.weight)) : 0;
-        return { date: s.date.slice(5), maxWeight };
-      })
-      // 0kg(맨몸/무게 미기록)인 날은 선그래프가 바닥으로 떨어지므로 제외 —
-      // 실제 무게를 든 날만 데이터 포인트로 남겨 운동한 날끼리 연결한다.
-      .filter((d) => d.maxWeight > 0)
-      .slice(-8);
-    return points.length >= 2 ? points : null;
-  }, [sessions, activeExercise]);
+  // 성장 그래프 데이터는 utils/workout의 buildExerciseGrowthData 하나만 사용한다.
+  // (0kg·미완료 세트 제외 규칙이 여기서 재구현/롤백되지 않도록 유일 소스로 유지)
+  const exerciseGrowthData = React.useMemo(
+    () => buildExerciseGrowthData(sessions, activeExercise),
+    [sessions, activeExercise],
+  );
 
   // 날짜별 막대 종류 결정: 운동함 → 실제 값 / 쉬는날 지정 → 체크무늬 / 그 외 → 빈 막대
   const barType = (dateStr: string, value: number): BarDatum["type"] =>
@@ -499,7 +487,7 @@ export default function StatsScreen() {
               <View style={{ overflow: 'hidden', borderRadius: 16 }}>
                 <LineChart
                   data={{
-                    labels: exerciseGrowthData.map((d) => d.date),
+                    labels: exerciseGrowthData.map((d) => d.date.slice(5)),
                     datasets: [
                       { data: exerciseGrowthData.map((d) => d.maxWeight) },
                     ],

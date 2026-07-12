@@ -15,6 +15,7 @@ import { Header, SortableList } from "../../components/ui";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Calendar } from "react-native-calendars";
 import { useDietStore } from "../../store/dietStore";
+import { localDateStr } from "../../utils/date";
 import { MEAL_LABELS } from "../../constants";
 import { MealType } from "../../types/diet";
 import {
@@ -46,7 +47,7 @@ const getMealBg = (c: ThemeColors): Record<MealType, string> => ({
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.2;
 
-const dateStr = (d: Date) => d.toISOString().split("T")[0];
+const dateStr = (d: Date) => localDateStr(d);
 const formatDate = (d: Date) =>
   d.toLocaleDateString("ko-KR", {
     month: "long",

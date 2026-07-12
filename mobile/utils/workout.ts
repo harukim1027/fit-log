@@ -27,7 +27,7 @@ type SessionLike = {
 const LBS_TO_KG = 2.20462;
 
 /** 무게를 항상 kg 기준으로 정규화 */
-const toKg = (weight: number, unit?: string): number =>
+export const toKg = (weight: number, unit?: string): number =>
   unit === 'lbs' ? weight / LBS_TO_KG : weight;
 
 /**
@@ -72,6 +72,57 @@ export const calcExerciseVolume = (ex: ExerciseLike): number =>
  */
 export const calcSessionVolume = (session: SessionLike): number =>
   session.exercises.reduce((sum, ex) => sum + calcExerciseVolume(ex), 0);
+
+// ── 종목별 성장 그래프 데이터 ────────────────────────────────────────────────
+
+export interface GrowthPoint {
+  /** 세션 날짜 (YYYY-MM-DD) */
+  date: string;
+  /** 완료 세트 중 kg 환산 최고 무게 (소수 1자리) */
+  maxWeight: number;
+}
+
+type GrowthExerciseLike = { name: string; sets: SetLike[] };
+type GrowthSessionLike = { date: string; exercises: GrowthExerciseLike[] };
+
+/**
+ * 종목별 성장 그래프용 데이터 포인트를 만든다.
+ * 성장 그래프의 "유일한" 데이터 소스 — 화면(stats.tsx)에서 재계산하지 말고 이 함수만 사용한다.
+ *
+ * ⚠️ 회귀 방지 — 아래 규칙은 사용자 요청 사항이고 과거 여러 번 롤백된 이력이 있다. 지우지 말 것:
+ *   1) 완료(completed=true) 세트만 계산 대상
+ *   2) 완료 세트가 없는 세션은 데이터 포인트에서 제외
+ *   3) kg 환산 최고 무게가 0 이하이면 제외 (맨몸/무게 미기록 → 선그래프가 바닥으로 낙하하는 노이즈 방지)
+ *   4) 실제 무게를 든 날만 남겨 운동한 날끼리 자연스럽게 연결
+ *   5) 포인트가 2개 미만이면 null 반환 (그래프 대신 안내 문구를 띄우기 위함)
+ *
+ * @param sessions - 세션 목록 (순서 무관 — 내부에서 날짜 오름차순 정렬)
+ * @param exerciseName - 대상 종목명 (null이면 null)
+ * @param limit - 최근 N개 포인트만 사용 (기본 8)
+ */
+export function buildExerciseGrowthData(
+  sessions: GrowthSessionLike[],
+  exerciseName: string | null,
+  limit = 8,
+): GrowthPoint[] | null {
+  if (!exerciseName) return null;
+  const points = [...sessions]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((s): GrowthPoint | null => {
+      // 한 세션에 같은 종목이 여러 번 등장할 수 있으므로 전부 모은 뒤 완료 세트만 사용
+      const completedSets = s.exercises
+        .filter((ex) => ex.name === exerciseName)
+        .flatMap((ex) => ex.sets)
+        .filter((st) => st.completed);
+      if (completedSets.length === 0) return null; // 규칙 1·2
+      const maxWeight = Math.max(...completedSets.map((st) => toKg(st.weight, st.unit)));
+      if (maxWeight <= 0) return null; // 규칙 3
+      return { date: s.date, maxWeight: Math.round(maxWeight * 10) / 10 };
+    })
+    .filter((d): d is GrowthPoint => d !== null) // 규칙 4
+    .slice(-limit);
+  return points.length >= 2 ? points : null; // 규칙 5
+}
 
 // ── 타겟부위별 세트 수 집계 ─────────────────────────────────────────────────
 
