@@ -8,7 +8,6 @@ import { Header, Button, NumberPad } from "../components/ui";
 import { Icon, GoalIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useColors } from "../constants/colors";
-import { BackgroundBlobs } from "../components/BackgroundBlobs";
 
 const GOALS = [
   { key: "체중감량", desc: "체지방 줄이기" },
@@ -99,7 +98,6 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
-      <BackgroundBlobs />
       <Header
         title=""
         showBack={step > 0}

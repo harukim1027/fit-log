@@ -51,7 +51,6 @@ import {
 } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useColors } from "../../constants/colors";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import RestTimer from "../../components/RestTimer";
 import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { SetInputRow } from "../../components/workout/SetInputRow";
@@ -702,7 +701,6 @@ export default function WorkoutScreen() {
     : null;
   return (
     <View className="flex-1 bg-background">
-      <BackgroundBlobs />
       <Header title="운동" />
 
       {/* 탭 */}

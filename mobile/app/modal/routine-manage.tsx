@@ -26,7 +26,6 @@ import ExerciseAdder, {
   ExerciseAddResult,
 } from "../../components/workout/ExerciseAdder";
 import { useColors } from "../../constants/colors";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { RoutineColorPicker } from "../../components/RoutineColorPicker";
 
 const fmtRest = (sec: number): string => {
@@ -325,7 +324,6 @@ export default function RoutineManageModal() {
         <SafeAreaView
           style={{ flex: 1, backgroundColor: c.background }}
           edges={["bottom"]}>
-          <BackgroundBlobs />
           <Header title="루틴 관리" showClose />
           <ScrollView
             ref={listScrollRef}
@@ -892,7 +890,6 @@ export default function RoutineManageModal() {
       <SafeAreaView
         style={{ flex: 1, backgroundColor: c.background }}
         edges={["bottom"]}>
-        <BackgroundBlobs />
         <Header
           title={mode === "create" ? "새 루틴" : "루틴 수정"}
           showClose

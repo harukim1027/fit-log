@@ -21,7 +21,6 @@ import { useFavoriteStore } from "../../store/favoriteStore";
 import { MEAL_LABELS } from "../../constants";
 import { useColors } from "../../constants/colors";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
 import * as ImagePicker from 'expo-image-picker';
@@ -300,7 +299,6 @@ export default function AddFoodModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
-      <BackgroundBlobs />
       <Header
         title="식품 추가"
         subtitle={date ? `${date} · ${MEAL_LABELS[mealType]}` : MEAL_LABELS[mealType] + "에 추가"}

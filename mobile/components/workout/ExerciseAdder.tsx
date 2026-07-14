@@ -7,7 +7,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Header, NumberPad } from "../ui";
-import { BackgroundBlobs } from "../BackgroundBlobs";
 import { Icon, FlameIcon } from "../AppIcons";
 import { SetInputRow } from "./SetInputRow";
 import apiClient from "../../lib/apiClient";
@@ -636,7 +635,6 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <BackgroundBlobs />
       <Header title={editMode ? "운동 수정" : "운동 추가"} showClose onClose={onClose} />
 
       <View style={{ flex: 1 }}>

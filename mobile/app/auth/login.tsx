@@ -9,7 +9,6 @@ import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input, Button } from "../../components/ui";
 import { LogoMark, Icon } from "../../components/AppIcons";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -74,7 +73,6 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <BackgroundBlobs />
       <KeyboardAwareScrollView
         enableOnAndroid
         enableAutomaticScroll

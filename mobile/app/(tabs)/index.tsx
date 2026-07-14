@@ -6,7 +6,6 @@ import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { Icon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { ThemeToggle, LabelTag } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { Slug } from "react-native-body-highlighter";
@@ -161,8 +160,6 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <BackgroundBlobs />
-
       {/* 헤더 */}
       <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View>
