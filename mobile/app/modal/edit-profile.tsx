@@ -11,7 +11,6 @@ import { useAuthStore } from "../../store/authStore";
 import { useDietStore } from "../../store/dietStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 import { GoalIcon, Icon } from "../../components/AppIcons";
 import { NumberPad } from "../../components/ui";
 
@@ -101,7 +100,6 @@ export default function EditProfileModal() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["top"]}>
-      <BackgroundBlobs />
       <View style={{
         flexDirection: "row",
         alignItems: "center",

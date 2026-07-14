@@ -26,7 +26,6 @@ import {
   BarDatum,
 } from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
@@ -240,7 +239,6 @@ export default function StatsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <BackgroundBlobs />
       <Header
         title="통계"
         subtitle={user?.name ?? undefined}

@@ -27,7 +27,6 @@ import {
   SaladIcon,
 } from "../../components/AppIcons";
 import { useColors, ThemeColors } from "../../constants/colors";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -222,7 +221,6 @@ export default function DietScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <BackgroundBlobs />
       <Header title="식단" />
 
       {/* 상단 탭: 오늘 식단 / 달력 */}

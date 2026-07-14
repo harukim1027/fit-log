@@ -8,7 +8,6 @@ import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header, Input, Button } from "../../components/ui";
 import { LogoMark } from "../../components/AppIcons";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -36,7 +35,6 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
-      <BackgroundBlobs />
       <Header title="회원가입" showBack />
       <KeyboardAwareScrollView
         enableOnAndroid

@@ -16,7 +16,6 @@ import { Header, Button, NumberPad } from "../../components/ui";
 import { Stepper } from "../../components/ui/Stepper";
 import { Icon } from "../../components/AppIcons";
 import { useColors, ThemeColors } from "../../constants/colors";
-import { BackgroundBlobs } from "../../components/BackgroundBlobs";
 
 function getMacroColors(c: ThemeColors) {
   return {
@@ -223,7 +222,6 @@ export default function SetTargetModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
-      <BackgroundBlobs />
       <Header title="목표 설정" showClose />
       <ScrollView
         keyboardDismissMode="on-drag"
