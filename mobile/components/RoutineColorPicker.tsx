@@ -24,6 +24,12 @@ interface Props {
   onChange: (hex: string) => void;
 }
 
+/**
+ * Renders a routine color picker with recommended colors and a custom color wheel.
+ *
+ * @param value - The currently selected color in hexadecimal format.
+ * @param onChange - Callback invoked when a palette color is selected or a custom color is confirmed.
+ */
 export function RoutineColorPicker({ value, onChange }: Props) {
   const c = useColors();
   const [showWheel, setShowWheel] = useState(false);

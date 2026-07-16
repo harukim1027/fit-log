@@ -21,6 +21,11 @@ const GOALS = [
   { key: "건강관리" },
 ];
 
+/**
+ * Renders a form for editing the user's profile and related app settings.
+ *
+ * @returns The profile editing screen.
+ */
 export default function EditProfileModal() {
   const c = useColors();
   const router = useRouter();
