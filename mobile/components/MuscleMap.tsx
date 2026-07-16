@@ -96,7 +96,7 @@ export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
         {/* Front / Back toggle */}
         <View style={{ flexDirection: 'row', backgroundColor: c.surfaceAlt, borderRadius: 10, padding: 3, marginBottom: 14, alignSelf: 'flex-start' }}>
           {(['front', 'back'] as const).map(v => (
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               key={v}
               style={[
                 { paddingHorizontal: 11, paddingVertical: 4, borderRadius: 8 },

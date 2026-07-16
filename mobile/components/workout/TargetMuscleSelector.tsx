@@ -100,7 +100,7 @@ export function TargetMuscleSelector({
             {EXERCISE_CATEGORIES.map((cat) => {
               const on = category === cat;
               return (
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   key={cat}
                   style={[
                     {
@@ -153,7 +153,7 @@ export function TargetMuscleSelector({
             {presetParts.map((part) => {
               if (part === "직접 입력") {
                 return (
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     key="custom"
                     style={{
                       borderRadius: 999,
@@ -175,7 +175,7 @@ export function TargetMuscleSelector({
               }
               const on = targetMuscles.includes(part);
               return (
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   key={part}
                   style={{
                     borderRadius: 999,
@@ -199,7 +199,7 @@ export function TargetMuscleSelector({
             {targetMuscles
               .filter((p) => !presetParts.includes(p))
               .map((p) => (
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   key={p}
                   style={{
                     borderRadius: 999,
@@ -245,7 +245,7 @@ export function TargetMuscleSelector({
                 returnKeyType="done"
                 onSubmitEditing={addCustom}
               />
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 style={{
                   backgroundColor: c.primary,
                   borderRadius: 12,

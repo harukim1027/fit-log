@@ -89,7 +89,7 @@ export default function FullCalendarScreen() {
         <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary }}>
           기록 캘린더
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="close" size={26} color={c.textPrimary} />
@@ -105,7 +105,7 @@ export default function FullCalendarScreen() {
           paddingHorizontal: 24,
           marginBottom: 12,
         }}>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={() => setMonthOffset((o) => o - 1)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={{ fontSize: 22, fontWeight: "800", color: c.textSecondary }}>◀</Text>
@@ -113,7 +113,7 @@ export default function FullCalendarScreen() {
         <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary }}>
           {target.getFullYear()}년 {target.getMonth() + 1}월
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={() => setMonthOffset((o) => Math.min(0, o + 1))}
           disabled={monthOffset >= 0}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

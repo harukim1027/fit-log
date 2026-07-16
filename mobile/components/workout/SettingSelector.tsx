@@ -91,7 +91,7 @@ export function SettingSelector({
   };
 
   const chip = (label: string, on: boolean, onPress: () => void, key?: string) => (
-    <TouchableOpacity
+    <TouchableOpacity activeOpacity={0.8}
       key={key ?? label}
       style={{
         borderRadius: sheet ? 20 : 999,
@@ -120,7 +120,7 @@ export function SettingSelector({
         <View key={k.id} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
           {chip(k.name, !isCustom && selectedKey === k.name, () => selectKey(k.name), k.id)}
           {onDeleteExtraKey && (
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               style={{ marginLeft: -4, marginTop: -8 }}
               onPress={() => onDeleteExtraKey(k.id)}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
@@ -184,7 +184,7 @@ export function SettingSelector({
             returnKeyType="done"
             onSubmitEditing={submit}
           />
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             style={{
               backgroundColor: c.primary,
               borderRadius: 10,

@@ -36,7 +36,7 @@ export default function WaterTracker() {
             오늘 {cups}잔째 · {progress >= 1 ? '목표 달성!' : '잘하고 있어요!'}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => resetWater()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => resetWater()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="refresh" size={18} color={c.textMuted} />
         </TouchableOpacity>
       </View>

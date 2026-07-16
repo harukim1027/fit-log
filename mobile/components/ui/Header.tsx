@@ -48,7 +48,7 @@ export function Header({
       {/* 왼쪽: 뒤로가기 또는 닫기 */}
       <View style={{ width: 56, alignItems: "flex-start", justifyContent: "center" }}>
         {showBack && (
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: c.surfaceAlt }}
             onPress={handleBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -56,7 +56,7 @@ export function Header({
           </TouchableOpacity>
         )}
         {showClose && !showBack && (
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: c.surfaceAlt }}
             onPress={handleClose}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

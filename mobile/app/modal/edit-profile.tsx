@@ -110,7 +110,7 @@ export default function EditProfileModal() {
         borderBottomColor: c.surfaceAlt,
         backgroundColor: c.background,
       }}>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           style={{
             width: 36, height: 36, alignItems: "center", justifyContent: "center",
             borderRadius: 18, backgroundColor: c.surfaceAlt,
@@ -144,7 +144,7 @@ export default function EditProfileModal() {
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>성별</Text>
           <View style={{ flexDirection: "row", gap: 10 }}>
             {["남", "여"].map((g) => (
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 key={g}
                 style={[
                   { flex: 1, backgroundColor: c.surface, borderRadius: 20, paddingVertical: 14, alignItems: "center", borderWidth: 2, borderColor: 'transparent', ...cardShadow },
@@ -171,7 +171,7 @@ export default function EditProfileModal() {
             ] as const).map(({ label, value, set, decimal, suffix, max }) => (
               <View key={label} style={{ flex: 1 }}>
                 <Text style={{ fontSize: 11, fontWeight: "600", color: c.textMuted, marginBottom: 6 }}>{label}</Text>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={[inputStyle, { alignItems: 'center' }]}
                   onPress={() => openPad(value, decimal, suffix, set)}>
                   <Text style={{ fontSize: 15, color: value ? c.textPrimary : c.textMuted }}>
@@ -186,7 +186,7 @@ export default function EditProfileModal() {
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>목표</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {GOALS.map((g) => (
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 key={g.key}
                 style={[
                   { width: "47%", backgroundColor: c.surface, borderRadius: 20, paddingVertical: 14, alignItems: "center", gap: 4, borderWidth: 2, borderColor: 'transparent', ...cardShadow },
@@ -209,7 +209,7 @@ export default function EditProfileModal() {
           {/* 목표 칼로리 */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>목표 칼로리</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               style={[inputStyle, { flex: 1, alignItems: 'center' }]}
               onPress={() => openPad(targetCal, false, 'kcal', setTargetCal)}>
               <Text style={{ fontSize: 15, color: targetCal ? c.textPrimary : c.textMuted }}>
@@ -222,7 +222,7 @@ export default function EditProfileModal() {
           {/* 주간 운동 목표 */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>주간 운동 목표</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               style={[inputStyle, { flex: 1, alignItems: 'center' }]}
               onPress={() => openPad(weeklyGoal, false, '회', (v) => {
                 const n = parseInt(v);
@@ -246,7 +246,7 @@ export default function EditProfileModal() {
             </View>
             <View style={{ flexDirection: 'row', gap: 6 }}>
               {(['kg', 'lbs'] as const).map(u => (
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   key={u}
                   style={{
                     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
