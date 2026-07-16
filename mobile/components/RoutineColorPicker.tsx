@@ -7,7 +7,7 @@
  * ⚠️ RN <Modal>은 별도 네이티브 뷰 계층이라 앱 루트의 GestureHandlerRootView가
  *    닿지 않는다 → Modal 내부를 자체 GestureHandlerRootView로 감싸야 휠 제스처가 동작한다.
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ColorPicker, {
@@ -27,6 +27,12 @@ interface Props {
 export function RoutineColorPicker({ value, onChange }: Props) {
   const c = useColors();
   const [showWheel, setShowWheel] = useState(false);
+  // 휠 편집용 draft — 조작 중엔 draft만 바뀌고, "완료" 눌러야 부모(onChange)에 확정.
+  // 모달이 닫혀 있거나(value 변경 포함) 취소로 닫힐 땐 draft를 현재 값으로 되돌린다(롤백).
+  const [draftHex, setDraftHex] = useState(value);
+  useEffect(() => {
+    if (!showWheel) setDraftHex(value);
+  }, [showWheel, value]);
 
   return (
     <View>
@@ -119,16 +125,16 @@ export function RoutineColorPicker({ value, onChange }: Props) {
                 색상 고르기
               </Text>
               <ColorPicker
-                value={value}
-                // 제스처 종료 시에만 hex 반영 (연속 onChange 미사용 — 과도한 리렌더 방지)
-                onComplete={({ hex }) => onChange(hex)}
+                value={draftHex}
+                // 조작 중엔 draft만 갱신 (부모 미반영) — 확정은 "완료" 버튼에서만
+                onComplete={({ hex }) => setDraftHex(hex)}
                 style={{ width: "100%" }}>
                 <Preview hideInitialColor style={{ marginBottom: 12, borderRadius: 12 }} />
                 <Panel1 style={{ height: 200, borderRadius: 12, marginBottom: 12 }} />
                 <HueSlider style={{ marginBottom: 4 }} />
               </ColorPicker>
               <TouchableOpacity
-                onPress={() => setShowWheel(false)}
+                onPress={() => { onChange(draftHex); setShowWheel(false); }}
                 activeOpacity={0.85}
                 style={{
                   marginTop: 16,
