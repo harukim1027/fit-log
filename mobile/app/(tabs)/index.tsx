@@ -43,12 +43,23 @@ function sessionTitle(sess: WorkoutSession): string {
   return names.join(" & ") || "운동";
 }
 
-// 볼륨 포맷: 1000kg 이상은 t(톤) 축약
+/**
+ * Formats a volume in kilograms, using tons for volumes of at least 1,000 kilograms.
+ *
+ * @param kg - The volume in kilograms
+ * @returns The formatted volume with a `t` or `kg` suffix
+ */
 function fmtVol(kg: number): string {
   return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
 }
 
-// hex 색을 amt(0~1)만큼 어둡게 — 불투명 배지색 계산용 (반투명 오버레이 대체)
+/**
+ * Creates a darker version of a hexadecimal color.
+ *
+ * @param hex - The hexadecimal color value.
+ * @param amt - The amount by which to darken the color, from 0 to 1.
+ * @returns The darkened hexadecimal color value.
+ */
 function darken(hex: string, amt: number): string {
   const m = hex.replace('#', '');
   const full = m.length === 3 ? m.split('').map((x) => x + x).join('') : m;
@@ -59,6 +70,12 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+/**
+ * Renders the home screen with weekly activity, recent workout records, and muscle coverage.
+ *
+ * Provides workout filtering, navigation to workout and statistics screens, and a control for
+ * starting or resuming a workout.
+ */
 export default function HomeScreen() {
   const router = useRouter();
   const c = useColors();

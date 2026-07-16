@@ -40,6 +40,11 @@ function AnimatedTabIcon({ icon, focused }: { icon: TabIconName; focused: boolea
   );
 }
 
+/**
+ * Configures the application's bottom tab navigation.
+ *
+ * @returns The tab navigator with the primary tabs and a hidden diet route.
+ */
 export default function TabLayout() {
   const c = useColors();
   const insets = useSafeAreaInsets();

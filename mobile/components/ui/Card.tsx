@@ -9,6 +9,13 @@ export interface CardProps extends ViewProps {
   shadow?: boolean;
 }
 
+/**
+ * Renders a rounded surface container with optional padding and shadow.
+ *
+ * @param bare - Whether to omit the card's default padding
+ * @param shadow - Whether to display a subtle shadow beneath the card
+ * @returns The rendered card view
+ */
 export function Card({
   children,
   bare = false,

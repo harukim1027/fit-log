@@ -80,6 +80,11 @@ function makeChartConfig(c: ThemeColors) {
   };
 }
 
+/**
+ * Renders the workout statistics screen with weekly summaries, charts, and personal records.
+ *
+ * @returns The statistics screen UI.
+ */
 export default function StatsScreen() {
   const router = useRouter();
   const c = useColors();

@@ -7,7 +7,13 @@ interface LabelTagProps {
   style?: object;
 }
 
-// hex 색을 amt(0~1)만큼 어둡게 — 불투명 끈구멍색 (반투명 대체)
+/**
+ * Produces a darker opaque hex color by reducing each RGB channel.
+ *
+ * @param hex - A three- or six-digit hexadecimal color.
+ * @param amt - The amount to darken the color, from 0 to 1.
+ * @returns The darkened six-digit hex color, or the original value if it cannot be parsed.
+ */
 function darken(hex: string, amt: number): string {
   const m = hex.replace('#', '');
   const full = m.length === 3 ? m.split('').map((x) => x + x).join('') : m;
@@ -19,6 +25,13 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+/**
+ * Renders an absolutely positioned, rotated label tag with a colored background.
+ *
+ * @param label - The text displayed in the tag
+ * @param color - The tag's background color
+ * @param style - Optional styles that override the default tag styles
+ */
 export function LabelTag({ label, color, style }: LabelTagProps) {
   return (
     <View

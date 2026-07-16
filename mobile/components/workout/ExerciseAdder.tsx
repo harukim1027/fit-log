@@ -150,7 +150,15 @@ type ExerciseAdderProps = {
   };
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+/**
+ * Provides a screen for selecting or creating an exercise and configuring its session or routine details.
+ *
+ * @param mode - Determines whether the exercise records session sets or stores routine targets.
+ * @param onAdd - Receives the configured exercise data.
+ * @param onClose - Closes the exercise configuration screen.
+ * @param editMode - Indicates whether existing exercise data is being edited.
+ * @param initialExercise - Existing exercise data used to prefill the form in edit mode.
+ */
 
 export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, initialExercise }: ExerciseAdderProps) {
   const c = useColors();

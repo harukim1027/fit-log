@@ -7,6 +7,9 @@ import { NumberPad } from './ui/NumberPad';
 
 const PRESETS = [150, 200, 250, 500];
 
+/**
+ * Displays daily water intake, progress toward the target, and controls for adding or resetting intake.
+ */
 export default function WaterTracker() {
   const c = useColors();
   const { total, target, addWater, resetWater } = useWaterStore();
