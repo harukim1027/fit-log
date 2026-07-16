@@ -26,6 +26,7 @@ import {
   BarDatum,
 } from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
+import { showCuteAlert } from "../../components/CuteAlert";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
@@ -95,6 +96,38 @@ export default function StatsScreen() {
   const { user, logout } = useAuthStore(
     useShallow((s) => ({ user: s.user, logout: s.logout }))
   );
+
+  // 로그아웃: 확인 다이얼로그 → 토큰/state 정리 → 로그인 화면으로 replace.
+  // (AuthGate 타이밍에만 의존하지 않고 명시적으로 이동 + 실패 시 에러 노출)
+  const handleLogout = () => {
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "로그아웃",
+      message: "정말 로그아웃 하시겠어요?",
+      buttons: [
+        { label: "취소", style: "soft" },
+        {
+          label: "로그아웃",
+          style: "primary",
+          onPress: async () => {
+            try {
+              await logout();
+              router.replace("/auth/login" as any);
+            } catch {
+              showCuteAlert({
+                icon: "alert",
+                tone: "danger",
+                title: "오류",
+                message: "로그아웃에 실패했어요. 다시 시도해 주세요.",
+                buttons: [{ label: "확인", style: "primary" }],
+              });
+            }
+          },
+        },
+      ],
+    });
+  };
 
   const [selectedExercise, setSelectedExercise] = React.useState<string | null>(
     null
@@ -245,16 +278,16 @@ export default function StatsScreen() {
         rightElement={
           <View className="flex-row items-center gap-1">
             <ThemeToggle size={36} />
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               className="w-9 h-9 items-center justify-center rounded-xl"
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               onPress={() => router.push("/modal/edit-profile" as any)}>
               <Icon name="person" size={22} color={c.success} />
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               className="w-9 h-9 items-center justify-center rounded-xl"
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-              onPress={logout}>
+              onPress={handleLogout}>
               <Icon name="logout" size={22} color={c.danger} />
             </TouchableOpacity>
           </View>
@@ -306,11 +339,13 @@ export default function StatsScreen() {
             justifyContent: "space-between",
             backgroundColor: c.surface,
             borderRadius: 16,
+            borderWidth: 1,
+            borderColor: c.border,
             paddingHorizontal: 8,
             paddingVertical: 6,
             marginBottom: 10,
           }}>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={() => setWeekOffset((o) => o - 1)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
@@ -319,7 +354,7 @@ export default function StatsScreen() {
           <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
             {formatWeekRange(weekOffset)}
           </Text>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
             disabled={weekOffset >= 0}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -520,7 +555,7 @@ export default function StatsScreen() {
         {/* PR 기록 */}
         {prs.length > 0 && (
           <View
-            className="bg-surface rounded-[30px] p-[18px] mb-4"
+            className="bg-surface rounded-[30px] border border-border p-[18px] mb-4"
             style={SHADOW}>
             <Text
               style={{
