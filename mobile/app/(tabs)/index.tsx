@@ -1,33 +1,33 @@
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Animated } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
-import { Icon, FaceAvatar, SparkIcon } from "../../components/AppIcons";
+import { Icon, FaceAvatar, FlameIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
-import { ThemeToggle, LabelTag } from "../../components/ui";
+import { ThemeToggle } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
 
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
+// 필터 칩에 노출할 카테고리 (전체 + 주요 부위)
+const FILTER_CATEGORIES = ['가슴', '등', '하체', '어깨', '팔'];
 
 function eunNeun(s: string) {
   const code = s.charCodeAt(s.length - 1) - 0xAC00;
   return code >= 0 && code % 28 !== 0 ? '은' : '는';
 }
 
-function getWeekBounds() {
-  const now = new Date();
-  const day = now.getDay();
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - ((day + 6) % 7));
-  mon.setHours(0, 0, 0, 0);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 7);
-  return { start: mon, end: sun };
+// 로컬 타임존 기준 YYYY-MM-DD (session.date와 동일 포맷)
+function toYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -43,6 +43,11 @@ function sessionTitle(sess: WorkoutSession): string {
   return names.join(" & ") || "운동";
 }
 
+// 볼륨 포맷: 1000kg 이상은 t(톤) 축약
+function fmtVol(kg: number): string {
+  return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const c = useColors();
@@ -56,15 +61,10 @@ export default function HomeScreen() {
     }))
   );
   const { user } = useAuthStore();
+  const [filter, setFilter] = useState<string>('전체');
 
   const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
-  const scaleA = useRef(new Animated.Value(1)).current;
-  const scaleB = useRef(new Animated.Value(1)).current;
-  const pressIn = (sv: Animated.Value) =>
-    Animated.spring(sv, { toValue: 0.96, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
-  const pressOut = (sv: Animated.Value) =>
-    Animated.spring(sv, { toValue: 1, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
 
   useEffect(() => {
     fetchSessions();
@@ -76,13 +76,6 @@ export default function HomeScreen() {
     )).start();
   }, []);
 
-  const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 4,
-  };
   const SHADOW_SM = {
     shadowColor: c.primary,
     shadowOffset: { width: 0, height: 6 },
@@ -91,19 +84,72 @@ export default function HomeScreen() {
     elevation: 3,
   };
 
-  const { prEntry, weekMuscles } = useMemo(() => {
-    const { start, end } = getWeekBounds();
-    const weekSessions = sessions.filter((s) => {
-      const d = new Date(s.date + "T00:00:00");
-      return d >= start && d < end;
-    });
-    const prevSessions = sessions.filter((s) => {
-      const d = new Date(s.date + "T00:00:00");
-      return d < start;
-    });
+  // ── 카테고리 → 워시 색 (기존 코발트/태그 토큰만 사용) ──
+  const categoryColor = (cat?: string): string => {
+    switch (cat) {
+      case '가슴': return c.tagCoral;
+      case '등': return c.primary;
+      case '하체': return c.tagMint;
+      case '어깨': return c.tagSun;
+      case '팔': return c.warning;
+      case '복근': return c.secondary;
+      default: return c.primary;
+    }
+  };
 
-    // PR 비교는 통계 화면과 동일하게 kg 환산 + 완료 세트(weight>0 && reps>0) 기준으로 통일한다.
-    // (raw weight로 비교하면 lbs 기록이 kg 기록보다 크게 잡혀 실제보다 낮은 무게가 PR로 오인됨)
+  // ── 이번 주(일~토) 스트립 데이터 ──
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayYMD = toYMD(today);
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - today.getDay());
+    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const ymd = toYMD(d);
+      const daySessions = sessions.filter((s) => s.date === ymd);
+      let total = 0, done = 0;
+      for (const s of daySessions) {
+        for (const ex of s.exercises) {
+          for (const st of ex.sets) {
+            total++;
+            if (st.completed) done++;
+          }
+        }
+      }
+      // 세트가 없어도 세션이 있으면 완료로 간주(빈 링 방지)
+      const pct = total > 0 ? done / total : daySessions.length > 0 ? 1 : 0;
+      return {
+        dow: DOW[i],
+        num: d.getDate(),
+        ymd,
+        isToday: ymd === todayYMD,
+        isFuture: ymd > todayYMD,
+        hasSession: daySessions.length > 0,
+        pct,
+      };
+    });
+  }, [sessions]);
+
+  // 이번 주 운동한 일수 / 목표
+  const doneDays = weekDays.filter((d) => d.hasSession).length;
+  const weekGoal = user?.weeklyGoal ?? 4;
+
+  const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - ((day + 6) % 7));
+    mon.setHours(0, 0, 0, 0);
+    const start = mon;
+
+    const weekSessions = sessions.filter((s) => new Date(s.date + "T00:00:00") >= start);
+    const prevSessions = sessions.filter((s) => new Date(s.date + "T00:00:00") < start);
+
+    // PR 비교: 통계 화면과 동일하게 kg 환산 + 완료 세트(weight>0 && reps>0) 기준
     const prevMax: Record<string, number> = {};
     for (const sess of prevSessions) {
       for (const ex of sess.exercises) {
@@ -118,7 +164,6 @@ export default function HomeScreen() {
     let prEntry: { name: string; weight: number; reps: number; date: string } | null = null;
     for (const sess of [...weekSessions].sort((a, b) => b.date.localeCompare(a.date))) {
       for (const ex of sess.exercises) {
-        // 완료 세트 중 kg 환산 최고 무게 세트를 찾는다
         let best: { weightKg: number; reps: number } | null = null;
         for (const st of ex.sets) {
           if (st.weight <= 0 || st.reps <= 0) continue;
@@ -138,19 +183,27 @@ export default function HomeScreen() {
         for (const s of slugs) weekMuscleSet.add(s);
       }
     }
-    const weekMuscles = Array.from(weekMuscleSet);
 
-    return { prEntry, weekMuscles };
+    return { prEntry, prSessionDate: prEntry?.date ?? null, weekMuscles: Array.from(weekMuscleSet) };
   }, [sessions]);
 
-  const recentSession = useMemo(() => {
-    const completed = sessions.filter((s) => !activeSession || s.id !== activeSession.id);
-    return completed.sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
-  }, [sessions, activeSession]);
-
-  const today = new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+  // ── 최근 기록 (완료 세션, 필터 적용) ──
+  const recentSessions = useMemo(() => {
+    const completed = sessions
+      .filter((s) => !activeSession || s.id !== activeSession.id)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const filtered = filter === '전체'
+      ? completed
+      : completed.filter((s) => s.exercises.some((e) => e.category === filter));
+    return filtered.slice(0, 6);
+  }, [sessions, activeSession, filter]);
+  const recentTotal = useMemo(
+    () => sessions.filter((s) => !activeSession || s.id !== activeSession.id).length,
+    [sessions, activeSession]
+  );
 
   const weekMuscleSet = new Set(weekMuscles);
+  const majorHit = MAJOR_MUSCLES.filter((m) => weekMuscleSet.has(m)).length;
   const missingMajor = MAJOR_MUSCLES.find(m => !weekMuscleSet.has(m));
   const muscleHint = weekMuscles.length === 0
     ? "이번 주 첫 운동을 기록해보세요"
@@ -158,119 +211,175 @@ export default function HomeScreen() {
       ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
       : "전신 골고루 자극했어요!";
 
+  const monthTitle = `${new Date().getFullYear()}년 ${new Date().getMonth() + 1}월`;
+
+  const startWorkout = () => {
+    if (!activeSession) startSession();
+    router.push("/(tabs)/workout");
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      {/* 헤더 */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
-            <SparkIcon size={13} color={c.textSecondary} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary }}>{today}</Text>
-          </View>
-          <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5 }}>
-            {user?.name ? `${user.name}님, 안녕!` : "안녕하세요!"}
-          </Text>
+      {/* ── 헤더: 월 타이틀(표시용) + 테마토글 + 아바타 ── */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5 }}>{monthTitle}</Text>
+          <Icon name="chevronDown" size={18} color={c.textPrimary} />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ThemeToggle size={38} />
           <TouchableOpacity
-            style={[{ width: 50, height: 50, borderRadius: 18, backgroundColor: c.primary, alignItems: "center", justifyContent: "center", transform: [{ rotate: "6deg" }] }, SHADOW_SM]}
+            style={[{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }, SHADOW_SM]}
             onPress={() => router.push("/modal/set-target" as any)}>
-            <FaceAvatar size={30} color={c.onAccent} />
+            <FaceAvatar size={28} color={c.onAccent} />
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* ── 주간 스트립 (일~토, 완료도 링) ── */}
+      <View style={{ flexDirection: "row", paddingHorizontal: 14, paddingTop: 6, paddingBottom: 10, gap: 2 }}>
+        {weekDays.map((d) => {
+          const R = 16, CIRC = 2 * Math.PI * R;
+          const isSun = d.dow === '일';
+          return (
+            <View key={d.ymd} style={{ flex: 1, alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: isSun ? c.tagCoral : c.textSecondary }}>{d.dow}</Text>
+              <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+                {d.isToday ? (
+                  <View style={{ position: "absolute", width: 36, height: 36, borderRadius: 999, backgroundColor: c.primary }} />
+                ) : !d.isFuture && d.pct > 0 ? (
+                  <Svg width={40} height={40} style={{ position: "absolute" }}>
+                    <Circle cx={20} cy={20} r={R} fill="none" stroke={c.surfaceHigh} strokeWidth={3.5} />
+                    <Circle
+                      cx={20} cy={20} r={R} fill="none" stroke={c.primary} strokeWidth={3.5}
+                      strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - d.pct)}
+                      transform="rotate(-90 20 20)"
+                    />
+                  </Svg>
+                ) : null}
+                <Text style={{
+                  fontSize: 15,
+                  fontWeight: "800",
+                  color: d.isToday ? c.onAccent : d.isFuture ? c.textMuted : c.textPrimary,
+                }}>
+                  {d.num}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 18, paddingBottom: 40, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 120, gap: 14 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
-        {/* ── 빠른 액션 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <Animated.View style={{ flex: 1, transform: [{ scale: scaleA }, { rotate: "-1.5deg" }] }}>
-              <TouchableOpacity
-                style={[{ backgroundColor: c.surface, borderRadius: 26, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}
-                onPress={() => { if (!activeSession) startSession(); router.push("/(tabs)/workout"); }}
-                onPressIn={() => pressIn(scaleA)}
-                onPressOut={() => pressOut(scaleA)}
-                activeOpacity={1}>
-                <View style={{ width: 46, height: 46, borderRadius: 10, backgroundColor: c.primary + "22", alignItems: "center", justifyContent: "center" }}>
-                  <Icon name="dumbbell" size={26} color={c.primary} />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>운동 시작</Text>
-              </TouchableOpacity>
-            </Animated.View>
-            <Animated.View style={{ flex: 1, transform: [{ scale: scaleB }, { rotate: "1.5deg" }] }}>
-              <TouchableOpacity
-                style={[{ backgroundColor: c.surface, borderRadius: 26, padding: 16, alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}
-                onPress={() => router.push("/modal/routine-manage" as any)}
-                onPressIn={() => pressIn(scaleB)}
-                onPressOut={() => pressOut(scaleB)}
-                activeOpacity={1}>
-                <View style={{ width: 46, height: 46, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
-                  <Icon name="list" size={24} color={c.textSecondary} />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>루틴 관리</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
+        {/* ── 요약 알약 + 필터 칩 ── */}
+        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], gap: 12 }}>
+          <TouchableOpacity
+            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 15, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}
+            onPress={() => router.push("/(tabs)/stats")}
+            activeOpacity={0.85}>
+            <FlameIcon size={18} />
+            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>이번 주 운동</Text>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: c.primary, fontVariant: ["tabular-nums"] }}>{doneDays}/{weekGoal}</Text>
+            <Icon name="chevronRight" size={16} color={c.textMuted} />
+          </TouchableOpacity>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+            {['전체', ...FILTER_CATEGORIES].map((cat) => {
+              const on = filter === cat;
+              const label = cat === '전체' ? `전체 ${recentTotal}` : cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  onPress={() => setFilter(cat)}
+                  activeOpacity={0.8}
+                  style={{
+                    paddingHorizontal: 15,
+                    paddingVertical: 9,
+                    borderRadius: 999,
+                    backgroundColor: on ? c.textPrimary : c.surface,
+                    borderWidth: 1,
+                    borderColor: on ? c.textPrimary : c.border,
+                  }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: on ? c.background : c.textSecondary, letterSpacing: -0.2 }}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </Animated.View>
 
-        {/* ── 최근 기록 ── */}
-        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }], overflow: 'visible' }}>
-          <View style={{ position: 'relative', overflow: 'visible', height: 20, marginBottom: 16, marginTop: 14 }}>
-            <LabelTag label="최근 기록" color={c.tagMint} />
-            <TouchableOpacity
-              style={{ position: 'absolute', right: 0, top: 0, flexDirection: "row", alignItems: "center", gap: 3 }}
-              onPress={() => router.push("/(tabs)/stats")}>
+        {/* ── 최근 기록 (상단 색 워시 카드 그리드) ── */}
+        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 4, paddingBottom: 10 }}>
+            <Icon name="trophy" size={17} color={c.tagSun} />
+            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>최근 기록</Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: c.textMuted }}>{recentSessions.length}</Text>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 2 }} onPress={() => router.push("/(tabs)/stats")}>
               <Text style={{ fontSize: 12, fontWeight: "800", color: c.primary }}>전체 보기</Text>
               <Icon name="chevronRight" size={12} color={c.primary} />
             </TouchableOpacity>
           </View>
 
-          {prEntry && (
-            <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: c.surface, borderRadius: 16, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
-              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.warning + "28", alignItems: "center", justifyContent: "center", transform: [{ rotate: "-6deg" }] }}>
-                <Icon name="trophy" size={20} color={c.warning} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{prEntry.name} PR 경신!</Text>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1, fontVariant: ['tabular-nums'] }}>
-                  {formatDate(prEntry.date)} · {Math.round(prEntry.weight * 10) / 10}kg × {prEntry.reps}
-                </Text>
-              </View>
-              <Text style={{ fontSize: 14, fontWeight: "900", color: c.primary, fontVariant: ['tabular-nums'] }}>{Math.round(prEntry.weight * 10) / 10}kg</Text>
-            </View>
-          )}
-
-          {recentSession ? (
-            <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: c.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
-              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.primary + "20", alignItems: "center", justifyContent: "center", transform: [{ rotate: "-6deg" }] }}>
-                <Icon name="dumbbell" size={20} color={c.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>{sessionTitle(recentSession)}</Text>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary, marginTop: 1, fontVariant: ['tabular-nums'] }}>
-                  {formatDate(recentSession.date)} · {recentSession.exercises.length}종목 · {getTotalVolume(recentSession).toLocaleString()}kg
-                </Text>
-              </View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, fontVariant: ['tabular-nums'] }}>{recentSession.durationMinutes}분</Text>
+          {recentSessions.length > 0 ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+              {recentSessions.map((s) => {
+                const cat = s.exercises[0]?.category;
+                const wash = categoryColor(cat);
+                const isPR = !!prSessionDate && s.date === prSessionDate;
+                const badge = isPR ? "PR" : `${s.exercises.length}종목`;
+                return (
+                  <View key={s.id} style={[{ width: "48%", marginBottom: 11, backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, SHADOW_SM]}>
+                    {/* 상단 색 워시 헤더 */}
+                    <View style={{ backgroundColor: wash, paddingHorizontal: 13, paddingTop: 13, paddingBottom: 26 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={{ fontSize: 12.5, fontWeight: "800", color: "rgba(255,255,255,0.95)" }}>{formatDate(s.date)}</Text>
+                        <View style={{ backgroundColor: "rgba(255,255,255,0.24)", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff" }}>{badge}</Text>
+                        </View>
+                      </View>
+                      <Text style={{ position: "absolute", right: 12, top: 10, color: "rgba(255,255,255,0.85)", fontWeight: "900", fontSize: 14 }}>⋮</Text>
+                    </View>
+                    {/* 본문(헤더 위로 겹침) */}
+                    <View style={{ paddingHorizontal: 12, paddingBottom: 12, marginTop: -14 }}>
+                      <View style={{ backgroundColor: c.surface, borderRadius: 13, padding: 11, gap: 3 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Icon name="dumbbell" size={15} color={wash} />
+                          <Text style={{ flex: 1, fontSize: 15, fontWeight: "800", color: c.textPrimary, lineHeight: 19 }} numberOfLines={2}>
+                            {sessionTitle(s)}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 14, fontWeight: "800", color: wash, fontVariant: ["tabular-nums"] }}>
+                          {fmtVol(getTotalVolume(s))}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           ) : (
             <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 24, alignItems: "center", borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
               <Icon name="dumbbell" size={32} color={c.textMuted} />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginTop: 8 }}>아직 운동 기록이 없어요</Text>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginTop: 8 }}>
+                {filter === '전체' ? "아직 운동 기록이 없어요" : `${filter} 운동 기록이 없어요`}
+              </Text>
             </View>
           )}
         </Animated.View>
 
-        {/* ── 이번 주 자극 부위 ── */}
+        {/* ── 이번 주 자극 부위 (MuscleMap 재사용) ── */}
         <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 16, paddingTop: 28, borderWidth: 1, borderColor: c.border, overflow: 'visible' }, SHADOW_SM]}>
-            <LabelTag label="이번 주 자극 부위" color={c.tagSun} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 4, paddingBottom: 10 }}>
+            <Icon name="dumbbell" size={17} color={c.primary} />
+            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>이번 주 자극 부위</Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: c.textMuted, fontVariant: ["tabular-nums"] }}>{majorHit}/{MAJOR_MUSCLES.length}</Text>
+          </View>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: c.border, overflow: 'visible' }, SHADOW_SM]}>
             <MuscleMap muscles={weekMuscles} scale={0.55} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.border }}>
               <Icon
@@ -286,6 +395,29 @@ export default function HomeScreen() {
         </Animated.View>
 
       </ScrollView>
+
+      {/* ── FAB (+): 운동 시작/이어하기 ── */}
+      <TouchableOpacity
+        onPress={startWorkout}
+        activeOpacity={0.85}
+        style={{
+          position: "absolute",
+          right: 20,
+          bottom: 28,
+          width: 60,
+          height: 60,
+          borderRadius: 999,
+          backgroundColor: c.primary,
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: c.primary,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.35,
+          shadowRadius: 16,
+          elevation: 8,
+        }}>
+        <Icon name="plus" size={30} color={c.onAccent} />
+      </TouchableOpacity>
     </View>
   );
 }
