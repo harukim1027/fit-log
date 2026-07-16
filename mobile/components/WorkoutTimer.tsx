@@ -32,11 +32,11 @@ export default function WorkoutTimer({
   // (부모 WorkoutScreen이 구독하면 매초 전체 종목/세트 트리가 리렌더돼 입력이 버벅임)
   const elapsed = useWorkoutStore((s) => s.workoutElapsed);
   const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
   return (
     <View

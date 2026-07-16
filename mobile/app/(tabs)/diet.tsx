@@ -56,18 +56,18 @@ const formatDate = (d: Date) =>
 const isToday = (d: Date) => dateStr(d) === dateStr(new Date());
 
 const makeShadow = (c: ThemeColors) => ({
-  shadowColor: c.primary,
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.2,
-  shadowRadius: 24,
-  elevation: 4,
+  shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
 });
 const makeShadowSm = (c: ThemeColors) => ({
-  shadowColor: c.primary,
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.16,
-  shadowRadius: 14,
-  elevation: 3,
+  shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
 });
 
 type DietTab = 'today' | 'calendar';
@@ -230,7 +230,7 @@ export default function DietScreen() {
           return (
             <TouchableOpacity
               key={t}
-              style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: c.surface, shadowColor: c.success, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined]}
+              style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: c.surface, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined]}
               onPress={() => setDietTab(t)}>
               <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? c.success : c.textMuted }}>
                 {t === 'today' ? '오늘 식단' : '달력'}

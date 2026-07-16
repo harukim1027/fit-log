@@ -230,11 +230,11 @@ export default function StatsScreen() {
   const avgBurn = workoutDayAvg(burnBarsAll);
 
   const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
 
   return (

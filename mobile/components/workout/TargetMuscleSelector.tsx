@@ -55,7 +55,7 @@ export function TargetMuscleSelector({
   const [inputText, setInputText] = useState("");
 
   const SHADOW = {
-    shadowColor: c.primary,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.09,
     shadowRadius: 10,

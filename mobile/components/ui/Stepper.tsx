@@ -36,7 +36,7 @@ export function Stepper({
       <View className="flex-row items-center bg-surface-alt rounded-full p-1.5">
         <TouchableOpacity
           className="w-11 h-11 rounded-full bg-surface items-center justify-center"
-          style={{ shadowColor: c.primary, shadowOpacity: 0.15, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}
+          style={{ shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}
           onPress={() => set(num - step)}
           activeOpacity={0.7}>
           <Text className="text-2xl font-bold text-primary" style={{ marginTop: -3 }}>−</Text>
@@ -54,7 +54,7 @@ export function Stepper({
 
         <TouchableOpacity
           className="w-11 h-11 rounded-full bg-primary items-center justify-center"
-          style={{ shadowColor: c.primary, shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}
+          style={{ shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}
           onPress={() => set(num + step)}
           activeOpacity={0.7}>
           <Text className="text-2xl font-bold text-white" style={{ marginTop: -3 }}>+</Text>

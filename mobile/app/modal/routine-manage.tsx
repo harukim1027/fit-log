@@ -58,11 +58,11 @@ export default function RoutineManageModal() {
   const c = useColors();
   const keyboardHeight = useKeyboardHeight();
   const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.13,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
   const params = useLocalSearchParams<{ editId?: string }>();
   const {

@@ -48,6 +48,17 @@ function fmtVol(kg: number): string {
   return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
 }
 
+// hex 색을 amt(0~1)만큼 어둡게 — 불투명 배지색 계산용 (반투명 오버레이 대체)
+function darken(hex: string, amt: number): string {
+  const m = hex.replace('#', '');
+  const full = m.length === 3 ? m.split('').map((x) => x + x).join('') : m;
+  const n = parseInt(full, 16);
+  const r = Math.round(((n >> 16) & 255) * (1 - amt));
+  const g = Math.round(((n >> 8) & 255) * (1 - amt));
+  const b = Math.round((n & 255) * (1 - amt));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const c = useColors();
@@ -76,12 +87,13 @@ export default function HomeScreen() {
     )).start();
   }, []);
 
+  // 유리처럼 부유해 보이지 않게 — 옅은 검정 그림자로 바닥에 붙은 느낌
   const SHADOW_SM = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
 
   // ── 카테고리 → 워시 색 (기존 코발트/태그 토큰만 사용) ──
@@ -337,12 +349,12 @@ export default function HomeScreen() {
                     {/* 상단 색 워시 헤더 */}
                     <View style={{ backgroundColor: wash, paddingHorizontal: 13, paddingTop: 13, paddingBottom: 26 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={{ fontSize: 12.5, fontWeight: "800", color: "rgba(255,255,255,0.95)" }}>{formatDate(s.date)}</Text>
-                        <View style={{ backgroundColor: "rgba(255,255,255,0.24)", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff" }}>{badge}</Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: "800", color: "#FFFFFF" }}>{formatDate(s.date)}</Text>
+                        <View style={{ backgroundColor: darken(wash, 0.2), borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#FFFFFF" }}>{badge}</Text>
                         </View>
                       </View>
-                      <Text style={{ position: "absolute", right: 12, top: 10, color: "rgba(255,255,255,0.85)", fontWeight: "900", fontSize: 14 }}>⋮</Text>
+                      <Text style={{ position: "absolute", right: 12, top: 10, color: "#FFFFFF", fontWeight: "900", fontSize: 14 }}>⋮</Text>
                     </View>
                     {/* 본문(헤더 위로 겹침) */}
                     <View style={{ paddingHorizontal: 12, paddingBottom: 12, marginTop: -14 }}>
@@ -410,7 +422,7 @@ export default function HomeScreen() {
           backgroundColor: c.primary,
           alignItems: "center",
           justifyContent: "center",
-          shadowColor: c.primary,
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: 10 },
           shadowOpacity: 0.35,
           shadowRadius: 16,

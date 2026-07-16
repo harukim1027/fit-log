@@ -139,18 +139,18 @@ export default function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();
   const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
   const SHADOW_SM = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
   const calTheme = React.useMemo(() => makeCalTheme(c), [c]);
   const {

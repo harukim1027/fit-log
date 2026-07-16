@@ -52,7 +52,7 @@ export default function EditProfileModal() {
     setPadConfig({ value, decimal, suffix, onConfirm });
 
   const cardShadow = {
-    shadowColor: c.primary,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.09,
     shadowRadius: 10,
