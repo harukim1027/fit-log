@@ -717,7 +717,7 @@ export default function WorkoutScreen() {
         {(["today", "history"] as Tab[]).map((t) => {
           const isActiveTab = tab === t;
           return (
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               key={t}
               style={[
                 {
@@ -886,6 +886,8 @@ export default function WorkoutScreen() {
                           style={[
                             {
                               backgroundColor: c.surface,
+                              borderWidth: 1,
+                              borderColor: c.border,
                               borderRadius: 24,
                               padding: 16,
                               marginBottom: 10,
@@ -931,7 +933,7 @@ export default function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </View>
-                              <TouchableOpacity
+                              <TouchableOpacity activeOpacity={0.8}
                                 onPress={() => handleShareToggle(routine)}>
                                 <Icon
                                   name={routine.isPublic ? "unlock" : "lock"}
@@ -939,7 +941,7 @@ export default function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </TouchableOpacity>
-                              <TouchableOpacity
+                              <TouchableOpacity activeOpacity={0.8}
                                 onPress={() =>
                                   router.push({
                                     pathname: "/modal/routine-manage",
@@ -952,7 +954,7 @@ export default function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </TouchableOpacity>
-                              <TouchableOpacity
+                              <TouchableOpacity activeOpacity={0.8}
                                 onPress={() =>
                                   showCuteAlert({
                                     icon: "trash",
@@ -1154,7 +1156,7 @@ export default function WorkoutScreen() {
                             marginBottom: 12,
                           }}>
                           {(["latest", "popular"] as const).map((s) => (
-                            <TouchableOpacity
+                            <TouchableOpacity activeOpacity={0.8}
                               key={s}
                               style={{
                                 paddingHorizontal: 16,
@@ -1277,7 +1279,7 @@ export default function WorkoutScreen() {
                                   by {codeResult.authorName ?? "익명"}
                                 </Text>
                               </View>
-                              <TouchableOpacity
+                              <TouchableOpacity activeOpacity={0.8}
                                 style={{
                                   backgroundColor: c.warning,
                                   borderRadius: 999,
@@ -1354,6 +1356,8 @@ export default function WorkoutScreen() {
                               style={[
                                 {
                                   backgroundColor: c.surface,
+                                  borderWidth: 1,
+                                  borderColor: c.border,
                                   borderRadius: 20,
                                   padding: 14,
                                   marginBottom: 10,
@@ -1406,7 +1410,7 @@ export default function WorkoutScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <TouchableOpacity
+                                <TouchableOpacity activeOpacity={0.8}
                                   style={{
                                     backgroundColor: c.surfaceAlt,
                                     borderRadius: 999,
@@ -1769,7 +1773,7 @@ export default function WorkoutScreen() {
                               )}
 
                               {/* 펼침 chevron (기존 상세보기 토글 동작 유지) */}
-                              <TouchableOpacity
+                              <TouchableOpacity activeOpacity={0.8}
                                 onPress={() =>
                                   setDetailExpanded((prev) => ({ ...prev, [ex.id]: !isExpanded }))
                                 }
@@ -1896,7 +1900,7 @@ export default function WorkoutScreen() {
                                           const curUnit =
                                             ex.sets[0]?.unit ?? "kg";
                                           return (
-                                            <TouchableOpacity
+                                            <TouchableOpacity activeOpacity={0.8}
                                               key={u}
                                               style={{
                                                 paddingHorizontal: 7,
@@ -1963,7 +1967,7 @@ export default function WorkoutScreen() {
                                             alignItems: "center",
                                             gap: 12,
                                           }}>
-                                          <TouchableOpacity
+                                          <TouchableOpacity activeOpacity={0.8}
                                             style={{
                                               width: 28,
                                               height: 28,
@@ -1989,7 +1993,7 @@ export default function WorkoutScreen() {
                                               -5
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity
+                                          <TouchableOpacity activeOpacity={0.8}
                                             style={{
                                               paddingHorizontal: 6,
                                               height: 28,
@@ -2028,7 +2032,7 @@ export default function WorkoutScreen() {
                                               </Text>
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity
+                                          <TouchableOpacity activeOpacity={0.8}
                                             style={{
                                               width: 28,
                                               height: 28,
@@ -2065,7 +2069,7 @@ export default function WorkoutScreen() {
                                             alignItems: "center",
                                             gap: 12,
                                           }}>
-                                          <TouchableOpacity
+                                          <TouchableOpacity activeOpacity={0.8}
                                             style={{
                                               width: 28,
                                               height: 28,
@@ -2088,7 +2092,7 @@ export default function WorkoutScreen() {
                                               -1
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity
+                                          <TouchableOpacity activeOpacity={0.8}
                                             style={{
                                               paddingHorizontal: 6,
                                               height: 28,
@@ -2127,7 +2131,7 @@ export default function WorkoutScreen() {
                                               </Text>
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity
+                                          <TouchableOpacity activeOpacity={0.8}
                                             style={{
                                               width: 28,
                                               height: 28,
@@ -2151,7 +2155,7 @@ export default function WorkoutScreen() {
                                             </Text>
                                           </TouchableOpacity>
                                         </View>
-                                        <TouchableOpacity
+                                        <TouchableOpacity activeOpacity={0.8}
                                           style={{ paddingLeft: 8 }}
                                           onPress={() => {
                                             if (ex.sets.length <= 1) {
@@ -2197,7 +2201,7 @@ export default function WorkoutScreen() {
                                         </TouchableOpacity>
                                       </View>
                                     ))}
-                                    <TouchableOpacity
+                                    <TouchableOpacity activeOpacity={0.8}
                                       style={{
                                         alignItems: "center",
                                         paddingVertical: 8,
@@ -2341,7 +2345,7 @@ export default function WorkoutScreen() {
                                           }}>
                                           {s.key}: {s.value}
                                         </Text>
-                                        <TouchableOpacity
+                                        <TouchableOpacity activeOpacity={0.8}
                                           onPress={() =>
                                             updateExercise(ex.id, {
                                               settings: (
@@ -2366,7 +2370,7 @@ export default function WorkoutScreen() {
                                         </TouchableOpacity>
                                       </View>
                                     ))}
-                                    <TouchableOpacity
+                                    <TouchableOpacity activeOpacity={0.8}
                                       style={{
                                         backgroundColor: c.surfaceAlt,
                                         borderRadius: 999,
@@ -2456,7 +2460,7 @@ export default function WorkoutScreen() {
                                       alignItems: "center",
                                       gap: 8,
                                     }}>
-                                    <TouchableOpacity
+                                    <TouchableOpacity activeOpacity={0.8}
                                       onPress={() =>
                                         updateExercise(ex.id, {
                                           restSeconds: Math.max(
@@ -2501,7 +2505,7 @@ export default function WorkoutScreen() {
                                       </Text>
                                     </View>
 
-                                    <TouchableOpacity
+                                    <TouchableOpacity activeOpacity={0.8}
                                       onPress={() =>
                                         updateExercise(ex.id, {
                                           restSeconds:
@@ -2783,6 +2787,8 @@ export default function WorkoutScreen() {
               justifyContent: "center",
               gap: 6,
               backgroundColor: c.surface,
+              borderWidth: 1,
+              borderColor: c.border,
               borderRadius: 16,
               paddingVertical: 13,
               marginBottom: 20,
@@ -2809,6 +2815,8 @@ export default function WorkoutScreen() {
                     <View
                       style={{
                         backgroundColor: c.surface,
+                        borderWidth: 1,
+                        borderColor: c.border,
                         borderRadius: 20,
                         padding: 20,
                         alignItems: "center",
@@ -2829,6 +2837,8 @@ export default function WorkoutScreen() {
                     <View
                       style={{
                         backgroundColor: c.surface,
+                        borderWidth: 1,
+                        borderColor: c.border,
                         borderRadius: 20,
                         padding: 24,
                         alignItems: "center",
@@ -3028,7 +3038,7 @@ export default function WorkoutScreen() {
               }}>
               루틴에서 가져오기
             </Text>
-            <TouchableOpacity onPress={() => setShowRoutineSheet(false)}>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => setShowRoutineSheet(false)}>
               <Text
                 style={{ fontSize: 20, color: c.textMuted, fontWeight: "700" }}>
                 ×
@@ -3049,6 +3059,8 @@ export default function WorkoutScreen() {
                   key={routine.id}
                   style={{
                     backgroundColor: c.surface,
+                    borderWidth: 1,
+                    borderColor: c.border,
                     borderRadius: 20,
                     overflow: "hidden",
                     marginBottom: 10,
@@ -3082,7 +3094,7 @@ export default function WorkoutScreen() {
                         {routine.exercises.length}종목
                       </Text>
                     </View>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{
                         backgroundColor: c.warning,
                         borderRadius: 999,
@@ -3206,7 +3218,7 @@ export default function WorkoutScreen() {
                                 </Text>
                               </View>
                             ) : (
-                              <TouchableOpacity
+                              <TouchableOpacity activeOpacity={0.8}
                                 style={{
                                   backgroundColor: c.surfaceAlt,
                                   borderRadius: 999,
@@ -3312,7 +3324,7 @@ export default function WorkoutScreen() {
                 onSubmitEditing={handleSaveAsRoutine}
               />
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{
                     flex: 1,
                     paddingVertical: 14,
@@ -3333,7 +3345,7 @@ export default function WorkoutScreen() {
                     나중에
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{
                     flex: 1,
                     paddingVertical: 14,
@@ -4183,7 +4195,7 @@ function HistoryCard({
             borderTopWidth: 1,
             borderTopColor: c.surfaceAlt,
           }}>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={() => setShowDateModal(true)}
             style={{
               flexDirection: "row",
@@ -4200,7 +4212,7 @@ function HistoryCard({
               날짜 변경
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={() => {
               setRoutineSaveName("");
               setShowRoutineSaveModal(true);
@@ -4220,7 +4232,7 @@ function HistoryCard({
               루틴 저장
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={() => {
               if (editMode) {
                 setEditMode(false);
@@ -4253,7 +4265,7 @@ function HistoryCard({
               {editMode ? "취소" : "수정"}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={handleDelete}
             style={{
               flexDirection: "row",
@@ -4331,7 +4343,7 @@ function HistoryCard({
                   dotColor: c.primary,
                 }}
               />
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 onPress={() => setShowDateModal(false)}
                 disabled={dateSaving}
                 style={{
@@ -4407,7 +4419,7 @@ function HistoryCard({
                   onSubmitEditing={handleSaveSessionAsRoutine}
                 />
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     style={{
                       flex: 1,
                       paddingVertical: 14,
@@ -4425,7 +4437,7 @@ function HistoryCard({
                       취소
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     style={{
                       flex: 1,
                       paddingVertical: 14,
@@ -4485,7 +4497,7 @@ function HistoryCard({
                       placeholder="종목명"
                       placeholderTextColor={c.textMuted}
                     />
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       onPress={() => removeDraftExercise(exIdx)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Icon name="trash" size={16} color={c.danger} />
@@ -4509,7 +4521,7 @@ function HistoryCard({
                           justifyContent: "space-between",
                           marginBottom: 8,
                         }}>
-                        <TouchableOpacity
+                        <TouchableOpacity activeOpacity={0.8}
                           style={{
                             flexDirection: "row",
                             alignItems: "center",
@@ -4562,7 +4574,7 @@ function HistoryCard({
                             세트 {setIdx + 1}
                           </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
+                        <TouchableOpacity activeOpacity={0.8}
                           onPress={() => removeDraftSet(exIdx, setIdx)}>
                           <Icon name="trash" size={14} color={c.textMuted} />
                         </TouchableOpacity>
@@ -4598,7 +4610,7 @@ function HistoryCard({
                       />
                     </View>
                   ))}
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     style={{
                       alignItems: "center",
                       paddingVertical: 7,
@@ -4618,7 +4630,7 @@ function HistoryCard({
                   </TouchableOpacity>
                 </View>
               ))}
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 style={{
                   alignItems: "center",
                   paddingVertical: 9,
@@ -4633,7 +4645,7 @@ function HistoryCard({
                   + 종목 추가
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 style={{
                   alignItems: "center",
                   paddingVertical: 12,
