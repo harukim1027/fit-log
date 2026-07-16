@@ -74,7 +74,7 @@ export default function RegisterScreen() {
             fullWidth
             className="mt-2"
           />
-          <TouchableOpacity className="items-center mt-4" onPress={() => router.back()}>
+          <TouchableOpacity activeOpacity={0.8} className="items-center mt-4" onPress={() => router.back()}>
             <Text className="text-sm text-text-secondary">
               이미 계정이 있으신가요? <Text className="text-primary font-bold">로그인</Text>
             </Text>

@@ -304,7 +304,7 @@ export default function AddFoodModal() {
         subtitle={date ? `${date} · ${MEAL_LABELS[mealType]}` : MEAL_LABELS[mealType] + "에 추가"}
         showClose
         rightElement={
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             className="flex-row items-center gap-1 bg-primary/20 px-3 py-[7px] rounded-[20px]"
             onPress={() =>
               router.push({
@@ -324,7 +324,7 @@ export default function AddFoodModal() {
           {TABS.map((t) => {
             const isActive = tab === t.key;
             return (
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 key={t.key}
                 style={[
                   { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 },
@@ -351,7 +351,7 @@ export default function AddFoodModal() {
                 onSubmitEditing={handleSearch}
                 returnKeyType="search"
               />
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 className="bg-diet rounded-2xl px-[18px] py-3 justify-center"
                 onPress={handleSearch}>
                 {loading ? (
@@ -427,13 +427,13 @@ export default function AddFoodModal() {
                           {food.calories}kcal
                         </Text>
                         {food.source === 'custom' ? (
-                          <TouchableOpacity
+                          <TouchableOpacity activeOpacity={0.8}
                             style={{ backgroundColor: '#EDE9F8', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
                             onPress={() => handleCopyCustomFood(food.customFoodId, food.name)}>
                             <Text style={{ fontSize: 11, fontWeight: '800', color: '#7C5CBF' }}>가져오기</Text>
                           </TouchableOpacity>
                         ) : (
-                          <TouchableOpacity onPress={() => handleToggleFavorite(food)}>
+                          <TouchableOpacity activeOpacity={0.8} onPress={() => handleToggleFavorite(food)}>
                             <HeartIcon
                               filled={isFavorite(food.name)}
                               size={20}
@@ -457,7 +457,7 @@ export default function AddFoodModal() {
                   {[50, 100, 150, 200].map((g) => {
                     const on = amount === String(g);
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity activeOpacity={0.8}
                         key={g}
                         className={[
                           "flex-1 rounded-full py-2 items-center border",
@@ -536,7 +536,7 @@ export default function AddFoodModal() {
                   <View key={key} style={{ marginBottom: 10 }}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: c.textMuted, marginBottom: 4 }}>{label}</Text>
                     {numeric ? (
-                      <TouchableOpacity
+                      <TouchableOpacity activeOpacity={0.8}
                         style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, alignItems: 'center' }}
                         onPress={() => openPad(String(photoResult[key] ?? ''), fDecimal !== false, fSuffix ?? '', v => setPhotoResult((p: any) => ({ ...p, [key]: v })))}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: photoResult[key] ? c.textPrimary : c.textMuted }}>
@@ -626,12 +626,12 @@ export default function AddFoodModal() {
                       <View className="items-end gap-2 ml-2">
                         <Text className="text-sm font-bold text-diet">{food.calories}kcal</Text>
                         <View className="flex-row gap-2">
-                          <TouchableOpacity
+                          <TouchableOpacity activeOpacity={0.8}
                             style={{ backgroundColor: c.surfaceAlt, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
                             onPress={() => handleAddFood({ name: food.foodName, ...food }, food.amount)}>
                             <Text style={{ fontSize: 11, fontWeight: '800', color: c.success }}>추가</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity
+                          <TouchableOpacity activeOpacity={0.8}
                             style={{ backgroundColor: '#FFE8E8', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }}
                             onPress={() => handleDeleteCustomFood(food)}>
                             <Text style={{ fontSize: 11, fontWeight: '800', color: '#E05C5C' }}>삭제</Text>
@@ -671,14 +671,14 @@ export default function AddFoodModal() {
                       {food.calories}kcal
                     </Text>
                     <View className="flex-row gap-2 items-center">
-                      <TouchableOpacity
+                      <TouchableOpacity activeOpacity={0.8}
                         className="bg-diet/30 rounded-xl px-3 py-1"
                         onPress={() =>
                           handleAddFood({ name: food.foodName, ...food }, food.amount)
                         }>
                         <Text className="text-xs text-diet font-bold">추가</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => removeFavorite(food.id)}>
+                      <TouchableOpacity activeOpacity={0.8} onPress={() => removeFavorite(food.id)}>
                         <HeartIcon filled size={20} color={c.secondary} />
                       </TouchableOpacity>
                     </View>
@@ -695,7 +695,7 @@ export default function AddFoodModal() {
               <Input label="식품명 *" value={manualName} onChangeText={setManualName} placeholder="예: 삶은 계란" />
               <View style={{ marginBottom: 4 }}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 6 }}>칼로리 (kcal) *</Text>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center' }}
                   onPress={() => openPad(manualCalories, false, 'kcal', setManualCalories)}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: manualCalories ? c.textPrimary : c.textMuted }}>
@@ -711,7 +711,7 @@ export default function AddFoodModal() {
                 ] as const).map(({ label, value, set }) => (
                   <View key={label} style={{ flex: 1 }}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary, marginBottom: 6 }}>{label}</Text>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, paddingVertical: 12, alignItems: 'center' }}
                       onPress={() => openPad(value, true, 'g', set)}>
                       <Text style={{ fontSize: 14, fontWeight: '700', color: value ? c.textPrimary : c.textMuted }}>
@@ -723,7 +723,7 @@ export default function AddFoodModal() {
               </View>
               <View style={{ marginBottom: 4 }}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: c.textSecondary, marginBottom: 6 }}>양 (g)</Text>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center' }}
                   onPress={() => openPad(manualAmount, false, 'g', setManualAmount)}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: c.textPrimary }}>

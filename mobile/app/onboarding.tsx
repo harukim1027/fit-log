@@ -212,7 +212,7 @@ export default function OnboardingScreen() {
               ] as const).map(({ label, value, set, decimal, suffix, placeholder }) => (
                 <View key={label} style={{ marginBottom: 16 }}>
                   <Text className="text-text-secondary text-xs font-bold mb-1.5">{label}</Text>
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     className="flex-row items-center bg-surface-alt rounded-2xl px-3"
                     onPress={() => openPad(value, decimal, suffix, set)}>
                     <Text className="flex-1 py-3 text-base" style={{ color: value ? c.textPrimary : c.textMuted }}>

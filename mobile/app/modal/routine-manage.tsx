@@ -477,10 +477,10 @@ export default function RoutineManageModal() {
                             gap: 10,
                             alignItems: "center",
                           }}>
-                          <TouchableOpacity onPress={() => openEdit(r)}>
+                          <TouchableOpacity activeOpacity={0.8} onPress={() => openEdit(r)}>
                             <Icon name="pencil" size={18} color={c.textSecondary} />
                           </TouchableOpacity>
-                          <TouchableOpacity
+                          <TouchableOpacity activeOpacity={0.8}
                             onPress={() => setDeleteTarget(r.id)}>
                             <Icon name="trash" size={18} color={c.textMuted} />
                           </TouchableOpacity>
@@ -586,12 +586,12 @@ export default function RoutineManageModal() {
                   {`"${targetName}" 루틴을 삭제할까요?`}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     onPress={() => setDeleteTarget(null)}
                     style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: 'center' }}>
                     <Text style={{ fontSize: 15, fontWeight: '600', color: c.textSecondary }}>취소</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     onPress={() => { deleteRoutine(deleteTarget); setDeleteTarget(null); }}
                     style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: c.danger, alignItems: 'center' }}>
                     <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>삭제</Text>
@@ -851,7 +851,7 @@ export default function RoutineManageModal() {
                         </View>
                       )}
                     </View>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       onPress={() =>
                         setCombineExercises((prev) =>
                           prev.filter((e) => e.key !== ex.key)
@@ -899,7 +899,8 @@ export default function RoutineManageModal() {
           ref={editScrollRef}
           onScroll={(e) => { editScrollOffset.current = e.nativeEvent.contentOffset.y; }}
           scrollEventThrottle={16}
-          keyboardShouldPersistTaps="always"
+          // "handled": 빈 영역/색상 휠 탭 시 키보드 닫힘, 팔레트 칩 onPress는 유지
+          keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
           style={{ flex: 1 }}>
@@ -1059,7 +1060,7 @@ export default function RoutineManageModal() {
                         </View>
                       ) : null}
                     </View>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       onPress={() =>
                         setExercises((prev) =>
                           prev.filter((e) => e.key !== ex.key)
@@ -1127,7 +1128,7 @@ export default function RoutineManageModal() {
           <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingBottom: 32 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>
               <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary }}>운동 기록에서 불러오기</Text>
-              <TouchableOpacity onPress={() => setShowHistorySheet(false)}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setShowHistorySheet(false)}>
                 <Icon name="close" size={20} color={c.textMuted} />
               </TouchableOpacity>
             </View>

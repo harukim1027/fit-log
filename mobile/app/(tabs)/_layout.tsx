@@ -4,6 +4,7 @@ import { Animated, View } from "react-native";
 import { useColors } from "../../constants/colors";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "../../components/AppIcons";
+import { ActiveWorkoutBar } from "../../components/workout/ActiveWorkoutBar";
 
 type TabIconName = "home" | "dumbbell" | "chart";
 
@@ -45,6 +46,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -80,5 +82,8 @@ export default function TabLayout() {
       {/* diet 탭: 파일 보존, 탭바에서 숨김 */}
       <Tabs.Screen name="diet" options={{ href: null }} />
     </Tabs>
+    {/* 운동 중 전역 미니 바 (탭바 위 오버레이, 운동 탭에선 자동 숨김) */}
+    <ActiveWorkoutBar />
+    </View>
   );
 }

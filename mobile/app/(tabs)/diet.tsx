@@ -228,7 +228,7 @@ export default function DietScreen() {
         {(['today', 'calendar'] as DietTab[]).map(t => {
           const isActive = dietTab === t;
           return (
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               key={t}
               style={[{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 }, isActive ? { backgroundColor: c.surface, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined]}
               onPress={() => setDietTab(t)}>
@@ -307,7 +307,7 @@ export default function DietScreen() {
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity
+                  <TouchableOpacity activeOpacity={0.8}
                     style={{ backgroundColor: c.surfaceAlt, borderRadius: 14, paddingVertical: 10, alignItems: 'center', marginTop: 4 }}
                     onPress={() => {
                       setDietTab('today');
@@ -343,7 +343,7 @@ export default function DietScreen() {
                 justifyContent: "space-between",
                 marginBottom: 14,
               }}>
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 style={[
                   {
                     width: 38,
@@ -374,7 +374,7 @@ export default function DietScreen() {
                   />
                 )}
               </View>
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 style={[
                   {
                     width: 38,
@@ -596,7 +596,7 @@ export default function DietScreen() {
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                         style={{
                           width: 32,
                           height: 32,
@@ -731,7 +731,7 @@ export default function DietScreen() {
                           gap: 8,
                         }}>
                         {cardIdx > 0 && (
-                          <TouchableOpacity
+                          <TouchableOpacity activeOpacity={0.8}
                             style={{
                               width: 28,
                               height: 28,
@@ -748,7 +748,7 @@ export default function DietScreen() {
                             <Icon name="close" size={13} color={c.danger} />
                           </TouchableOpacity>
                         )}
-                        <TouchableOpacity
+                        <TouchableOpacity activeOpacity={0.8}
                             style={{
                               width: 32,
                               height: 32,
@@ -930,7 +930,7 @@ function DraggableFoodItem({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ fontSize: 12, fontWeight: '900', color: c.success }}>{food.calories}kcal</Text>
           {isToday && (
-            <TouchableOpacity onPress={() => onRemove(mealType, food.id, date)}>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => onRemove(mealType, food.id, date)}>
               <Icon name="trash" size={15} color={c.textMuted} />
             </TouchableOpacity>
           )}
@@ -1059,7 +1059,7 @@ function FoodRow({
           {food.calories}kcal
         </Text>
         {isToday && (
-          <TouchableOpacity onPress={() => onRemove(mealType, food.id, date)}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => onRemove(mealType, food.id, date)}>
             <Icon name="trash" size={15} color={c.textMuted} />
           </TouchableOpacity>
         )}

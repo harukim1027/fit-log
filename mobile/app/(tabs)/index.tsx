@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useMemo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Animated } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Animated, Modal } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import { Calendar } from "react-native-calendars";
 import { useRouter } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { Icon, FaceAvatar, FlameIcon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
+import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { Slug } from "react-native-body-highlighter";
@@ -28,6 +30,20 @@ function toYMD(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+// 선택 날짜가 속한 주의 시작(일요일 00:00)과 끝(토요일 23:59:59.999) 반환.
+// 홈의 모든 "이번 주" 계산(스트립/요약/PR/자극부위)이 이 일~토 기준을 공유한다.
+function getWeekRange(dateYMD: string): { start: Date; end: Date } {
+  const anchor = new Date(dateYMD + 'T00:00:00');
+  anchor.setHours(0, 0, 0, 0);
+  const start = new Date(anchor);
+  start.setDate(anchor.getDate() - anchor.getDay()); // 일요일로 이동
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
 }
 
 function formatDate(dateStr: string): string {
@@ -72,7 +88,11 @@ export default function HomeScreen() {
     }))
   );
   const { user } = useAuthStore();
+  const isDark = useThemeStore((s) => s.mode) === 'dark';
   const [filter, setFilter] = useState<string>('전체');
+  // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
+  const [selectedDate, setSelectedDate] = useState<string>(() => toYMD(new Date()));
+  const [showCalendar, setShowCalendar] = useState(false);
 
   const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
@@ -96,6 +116,22 @@ export default function HomeScreen() {
     elevation: 2,
   };
 
+  // 캘린더 팝업 테마 (운동 화면과 동일 토큰 규칙)
+  const calTheme = {
+    calendarBackground: c.surface,
+    textSectionTitleColor: c.textSecondary,
+    selectedDayBackgroundColor: c.primary,
+    selectedDayTextColor: c.onAccent,
+    todayTextColor: c.primary,
+    dayTextColor: c.textPrimary,
+    textDisabledColor: c.textMuted,
+    arrowColor: c.primary,
+    monthTextColor: c.textPrimary,
+    textDayFontWeight: "600" as const,
+    textMonthFontWeight: "800" as const,
+    textDayHeaderFontWeight: "600" as const,
+  };
+
   // ── 카테고리 → 워시 색 (기존 코발트/태그 토큰만 사용) ──
   const categoryColor = (cat?: string): string => {
     switch (cat) {
@@ -109,13 +145,12 @@ export default function HomeScreen() {
     }
   };
 
-  // ── 이번 주(일~토) 스트립 데이터 ──
+  // ── 선택 날짜가 속한 주(일~토) 스트립 데이터 ──
   const weekDays = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayYMD = toYMD(today);
-    const sunday = new Date(today);
-    sunday.setDate(today.getDate() - today.getDay());
+    const realToday = new Date();
+    realToday.setHours(0, 0, 0, 0);
+    const realTodayYMD = toYMD(realToday);
+    const { start: sunday } = getWeekRange(selectedDate);
     const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
     return Array.from({ length: 7 }, (_, i) => {
@@ -138,27 +173,26 @@ export default function HomeScreen() {
         dow: DOW[i],
         num: d.getDate(),
         ymd,
-        isToday: ymd === todayYMD,
-        isFuture: ymd > todayYMD,
+        isSelected: ymd === selectedDate,   // 채운 알약 = 조회 중인 날짜
+        isToday: ymd === realTodayYMD,       // 실제 오늘(작은 점 마커)
+        isFuture: ymd > realTodayYMD,        // 미래는 데이터 없음/선택 불가
         hasSession: daySessions.length > 0,
         pct,
       };
     });
-  }, [sessions]);
+  }, [sessions, selectedDate]);
 
   // 이번 주 운동한 일수 / 목표
   const doneDays = weekDays.filter((d) => d.hasSession).length;
   const weekGoal = user?.weeklyGoal ?? 4;
 
   const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const mon = new Date(today);
-    mon.setDate(today.getDate() - ((day + 6) % 7));
-    mon.setHours(0, 0, 0, 0);
-    const start = mon;
+    const { start, end } = getWeekRange(selectedDate);
 
-    const weekSessions = sessions.filter((s) => new Date(s.date + "T00:00:00") >= start);
+    const weekSessions = sessions.filter((s) => {
+      const dd = new Date(s.date + "T00:00:00");
+      return dd >= start && dd <= end;
+    });
     const prevSessions = sessions.filter((s) => new Date(s.date + "T00:00:00") < start);
 
     // PR 비교: 통계 화면과 동일하게 kg 환산 + 완료 세트(weight>0 && reps>0) 기준
@@ -197,7 +231,7 @@ export default function HomeScreen() {
     }
 
     return { prEntry, prSessionDate: prEntry?.date ?? null, weekMuscles: Array.from(weekMuscleSet) };
-  }, [sessions]);
+  }, [sessions, selectedDate]);
 
   // ── 최근 기록 (완료 세션, 필터 적용) ──
   const recentSessions = useMemo(() => {
@@ -223,7 +257,10 @@ export default function HomeScreen() {
       ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
       : "전신 골고루 자극했어요!";
 
-  const monthTitle = `${new Date().getFullYear()}년 ${new Date().getMonth() + 1}월`;
+  const monthTitle = (() => {
+    const d = new Date(selectedDate + "T00:00:00");
+    return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+  })();
 
   const startWorkout = () => {
     if (!activeSession) startSession();
@@ -234,13 +271,18 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       {/* ── 헤더: 월 타이틀(표시용) + 테마토글 + 아바타 ── */}
       <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <TouchableOpacity
+          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+          onPress={() => setShowCalendar(true)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="날짜 선택 달력 열기">
           <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5 }}>{monthTitle}</Text>
           <Icon name="chevronDown" size={18} color={c.textPrimary} />
-        </View>
+        </TouchableOpacity>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ThemeToggle size={38} />
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             style={[{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }, SHADOW_SM]}
             onPress={() => router.push("/modal/set-target" as any)}>
             <FaceAvatar size={28} color={c.onAccent} />
@@ -254,10 +296,15 @@ export default function HomeScreen() {
           const R = 16, CIRC = 2 * Math.PI * R;
           const isSun = d.dow === '일';
           return (
-            <View key={d.ymd} style={{ flex: 1, alignItems: "center", gap: 6 }}>
+            <TouchableOpacity
+              key={d.ymd}
+              style={{ flex: 1, alignItems: "center", gap: 6 }}
+              activeOpacity={d.isFuture ? 1 : 0.7}
+              disabled={d.isFuture}
+              onPress={() => setSelectedDate(d.ymd)}>
               <Text style={{ fontSize: 12, fontWeight: "700", color: isSun ? c.tagCoral : c.textSecondary }}>{d.dow}</Text>
               <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-                {d.isToday ? (
+                {d.isSelected ? (
                   <View style={{ position: "absolute", width: 36, height: 36, borderRadius: 999, backgroundColor: c.primary }} />
                 ) : !d.isFuture && d.pct > 0 ? (
                   <Svg width={40} height={40} style={{ position: "absolute" }}>
@@ -272,12 +319,16 @@ export default function HomeScreen() {
                 <Text style={{
                   fontSize: 15,
                   fontWeight: "800",
-                  color: d.isToday ? c.onAccent : d.isFuture ? c.textMuted : c.textPrimary,
+                  color: d.isSelected ? c.onAccent : d.isFuture ? c.textMuted : c.textPrimary,
                 }}>
                   {d.num}
                 </Text>
+                {/* 실제 오늘(선택 안 된 상태) 표시 점 */}
+                {d.isToday && !d.isSelected && (
+                  <View style={{ position: "absolute", bottom: 0, width: 4, height: 4, borderRadius: 2, backgroundColor: c.primary }} />
+                )}
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -331,7 +382,7 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>최근 기록</Text>
             <Text style={{ fontSize: 15, fontWeight: "700", color: c.textMuted }}>{recentSessions.length}</Text>
             <View style={{ flex: 1 }} />
-            <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 2 }} onPress={() => router.push("/(tabs)/stats")}>
+            <TouchableOpacity activeOpacity={0.8} style={{ flexDirection: "row", alignItems: "center", gap: 2 }} onPress={() => router.push("/(tabs)/stats")}>
               <Text style={{ fontSize: 12, fontWeight: "800", color: c.primary }}>전체 보기</Text>
               <Icon name="chevronRight" size={12} color={c.primary} />
             </TouchableOpacity>
@@ -408,28 +459,71 @@ export default function HomeScreen() {
 
       </ScrollView>
 
-      {/* ── FAB (+): 운동 시작/이어하기 ── */}
-      <TouchableOpacity
-        onPress={startWorkout}
-        activeOpacity={0.85}
-        style={{
-          position: "absolute",
-          right: 20,
-          bottom: 28,
-          width: 60,
-          height: 60,
-          borderRadius: 999,
-          backgroundColor: c.primary,
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.35,
-          shadowRadius: 16,
-          elevation: 8,
-        }}>
-        <Icon name="plus" size={30} color={c.onAccent} />
-      </TouchableOpacity>
+      {/* ── FAB: "▶ 운동 시작" 확장 알약 ──
+          운동 중(activeSession)일 땐 숨김 → 하단 ActiveWorkoutBar가 "계속하기" 역할.
+          홈에서 실수로 새 세션 시작하는 것을 방지. */}
+      {!activeSession && (
+        <TouchableOpacity
+          onPress={startWorkout}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="운동 시작"
+          style={{
+            position: "absolute",
+            right: 16,
+            bottom: 28,
+            height: 52,
+            borderRadius: 26,
+            paddingLeft: 18,
+            paddingRight: 20,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: c.primary,
+            // 주 CTA라 의도적으로 눈에 띄는 컬러 그림자 (다크에서 더 진하게)
+            shadowColor: c.primary,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: isDark ? 0.45 : 0.35,
+            shadowRadius: 14,
+            elevation: 6,
+          }}>
+          <Icon name="play" size={18} color={c.onAccent} />
+          <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>운동 시작</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* ── 날짜 선택 캘린더 (헤더 ▼ / 주간 스트립에서 오픈) ── */}
+      <Modal
+        visible={showCalendar}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCalendar(false)}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center" }}
+          activeOpacity={1}
+          onPress={() => setShowCalendar(false)}>
+          {/* 달력 영역 탭은 닫힘 전파 차단 */}
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ marginHorizontal: 20 }}>
+            <View style={{ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.border, padding: 12, overflow: "hidden" }}>
+              <Calendar
+                current={selectedDate}
+                maxDate={toYMD(new Date())}
+                onDayPress={(day) => {
+                  setSelectedDate(day.dateString);
+                  setShowCalendar(false);
+                }}
+                markedDates={{ [selectedDate]: { selected: true, selectedColor: c.primary } }}
+                theme={calTheme}
+              />
+              <TouchableOpacity activeOpacity={0.8}
+                onPress={() => { setSelectedDate(toYMD(new Date())); setShowCalendar(false); }}
+                style={{ alignSelf: "center", marginTop: 6, paddingVertical: 8, paddingHorizontal: 16 }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", color: c.primary }}>오늘로</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }

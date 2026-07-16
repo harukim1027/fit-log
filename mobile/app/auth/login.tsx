@@ -113,7 +113,7 @@ export default function LoginScreen() {
             fullWidth
             className="mt-2"
           />
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             className="items-center mt-4"
             onPress={() => router.push("/auth/register" as any)}>
             <Text className="text-sm text-text-secondary">
@@ -129,7 +129,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Google 로그인 */}
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             onPress={handleGooglePress}
             disabled={socialLoading === "google"}
             style={{
@@ -151,7 +151,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           {/* Kakao 로그인 (준비 중) */}
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             disabled
             style={{
               flexDirection: "row",
@@ -170,7 +170,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           {/* Naver 로그인 (준비 중) */}
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             disabled
             style={{
               flexDirection: "row",

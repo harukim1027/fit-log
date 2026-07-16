@@ -43,6 +43,8 @@ export default function WorkoutTimer({
       style={[
         {
           backgroundColor: c.surface,
+          borderWidth: 1,
+          borderColor: c.border,
           borderRadius: 30,
           padding: 18,
           marginBottom: 12,

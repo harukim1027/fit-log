@@ -74,18 +74,18 @@ function MacroRow({
       </View>
       {/* % 조작 */}
       <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginBottom: 8 }}>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={onDec}
           style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={() => setRatioPadVisible(true)}
           style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: color.bg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10, gap: 2 }}>
           <Text style={{ fontSize: 20, fontWeight: "900", color: color.text }}>{ratio}</Text>
           <Text style={{ fontSize: 16, fontWeight: "700", color: color.text }}>%</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={onInc}
           style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: color.bar, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ fontSize: 18, fontWeight: "800", color: c.onAccent, marginTop: -2 }}>+</Text>
@@ -94,7 +94,7 @@ function MacroRow({
       {/* g 직접 입력 */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700", width: 60 }}>목표량</Text>
-        <TouchableOpacity
+        <TouchableOpacity activeOpacity={0.8}
           onPress={() => setGramPadVisible(true)}
           style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, alignItems: "center" }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: c.textPrimary, textAlign: "center" }}>{grams}</Text>
@@ -247,7 +247,7 @@ export default function SetTargetModal() {
           {[1500, 1800, 2000, 2500].map((c) => {
             const isActive = calValue === String(c);
             return (
-              <TouchableOpacity
+              <TouchableOpacity activeOpacity={0.8}
                 key={c}
                 className={[
                   "flex-1 rounded-2xl py-3 items-center border",

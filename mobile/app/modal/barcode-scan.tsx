@@ -88,7 +88,7 @@ export default function BarcodeScanModal() {
         <SafeAreaView
           style={{ flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingVertical: 40 }}
           edges={["top", "bottom"]}>
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             className="self-end mr-5 bg-black/50 rounded-[20px] p-2"
             onPress={() => router.back()}>
             <Icon name="close" size={28} color={c.surface} />
@@ -108,7 +108,7 @@ export default function BarcodeScanModal() {
           </Text>
 
           {scanned && !loading && (
-            <TouchableOpacity
+            <TouchableOpacity activeOpacity={0.8}
               className="bg-primary rounded-2xl px-8 py-3"
               onPress={() => setScanned(false)}>
               <Text className="text-white text-[15px] font-bold">다시 스캔</Text>
