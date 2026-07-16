@@ -239,7 +239,7 @@ export default function EditProfileModal() {
           <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>앱 설정</Text>
 
           {/* 무게 단위 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }]}>
+          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, marginBottom: 10 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Icon name="dumbbell" size={16} color={c.textSecondary} />
               <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>무게 단위</Text>
@@ -262,7 +262,7 @@ export default function EditProfileModal() {
           </View>
 
           {/* 운동 부위 선택 표시 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 12 }}>
               <Icon name="target" size={16} color={c.textSecondary} />
               <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>운동 추가 시 부위 선택 표시</Text>
@@ -284,7 +284,7 @@ export default function EditProfileModal() {
           </View>
 
           {/* 휴식 30초 전 알림 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }]}>
             <View style={{ flex: 1, marginRight: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Icon name="timer" size={16} color={c.textSecondary} />
