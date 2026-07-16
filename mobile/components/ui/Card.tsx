@@ -1,6 +1,5 @@
 import React from "react";
 import { View, ViewProps } from "react-native";
-import { useColors } from "../../constants/colors";
 
 export interface CardProps extends ViewProps {
   children: React.ReactNode;
@@ -18,13 +17,13 @@ export function Card({
   style,
   ...props
 }: CardProps) {
-  const c = useColors();
+  // 유리처럼 떠 보이지 않게 — 옅은 검정 그림자로 바닥에 붙은 느낌
   const shadowStyle = shadow ? {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.20,
-    shadowRadius: 24,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   } : undefined;
 
   return (

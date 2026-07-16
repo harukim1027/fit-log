@@ -7,6 +7,18 @@ interface LabelTagProps {
   style?: object;
 }
 
+// hex 색을 amt(0~1)만큼 어둡게 — 불투명 끈구멍색 (반투명 대체)
+function darken(hex: string, amt: number): string {
+  const m = hex.replace('#', '');
+  const full = m.length === 3 ? m.split('').map((x) => x + x).join('') : m;
+  const n = parseInt(full, 16);
+  if (Number.isNaN(n)) return hex;
+  const r = Math.round(((n >> 16) & 255) * (1 - amt));
+  const g = Math.round(((n >> 8) & 255) * (1 - amt));
+  const b = Math.round((n & 255) * (1 - amt));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
 export function LabelTag({ label, color, style }: LabelTagProps) {
   return (
     <View
@@ -38,7 +50,7 @@ export function LabelTag({ label, color, style }: LabelTagProps) {
           width: 8,
           height: 8,
           borderRadius: 4,
-          backgroundColor: "rgba(0,0,0,0.25)",
+          backgroundColor: darken(color, 0.35),
           marginRight: 7,
         }}
       />

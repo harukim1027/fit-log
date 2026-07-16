@@ -58,7 +58,7 @@ export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }:
           padding: 36,
           alignItems: 'center',
           width: '84%',
-          shadowColor: c.primary,
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.18,
           shadowRadius: 20,

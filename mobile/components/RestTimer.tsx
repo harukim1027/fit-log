@@ -86,11 +86,11 @@ export default function RestTimer({
 }: Props) {
   const c = useColors();
   const SHADOW = {
-    shadowColor: c.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   };
 
   // external* props가 undefined면 내부 state를 사용 (일반 모드)

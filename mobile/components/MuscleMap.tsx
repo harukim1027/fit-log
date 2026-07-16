@@ -69,7 +69,7 @@ export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
   const BODY_FILL = isDark ? c.surfaceHigh : '#EDE8F8';
 
   const cardShadow = {
-    shadowColor: c.primary, shadowOffset: { width: 0, height: 1 },
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
   };
 

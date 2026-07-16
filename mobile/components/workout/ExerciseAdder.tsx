@@ -155,7 +155,7 @@ type ExerciseAdderProps = {
 export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, initialExercise }: ExerciseAdderProps) {
   const c = useColors();
   const SHADOW = {
-    shadowColor: c.primary,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.09,
     shadowRadius: 10,

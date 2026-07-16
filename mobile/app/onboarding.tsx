@@ -136,7 +136,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: c.primary,
+                        shadowColor: "#000",
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.08,
                         shadowRadius: 10,
@@ -184,7 +184,7 @@ export default function OnboardingScreen() {
                         isActive ? "border-primary bg-primary/10" : "border-transparent",
                       ].join(" ")}
                       style={{
-                        shadowColor: c.primary,
+                        shadowColor: "#000",
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.08,
                         shadowRadius: 10,

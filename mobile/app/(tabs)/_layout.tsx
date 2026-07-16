@@ -55,7 +55,7 @@ export default function TabLayout() {
           height: 72 + insets.bottom,
           paddingBottom: insets.bottom + 8,
           paddingTop: 10,
-          shadowColor: c.primary,
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: -6 },
           shadowOpacity: 0.08,
           shadowRadius: 18,

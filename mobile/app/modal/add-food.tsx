@@ -328,7 +328,7 @@ export default function AddFoodModal() {
                 key={t.key}
                 style={[
                   { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 999 },
-                  isActive ? { backgroundColor: c.surface, shadowColor: c.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
+                  isActive ? { backgroundColor: c.surface, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 10, elevation: 2 } : undefined,
                 ]}
                 onPress={() => setTab(t.key)}>
                 <Text style={{ fontSize: 13, fontWeight: '800', color: isActive ? c.success : c.textMuted }}>
@@ -522,7 +522,7 @@ export default function AddFoodModal() {
             )}
 
             {photoResult && !photoAnalyzing && (
-              <View style={{ backgroundColor: c.surface, borderRadius: 20, padding: 18, shadowColor: c.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.13, shadowRadius: 14, elevation: 3 }}>
+              <View style={{ backgroundColor: c.surface, borderRadius: 20, padding: 18, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 }}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: c.textSecondary, marginBottom: 12 }}>분석 결과 (수정 가능)</Text>
 
                 {[
