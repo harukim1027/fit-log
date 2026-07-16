@@ -22,6 +22,11 @@ const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+/**
+ * Displays a monthly calendar of workout records and links recorded dates to their history entries.
+ *
+ * @returns The full-screen workout calendar view
+ */
 export default function FullCalendarScreen() {
   const router = useRouter();
   const c = useColors();

@@ -25,6 +25,18 @@ function getMacroColors(c: ThemeColors) {
   };
 }
 
+/**
+ * Renders controls for viewing and editing a macronutrient ratio and target amount.
+ *
+ * @param label - The macronutrient label displayed in the row
+ * @param ratio - The macronutrient ratio as a percentage
+ * @param color - Colors used for the row's bar, text, and background
+ * @param targetCal - Daily calorie target used to calculate the target amount
+ * @param kcalPer - Calories provided per gram of the macronutrient
+ * @param onInc - Increases the macronutrient ratio
+ * @param onDec - Decreases the macronutrient ratio
+ * @param onRatioChange - Updates the macronutrient ratio
+ */
 function MacroRow({
   label,
   ratio,
@@ -126,6 +138,11 @@ function MacroRow({
   );
 }
 
+/**
+ * Renders the modal for configuring daily calorie, macro ratio, and weight targets.
+ *
+ * @returns The target settings modal interface.
+ */
 export default function SetTargetModal() {
   const c = useColors();
   const MACRO_COLORS = getMacroColors(c);

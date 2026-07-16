@@ -7,6 +7,11 @@ import { NumberPad } from './ui/NumberPad';
 
 const PRESETS = [150, 200, 250, 500];
 
+/**
+ * Renders the water intake tracker interface.
+ *
+ * @returns The water intake tracker with progress, quick-add controls, and manual entry.
+ */
 export default function WaterTracker() {
   const c = useColors();
   const { total, target, addWater, resetWater } = useWaterStore();

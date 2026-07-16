@@ -12,6 +12,9 @@ import { LogoMark, Icon } from "../../components/AppIcons";
 
 WebBrowser.maybeCompleteAuthSession();
 
+/**
+ * Renders the login screen with credential and Google authentication options.
+ */
 export default function LoginScreen() {
   const router = useRouter();
   const { login, loginWithGoogle, isLoading } = useAuthStore();

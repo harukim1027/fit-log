@@ -81,6 +81,11 @@ function makeChartConfig(c: ThemeColors) {
   };
 }
 
+/**
+ * Displays workout statistics, weekly charts, exercise growth data, personal records, and account controls.
+ *
+ * @returns The rendered statistics screen.
+ */
 export default function StatsScreen() {
   const router = useRouter();
   const c = useColors();

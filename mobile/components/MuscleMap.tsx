@@ -59,6 +59,12 @@ interface Props {
   scale?: number;
 }
 
+/**
+ * Renders a highlighted muscle diagram with front/back views and muscle labels.
+ *
+ * @param muscles - Muscle slugs to highlight and display as labels.
+ * @param scale - Scaling factor for the body diagram.
+ */
 export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
   const c = useColors();
   const isDark = useThemeStore((s) => s.mode) === 'dark';

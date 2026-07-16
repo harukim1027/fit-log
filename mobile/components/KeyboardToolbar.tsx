@@ -5,6 +5,12 @@ interface Props {
   onDone: () => void;
 }
 
+/**
+ * Renders an iOS keyboard toolbar with a button that invokes the completion handler.
+ *
+ * @param onDone - Callback invoked when the Done button is pressed
+ * @returns The keyboard toolbar on iOS, or `null` on other platforms
+ */
 export default function KeyboardToolbar({ onDone }: Props) {
   const c = useColors();
   if (Platform.OS !== 'ios') return null;

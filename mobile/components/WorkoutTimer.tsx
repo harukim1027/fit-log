@@ -20,6 +20,15 @@ interface Props {
   onEnd: () => void;
 }
 
+/**
+ * Displays workout progress, elapsed time, and workout controls.
+ *
+ * @param exerciseCount - The number of exercises in the workout
+ * @param totalVolume - The total workout volume in kilograms
+ * @param paused - Whether the workout is currently paused
+ * @param onPausedChange - Called with the updated pause state when the workout is paused or resumed
+ * @param onEnd - Called when the user ends the workout
+ */
 export default function WorkoutTimer({
   exerciseCount,
   totalVolume,

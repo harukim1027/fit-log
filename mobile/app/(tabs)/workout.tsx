@@ -135,6 +135,9 @@ const fmtExerciseMeta = (
   return parts.length > 0 ? parts.join(" · ") : null;
 };
 
+/**
+ * Records active workouts and provides access to workout history, routines, rest days, and rest-timer controls.
+ */
 export default function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();
@@ -3724,6 +3727,20 @@ type DraftExercise = Omit<WorkoutSession["exercises"][0], "sets"> & {
   sets: DraftSet[];
 };
 
+/**
+ * Displays a workout history session with summary statistics, exercise details, and editing controls.
+ *
+ * @param session - The workout session to display.
+ * @param getVolume - Calculates the session's total volume.
+ * @param allSessions - Workout sessions used for exercise comparisons and personal-record calculations.
+ * @param onDelete - Deletes the session by ID.
+ * @param onUpdate - Saves updated exercises for the session.
+ * @param onUpdateDate - Changes the session date.
+ * @param onExerciseDragStart - Called when exercise reordering begins.
+ * @param onExerciseDragRelease - Called when exercise reordering ends.
+ * @param scrollRef - Reference to the scrollable container used during reordering.
+ * @param scrollOffsetRef - Reference containing the current scroll offset during reordering.
+ */
 function HistoryCard({
   session,
   getVolume,

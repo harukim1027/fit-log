@@ -9,6 +9,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Header, Input, Button } from "../../components/ui";
 import { LogoMark } from "../../components/AppIcons";
 
+/**
+ * Renders the registration screen and handles account creation.
+ *
+ * @returns The registration screen element
+ */
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading } = useAuthStore();

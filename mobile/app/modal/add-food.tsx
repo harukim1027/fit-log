@@ -48,6 +48,11 @@ interface CustomFood {
   createdAt: string;
 }
 
+/**
+ * Provides a modal for searching, selecting, analyzing, and manually adding foods to a meal.
+ *
+ * @returns The food-entry modal interface.
+ */
 export default function AddFoodModal() {
   const c = useColors();
   const router = useRouter();

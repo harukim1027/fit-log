@@ -72,6 +72,9 @@ const makeShadowSm = (c: ThemeColors) => ({
 
 type DietTab = 'today' | 'calendar';
 
+/**
+ * Displays the diet dashboard with daily meal tracking, calorie and nutrient summaries, date navigation, and a monthly calendar.
+ */
 export default function DietScreen() {
   const router = useRouter();
   const c = useColors();
@@ -858,6 +861,15 @@ type DraggableFoodItemProps = {
   onDragEnd: (dy: number) => void;
 };
 
+/**
+ * Renders a draggable food item with nutritional details and optional removal control.
+ *
+ * @param food - The food item to display.
+ * @param mealType - The meal category containing the food.
+ * @param date - The date associated with the food entry.
+ * @param isToday - Whether the item belongs to the current day.
+ * @returns The rendered food item row.
+ */
 function DraggableFoodItem({
   food, idx, isDragging, dragDy, isToday, mealType, date,
   onRemove, onDragStart, onDragMove, onDragEnd,
@@ -1013,6 +1025,15 @@ function DraggableFoodList({
   );
 }
 
+/**
+ * Renders a food item with its nutrition details and optional removal control.
+ *
+ * @param food - The food item to display.
+ * @param mealType - The meal category associated with the food.
+ * @param date - The date associated with the food.
+ * @param isToday - Whether to show the removal control.
+ * @param onRemove - Callback invoked with the meal type, food ID, and date when removal is requested.
+ */
 function FoodRow({
   food,
   mealType,

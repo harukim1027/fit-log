@@ -72,6 +72,23 @@ interface Props {
   onLayout?: (e: import('react-native').LayoutChangeEvent) => void;
 }
 
+/**
+ * Renders a rest countdown timer with time editing, presets, pause controls, and progress feedback.
+ *
+ * The timer can manage its own state or display state supplied through the external control props.
+ * Configured durations are persisted per exercise name.
+ *
+ * @param exerciseName - Name used to namespace the persisted timer duration
+ * @param pinned - Whether the timer uses pinned presentation
+ * @param onPin - Called when the timer is pinned
+ * @param onUnpin - Called when the timer is unpinned
+ * @param externalSeconds - Externally controlled total duration
+ * @param externalRemaining - Externally controlled remaining duration
+ * @param externalRunning - Externally controlled running state
+ * @param externalPaused - Externally controlled paused state
+ * @param onStateChange - Called when the timer's internal state changes
+ * @param onLayout - Called when the root view layout changes
+ */
 export default function RestTimer({
   exerciseName,
   pinned,

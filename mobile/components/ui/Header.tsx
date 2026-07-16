@@ -16,6 +16,17 @@ export interface HeaderProps {
   onClose?: () => void;
 }
 
+/**
+ * Renders a header with a title, optional subtitle, navigation control, and custom right-side content.
+ *
+ * @param title - The header title.
+ * @param subtitle - Optional secondary text displayed below the title.
+ * @param showBack - Whether to display a back navigation control.
+ * @param showClose - Whether to display a close control when back navigation is not shown.
+ * @param rightElement - Optional content displayed on the right side.
+ * @param onBack - Optional handler for the back control; navigation back is used by default.
+ * @param onClose - Optional handler for the close control; navigation back is used by default.
+ */
 export function Header({
   title,
   subtitle,

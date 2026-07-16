@@ -61,6 +61,11 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+/**
+ * Renders the workout dashboard with weekly progress, recent records, muscle activity, and date selection.
+ *
+ * @returns The home screen UI for viewing workout activity and starting a workout.
+ */
 export default function HomeScreen() {
   const router = useRouter();
   const c = useColors();

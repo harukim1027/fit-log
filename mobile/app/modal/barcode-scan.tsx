@@ -15,6 +15,11 @@ import { useColors } from "../../constants/colors";
 
 const CORNER = 24;
 
+/**
+ * Scans a barcode and adds the matching food item to the selected meal.
+ *
+ * @returns The barcode scanning modal interface.
+ */
 export default function BarcodeScanModal() {
   const c = useColors();
   const cornerBase = {

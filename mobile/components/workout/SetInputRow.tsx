@@ -14,6 +14,19 @@ export interface SetInputRowProps {
   containerStyle?: ViewStyle;
 }
 
+/**
+ * Renders weight and repetition controls with decrement, value, and increment buttons.
+ *
+ * @param weight - The displayed weight value.
+ * @param reps - The displayed repetition count.
+ * @param unit - The unit shown with the weight value.
+ * @param onWeightStep - Handles weight adjustments in five-unit increments.
+ * @param onRepsStep - Handles repetition adjustments in single-count increments.
+ * @param onWeightPad - Handles presses on the weight value.
+ * @param onRepsPad - Handles presses on the repetition value.
+ * @param valueBg - Background color for the central value buttons.
+ * @param containerStyle - Additional styles applied to the outer container.
+ */
 export function SetInputRow({
   weight,
   reps,

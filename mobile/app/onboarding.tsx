@@ -36,6 +36,11 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
+/**
+ * Renders the onboarding flow for selecting a fitness goal and entering body information.
+ *
+ * @returns The onboarding screen interface.
+ */
 export default function OnboardingScreen() {
   const c = useColors();
   const router = useRouter();

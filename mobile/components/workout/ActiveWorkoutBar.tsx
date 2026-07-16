@@ -14,6 +14,9 @@ import { useWorkoutStore } from "../../store/workoutStore";
 import { useColors } from "../../constants/colors";
 import { Icon } from "../AppIcons";
 
+/**
+ * Displays a compact control for an active workout session and opens the workout screen when pressed.
+ */
 export function ActiveWorkoutBar() {
   const router = useRouter();
   const pathname = usePathname();

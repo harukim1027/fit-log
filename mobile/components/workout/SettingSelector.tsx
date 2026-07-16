@@ -52,6 +52,15 @@ interface Props {
   variant?: "inline" | "sheet";
 }
 
+/**
+ * Provides controls for selecting or entering a setting key and submitting its value.
+ *
+ * @param onAdd - Called with the selected key and trimmed value when both are provided.
+ * @param presetKeys - Preset setting keys available for selection.
+ * @param extraKeys - Additional setting keys available for selection.
+ * @param onDeleteExtraKey - Called with an additional key's identifier when it is deleted.
+ * @param variant - Selects the inline or sheet layout.
+ */
 export function SettingSelector({
   onAdd,
   presetKeys = DEFAULT_SETTING_KEYS,

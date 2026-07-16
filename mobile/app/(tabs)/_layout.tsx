@@ -41,6 +41,11 @@ function AnimatedTabIcon({ icon, focused }: { icon: TabIconName; focused: boolea
   );
 }
 
+/**
+ * Configures the application's bottom tab navigation layout.
+ *
+ * @returns The themed tab navigator with animated icons and an active workout overlay.
+ */
 export default function TabLayout() {
   const c = useColors();
   const insets = useSafeAreaInsets();
