@@ -29,7 +29,7 @@ export function Card({
   return (
     <View
       className={[
-        "bg-surface rounded-[30px]",
+        "bg-surface rounded-[30px] border border-border",
         bare ? "" : "p-4",
         className ?? "",
       ]

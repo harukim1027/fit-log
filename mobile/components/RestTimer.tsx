@@ -375,6 +375,8 @@ export default function RestTimer({
       style={[
         {
           backgroundColor: c.surface,
+          borderWidth: 1,
+          borderColor: c.border,
           borderRadius: pinned ? 0 : 18,
           borderBottomLeftRadius: 18,
           borderBottomRightRadius: 18,
@@ -406,7 +408,7 @@ export default function RestTimer({
               style={{ transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }] }}
             />
           )}
-          <TouchableOpacity onPress={reset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity activeOpacity={0.8} onPress={reset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Icon name="refresh" size={14} color={c.danger} />
           </TouchableOpacity>
         </View>
@@ -502,7 +504,7 @@ export default function RestTimer({
       {/* [우] 프리셋 2×2 그리드: +1분 +30초 +10초 +5초 */}
       <View style={{ flexShrink: 0, width: 84, flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
         {PRESETS.map((p) => (
-          <TouchableOpacity
+          <TouchableOpacity activeOpacity={0.8}
             key={p.seconds}
             onPress={() => addPreset(p.seconds)}
             style={{
