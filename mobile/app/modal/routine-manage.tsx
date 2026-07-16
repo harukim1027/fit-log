@@ -52,7 +52,11 @@ type SubMode = "main" | "addExercise" | "editExercise";
 
 // 루틴 목록 아이템 높이 (드래그 계산용)
 const ROUTINE_ITEM_H = 102; // 카드 높이 ~92 + marginBottom 10
-const EXERCISE_ITEM_H = 80; // 카드 높이 ~72 + marginBottom 8
+const EXERCISE_ITEM_H = 80; /**
+ * Manages workout routines, including creation, editing, deletion, reordering, and combination.
+ *
+ * Provides access to saved routines, routine exercise editing, and loading exercises from workout history.
+ */
 
 export default function RoutineManageModal() {
   const c = useColors();

@@ -135,6 +135,9 @@ const fmtExerciseMeta = (
   return parts.length > 0 ? parts.join(" · ") : null;
 };
 
+/**
+ * Manages active workout sessions, routines, rest timers, and workout history.
+ */
 export default function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();

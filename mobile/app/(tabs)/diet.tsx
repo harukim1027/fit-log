@@ -72,6 +72,9 @@ const makeShadowSm = (c: ThemeColors) => ({
 
 type DietTab = 'today' | 'calendar';
 
+/**
+ * Displays the diet screen with daily meal tracking, nutrition summaries, date navigation, and calendar history.
+ */
 export default function DietScreen() {
   const router = useRouter();
   const c = useColors();

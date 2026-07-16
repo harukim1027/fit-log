@@ -9,6 +9,13 @@ type Props = {
   onDismiss: () => void;
 };
 
+/**
+ * Displays an animated overlay confirming that a workout is complete.
+ *
+ * @param visible - Whether the completion overlay is displayed
+ * @param calories - Calories burned during the workout
+ * @param onDismiss - Called when the user dismisses the overlay
+ */
 export default function WorkoutCompleteOverlay({ visible, calories, onDismiss }: Props) {
   const c = useColors();
   const bgOpacity = useRef(new Animated.Value(0)).current;

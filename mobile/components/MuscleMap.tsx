@@ -59,6 +59,12 @@ interface Props {
   scale?: number;
 }
 
+/**
+ * Displays highlighted target muscles with localized labels and a front-or-back body view.
+ *
+ * @param muscles - Muscle slugs to highlight and display
+ * @param scale - Scale applied to the body illustration
+ */
 export default function MuscleMap({ muscles, scale = 0.62 }: Props) {
   const c = useColors();
   const isDark = useThemeStore((s) => s.mode) === 'dark';

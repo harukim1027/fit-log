@@ -13,6 +13,17 @@ interface Props {
   decimal?: boolean;
 }
 
+/**
+ * Provides increment, decrement, and direct numeric editing controls.
+ *
+ * @param value - The current displayed value.
+ * @param onChange - Called with the clamped and formatted value after an edit.
+ * @param step - Amount added or subtracted by the increment controls.
+ * @param min - Minimum permitted value.
+ * @param max - Maximum permitted value.
+ * @param suffix - Optional label displayed alongside the value.
+ * @param decimal - Whether to parse and format values with one decimal place.
+ */
 export function Stepper({
   value,
   onChange,

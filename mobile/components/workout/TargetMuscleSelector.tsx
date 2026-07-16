@@ -43,6 +43,15 @@ interface Props {
   showCategory?: boolean;
 }
 
+/**
+ * Renders controls for selecting an exercise category and multiple target muscles, including custom target entries.
+ *
+ * @param category - The currently selected exercise category.
+ * @param onCategoryChange - Called when the selected category changes.
+ * @param targetMuscles - The currently selected target muscles.
+ * @param onTargetMusclesChange - Called with the updated target muscle selection.
+ * @param showCategory - Whether to display the category selection controls.
+ */
 export function TargetMuscleSelector({
   category,
   onCategoryChange,

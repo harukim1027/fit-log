@@ -72,6 +72,20 @@ interface Props {
   onLayout?: (e: import('react-native').LayoutChangeEvent) => void;
 }
 
+/**
+ * Provides a rest-period timer with editable duration, presets, pause and restart controls, and progress feedback.
+ *
+ * @param exerciseName - Identifies the exercise whose configured duration is persisted.
+ * @param pinned - Whether the timer uses pinned-mode styling.
+ * @param externalSeconds - Controlled configured duration in seconds.
+ * @param externalRemaining - Controlled remaining duration in seconds.
+ * @param externalRunning - Controlled running state.
+ * @param externalPaused - Controlled paused state.
+ * @param onStateChange - Called when the timer state changes.
+ * @param onPin - Called when the timer is pinned.
+ * @param onUnpin - Called when the timer is unpinned.
+ * @param onLayout - Called when the timer layout changes.
+ */
 export default function RestTimer({
   exerciseName,
   pinned,
