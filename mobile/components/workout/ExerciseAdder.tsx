@@ -163,7 +163,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   };
   const insets = useSafeAreaInsets();
   const { results, isSearching, searchExercises, clearResults, saveCustomExercise } = useExerciseStore();
-  const { weightUnit, showBodypartSelector, loadSettings } = useSettingsStore();
+  const { weightUnit, loadSettings } = useSettingsStore();
   const { exerciseHistoryCache, fetchExerciseHistory } = useWorkoutStore();
 
   // Refs
@@ -675,7 +675,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     </View>
                   ) : null}
                 </View>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ backgroundColor: c.primary + "18", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 }}
                   onPress={handleChangeExercise}>
                   <Text style={{ fontSize: 13, fontWeight: "700", color: c.primary }}>변경</Text>
@@ -716,7 +716,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   autoCorrect={false}
                 />
                 {searchQuery ? (
-                  <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => setSearchQuery("")}>
                     <Icon name="close" size={16} color={c.textMuted} />
                   </TouchableOpacity>
                 ) : null}
@@ -748,7 +748,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   onLayout={e => { customFormY.current = e.nativeEvent.layout.y; }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>종목 추가</Text>
-                    <TouchableOpacity onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}>
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}>
                       <Icon name="close" size={16} color={c.textMuted} />
                     </TouchableOpacity>
                   </View>
@@ -774,7 +774,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     {EXERCISE_CATEGORIES.map(cat => {
                       const on = customCat === cat;
                       return (
-                        <TouchableOpacity key={cat}
+                        <TouchableOpacity activeOpacity={0.8} key={cat}
                           style={[{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: on ? c.danger + "28" : c.surface }, SHADOW]}
                           onPress={() => { setCustomCat(cat); setCustomTargetParts([]); setErrors(prev => ({ ...prev, customCat: '' })); }}>
                           <Text style={{ fontSize: 13, color: on ? c.danger : c.textSecondary, fontWeight: on ? "700" : "600" }}>{cat}</Text>
@@ -805,13 +805,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 </View>
               )}
 
-              {/* Category tabs */}
-              {!isEnglishSearch && showBodypartSelector && (
+              {/* Category tabs — 카테고리 필터 (항상 표시, 영어 검색 시 제외) */}
+              {!isEnglishSearch && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} keyboardShouldPersistTaps="handled">
+                  {/* 전체 칩 — 명시적으로 필터 해제 */}
+                  <TouchableOpacity activeOpacity={0.8} key="__all__"
+                    style={[{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: selectedCategory === null ? c.danger + "28" : c.surface }, SHADOW]}
+                    onPress={() => setSelectedCategory(null)}>
+                    <Text style={{ fontSize: 13, color: selectedCategory === null ? c.danger : c.textSecondary, fontWeight: selectedCategory === null ? "700" : "600" }}>전체</Text>
+                  </TouchableOpacity>
                   {EXERCISE_CATEGORIES.map(cat => {
                     const on = selectedCategory === cat;
                     return (
-                      <TouchableOpacity key={cat}
+                      <TouchableOpacity activeOpacity={0.8} key={cat}
                         style={[{ borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: on ? c.danger + "28" : c.surface }, SHADOW]}
                         onPress={() => setSelectedCategory(on ? null : cat)}>
                         <Text style={{ fontSize: 13, color: on ? c.danger : c.textSecondary, fontWeight: on ? "700" : "600" }}>{cat}</Text>
@@ -916,7 +922,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>세트 설정</Text>
                     <View style={{ flexDirection: "row", gap: 4 }}>
                       {(["kg", "lbs"] as const).map(u => (
-                        <TouchableOpacity key={u}
+                        <TouchableOpacity activeOpacity={0.8} key={u}
                           style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: unit === u ? c.primary : c.surfaceAlt }}
                           onPress={() => setUnit(u)}>
                           <Text style={{ fontSize: 12, fontWeight: "700", color: unit === u ? c.surface : c.textSecondary }}>{u}</Text>
@@ -939,12 +945,12 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   {/* 세트수 stepper */}
                   <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>세트수</Text>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
                       onPress={() => adjustSets(-1)}>
                       <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary }}>−</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ flex: 1, height: 44, backgroundColor: c.surfaceAlt, borderRadius: 14, alignItems: "center", justifyContent: "center" }}
                       onPress={() => openPad(defaultSets, false, '세트', v => {
                         const n = Math.max(1, parseInt(v) || 1);
@@ -955,7 +961,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         {defaultSets || '3'}<Text style={{ fontSize: 12, fontWeight: "600", color: c.textMuted }}> 세트</Text>
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
                       onPress={() => adjustSets(1)}>
                       <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary }}>+</Text>
@@ -1002,7 +1008,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       {sets.map((st, i) => (
                         <View key={i} style={{ backgroundColor: st.completed ? c.success + '14' : c.surfaceAlt, borderRadius: 12, padding: 10, marginBottom: 6 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                            <TouchableOpacity activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                               onPress={() => setSets(prev => prev.map((s, idx) => idx === i ? { ...s, completed: !s.completed } : s))}>
                               {st.completed
                                 ? <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.success, alignItems: 'center', justifyContent: 'center' }}>
@@ -1014,7 +1020,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                               }
                               <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>세트 {i + 1}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: sets.length > 1 ? 0.7 : 0.2 }}
+                            <TouchableOpacity activeOpacity={0.8} style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: sets.length > 1 ? 0.7 : 0.2 }}
                               onPress={() => { if (sets.length > 1) setSets(prev => prev.filter((_, idx) => idx !== i)); }}>
                               <Icon name="trash" size={13} color={c.textMuted} />
                             </TouchableOpacity>
@@ -1032,7 +1038,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
                         </View>
                       ))}
-                      <TouchableOpacity
+                      <TouchableOpacity activeOpacity={0.8}
                         style={{ alignItems: "center", padding: 10, borderRadius: 20, marginTop: 2, backgroundColor: c.danger + "18" }}
                         onPress={handleAddSet}>
                         <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>+ 세트 추가</Text>
@@ -1050,7 +1056,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                     <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary }}>세트 설정</Text>
                     <View style={{ flexDirection: "row", gap: 4 }}>
                       {(["kg", "lbs"] as const).map(u => (
-                        <TouchableOpacity key={u}
+                        <TouchableOpacity activeOpacity={0.8} key={u}
                           style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: unit === u ? c.primary : c.surfaceAlt }}
                           onPress={() => setUnit(u)}>
                           <Text style={{ fontSize: 12, fontWeight: "700", color: unit === u ? c.surface : c.textSecondary }}>{u}</Text>
@@ -1073,12 +1079,12 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   {/* 세트수 */}
                   <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>세트수</Text>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
                       onPress={() => adjustSets(-1)}>
                       <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary }}>−</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ flex: 1, height: 44, backgroundColor: c.surfaceAlt, borderRadius: 14, alignItems: "center", justifyContent: "center" }}
                       onPress={() => openPad(defaultSets, false, '세트', v => {
                         const n = Math.max(1, parseInt(v) || 1);
@@ -1089,7 +1095,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         {defaultSets || '3'}<Text style={{ fontSize: 12, fontWeight: "600", color: c.textMuted }}> 세트</Text>
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity activeOpacity={0.8}
                       style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
                       onPress={() => adjustSets(1)}>
                       <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary }}>+</Text>
@@ -1132,7 +1138,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                         <Text style={{ fontSize: 13, fontWeight: "700", color: c.textPrimary }}>세트별 목표</Text>
                         {routineSets.length > 0 && (
-                          <TouchableOpacity
+                          <TouchableOpacity activeOpacity={0.8}
                             style={{ backgroundColor: c.primary + "18", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}
                             onPress={() => {
                               const first = routineSets[0];
@@ -1147,7 +1153,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         <View key={i} style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, marginBottom: 6 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                             <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{i + 1}세트</Text>
-                            <TouchableOpacity
+                            <TouchableOpacity activeOpacity={0.8}
                               style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: routineSets.length > 1 ? 0.7 : 0.2 }}
                               onPress={() => {
                                 if (routineSets.length > 1) {
@@ -1172,7 +1178,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         </View>
                       ))}
 
-                      <TouchableOpacity
+                      <TouchableOpacity activeOpacity={0.8}
                         style={{ alignItems: "center", padding: 10, borderRadius: 14, marginBottom: 4, backgroundColor: c.primary + "18" }}
                         onPress={() => {
                           const last = routineSets[routineSets.length - 1] ?? { weight: "", reps: "" };
@@ -1205,19 +1211,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
               <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginBottom: 8 }}>쉬는 시간 (초)</Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}
                   onPress={() => setRestSeconds(s => String(Math.max(0, parseInt(s) - 10)))}>
                   <Text style={{ fontSize: 16, fontWeight: "800", color: c.textSecondary, marginTop: -2 }}>−</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ flex: 1, backgroundColor: c.surfaceAlt, borderRadius: 12, paddingVertical: 10, alignItems: "center", justifyContent: "center" }}
                   onPress={() => openPad(restSeconds, false, '초', setRestSeconds)}>
                   <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>
                     {restSeconds || '60'}<Text style={{ fontSize: 12, fontWeight: "600", color: c.textMuted }}>{' '}초</Text>
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }}
                   onPress={() => setRestSeconds(s => String(parseInt(s) + 10))}>
                   <Text style={{ fontSize: 16, fontWeight: "800", color: c.surface, marginTop: -2 }}>+</Text>
@@ -1241,7 +1247,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   <Icon name="settings" size={14} color={c.textPrimary} />
                   <Text style={{ fontSize: 14, fontWeight: "700", color: c.textPrimary }}>기구 설정</Text>
                 </View>
-                <TouchableOpacity
+                <TouchableOpacity activeOpacity={0.8}
                   style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: c.primary + "18", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}
                   onPress={openSettingsSheet}>
                   <Icon name="plus" size={14} color={c.primary} />
