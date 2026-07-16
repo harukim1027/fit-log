@@ -126,8 +126,10 @@ export function RoutineColorPicker({ value, onChange }: Props) {
               </Text>
               <ColorPicker
                 value={draftHex}
-                // 조작 중엔 draft만 갱신 (부모 미반영) — 확정은 "완료" 버튼에서만
-                onComplete={({ hex }) => setDraftHex(hex)}
+                // onComplete는 UI 스레드(worklet)에서 호출돼 JS setState 직접 호출 시 크래시.
+                // 라이브러리가 내부에서 runOnJS로 감싸주는 onCompleteJS를 사용(일반 JS 함수용).
+                // 조작 중엔 draft만 갱신 (부모 미반영) — 확정은 "완료" 버튼에서만.
+                onCompleteJS={({ hex }) => setDraftHex(hex)}
                 style={{ width: "100%" }}>
                 <Preview hideInitialColor style={{ marginBottom: 12, borderRadius: 12 }} />
                 <Panel1 style={{ height: 200, borderRadius: 12, marginBottom: 12 }} />
