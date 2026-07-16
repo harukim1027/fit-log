@@ -262,7 +262,7 @@ export default function EditProfileModal() {
           </View>
 
           {/* 운동 부위 선택 표시 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }]}>
+          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, marginBottom: 10 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 12 }}>
               <Icon name="target" size={16} color={c.textSecondary} />
               <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>운동 추가 시 부위 선택 표시</Text>
