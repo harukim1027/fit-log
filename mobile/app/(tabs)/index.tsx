@@ -32,6 +32,20 @@ function toYMD(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+// 선택 날짜가 속한 주의 시작(일요일 00:00)과 끝(토요일 23:59:59.999) 반환.
+// 홈의 모든 "이번 주" 계산(스트립/요약/PR/자극부위)이 이 일~토 기준을 공유한다.
+function getWeekRange(dateYMD: string): { start: Date; end: Date } {
+  const anchor = new Date(dateYMD + 'T00:00:00');
+  anchor.setHours(0, 0, 0, 0);
+  const start = new Date(anchor);
+  start.setDate(anchor.getDate() - anchor.getDay()); // 일요일로 이동
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   const diff = Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -136,10 +150,7 @@ export default function HomeScreen() {
     const realToday = new Date();
     realToday.setHours(0, 0, 0, 0);
     const realTodayYMD = toYMD(realToday);
-    const anchor = new Date(selectedDate + "T00:00:00");
-    anchor.setHours(0, 0, 0, 0);
-    const sunday = new Date(anchor);
-    sunday.setDate(anchor.getDate() - anchor.getDay());
+    const { start: sunday } = getWeekRange(selectedDate);
     const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
     return Array.from({ length: 7 }, (_, i) => {
@@ -176,18 +187,11 @@ export default function HomeScreen() {
   const weekGoal = user?.weeklyGoal ?? 4;
 
   const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
-    const anchor = new Date(selectedDate + "T00:00:00");
-    const day = anchor.getDay();
-    const mon = new Date(anchor);
-    mon.setDate(anchor.getDate() - ((day + 6) % 7));
-    mon.setHours(0, 0, 0, 0);
-    const start = mon;
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
+    const { start, end } = getWeekRange(selectedDate);
 
     const weekSessions = sessions.filter((s) => {
       const dd = new Date(s.date + "T00:00:00");
-      return dd >= start && dd < end;
+      return dd >= start && dd <= end;
     });
     const prevSessions = sessions.filter((s) => new Date(s.date + "T00:00:00") < start);
 
