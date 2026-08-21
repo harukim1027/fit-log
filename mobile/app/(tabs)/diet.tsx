@@ -73,6 +73,9 @@ const makeShadowSm = (c: ThemeColors) => ({
 
 type DietTab = 'today' | 'calendar';
 
+/**
+ * Displays and manages daily diet records and calendar history.
+ */
 function DietScreen() {
   const router = useRouter();
   const c = useColors();
@@ -844,7 +847,9 @@ function DietScreen() {
 }
 
 // 식단 화면 전용 ErrorBoundary — 홈/운동/통계와 동일하게 화면 단위로 격리한다.
-// 바운더리가 DietScreen의 부모여야 DietScreen 자체 렌더 예외까지 잡는다.
+/**
+ * Renders the diet screen within a screen-level error boundary.
+ */
 export default function DietScreenRoute() {
   return (
     <ErrorBoundary screenName="식단">

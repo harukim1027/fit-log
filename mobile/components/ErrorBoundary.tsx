@@ -125,9 +125,10 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
 }
 
 /**
- * 실제 사용하는 컴포넌트.
- * useColors()로 현재 테마를 읽어 클래스 컴포넌트에 전달한다.
- * 크래시 화면도 앱 테마(라이트/다크)를 따르도록.
+ * Provides themed error handling for a React component subtree.
+ *
+ * @param onReset - Callback invoked when the error boundary is reset
+ * @param screenName - Optional screen name used to identify the boundary in error reporting and fallback messaging
  */
 export function ErrorBoundary({
   children,

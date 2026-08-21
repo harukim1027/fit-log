@@ -65,7 +65,13 @@ function fmtVol(kg: number): string {
   return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
 }
 
-// hex 색을 amt(0~1)만큼 어둡게 — 불투명 배지색 계산용 (반투명 오버레이 대체)
+/**
+ * Darkens a hexadecimal color by the specified amount.
+ *
+ * @param hex - The hexadecimal color value.
+ * @param amt - The darkening amount from `0` to `1`.
+ * @returns The darkened hexadecimal color value.
+ */
 function darken(hex: string, amt: number): string {
   const m = hex.replace('#', '');
   const full = m.length === 3 ? m.split('').map((x) => x + x).join('') : m;
@@ -76,6 +82,9 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+/**
+ * Renders the home screen with workout summaries, recent sessions, weekly muscle coverage, and workout controls.
+ */
 function HomeScreen() {
   const router = useRouter();
   const c = useColors();
@@ -531,7 +540,11 @@ function HomeScreen() {
 
 // 화면별 ErrorBoundary로 감싼다 — 홈 렌더 중 예외가 나도 앱 전체가 죽지 않고
 // 이 화면만 폴백 UI로 대체된다(다른 탭은 계속 사용 가능). 바운더리는 반드시
-// HomeScreen의 "부모"여야 HomeScreen 자체 렌더 예외까지 잡을 수 있다.
+/**
+ * Renders the home screen with error isolation.
+ *
+ * @returns The home screen wrapped in an error boundary.
+ */
 export default function HomeScreenRoute() {
   return (
     <ErrorBoundary screenName="홈">

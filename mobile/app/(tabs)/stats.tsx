@@ -63,6 +63,12 @@ function formatWeekRange(offset: number) {
   return r;
 }
 
+/**
+ * Creates chart configuration values from the current theme colors.
+ *
+ * @param c - Theme colors used for chart backgrounds, labels, and dots
+ * @returns Configuration for themed line charts
+ */
 function makeChartConfig(c: ThemeColors) {
   return {
     backgroundColor: c.surface,
@@ -82,6 +88,11 @@ function makeChartConfig(c: ThemeColors) {
   };
 }
 
+/**
+ * Renders the workout statistics screen with weekly summaries, charts, and personal records.
+ *
+ * @returns The statistics screen UI.
+ */
 function StatsScreen() {
   const router = useRouter();
   const c = useColors();
@@ -633,7 +644,9 @@ function StatsScreen() {
 
 // 통계 화면 전용 ErrorBoundary — 차트/집계 로직에서 예외가 나도(예: 잘못된 데이터로
 // 차트 렌더 실패) 앱 전체가 아닌 이 화면만 폴백된다. 운동/홈 탭은 계속 사용 가능.
-// 바운더리가 StatsScreen의 부모여야 StatsScreen 자체 렌더 예외까지 잡는다.
+/**
+ * Renders the statistics screen within an error boundary.
+ */
 export default function StatsScreenRoute() {
   return (
     <ErrorBoundary screenName="통계">
@@ -642,6 +655,15 @@ export default function StatsScreenRoute() {
   );
 }
 
+/**
+ * Renders a styled statistics card with a label, value, and unit.
+ *
+ * @param label - The statistic's label.
+ * @param value - The statistic's displayed value.
+ * @param unit - The value's unit.
+ * @param color - The value and unit text color.
+ * @param bg - The card background color.
+ */
 function StatCard({
   label,
   value,
