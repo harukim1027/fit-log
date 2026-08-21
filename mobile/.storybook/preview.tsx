@@ -1,4 +1,6 @@
+import React from "react";
 import type { Preview } from "@storybook/react";
+import { useThemeStore } from "../store/themeStore";
 
 /**
  * 배경/뷰포트 값은 mobile/constants/colors.ts와 DESIGN.md에 맞춘다.
@@ -10,6 +12,24 @@ import type { Preview } from "@storybook/react";
  * 예전 형식을 쓰면 오류 없이 조용히 무시돼 기본 배경이 흰색으로 남는다.
  */
 const preview: Preview = {
+  decorators: [
+    /**
+     * 배경 전역값과 앱 테마를 묶는다.
+     *
+     * 이게 없으면 배경 툴바는 캔버스 색만 바꾸고 useColors()는 계속 themeStore의
+     * 기본값(dark)을 반환한다. 그 결과 라이트 배경 위에 다크 테마 텍스트가 얹혀
+     * 대비가 무너지고 a11y 위반으로 잡힌다(실제로 그렇게 나왔다).
+     * 배경을 바꾸면 컴포넌트 테마도 함께 바뀌어야 "다크/라이트 대비 확인"이 성립한다.
+     */
+    (Story, context) => {
+      const mode = context.globals?.backgrounds?.value === "light" ? "light" : "dark";
+      // 값이 다를 때만 쓴다 — 렌더 루프 방지.
+      if (useThemeStore.getState().mode !== mode) {
+        useThemeStore.setState({ mode });
+      }
+      return <Story />;
+    },
+  ],
   parameters: {
     backgrounds: {
       options: {

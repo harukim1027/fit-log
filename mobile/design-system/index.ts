@@ -1,3 +1,4 @@
 // Harulog 디자인 시스템 통합 export.
-// 컴포넌트가 추가되면 여기서 re-export 한다.
-export {};
+export { Card } from "./components/Card";
+export type { CardProps, CardVariant, CardSlotProps } from "./components/Card";
+export type { AccentToken, ThemeColors } from "./tokens";

@@ -6,22 +6,24 @@
 import React from "react";
 import { View, Text } from "react-native";
 import type { Meta, StoryObj } from "@storybook/react";
+import { useColors } from "./tokens";
 
 function Welcome({ label }: { label: string }) {
+  const c = useColors();
   return (
     <View
       style={{
         padding: 24,
         borderRadius: 24,
-        backgroundColor: "#21272F",
+        backgroundColor: c.surface,
         borderWidth: 1,
-        borderColor: "#384049",
+        borderColor: c.border,
         gap: 8,
       }}>
-      <Text style={{ fontSize: 12, fontWeight: "600", color: "#909AA6" }}>
+      <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
         Harulog Design System
       </Text>
-      <Text style={{ fontSize: 22, fontWeight: "900", color: "#E0E6EC" }}>{label}</Text>
+      <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary }}>{label}</Text>
     </View>
   );
 }
