@@ -7,7 +7,7 @@ import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { Icon, FaceAvatar, FlameIcon } from "../../components/AppIcons";
-import { useColors } from "../../constants/colors";
+import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
@@ -82,6 +82,44 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+// WCAG 2.1 상대 휘도 — 카테고리 워시 위 전경색을 대비로 고르기 위해서만 쓴다.
+function relLuminance(hex: string): number {
+  const m = hex.replace('#', '');
+  const full = m.length === 3 ? m.split('').map((x) => x + x).join('') : m;
+  const ch = [0, 2, 4]
+    .map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((x) => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// 카테고리 워시(가슴=코랄, 등=코발트 …) 위에 올릴 전경색.
+// 워시는 채도가 제각각이라 흰색을 고정하면 밝은 워시(태그선/민트)에서 대비가 무너진다.
+// 색을 새로 만들지 않고 colors.ts의 onAccent 두 값(라이트 #FFFFFF / 다크 #021526) 중
+// 대비가 높은 쪽만 고른다 — DESIGN.md의 "하드코딩 금지 + 색은 colors.ts 단일 출처" 준수.
+function onWash(bg: string): string {
+  return contrastRatio(bg, darkColors.onAccent) >= contrastRatio(bg, lightColors.onAccent)
+    ? darkColors.onAccent
+    : lightColors.onAccent;
+}
+
+// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
+// 값이 정해지면 이 상수를 토큰 참조로 교체할 것.
+const LIGHT_SHADOW_SM = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 2,
+};
+
+// 모달 스크림. 계층 토큰이 아니라 화면 전체를 덮는 암막이라 별도 상수로 둔다.
+const SCRIM = "rgba(0,0,0,0.5)";
+
 /**
  * Renders the home screen with workout summaries, recent sessions, weekly muscle coverage, and workout controls.
  */
@@ -117,18 +155,16 @@ function HomeScreen() {
     )).start();
   }, []);
 
-  // 유리처럼 부유해 보이지 않게 — 옅은 검정 그림자로 바닥에 붙은 느낌
-  const SHADOW_SM = {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  };
+  // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서는 거의 보이지 않으므로
+  // surface 명도 차이 + 1px 보더(CARD_EDGE)로 계층을 만든다.
+  const SHADOW_SM = isDark ? null : LIGHT_SHADOW_SM;
+  // 카드 경계 — 다크에서 그림자를 대신하는 유일한 수단.
+  const CARD_EDGE = { borderWidth: 1, borderColor: c.border };
 
   // 캘린더 팝업 테마 (운동 화면과 동일 토큰 규칙)
   const calTheme = {
-    calendarBackground: c.surface,
+    // 모달 컨테이너가 L3(surface-high)이므로 캘린더 배경도 같은 계단에 맞춘다
+    calendarBackground: c.surfaceHigh,
     textSectionTitleColor: c.textSecondary,
     selectedDayBackgroundColor: c.primary,
     selectedDayTextColor: c.onAccent,
@@ -280,19 +316,22 @@ function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       {/* ── 헤더: 월 타이틀(표시용) + 테마토글 + 아바타 ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 60, paddingBottom: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <TouchableOpacity
           style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
           onPress={() => setShowCalendar(true)}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="날짜 선택 달력 열기">
+          {/* display 22/900 */}
           <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5 }}>{monthTitle}</Text>
           <Icon name="chevronDown" size={18} color={c.textPrimary} />
         </TouchableOpacity>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ThemeToggle size={38} />
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="내 목표 설정"
             style={[{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }, SHADOW_SM]}
             onPress={() => router.push("/modal/set-target" as any)}>
             <FaceAvatar size={28} color={c.onAccent} />
@@ -301,7 +340,7 @@ function HomeScreen() {
       </View>
 
       {/* ── 주간 스트립 (일~토, 완료도 링) ── */}
-      <View style={{ flexDirection: "row", paddingHorizontal: 14, paddingTop: 6, paddingBottom: 10, gap: 2 }}>
+      <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 2 }}>
         {weekDays.map((d) => {
           const R = 16, CIRC = 2 * Math.PI * R;
           const isSun = d.dow === '일';
@@ -311,8 +350,12 @@ function HomeScreen() {
               style={{ flex: 1, alignItems: "center", gap: 6 }}
               activeOpacity={d.isFuture ? 1 : 0.7}
               disabled={d.isFuture}
+              accessibilityRole="button"
+              accessibilityState={{ selected: d.isSelected, disabled: d.isFuture }}
+              accessibilityLabel={`${d.dow}요일 ${d.num}일${d.hasSession ? ', 운동 기록 있음' : ''}`}
               onPress={() => setSelectedDate(d.ymd)}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: isSun ? c.tagCoral : c.textSecondary }}>{d.dow}</Text>
+              {/* caption 12/600 */}
+              <Text style={{ fontSize: 12, fontWeight: "600", color: isSun ? c.tagCoral : c.textSecondary }}>{d.dow}</Text>
               <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
                 {d.isSelected ? (
                   <View style={{ position: "absolute", width: 36, height: 36, borderRadius: 999, backgroundColor: c.primary }} />
@@ -326,9 +369,11 @@ function HomeScreen() {
                     />
                   </Svg>
                 ) : null}
+                {/* numeric 15/800 + tabular-nums — 주간 스트립이 넘어가도 자릿수가 흔들리지 않게 */}
                 <Text style={{
                   fontSize: 15,
                   fontWeight: "800",
+                  fontVariant: ["tabular-nums"],
                   color: d.isSelected ? c.onAccent : d.isFuture ? c.textMuted : c.textPrimary,
                 }}>
                   {d.num}
@@ -345,18 +390,23 @@ function HomeScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 120, gap: 14 }}
+        /* 좌우 여백은 여기 한 번만 (space.16). 섹션 사이는 부모 gap(space.20)이 만든다. */
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 120, gap: 20 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
         {/* ── 요약 알약 + 필터 칩 ── */}
         <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], gap: 12 }}>
           <TouchableOpacity
-            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 15, borderWidth: 1, borderColor: c.border }, SHADOW_SM]}
+            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
             onPress={() => router.push("/(tabs)/stats")}
-            activeOpacity={0.85}>
+            accessibilityRole="button"
+            accessibilityLabel={`이번 주 운동 ${doneDays}일, 목표 ${weekGoal}일. 통계 보기`}
+            activeOpacity={0.7}>
             <FlameIcon size={18} />
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>이번 주 운동</Text>
+            {/* body-strong 14/800 */}
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>이번 주 운동</Text>
+            {/* numeric 15/800 */}
             <Text style={{ fontSize: 15, fontWeight: "800", color: c.primary, fontVariant: ["tabular-nums"] }}>{doneDays}/{weekGoal}</Text>
             <Icon name="chevronRight" size={16} color={c.textMuted} />
           </TouchableOpacity>
@@ -369,16 +419,21 @@ function HomeScreen() {
                 <TouchableOpacity
                   key={cat}
                   onPress={() => setFilter(cat)}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${cat} 필터`}
                   style={{
-                    paddingHorizontal: 15,
-                    paddingVertical: 9,
+                    minHeight: 44,
+                    justifyContent: "center",
+                    paddingHorizontal: 16,
                     borderRadius: 999,
                     backgroundColor: on ? c.textPrimary : c.surface,
                     borderWidth: 1,
                     borderColor: on ? c.textPrimary : c.border,
                   }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: on ? c.background : c.textSecondary, letterSpacing: -0.2 }}>{label}</Text>
+                  {/* caption 12/600 */}
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: on ? c.background : c.textSecondary, letterSpacing: -0.2 }}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -387,48 +442,68 @@ function HomeScreen() {
 
         {/* ── 최근 기록 (상단 색 워시 카드 그리드) ── */}
         <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 4, paddingBottom: 10 }}>
+          {/* 섹션 헤더는 카드와 좌우를 맞춘다 — 개별 paddingHorizontal 없이 부모 여백만 쓴다 */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="trophy" size={17} color={c.tagSun} />
+            {/* title 17/800 */}
             <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>최근 기록</Text>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: c.textMuted }}>{recentSessions.length}</Text>
+            {/* numeric 15/800 */}
+            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{recentSessions.length}</Text>
             <View style={{ flex: 1 }} />
-            <TouchableOpacity activeOpacity={0.8} style={{ flexDirection: "row", alignItems: "center", gap: 2 }} onPress={() => router.push("/(tabs)/stats")}>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: c.primary }}>전체 보기</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="운동 기록 전체 보기"
+              style={{ flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 }}
+              onPress={() => router.push("/(tabs)/stats")}>
+              {/* micro 11/700 */}
+              <Text style={{ fontSize: 11, fontWeight: "700", color: c.primary }}>전체 보기</Text>
               <Icon name="chevronRight" size={12} color={c.primary} />
             </TouchableOpacity>
           </View>
 
           {recentSessions.length > 0 ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+            /* 세로 간격은 부모 rowGap(space.12)이 만든다 — 카드마다 marginBottom 금지 */
+            <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
               {recentSessions.map((s) => {
                 const cat = s.exercises[0]?.category;
                 const wash = categoryColor(cat);
+                // 배지 알약은 워시를 40% 어둡게 — 이 지점부터 모든 카테고리에서
+                // 전경색 대비가 5.15:1 이상으로 확보된다(0.2에서는 4.36까지 떨어짐).
+                const badgeBg = darken(wash, 0.4);
                 const isPR = !!prSessionDate && s.date === prSessionDate;
                 const badge = isPR ? "PR" : `${s.exercises.length}종목`;
                 return (
-                  <View key={s.id} style={[{ width: "48%", marginBottom: 11, backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, SHADOW_SM]}>
-                    {/* 상단 색 워시 헤더 */}
-                    <View style={{ backgroundColor: wash, paddingHorizontal: 13, paddingTop: 13, paddingBottom: 26 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={{ fontSize: 12.5, fontWeight: "800", color: "#FFFFFF" }}>{formatDate(s.date)}</Text>
-                        <View style={{ backgroundColor: darken(wash, 0.2), borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#FFFFFF" }}>{badge}</Text>
-                        </View>
+                  <View key={s.id} style={[{ width: "48%", backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, CARD_EDGE, SHADOW_SM]}>
+                    {/* 상단 색 워시 밴드 — 카테고리 식별용 색 면.
+                        본문 텍스트는 올리지 않는다: 워시는 채도가 제각각이라 흰색·먹색 어느 쪽으로도
+                        4.5:1을 보장할 수 없다(등/라이트 #1E7AEA가 최대 4.42). 텍스트는 전부 아래 L2 블록으로 내렸다. */}
+                    <View style={{ backgroundColor: wash, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 26 }}>
+                      <View style={{ alignSelf: "flex-start", backgroundColor: badgeBg, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        {/* micro 11/700 */}
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: onWash(badgeBg) }}>{badge}</Text>
                       </View>
-                      <Text style={{ position: "absolute", right: 12, top: 10, color: "#FFFFFF", fontWeight: "900", fontSize: 14 }}>⋮</Text>
                     </View>
-                    {/* 본문(헤더 위로 겹침) */}
+                    {/* 본문 — 카드(L1) 위에 겹치는 중첩 블록이라 surface-alt(L2)로 한 계단 올린다 */}
                     <View style={{ paddingHorizontal: 12, paddingBottom: 12, marginTop: -14 }}>
-                      <View style={{ backgroundColor: c.surface, borderRadius: 13, padding: 11, gap: 3 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <View style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 12, gap: 6 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Icon name="dumbbell" size={15} color={wash} />
-                          <Text style={{ flex: 1, fontSize: 15, fontWeight: "800", color: c.textPrimary, lineHeight: 19 }} numberOfLines={2}>
+                          {/* body-strong 14/800 */}
+                          <Text style={{ flex: 1, fontSize: 14, fontWeight: "800", color: c.textPrimary, lineHeight: 20 }} numberOfLines={2}>
                             {sessionTitle(s)}
                           </Text>
                         </View>
-                        <Text style={{ fontSize: 14, fontWeight: "800", color: wash, fontVariant: ["tabular-nums"] }}>
-                          {fmtVol(getTotalVolume(s))}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                          {/* numeric 15/800 — 숫자가 라벨보다 커야 "숫자가 주인공" 원칙에 맞는다 */}
+                          <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                            {fmtVol(getTotalVolume(s))}
+                          </Text>
+                          {/* caption 12/600 — 워시 위에 있던 날짜를 여기로 내렸다 */}
+                          <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
+                            {formatDate(s.date)}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </View>
@@ -436,9 +511,10 @@ function HomeScreen() {
               })}
             </View>
           ) : (
-            <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 24, alignItems: "center", borderWidth: 1, borderColor: c.border }, SHADOW_SM]}>
+            <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 24, alignItems: "center" }, CARD_EDGE, SHADOW_SM]}>
               <Icon name="dumbbell" size={32} color={c.textMuted} />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginTop: 8 }}>
+              {/* caption 12/600 */}
+              <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary, marginTop: 12 }}>
                 {filter === '전체' ? "아직 운동 기록이 없어요" : `${filter} 운동 기록이 없어요`}
               </Text>
             </View>
@@ -447,20 +523,25 @@ function HomeScreen() {
 
         {/* ── 이번 주 자극 부위 (MuscleMap 재사용) ── */}
         <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 4, paddingBottom: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="dumbbell" size={17} color={c.primary} />
+            {/* title 17/800 */}
             <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>이번 주 자극 부위</Text>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: c.textMuted, fontVariant: ["tabular-nums"] }}>{majorHit}/{MAJOR_MUSCLES.length}</Text>
+            {/* numeric 15/800 */}
+            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{majorHit}/{MAJOR_MUSCLES.length}</Text>
           </View>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: c.border, overflow: 'visible' }, SHADOW_SM]}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 16, overflow: 'visible' }, CARD_EDGE, SHADOW_SM]}>
             <MuscleMap muscles={weekMuscles} scale={0.55} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.border }}>
+            {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다 */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border }}>
               <Icon
                 name={weekMuscles.length === 0 ? "dumbbell" : missingMajor ? "target" : "check"}
                 size={13}
                 color={weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success}
               />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success }}>
+              {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
+                  라이트 테마에서 warning/success는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
+              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSecondary }}>
                 {muscleHint}
               </Text>
             </View>
@@ -475,30 +556,36 @@ function HomeScreen() {
       {!activeSession && (
         <TouchableOpacity
           onPress={startWorkout}
-          activeOpacity={0.85}
+          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="운동 시작"
-          style={{
-            position: "absolute",
-            right: 16,
-            bottom: 28,
-            height: 52,
-            borderRadius: 26,
-            paddingLeft: 18,
-            paddingRight: 20,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            backgroundColor: c.primary,
-            // 주 CTA라 의도적으로 눈에 띄는 컬러 그림자 (다크에서 더 진하게)
-            shadowColor: c.primary,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: isDark ? 0.45 : 0.35,
-            shadowRadius: 14,
-            elevation: 6,
-          }}>
+          style={[
+            {
+              position: "absolute",
+              right: 16,
+              bottom: 28,
+              minHeight: 52,
+              borderRadius: 999,
+              paddingLeft: 18,
+              paddingRight: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              backgroundColor: c.primary,
+            },
+            // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서 컬러 글로우를 쓰던 것을 제거했다.
+            // 다크에서는 primary 자체가 배경(#171B21) 대비 4.58:1이라 글로우 없이도 충분히 도드라진다.
+            !isDark && {
+              shadowColor: c.primary,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.35,
+              shadowRadius: 14,
+              elevation: 6,
+            },
+          ]}>
           <Icon name="play" size={18} color={c.onAccent} />
-          <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>운동 시작</Text>
+          {/* body-strong 14/800 — workout.tsx의 재시도 버튼과 동일 역할 */}
+          <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>운동 시작</Text>
         </TouchableOpacity>
       )}
 
@@ -509,12 +596,15 @@ function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowCalendar(false)}>
         <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center" }}
+          style={{ flex: 1, backgroundColor: SCRIM, justifyContent: "center" }}
           activeOpacity={1}
+          accessibilityRole="button"
+          accessibilityLabel="달력 닫기"
           onPress={() => setShowCalendar(false)}>
           {/* 달력 영역 탭은 닫힘 전파 차단 */}
-          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ marginHorizontal: 20 }}>
-            <View style={{ backgroundColor: c.surface, borderRadius: 20, borderWidth: 1, borderColor: c.border, padding: 12, overflow: "hidden" }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ marginHorizontal: 16 }}>
+            {/* 시트/모달은 L3(surface-high) + radius.sheet(24) */}
+            <View style={[{ backgroundColor: c.surfaceHigh, borderRadius: 24, padding: 12, overflow: "hidden" }, CARD_EDGE]}>
               <Calendar
                 current={selectedDate}
                 maxDate={toYMD(new Date())}
@@ -525,10 +615,13 @@ function HomeScreen() {
                 markedDates={{ [selectedDate]: { selected: true, selectedColor: c.primary } }}
                 theme={calTheme}
               />
-              <TouchableOpacity activeOpacity={0.8}
+              <TouchableOpacity activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="오늘 날짜로 이동"
                 onPress={() => { setSelectedDate(toYMD(new Date())); setShowCalendar(false); }}
-                style={{ alignSelf: "center", marginTop: 6, paddingVertical: 8, paddingHorizontal: 16 }}>
-                <Text style={{ fontSize: 13, fontWeight: "800", color: c.primary }}>오늘로</Text>
+                style={{ alignSelf: "center", marginTop: 6, minHeight: 44, justifyContent: "center", paddingHorizontal: 16 }}>
+                {/* body-strong 14/800 */}
+                <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>오늘로</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
