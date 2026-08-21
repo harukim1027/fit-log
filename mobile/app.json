@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "updates": {
       "url": "https://u.expo.dev/d1dd85f4-b4bf-410f-8756-e9af669b078f",
@@ -17,9 +17,7 @@
       "policy": "appVersion"
     },
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#171B21"
     },
     "ios": {
       "supportsTablet": true,
@@ -74,7 +72,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#3D8BE0",
+          "color": "#2E82F0",
           "sounds": []
         }
       ],
