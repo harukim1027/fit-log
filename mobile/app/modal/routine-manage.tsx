@@ -25,7 +25,8 @@ import {
 import ExerciseAdder, {
   ExerciseAddResult,
 } from "../../components/workout/ExerciseAdder";
-import { useColors } from "../../constants/colors";
+import { useColors, lightColors, darkColors } from "../../constants/colors";
+import { useThemeStore } from "../../store/themeStore";
 import { RoutineColorPicker } from "../../components/RoutineColorPicker";
 
 const fmtRest = (sec: number): string => {
@@ -52,18 +53,49 @@ type SubMode = "main" | "addExercise" | "editExercise";
 
 // 루틴 목록 아이템 높이 (드래그 계산용)
 const ROUTINE_ITEM_H = 102; // 카드 높이 ~92 + marginBottom 10
+// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
+// 값이 정해지면 이 상수를 토큰 참조로 교체할 것.
+const LIGHT_SHADOW_SM = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 2,
+};
+
+// 오버레이 암막. 계층 토큰이 아니라 화면을 덮는 막이라 별도 상수로 둔다.
+const SCRIM = "rgba(0,0,0,0.5)";
+
+// WCAG 2.1 상대 휘도 — 강조색 채움 위 라벨 색을 대비로 고르기 위해서만 쓴다.
+function relLuminance(hex: string): number {
+  const m = hex.replace("#", "");
+  const full = m.length === 3 ? m.split("").map((x) => x + x).join("") : m;
+  const ch = [0, 2, 4]
+    .map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((x) => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+// danger·secondary 채움 위 라벨. onAccent는 primary 기준 토큰이라 다른 강조색
+// 위에서는 대비가 보장되지 않는다(라이트 danger 위 흰색 3.19:1).
+// 색을 새로 만들지 않고 colors.ts의 onAccent 두 값 중 대비가 높은 쪽만 고른다.
+function onFill(bg: string): string {
+  return contrastRatio(bg, darkColors.onAccent) >= contrastRatio(bg, lightColors.onAccent)
+    ? darkColors.onAccent
+    : lightColors.onAccent;
+}
+
 const EXERCISE_ITEM_H = 80; // 카드 높이 ~72 + marginBottom 8
 
 export default function RoutineManageModal() {
   const c = useColors();
   const keyboardHeight = useKeyboardHeight();
-  const SHADOW = {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  };
+  const isDark = useThemeStore((st) => st.mode) === "dark";
+  // DESIGN.md: 그림자는 라이트 모드에서만.
+  const SHADOW = isDark ? null : LIGHT_SHADOW_SM;
   const params = useLocalSearchParams<{ editId?: string }>();
   const {
     routines,
@@ -339,7 +371,7 @@ export default function RoutineManageModal() {
                   alignItems: "center",
                   gap: 10,
                   backgroundColor: c.surface,
-                  borderRadius: 20,
+                  borderRadius: 16,
                   padding: 16,
                   marginBottom: 10,
                   justifyContent: "center",
@@ -347,7 +379,7 @@ export default function RoutineManageModal() {
                 SHADOW,
               ]}
               onPress={() => setMode("create")}
-              activeOpacity={0.8}>
+              activeOpacity={0.7}>
               <Icon name="plus" size={20} color={c.primary} />
               <Text
                 style={{ fontSize: 15, fontWeight: "800", color: c.primary }}>
@@ -363,7 +395,7 @@ export default function RoutineManageModal() {
                     alignItems: "center",
                     gap: 10,
                     backgroundColor: c.surface,
-                    borderRadius: 20,
+                    borderRadius: 16,
                     padding: 14,
                     marginBottom: 16,
                     justifyContent: "center",
@@ -374,10 +406,11 @@ export default function RoutineManageModal() {
                   setSelectedIds(new Set());
                   setMode("combine-select");
                 }}
-                activeOpacity={0.8}>
-                <Icon name="merge" size={16} color="#A78BFA" />
+                activeOpacity={0.7}>
+                <Icon name="merge" size={16} color={c.secondary} />
                 <Text
-                  style={{ fontSize: 13, fontWeight: "800", color: "#A78BFA" }}>
+                  /* 의미색은 아이콘이 지고 텍스트는 text-primary — secondary는 라이트 배경 위 2.71:1로 미달 */
+                    style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
                   루틴 결합하기
                 </Text>
               </TouchableOpacity>
@@ -387,12 +420,12 @@ export default function RoutineManageModal() {
               <View style={{ alignItems: "center", paddingTop: 48, gap: 8 }}>
                 <Icon name="dumbbell" size={56} color={c.textMuted} />
                 <Text
-                  style={{ fontSize: 16, fontWeight: "700", color: c.textPrimary }}>
+                  style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>
                   루틴이 없어요
                 </Text>
                 <Text
                   style={{
-                    fontSize: 13,
+                    fontSize: 14,
                     color: c.textSecondary,
                     textAlign: "center",
                   }}>
@@ -406,7 +439,7 @@ export default function RoutineManageModal() {
                     style={{
                       fontSize: 11,
                       color: c.textMuted,
-                      fontWeight: "600",
+                      fontWeight: "700",
                       marginBottom: 8,
                       textAlign: "center",
                     }}>
@@ -429,7 +462,7 @@ export default function RoutineManageModal() {
                       style={[
                         {
                           backgroundColor: c.surface,
-                          borderRadius: 20,
+                          borderRadius: 16,
                           marginBottom: 10,
                           flex: 1,
                           flexDirection: "row",
@@ -449,7 +482,7 @@ export default function RoutineManageModal() {
                         <View style={{ flex: 1, marginRight: 8 }}>
                           <Text
                             style={{
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: "800",
                               color: c.textPrimary,
                             }}
@@ -477,10 +510,10 @@ export default function RoutineManageModal() {
                             gap: 10,
                             alignItems: "center",
                           }}>
-                          <TouchableOpacity activeOpacity={0.8} onPress={() => openEdit(r)}>
+                          <TouchableOpacity activeOpacity={0.7} onPress={() => openEdit(r)}>
                             <Icon name="pencil" size={18} color={c.textSecondary} />
                           </TouchableOpacity>
-                          <TouchableOpacity activeOpacity={0.8}
+                          <TouchableOpacity activeOpacity={0.7}
                             onPress={() => setDeleteTarget(r.id)}>
                             <Icon name="trash" size={18} color={c.textMuted} />
                           </TouchableOpacity>
@@ -503,7 +536,7 @@ export default function RoutineManageModal() {
                             }}>
                             <Text
                               style={{
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: "700",
                                 color: c.success,
                               }}>
@@ -521,7 +554,7 @@ export default function RoutineManageModal() {
                             }}>
                             <Text
                               style={{
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: "700",
                                 color: c.textMuted,
                               }}>
@@ -548,8 +581,8 @@ export default function RoutineManageModal() {
                           router.dismiss();
                           setTimeout(() => router.push('/(tabs)/workout' as any), 50);
                         }}
-                        activeOpacity={0.8}>
-                        <Text style={{ fontSize: 13, fontWeight: "800", color: c.warning }}>
+                        activeOpacity={0.7}>
+                        <Text style={{ fontSize: 14, fontWeight: "800", color: c.warning }}>
                           시작
                         </Text>
                         <View style={{ backgroundColor: c.warning, borderRadius: 999, width: 28, height: 28, alignItems: "center", justifyContent: "center" }}>
@@ -574,27 +607,27 @@ export default function RoutineManageModal() {
           return (
             <View style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999,
+              backgroundColor: SCRIM, zIndex: 999,
               alignItems: 'center', justifyContent: 'center',
             }}>
               <View style={{
                 backgroundColor: c.surface, borderRadius: 16, padding: 24,
                 marginHorizontal: 32, width: '80%',
               }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: c.textPrimary, marginBottom: 8 }}>루틴 삭제</Text>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: c.textPrimary, marginBottom: 8 }}>루틴 삭제</Text>
                 <Text style={{ fontSize: 14, color: c.textSecondary, marginBottom: 24 }}>
                   {`"${targetName}" 루틴을 삭제할까요?`}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <TouchableOpacity activeOpacity={0.8}
+                  <TouchableOpacity activeOpacity={0.7}
                     onPress={() => setDeleteTarget(null)}
                     style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: c.surfaceAlt, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: c.textSecondary }}>취소</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: c.textSecondary }}>취소</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity activeOpacity={0.8}
+                  <TouchableOpacity activeOpacity={0.7}
                     onPress={() => { deleteRoutine(deleteTarget); setDeleteTarget(null); }}
                     style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: c.danger, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>삭제</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: onFill(c.danger) }}>삭제</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -614,7 +647,7 @@ export default function RoutineManageModal() {
         <Header title="루틴 결합" showClose onClose={() => setMode("list")} />
         <Text
           style={{
-            fontSize: 13,
+            fontSize: 14,
             color: c.textSecondary,
             fontWeight: "600",
             textAlign: "center",
@@ -635,7 +668,7 @@ export default function RoutineManageModal() {
                   alignItems: "center",
                   gap: 12,
                   backgroundColor: selectedIds.has(r.id) ? c.border : c.surface,
-                  borderRadius: 20,
+                  borderRadius: 16,
                   padding: 16,
                   marginBottom: 10,
                   borderWidth: selectedIds.has(r.id) ? 2 : 0,
@@ -644,12 +677,12 @@ export default function RoutineManageModal() {
                 SHADOW,
               ]}
               onPress={() => toggleSelect(r.id)}
-              activeOpacity={0.8}>
+              activeOpacity={0.7}>
               <View
                 style={{
                   width: 22,
                   height: 22,
-                  borderRadius: 11,
+                  borderRadius: 10,
                   backgroundColor: selectedIds.has(r.id)
                     ? c.primary
                     : c.surfaceAlt,
@@ -683,14 +716,14 @@ export default function RoutineManageModal() {
             style={{ position: "absolute", bottom: 32, left: 20, right: 20 }}>
             <TouchableOpacity
               style={{
-                backgroundColor: "#A78BFA",
+                backgroundColor: c.secondary,
                 borderRadius: 999,
                 paddingVertical: 16,
                 alignItems: "center",
               }}
               onPress={enterCombineEdit}
-              activeOpacity={0.8}>
-              <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>
+              activeOpacity={0.7}>
+              <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
                 {selectedIds.size}개 루틴 결합하기 →
               </Text>
             </TouchableOpacity>
@@ -722,8 +755,8 @@ export default function RoutineManageModal() {
             style={{ flex: 1 }}>
               <Text
                 style={{
-                  fontSize: 13,
-                  fontWeight: "700",
+                  fontSize: 14,
+                  fontWeight: "600",
                   color: c.textSecondary,
                   marginBottom: 8,
                 }}>
@@ -733,10 +766,10 @@ export default function RoutineManageModal() {
                 style={[
                   {
                     backgroundColor: c.surface,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     padding: 14,
-                    fontSize: 16,
-                    fontWeight: "700",
+                    fontSize: 14,
+                    fontWeight: "600",
                     color: c.textPrimary,
                     marginBottom: 20,
                   },
@@ -750,8 +783,8 @@ export default function RoutineManageModal() {
               />
               <Text
                 style={{
-                  fontSize: 13,
-                  fontWeight: "700",
+                  fontSize: 14,
+                  fontWeight: "600",
                   color: c.textSecondary,
                   marginBottom: 6,
                 }}>
@@ -771,7 +804,8 @@ export default function RoutineManageModal() {
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      backgroundColor: ex.isDuplicate ? "#FFF3CD" : c.surfaceAlt,
+                      // 다크 버그 수정: "#FFF3CD"는 라이트 전용 크림색이라 다크 배경에서 튀었다
+                        backgroundColor: ex.isDuplicate ? c.warning + "18" : c.surfaceAlt,
                       borderRadius: 16,
                       padding: 12,
                       marginBottom: 8,
@@ -782,7 +816,7 @@ export default function RoutineManageModal() {
                     {ex.gifUrl && (
                       <Image
                         source={{ uri: ex.gifUrl }}
-                        style={{ width: 36, height: 36, borderRadius: 8 }}
+                        style={{ width: 36, height: 36, borderRadius: 10 }}
                         resizeMode="cover"
                       />
                     )}
@@ -796,8 +830,8 @@ export default function RoutineManageModal() {
                         }}>
                         <Text
                           style={{
-                            fontSize: 13,
-                            fontWeight: "700",
+                            fontSize: 14,
+                            fontWeight: "600",
                             color: c.textPrimary,
                             flexShrink: 1,
                           }}>
@@ -806,15 +840,15 @@ export default function RoutineManageModal() {
                         {ex.isDuplicate && (
                           <View
                             style={{
-                              backgroundColor: "#FFC107",
+                              backgroundColor: c.warning,
                               borderRadius: 999,
                               paddingHorizontal: 5,
                               paddingVertical: 1,
                             }}>
                             <Text
                               style={{
-                                fontSize: 9,
-                                fontWeight: "800",
+                                fontSize: 11,
+                                fontWeight: "700",
                                 color: c.onAccent,
                               }}>
                               중복
@@ -826,7 +860,7 @@ export default function RoutineManageModal() {
                             style={{
                               fontSize: 11,
                               color: c.textSecondary,
-                              fontWeight: "600",
+                              fontWeight: "700",
                             }}>
                             {fmtMeta(ex.targetReps, ex.restSeconds)}
                           </Text>
@@ -834,9 +868,9 @@ export default function RoutineManageModal() {
                       </View>
                       <Text
                         style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           color: c.textSecondary,
-                          fontWeight: "600",
+                          fontWeight: "700",
                           marginTop: 1,
                         }}>
                         {ex.fromRoutineName} · {ex.defaultSets}세트
@@ -845,13 +879,13 @@ export default function RoutineManageModal() {
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                           {ex.targetMuscles!.map((m, mi) => (
                             <View key={mi} style={{ backgroundColor: c.primary + '18', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-                              <Text style={{ fontSize: 10, fontWeight: '700', color: c.primary }}>{m}</Text>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: c.primary }}>{m}</Text>
                             </View>
                           ))}
                         </View>
                       )}
                     </View>
-                    <TouchableOpacity activeOpacity={0.8}
+                    <TouchableOpacity activeOpacity={0.7}
                       onPress={() =>
                         setCombineExercises((prev) =>
                           prev.filter((e) => e.key !== ex.key)
@@ -865,16 +899,16 @@ export default function RoutineManageModal() {
               />
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#A78BFA",
+                  backgroundColor: c.secondary,
                   borderRadius: 999,
                   paddingVertical: 16,
                   alignItems: "center",
                   marginTop: 8,
                 }}
                 onPress={handleCombineSave}
-                activeOpacity={0.8}>
+                activeOpacity={0.7}>
                 <Text
-                  style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>
+                  style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
                   결합 루틴 저장
                 </Text>
               </TouchableOpacity>
@@ -906,8 +940,8 @@ export default function RoutineManageModal() {
           style={{ flex: 1 }}>
             <Text
               style={{
-                fontSize: 13,
-                fontWeight: "700",
+                fontSize: 14,
+                fontWeight: "600",
                 color: c.textSecondary,
                 marginBottom: 8,
               }}>
@@ -918,10 +952,10 @@ export default function RoutineManageModal() {
               style={[
                 {
                   backgroundColor: c.surface,
-                  borderRadius: 14,
+                  borderRadius: 12,
                   padding: 14,
-                  fontSize: 16,
-                  fontWeight: "700",
+                  fontSize: 14,
+                  fontWeight: "600",
                   color: c.textPrimary,
                   marginBottom: nameError ? 6 : 20,
                   borderWidth: nameError ? 1.5 : 0,
@@ -946,8 +980,8 @@ export default function RoutineManageModal() {
 
             <Text
               style={{
-                fontSize: 13,
-                fontWeight: "700",
+                fontSize: 14,
+                fontWeight: "600",
                 color: c.textSecondary,
                 marginBottom: 8,
               }}>
@@ -959,9 +993,9 @@ export default function RoutineManageModal() {
 
             {exercises.length === 0 ? (
               <View
-                style={{ alignItems: "center", paddingVertical: 20, gap: 4, borderWidth: exercisesError ? 1.5 : 0, borderColor: exercisesError ? c.danger : undefined, borderRadius: 14 }}>
+                style={{ alignItems: "center", paddingVertical: 20, gap: 4, borderWidth: exercisesError ? 1.5 : 0, borderColor: exercisesError ? c.danger : undefined, borderRadius: 12 }}>
                 <Text
-                  style={{ fontSize: 13, color: exercisesError ? c.danger : c.textMuted, fontWeight: "600" }}>
+                  style={{ fontSize: 14, color: exercisesError ? c.danger : c.textMuted, fontWeight: "600" }}>
                   아직 종목이 없어요
                 </Text>
               </View>
@@ -977,7 +1011,7 @@ export default function RoutineManageModal() {
                 onDragEnd={setExercises}
                 renderItem={(ex, idx) => (
                   <TouchableOpacity
-                    activeOpacity={0.85}
+                    activeOpacity={0.7}
                     onPress={() => { setEditingExerciseIdx(idx); setSubMode("editExercise"); }}
                     style={{
                       flexDirection: "row",
@@ -1010,8 +1044,8 @@ export default function RoutineManageModal() {
                         }}>
                         <Text
                           style={{
-                            fontSize: 13,
-                            fontWeight: "700",
+                            fontSize: 14,
+                            fontWeight: "600",
                             color: c.textPrimary,
                             flexShrink: 1,
                           }}
@@ -1023,7 +1057,7 @@ export default function RoutineManageModal() {
                             style={{
                               fontSize: 11,
                               color: c.textSecondary,
-                              fontWeight: "600",
+                              fontWeight: "700",
                               flexShrink: 0,
                             }}>
                             {fmtMeta(ex.targetReps, ex.restSeconds)}
@@ -1034,7 +1068,7 @@ export default function RoutineManageModal() {
                         style={{
                           fontSize: 11,
                           color: c.textSecondary,
-                          fontWeight: "600",
+                          fontWeight: "700",
                           marginTop: 1,
                         }}>
                         {ex.defaultSets}세트
@@ -1044,7 +1078,7 @@ export default function RoutineManageModal() {
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                           {ex.targetMuscles!.map((m, mi) => (
                             <View key={mi} style={{ backgroundColor: c.primary + '18', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-                              <Text style={{ fontSize: 10, fontWeight: '700', color: c.primary }}>{m}</Text>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: c.primary }}>{m}</Text>
                             </View>
                           ))}
                         </View>
@@ -1053,14 +1087,14 @@ export default function RoutineManageModal() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 1 }}>
                           <Icon name="bulb" size={9} color={c.textMuted} />
                           <Text
-                            style={{ fontSize: 9, color: c.textMuted }}
+                            style={{ fontSize: 11, color: c.textMuted }}
                             numberOfLines={1}>
                             {ex.tip}
                           </Text>
                         </View>
                       ) : null}
                     </View>
-                    <TouchableOpacity activeOpacity={0.8}
+                    <TouchableOpacity activeOpacity={0.7}
                       onPress={() =>
                         setExercises((prev) =>
                           prev.filter((e) => e.key !== ex.key)
@@ -1082,7 +1116,7 @@ export default function RoutineManageModal() {
               <TouchableOpacity
                 style={[{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: c.surface, borderRadius: 16, padding: 14, marginBottom: 10 }, SHADOW]}
                 onPress={() => setShowHistorySheet(true)}
-                activeOpacity={0.8}>
+                activeOpacity={0.7}>
                 <Icon name="chart" size={18} color={c.secondary} />
                 <Text style={{ fontSize: 14, fontWeight: "800", color: c.secondary }}>
                   히스토리에서 불러오기
@@ -1105,7 +1139,7 @@ export default function RoutineManageModal() {
                 SHADOW,
               ]}
               onPress={() => setSubMode("addExercise")}
-              activeOpacity={0.8}>
+              activeOpacity={0.7}>
               <Icon name="plus" size={18} color={c.primary} />
               <Text
                 style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>
@@ -1116,19 +1150,19 @@ export default function RoutineManageModal() {
             <TouchableOpacity
               style={{ backgroundColor: c.warning, borderRadius: 999, paddingVertical: 16, alignItems: "center" }}
               onPress={handleSave}
-              activeOpacity={0.8}>
-              <Text style={{ fontSize: 16, fontWeight: "800", color: c.onAccent }}>루틴 저장</Text>
+              activeOpacity={0.7}>
+              <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>루틴 저장</Text>
             </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
 
       {/* 히스토리에서 불러오기 시트 */}
       <Modal visible={showHistorySheet} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: SCRIM, justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingBottom: 32 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>
-              <Text style={{ fontSize: 17, fontWeight: '900', color: c.textPrimary }}>운동 기록에서 불러오기</Text>
-              <TouchableOpacity activeOpacity={0.8} onPress={() => setShowHistorySheet(false)}>
+              <Text style={{ fontSize: 17, fontWeight: '800', color: c.textPrimary }}>운동 기록에서 불러오기</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => setShowHistorySheet(false)}>
                 <Icon name="close" size={20} color={c.textMuted} />
               </TouchableOpacity>
             </View>
@@ -1138,15 +1172,15 @@ export default function RoutineManageModal() {
                   key={session.id}
                   style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                   onPress={() => loadFromSession(session)}
-                  activeOpacity={0.75}>
+                  activeOpacity={0.7}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: c.textPrimary, marginBottom: 4 }}>{session.date}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary, marginBottom: 4 }}>{session.date}</Text>
                     <Text style={{ fontSize: 12, color: c.textSecondary }} numberOfLines={1}>
                       {session.exercises.map(e => e.name).join(' · ')}
                     </Text>
                   </View>
                   <View style={{ backgroundColor: c.primary + '20', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, marginLeft: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: c.primary }}>{session.exercises.length}종목</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.primary }}>{session.exercises.length}종목</Text>
                   </View>
                 </TouchableOpacity>
               ))}

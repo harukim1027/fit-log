@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkoutStore } from "../../store/workoutStore";
@@ -25,6 +25,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 export default function FullCalendarScreen() {
   const router = useRouter();
   const c = useColors();
+  const insets = useSafeAreaInsets();
   const { sessions, fetchSessions, setHistoryJumpDate } = useWorkoutStore(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -76,7 +77,11 @@ export default function FullCalendarScreen() {
   const emptySlots = Array(firstDayOfWeek).fill(null);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["top", "bottom"]}>
+    // 회귀 방지: 상단 인셋은 SafeAreaView의 edges="top"이 아니라 useSafeAreaInsets()로 준다.
+    // presentation="fullScreenModal"에서는 edges="top"이 적용되지 않아 타이틀이 상태바와 겹쳤다.
+    // 공용 Header 컴포넌트(paddingTop: insets.top + 6)와 같은 방식이며, 이 화면은
+    // Header를 쓰지 않고 자체 헤더를 그리기 때문에 직접 계산해야 한다.
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["bottom"]}>
       {/* 헤더 */}
       <View
         style={{
@@ -84,12 +89,13 @@ export default function FullCalendarScreen() {
           alignItems: "center",
           justifyContent: "space-between",
           paddingHorizontal: 16,
-          paddingVertical: 14,
+          paddingTop: insets.top + 6,
+          paddingBottom: 14,
         }}>
         <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary }}>
           기록 캘린더
         </Text>
-        <TouchableOpacity activeOpacity={0.8}
+        <TouchableOpacity activeOpacity={0.7}
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="close" size={26} color={c.textPrimary} />
@@ -105,15 +111,16 @@ export default function FullCalendarScreen() {
           paddingHorizontal: 24,
           marginBottom: 12,
         }}>
-        <TouchableOpacity activeOpacity={0.8}
+        <TouchableOpacity activeOpacity={0.7}
           onPress={() => setMonthOffset((o) => o - 1)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={{ fontSize: 22, fontWeight: "800", color: c.textSecondary }}>◀</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary }}>
+        {/* title 17/800 */}
+        <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>
           {target.getFullYear()}년 {target.getMonth() + 1}월
         </Text>
-        <TouchableOpacity activeOpacity={0.8}
+        <TouchableOpacity activeOpacity={0.7}
           onPress={() => setMonthOffset((o) => Math.min(0, o + 1))}
           disabled={monthOffset >= 0}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -139,7 +146,7 @@ export default function FullCalendarScreen() {
             <View
               style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }}
             />
-            <Text style={{ fontSize: 11, color: c.textSecondary }}>{m}</Text>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>{m}</Text>
           </View>
         ))}
       </View>
@@ -153,8 +160,8 @@ export default function FullCalendarScreen() {
               flex: 1,
               textAlign: "center",
               fontSize: 12,
-              fontWeight: "700",
-              color: c.textMuted,
+              fontWeight: "600",
+              color: c.textSecondary,
             }}>
             {d}
           </Text>
@@ -190,25 +197,25 @@ export default function FullCalendarScreen() {
                   minHeight: 96,
                   padding: 4,
                   borderTopWidth: 1,
-                  borderTopColor: c.surfaceAlt,
+                  borderTopColor: c.border,
                   backgroundColor: worked ? c.surface : "transparent",
                 }}>
                 <Text
                   style={{
-                    fontSize: 13,
-                    fontWeight: "700",
-                    color: worked ? c.textPrimary : c.textMuted,
+                    fontSize: 14,
+                    fontWeight: worked ? "800" : "600",
+                    color: worked ? c.textPrimary : c.textSecondary,
                     marginBottom: 2,
                   }}>
                   {day.date}
                 </Text>
                 {worked && (
                   <>
-                    <Text style={{ fontSize: 9, color: c.textSecondary }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>
                       {Math.floor(day.duration / 60)}h {day.duration % 60}m
                     </Text>
                     {day.calories > 0 && (
-                      <Text style={{ fontSize: 9, color: c.danger, marginBottom: 2 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary, marginBottom: 2 }}>
                         {day.calories} kcal
                       </Text>
                     )}
@@ -219,17 +226,19 @@ export default function FullCalendarScreen() {
                         <View
                           style={{ width: 2, height: 10, backgroundColor: getMuscleColor(m) }}
                         />
-                        <Text style={{ fontSize: 8, color: c.textSecondary }} numberOfLines={1}>
+                        <Text
+                          style={{ flex: 1, fontSize: 11, fontWeight: "700", color: c.textSecondary }}
+                          numberOfLines={1}>
                           {m}
                         </Text>
                         <Text
-                          style={{ fontSize: 8, fontWeight: "700", color: c.textPrimary }}>
+                          style={{ fontSize: 11, fontWeight: "700", color: c.textPrimary }}>
                           {count}
                         </Text>
                       </View>
                     ))}
                     {entries.length > 3 && (
-                      <Text style={{ fontSize: 8, color: c.textMuted }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>
                         +{entries.length - 3}
                       </Text>
                     )}

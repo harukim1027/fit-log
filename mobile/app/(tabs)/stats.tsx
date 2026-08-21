@@ -19,6 +19,7 @@ import { useRoutineStore } from "../../store/routineStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { useColors, ThemeColors } from "../../constants/colors";
+import { useThemeStore } from "../../store/themeStore";
 import { LineChart } from "react-native-chart-kit";
 import {
   RestBarChart,
@@ -63,6 +64,28 @@ function formatWeekRange(offset: number) {
   return r;
 }
 
+// react-native-chart-kit은 색을 rgba() 문자열 팩토리로만 받는다.
+// 회귀 방지: 채널 값을 직접 적지 말 것. 과거 여기 하드코딩돼 있던
+// rgba(61,139,224) = #3D8BE0은 colors.ts의 primary(#1E7AEA/#2E82F0)와
+// 어긋난 값이었다. 반드시 토큰에서 파생시킨다.
+function rgbaFrom(hex: string, opacity: number): string {
+  const [r, g, b] = hex
+    .replace("#", "")
+    .match(/.{2}/g)!
+    .map((h) => parseInt(h, 16));
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
+// 값이 정해지면 이 상수를 토큰 참조로 교체할 것. (index.tsx / workout.tsx와 동일)
+const LIGHT_SHADOW_SM = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 2,
+};
+
 /**
  * Creates chart configuration values from the current theme colors.
  *
@@ -75,14 +98,8 @@ function makeChartConfig(c: ThemeColors) {
     backgroundGradientFrom: c.surface,
     backgroundGradientTo: c.surface,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(61,139,224,${opacity})`,
-    labelColor: (opacity = 1) => {
-      const [r, g, b] = c.textSecondary
-        .replace("#", "")
-        .match(/.{2}/g)!
-        .map((h) => parseInt(h, 16));
-      return `rgba(${r},${g},${b},${opacity})`;
-    },
+    color: (opacity = 1) => rgbaFrom(c.primary, opacity),
+    labelColor: (opacity = 1) => rgbaFrom(c.textSecondary, opacity),
     style: { borderRadius: 16 },
     propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
   };
@@ -96,6 +113,7 @@ function makeChartConfig(c: ThemeColors) {
 function StatsScreen() {
   const router = useRouter();
   const c = useColors();
+  const isDark = useThemeStore((s) => s.mode) === "dark";
   const { sessions, fetchSessions } = useWorkoutStore(
     useShallow((s) => ({ sessions: s.sessions, fetchSessions: s.fetchSessions }))
   );
@@ -274,13 +292,8 @@ function StatsScreen() {
   const avgVolume = workoutDayAvg(volumeBarsAll);
   const avgBurn = workoutDayAvg(burnBarsAll);
 
-  const SHADOW = {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  };
+  // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서는 surface 명도 차 + 보더로 계층을 만든다.
+  const SHADOW = isDark ? null : LIGHT_SHADOW_SM;
 
   return (
     <View className="flex-1 bg-background">
@@ -290,13 +303,13 @@ function StatsScreen() {
         rightElement={
           <View className="flex-row items-center gap-1">
             <ThemeToggle size={36} />
-            <TouchableOpacity activeOpacity={0.8}
+            <TouchableOpacity activeOpacity={0.7}
               className="w-9 h-9 items-center justify-center rounded-xl"
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               onPress={() => router.push("/modal/edit-profile" as any)}>
               <Icon name="person" size={22} color={c.success} />
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.8}
+            <TouchableOpacity activeOpacity={0.7}
               className="w-9 h-9 items-center justify-center rounded-xl"
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               onPress={handleLogout}>
@@ -306,11 +319,12 @@ function StatsScreen() {
         }
       />
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        /* 좌우 여백은 여기 한 번만(space.16). 카드 사이는 부모 gap(space.12)이 만든다 */
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, gap: 12 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         {/* 요약 2×2 */}
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
           <StatCard
             label="운동일 평균 볼륨"
             value={String(avgVolume)}
@@ -326,7 +340,7 @@ function StatsScreen() {
             bg={c.danger + "18"}
           />
         </View>
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
           <StatCard
             label="총 운동"
             value={String(sessions.length)}
@@ -355,9 +369,8 @@ function StatsScreen() {
             borderColor: c.border,
             paddingHorizontal: 8,
             paddingVertical: 6,
-            marginBottom: 10,
           }}>
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
             onPress={() => setWeekOffset((o) => o - 1)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
@@ -366,7 +379,7 @@ function StatsScreen() {
           <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
             {formatWeekRange(weekOffset)}
           </Text>
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
             onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
             disabled={weekOffset >= 0}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -382,13 +395,13 @@ function StatsScreen() {
         </View>
 
         {/* 주간 운동 볼륨 */}
-        <Card className="mb-4">
-          <Text className="text-[15px] font-bold text-text-secondary mb-1">
+        <Card style={{ gap: 8 }}>
+          <Text className="text-[17px] font-extrabold text-text-secondary">
             주간 운동 볼륨
           </Text>
           {volumeBars.length > 0 ? (
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 10 }}>
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
                 운동일 평균 {avgVolume.toLocaleString()}kg
               </Text>
               <RestBarChart
@@ -420,7 +433,7 @@ function StatsScreen() {
                         backgroundColor: r.color ?? c.textMuted,
                       }}
                     />
-                    <Text style={{ fontSize: 12, color: c.textSecondary }}>{r.name}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>{r.name}</Text>
                   </View>
                 ))}
                 {hasNonRoutine && (
@@ -428,7 +441,7 @@ function StatsScreen() {
                     <View
                       style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.textMuted }}
                     />
-                    <Text style={{ fontSize: 12, color: c.textSecondary }}>개별 운동</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>개별 운동</Text>
                   </View>
                 )}
                 {/* 쉬는날(체크무늬)이 있으면 함께 안내 */}
@@ -444,7 +457,7 @@ function StatsScreen() {
                         backgroundColor: c.surfaceAlt,
                       }}
                     />
-                    <Text style={{ fontSize: 12, color: c.textSecondary }}>쉬는날</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>쉬는날</Text>
                   </View>
                 )}
               </View>
@@ -460,13 +473,13 @@ function StatsScreen() {
         </Card>
 
         {/* 주간 칼로리 소모 */}
-        <Card className="mb-4">
-          <Text className="text-[15px] font-bold text-text-secondary mb-1">
+        <Card style={{ gap: 8 }}>
+          <Text className="text-[17px] font-extrabold text-text-secondary">
             주간 운동 칼로리 소모
           </Text>
           {burnBars.length > 0 ? (
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textMuted, marginBottom: 10 }}>
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
                 운동일 평균 {avgBurn.toLocaleString()}kcal
               </Text>
               <RestBarChart
@@ -493,14 +506,14 @@ function StatsScreen() {
 
         {/* 종목별 성장 그래프 */}
         {exerciseNames.length > 0 && (
-          <Card className="mb-4">
-            <Text className="text-[15px] font-bold text-text-secondary mb-4">
+          <Card style={{ gap: 8 }}>
+            <Text className="text-[17px] font-extrabold text-text-secondary">
               종목별 성장 그래프
             </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: 14, marginHorizontal: -4 }}
+              style={{ marginHorizontal: -4 }}
               contentContainerStyle={{
                 paddingHorizontal: 4,
                 gap: 8,
@@ -512,14 +525,18 @@ function StatsScreen() {
                   <TouchableOpacity
                     key={name}
                     className={[
-                      "rounded-[14px] px-3 py-[7px]",
+                      "rounded-full px-4 justify-center",
                       isActive ? "bg-primary" : "bg-surface-alt",
                     ].join(" ")}
+                    style={{ minHeight: 44 }}
                     onPress={() => setSelectedExercise(name)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={`${name} 성장 그래프 보기`}
                     activeOpacity={0.7}>
                     <Text
                       className={[
-                        "text-sm font-semibold",
+                        "text-[12px] font-semibold",
                         isActive ? "text-on-accent" : "text-text-secondary",
                       ].join(" ")}>
                       {name}
@@ -542,7 +559,7 @@ function StatsScreen() {
                   chartConfig={{
                     ...chartConfig,
                     decimalPlaces: 1,
-                    color: (opacity = 1) => `rgba(61,139,224,${opacity})`,
+                    color: (opacity = 1) => rgbaFrom(c.primary, opacity),
                     propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
                   }}
                   bezier
@@ -567,14 +584,13 @@ function StatsScreen() {
         {/* PR 기록 */}
         {prs.length > 0 && (
           <View
-            className="bg-surface rounded-[30px] border border-border p-[18px] mb-4"
-            style={SHADOW}>
+            className="bg-surface rounded-[16px] border border-border p-4"
+            style={[{ gap: 8 }, SHADOW]}>
             <Text
               style={{
-                fontSize: 15,
+                fontSize: 17,
                 fontWeight: "800",
                 color: c.textSecondary,
-                marginBottom: 12,
               }}>
               종목별 최고 기록 PR
             </Text>
@@ -588,8 +604,7 @@ function StatsScreen() {
                   backgroundColor: c.surfaceAlt,
                   borderRadius: 12,
                   paddingHorizontal: 14,
-                  paddingVertical: 11,
-                  marginTop: 8,
+                  paddingVertical: 12,
                 }}>
                 <View
                   style={{
@@ -613,7 +628,7 @@ function StatsScreen() {
                     }}>
                     <Text
                       style={{
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: "900",
                         color: c.onAccent,
                       }}>
@@ -630,7 +645,7 @@ function StatsScreen() {
                   </Text>
                 </View>
                 <Text
-                  style={{ fontSize: 14, fontWeight: "900", color: c.success, fontVariant: ['tabular-nums'] }}>
+                  style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ['tabular-nums'] }}>
                   {Math.round(maxW * 10) / 10}kg
                 </Text>
               </View>
@@ -677,21 +692,27 @@ function StatCard({
   color: string;
   bg: string;
 }) {
+  const c = useColors();
   return (
     <View
       style={{
         flex: 1,
-        borderRadius: 22,
-        padding: 14,
+        borderRadius: 16,
+        padding: 16,
         alignItems: "center",
-        gap: 3,
+        gap: 4,
         backgroundColor: bg,
+        // DESIGN.md: 의미색은 텍스트가 아니라 비텍스트 요소에 싣는다.
+        // 값은 text-primary로 읽고, 카테고리 식별은 틴트 배경 + 이 보더가 담당한다.
+        // (다크에서는 그림자를 쓰지 않으므로 이 보더가 카드 경계 역할도 겸한다)
+        borderWidth: 1,
+        borderColor: color,
       }}>
-      <Text className="text-[11px] font-extrabold text-text-secondary">
+      <Text className="text-[11px] font-bold text-text-secondary">
         {label}
       </Text>
-      <Text style={{ fontSize: 22, fontWeight: "900", color, fontVariant: ['tabular-nums'] }}>{value}</Text>
-      <Text style={{ fontSize: 11, fontWeight: "800", color: color + "BB" }}>
+      <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, fontVariant: ['tabular-nums'] }}>{value}</Text>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>
         {unit}
       </Text>
     </View>

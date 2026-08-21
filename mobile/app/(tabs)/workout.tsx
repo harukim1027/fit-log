@@ -51,6 +51,7 @@ import {
 } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useColors } from "../../constants/colors";
+import { useThemeStore } from "../../store/themeStore";
 import RestTimer from "../../components/RestTimer";
 import WorkoutCompleteOverlay from "../../components/WorkoutCompleteOverlay";
 import { SetInputRow } from "../../components/workout/SetInputRow";
@@ -84,6 +85,28 @@ const formatSelectedDate = (dateStr: string) => {
     weekday: "short",
   });
 };
+
+// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
+// 값이 정해지면 이 상수를 토큰 참조로 교체할 것. (index.tsx와 동일 패턴)
+const LIGHT_SHADOW_SM = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 2,
+};
+
+// 토글 노브처럼 작은 요소용 얕은 그림자. 라이트 전용.
+const LIGHT_SHADOW_XS = {
+  shadowColor: "#000",
+  shadowOpacity: 0.12,
+  shadowRadius: 2,
+  elevation: 1,
+};
+
+// 오버레이 암막. 계층 토큰이 아니라 화면을 덮는 막이라 별도 상수로 둔다.
+const SCRIM = "rgba(0,0,0,0.3)";
+const SCRIM_STRONG = "rgba(0,0,0,0.55)";
 
 // CAL_THEME은 컴포넌트 안에서 useColors()로 makeCalTheme(c)으로 생성
 function makeCalTheme(c: import("../../constants/colors").ThemeColors) {
@@ -142,20 +165,13 @@ const fmtExerciseMeta = (
 function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();
-  const SHADOW = {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  };
-  const SHADOW_SM = {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  };
+  const isDark = useThemeStore((s) => s.mode) === "dark";
+  // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서는 거의 보이지 않으므로
+  // surface 명도 차이로 계층을 만든다 (그림자를 쓰던 자리는 모두 surface/accent
+  // 배경을 가지고 있어 배경 대비만으로 경계가 성립한다 — 별도 보더 불필요).
+  // SHADOW와 SHADOW_SM은 원래 값이 완전히 동일했다 — 둘 다 유지하되 같은 상수를 본다.
+  const SHADOW = isDark ? null : LIGHT_SHADOW_SM;
+  const SHADOW_SM = SHADOW;
   const calTheme = React.useMemo(() => makeCalTheme(c), [c]);
   const {
     activeSession,
@@ -781,7 +797,7 @@ function WorkoutScreen() {
         {(["today", "history"] as Tab[]).map((t) => {
           const isActiveTab = tab === t;
           return (
-            <TouchableOpacity activeOpacity={0.8}
+            <TouchableOpacity activeOpacity={0.7}
               key={t}
               style={[
                 {
@@ -797,7 +813,7 @@ function WorkoutScreen() {
               onPress={() => setTab(t)}>
               <Text
                 style={{
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: "800",
                   color: isActiveTab ? c.success : c.textMuted,
                 }}>
@@ -843,8 +859,8 @@ function WorkoutScreen() {
                   }}>
                   <Text
                     style={{
-                      fontSize: 18,
-                      fontWeight: "900",
+                      fontSize: 17,
+                      fontWeight: "800",
                       color: c.textPrimary,
                     }}>
                     내 루틴
@@ -860,10 +876,10 @@ function WorkoutScreen() {
                       SHADOW_SM,
                     ]}
                     onPress={startSession}
-                    activeOpacity={0.8}>
+                    activeOpacity={0.7}>
                     <Text
                       style={{
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: "800",
                         color: c.onAccent,
                       }}>
@@ -883,8 +899,8 @@ function WorkoutScreen() {
                     <Icon name="dumbbell" size={28} color={c.textMuted} />
                     <Text
                       style={{
-                        fontSize: 20,
-                        fontWeight: "900",
+                        fontSize: 17,
+                        fontWeight: "800",
                         color: c.textPrimary,
                         marginTop: 4,
                       }}>
@@ -913,7 +929,7 @@ function WorkoutScreen() {
                       onPress={() =>
                         router.push("/modal/routine-manage" as any)
                       }
-                      activeOpacity={0.8}>
+                      activeOpacity={0.7}>
                       <Text
                         style={{
                           fontSize: 15,
@@ -968,8 +984,8 @@ function WorkoutScreen() {
                             <View style={{ flex: 1 }}>
                               <Text
                                 style={{
-                                  fontSize: 22,
-                                  fontWeight: "900",
+                                  fontSize: 17,
+                                  fontWeight: "800",
                                   color: c.textPrimary,
                                 }}>
                                 {routine.name}
@@ -997,7 +1013,7 @@ function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </View>
-                              <TouchableOpacity activeOpacity={0.8}
+                              <TouchableOpacity activeOpacity={0.7}
                                 onPress={() => handleShareToggle(routine)}>
                                 <Icon
                                   name={routine.isPublic ? "unlock" : "lock"}
@@ -1005,7 +1021,7 @@ function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </TouchableOpacity>
-                              <TouchableOpacity activeOpacity={0.8}
+                              <TouchableOpacity activeOpacity={0.7}
                                 onPress={() =>
                                   router.push({
                                     pathname: "/modal/routine-manage",
@@ -1018,7 +1034,7 @@ function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </TouchableOpacity>
-                              <TouchableOpacity activeOpacity={0.8}
+                              <TouchableOpacity activeOpacity={0.7}
                                 onPress={() =>
                                   showCuteAlert({
                                     icon: "trash",
@@ -1050,10 +1066,10 @@ function WorkoutScreen() {
                                   paddingVertical: 7,
                                 }}
                                 onPress={() => startSessionWithRoutine(routine)}
-                                activeOpacity={0.8}>
+                                activeOpacity={0.7}>
                                 <Text
                                   style={{
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     fontWeight: "800",
                                     color: c.onAccent,
                                   }}>
@@ -1135,7 +1151,7 @@ function WorkoutScreen() {
                                   <Text
                                     style={{
                                       fontSize: 11,
-                                      fontWeight: "800",
+                                      fontWeight: "700",
                                       color: c.success,
                                       letterSpacing: 2,
                                     }}>
@@ -1171,12 +1187,12 @@ function WorkoutScreen() {
                       onPress={() =>
                         router.push("/modal/routine-manage" as any)
                       }
-                      activeOpacity={0.8}>
+                      activeOpacity={0.7}>
                       <Icon name="plus" size={16} color={c.primary} />
                       <Text
                         style={{
                           fontSize: 14,
-                          fontWeight: "700",
+                          fontWeight: "600",
                           color: c.textSecondary,
                         }}>
                         루틴 만들기 +
@@ -1192,20 +1208,20 @@ function WorkoutScreen() {
                         marginBottom: 10,
                       }}
                       onPress={() => setCommunityExpanded((v) => !v)}
-                      activeOpacity={0.8}>
+                      activeOpacity={0.7}>
                       <Text
                         style={{
                           fontSize: 17,
-                          fontWeight: "900",
+                          fontWeight: "800",
                           color: c.textPrimary,
                         }}>
                         커뮤니티 루틴
                       </Text>
                       <Text
                         style={{
-                          fontSize: 13,
+                          fontSize: 14,
                           color: c.textSecondary,
-                          fontWeight: "700",
+                          fontWeight: "600",
                         }}>
                         {communityExpanded ? "접기 ▲" : "더 보기 ▼"}
                       </Text>
@@ -1220,7 +1236,7 @@ function WorkoutScreen() {
                             marginBottom: 12,
                           }}>
                           {(["latest", "popular"] as const).map((s) => (
-                            <TouchableOpacity activeOpacity={0.8}
+                            <TouchableOpacity activeOpacity={0.7}
                               key={s}
                               style={{
                                 paddingHorizontal: 16,
@@ -1235,7 +1251,7 @@ function WorkoutScreen() {
                               <Text
                                 style={{
                                   fontSize: 12,
-                                  fontWeight: "800",
+                                  fontWeight: "600",
                                   color:
                                     communitySort === s
                                       ? c.surface
@@ -1258,7 +1274,7 @@ function WorkoutScreen() {
                             style={{
                               flex: 1,
                               backgroundColor: c.surface,
-                              borderRadius: 14,
+                              borderRadius: 12,
                               paddingHorizontal: 14,
                               paddingVertical: 10,
                               fontSize: 15,
@@ -1281,12 +1297,12 @@ function WorkoutScreen() {
                           <TouchableOpacity
                             style={{
                               backgroundColor: c.primary,
-                              borderRadius: 14,
+                              borderRadius: 12,
                               paddingHorizontal: 16,
                               paddingVertical: 10,
                             }}
                             onPress={handleCodeSearch}
-                            activeOpacity={0.8}>
+                            activeOpacity={0.7}>
                             {codeSearching ? (
                               <ActivityIndicator
                                 size="small"
@@ -1295,7 +1311,7 @@ function WorkoutScreen() {
                             ) : (
                               <Text
                                 style={{
-                                  fontSize: 13,
+                                  fontSize: 14,
                                   fontWeight: "800",
                                   color: c.onAccent,
                                 }}>
@@ -1310,7 +1326,7 @@ function WorkoutScreen() {
                             style={[
                               {
                                 backgroundColor: c.surface,
-                                borderRadius: 20,
+                                borderRadius: 16,
                                 padding: 14,
                                 marginBottom: 10,
                                 borderWidth: 2,
@@ -1329,7 +1345,7 @@ function WorkoutScreen() {
                                 <Text
                                   style={{
                                     fontSize: 15,
-                                    fontWeight: "900",
+                                    fontWeight: "800",
                                     color: c.textPrimary,
                                   }}>
                                   {codeResult.name}
@@ -1343,7 +1359,7 @@ function WorkoutScreen() {
                                   by {codeResult.authorName ?? "익명"}
                                 </Text>
                               </View>
-                              <TouchableOpacity activeOpacity={0.8}
+                              <TouchableOpacity activeOpacity={0.7}
                                 style={{
                                   backgroundColor: c.warning,
                                   borderRadius: 999,
@@ -1361,7 +1377,7 @@ function WorkoutScreen() {
                                   <Text
                                     style={{
                                       fontSize: 12,
-                                      fontWeight: "800",
+                                      fontWeight: "600",
                                       color: c.onAccent,
                                     }}>
                                     가져오기
@@ -1406,7 +1422,7 @@ function WorkoutScreen() {
                             }}>
                             <Text
                               style={{
-                                fontSize: 13,
+                                fontSize: 14,
                                 color: c.textMuted,
                                 fontWeight: "600",
                               }}>
@@ -1422,7 +1438,7 @@ function WorkoutScreen() {
                                   backgroundColor: c.surface,
                                   borderWidth: 1,
                                   borderColor: c.border,
-                                  borderRadius: 20,
+                                  borderRadius: 16,
                                   padding: 14,
                                   marginBottom: 10,
                                 },
@@ -1439,7 +1455,7 @@ function WorkoutScreen() {
                                   <Text
                                     style={{
                                       fontSize: 15,
-                                      fontWeight: "900",
+                                      fontWeight: "800",
                                       color: c.textPrimary,
                                     }}>
                                     {r.name}
@@ -1474,7 +1490,7 @@ function WorkoutScreen() {
                                     </Text>
                                   </View>
                                 </View>
-                                <TouchableOpacity activeOpacity={0.8}
+                                <TouchableOpacity activeOpacity={0.7}
                                   style={{
                                     backgroundColor: c.surfaceAlt,
                                     borderRadius: 999,
@@ -1492,7 +1508,7 @@ function WorkoutScreen() {
                                     <Text
                                       style={{
                                         fontSize: 12,
-                                        fontWeight: "800",
+                                        fontWeight: "600",
                                         color: c.success,
                                       }}>
                                       내 루틴으로
@@ -1603,7 +1619,7 @@ function WorkoutScreen() {
                             <Text
                               style={{
                                 fontSize: 11,
-                                fontWeight: "800",
+                                fontWeight: "700",
                                 color: c.success,
                               }}>
                               {rn.name}
@@ -1631,11 +1647,11 @@ function WorkoutScreen() {
                       paddingVertical: 12,
                     }}
                     onPress={() => router.push("/modal/add-workout")}
-                    activeOpacity={0.8}>
+                    activeOpacity={0.7}>
                     <Icon name="plus" size={16} color={c.success} />
                     <Text
                       style={{
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: "800",
                         color: c.success,
                       }}>
@@ -1659,11 +1675,11 @@ function WorkoutScreen() {
                         setAddedFromRoutine(new Set());
                         setShowRoutineSheet(true);
                       }}
-                      activeOpacity={0.8}>
+                      activeOpacity={0.7}>
                       <Icon name="list" size={14} color={c.warning} />
                       <Text
                         style={{
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: "800",
                           color: c.warning,
                         }}>
@@ -1785,18 +1801,18 @@ function WorkoutScreen() {
                                     paddingVertical: 2,
                                     marginBottom: 3,
                                   }}>
-                                  <Text style={{ fontSize: 10, fontWeight: "800", color: c.success }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: c.success }}>
                                     {ex.category}
                                   </Text>
                                 </View>
                                 <Text
-                                  style={{ fontSize: 14.5, fontWeight: "900", color: c.textPrimary, lineHeight: 19 }}
+                                  style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, lineHeight: 19 }}
                                   numberOfLines={2}
                                   ellipsizeMode="tail">
                                   {ex.name}
                                 </Text>
                                 <Text
-                                  style={{ fontSize: 11.5, color: c.textSecondary, marginTop: 2, fontVariant: ["tabular-nums"] }}
+                                  style={{ fontSize: 12, color: c.textSecondary, marginTop: 2, fontVariant: ["tabular-nums"] }}
                                   numberOfLines={1}>
                                   {completedSets}/{ex.sets.length}세트
                                   {exVol > 0 ? ` · ${exVol.toLocaleString()}kg` : ""}
@@ -1828,7 +1844,7 @@ function WorkoutScreen() {
                                   ))}
                                   {ex.sets.length > 6 && (
                                     <View style={{ height: 34, justifyContent: "center", alignItems: "center", paddingHorizontal: 2 }}>
-                                      <Text style={{ fontSize: 11, fontWeight: "800", color: c.textMuted }}>
+                                      <Text style={{ fontSize: 11, fontWeight: "700", color: c.textMuted }}>
                                         +{ex.sets.length - 6}
                                       </Text>
                                     </View>
@@ -1837,7 +1853,7 @@ function WorkoutScreen() {
                               )}
 
                               {/* 펼침 chevron (기존 상세보기 토글 동작 유지) */}
-                              <TouchableOpacity activeOpacity={0.8}
+                              <TouchableOpacity activeOpacity={0.7}
                                 onPress={() =>
                                   setDetailExpanded((prev) => ({ ...prev, [ex.id]: !isExpanded }))
                                 }
@@ -1863,7 +1879,7 @@ function WorkoutScreen() {
                                   }}
                                 />
                                 <View style={{ marginBottom: 4 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: "800", color: c.textMuted, marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: c.textMuted, marginBottom: 4 }}>
                                     운동명
                                   </Text>
                                   <TextInput
@@ -1879,7 +1895,7 @@ function WorkoutScreen() {
                                     }}
                                     style={{
                                       fontSize: 14,
-                                      fontWeight: "700",
+                                      fontWeight: "600",
                                       color: c.textPrimary,
                                       backgroundColor: c.surfaceAlt,
                                       borderRadius: 10,
@@ -1920,7 +1936,7 @@ function WorkoutScreen() {
                                 {ex.sets.length === 0 ? (
                                   <Text
                                     style={{
-                                      fontSize: 13,
+                                      fontSize: 14,
                                       color: c.textMuted,
                                       textAlign: "center",
                                       paddingVertical: 8,
@@ -1964,7 +1980,7 @@ function WorkoutScreen() {
                                           const curUnit =
                                             ex.sets[0]?.unit ?? "kg";
                                           return (
-                                            <TouchableOpacity activeOpacity={0.8}
+                                            <TouchableOpacity activeOpacity={0.7}
                                               key={u}
                                               style={{
                                                 paddingHorizontal: 7,
@@ -1984,7 +2000,7 @@ function WorkoutScreen() {
                                               }}>
                                               <Text
                                                 style={{
-                                                  fontSize: 10,
+                                                  fontSize: 11,
                                                   fontWeight: "700",
                                                   color:
                                                     curUnit === u
@@ -2031,11 +2047,11 @@ function WorkoutScreen() {
                                             alignItems: "center",
                                             gap: 12,
                                           }}>
-                                          <TouchableOpacity activeOpacity={0.8}
+                                          <TouchableOpacity activeOpacity={0.7}
                                             style={{
                                               width: 28,
                                               height: 28,
-                                              borderRadius: 8,
+                                              borderRadius: 10,
                                               backgroundColor: c.danger + "20",
                                               alignItems: "center",
                                               justifyContent: "center",
@@ -2051,18 +2067,18 @@ function WorkoutScreen() {
                                             <Text
                                               style={{
                                                 fontSize: 11,
-                                                fontWeight: "800",
+                                                fontWeight: "700",
                                                 color: c.danger,
                                               }}>
                                               -5
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity activeOpacity={0.8}
+                                          <TouchableOpacity activeOpacity={0.7}
                                             style={{
                                               paddingHorizontal: 6,
                                               height: 28,
                                               backgroundColor: c.surfaceAlt,
-                                              borderRadius: 8,
+                                              borderRadius: 10,
                                               alignItems: "center",
                                               justifyContent: "center",
                                               minWidth: 54,
@@ -2080,15 +2096,15 @@ function WorkoutScreen() {
                                             }>
                                             <Text
                                               style={{
-                                                fontSize: 13,
-                                                fontWeight: "900",
+                                                fontSize: 14,
+                                                fontWeight: "800",
                                                 color: c.primary,
                                               }}>
                                               {st.weight}
                                               <Text
                                                 style={{
-                                                  fontSize: 10,
-                                                  fontWeight: "600",
+                                                  fontSize: 11,
+                                                  fontWeight: "700",
                                                   color: c.textMuted,
                                                 }}>
                                                 {" "}
@@ -2096,11 +2112,11 @@ function WorkoutScreen() {
                                               </Text>
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity activeOpacity={0.8}
+                                          <TouchableOpacity activeOpacity={0.7}
                                             style={{
                                               width: 28,
                                               height: 28,
-                                              borderRadius: 8,
+                                              borderRadius: 10,
                                               backgroundColor: c.success + "20",
                                               alignItems: "center",
                                               justifyContent: "center",
@@ -2113,7 +2129,7 @@ function WorkoutScreen() {
                                             <Text
                                               style={{
                                                 fontSize: 11,
-                                                fontWeight: "800",
+                                                fontWeight: "700",
                                                 color: c.success,
                                               }}>
                                               +5
@@ -2133,11 +2149,11 @@ function WorkoutScreen() {
                                             alignItems: "center",
                                             gap: 12,
                                           }}>
-                                          <TouchableOpacity activeOpacity={0.8}
+                                          <TouchableOpacity activeOpacity={0.7}
                                             style={{
                                               width: 28,
                                               height: 28,
-                                              borderRadius: 8,
+                                              borderRadius: 10,
                                               backgroundColor: c.danger + "20",
                                               alignItems: "center",
                                               justifyContent: "center",
@@ -2150,18 +2166,18 @@ function WorkoutScreen() {
                                             <Text
                                               style={{
                                                 fontSize: 11,
-                                                fontWeight: "800",
+                                                fontWeight: "700",
                                                 color: c.danger,
                                               }}>
                                               -1
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity activeOpacity={0.8}
+                                          <TouchableOpacity activeOpacity={0.7}
                                             style={{
                                               paddingHorizontal: 6,
                                               height: 28,
                                               backgroundColor: c.surfaceAlt,
-                                              borderRadius: 8,
+                                              borderRadius: 10,
                                               alignItems: "center",
                                               justifyContent: "center",
                                               minWidth: 46,
@@ -2179,15 +2195,15 @@ function WorkoutScreen() {
                                             }>
                                             <Text
                                               style={{
-                                                fontSize: 13,
-                                                fontWeight: "900",
+                                                fontSize: 14,
+                                                fontWeight: "800",
                                                 color: c.primary,
                                               }}>
                                               {st.reps}
                                               <Text
                                                 style={{
-                                                  fontSize: 10,
-                                                  fontWeight: "600",
+                                                  fontSize: 11,
+                                                  fontWeight: "700",
                                                   color: c.textMuted,
                                                 }}>
                                                 {" "}
@@ -2195,11 +2211,11 @@ function WorkoutScreen() {
                                               </Text>
                                             </Text>
                                           </TouchableOpacity>
-                                          <TouchableOpacity activeOpacity={0.8}
+                                          <TouchableOpacity activeOpacity={0.7}
                                             style={{
                                               width: 28,
                                               height: 28,
-                                              borderRadius: 8,
+                                              borderRadius: 10,
                                               backgroundColor: c.success + "20",
                                               alignItems: "center",
                                               justifyContent: "center",
@@ -2212,14 +2228,14 @@ function WorkoutScreen() {
                                             <Text
                                               style={{
                                                 fontSize: 11,
-                                                fontWeight: "800",
+                                                fontWeight: "700",
                                                 color: c.success,
                                               }}>
                                               +1
                                             </Text>
                                           </TouchableOpacity>
                                         </View>
-                                        <TouchableOpacity activeOpacity={0.8}
+                                        <TouchableOpacity activeOpacity={0.7}
                                           style={{ paddingLeft: 8 }}
                                           onPress={() => {
                                             if (ex.sets.length <= 1) {
@@ -2265,11 +2281,11 @@ function WorkoutScreen() {
                                         </TouchableOpacity>
                                       </View>
                                     ))}
-                                    <TouchableOpacity activeOpacity={0.8}
+                                    <TouchableOpacity activeOpacity={0.7}
                                       style={{
                                         alignItems: "center",
                                         paddingVertical: 8,
-                                        borderRadius: 14,
+                                        borderRadius: 12,
                                         backgroundColor: c.primary + "18",
                                         marginTop: 2,
                                         marginBottom: 4,
@@ -2290,8 +2306,8 @@ function WorkoutScreen() {
                                       }}>
                                       <Text
                                         style={{
-                                          fontSize: 13,
-                                          fontWeight: "700",
+                                          fontSize: 14,
+                                          fontWeight: "600",
                                           color: c.success,
                                         }}>
                                         + 세트 추가
@@ -2335,7 +2351,7 @@ function WorkoutScreen() {
                                       style={{
                                         width: 40,
                                         height: 22,
-                                        borderRadius: 11,
+                                        borderRadius: 10,
                                         backgroundColor: ex.isSingleArm
                                           ? c.primary
                                           : c.surfaceAlt,
@@ -2347,12 +2363,12 @@ function WorkoutScreen() {
                                           isSingleArm: !ex.isSingleArm,
                                         })
                                       }
-                                      activeOpacity={0.8}>
+                                      activeOpacity={0.7}>
                                       <View
                                         style={{
                                           width: 18,
                                           height: 18,
-                                          borderRadius: 9,
+                                          borderRadius: 10,
                                           backgroundColor: c.surface,
                                           transform: [
                                             {
@@ -2361,10 +2377,7 @@ function WorkoutScreen() {
                                                 : 0,
                                             },
                                           ],
-                                          shadowColor: "#000",
-                                          shadowOpacity: 0.12,
-                                          shadowRadius: 2,
-                                          elevation: 1,
+                                          ...(isDark ? null : LIGHT_SHADOW_XS),
                                         }}
                                       />
                                     </TouchableOpacity>
@@ -2409,7 +2422,7 @@ function WorkoutScreen() {
                                           }}>
                                           {s.key}: {s.value}
                                         </Text>
-                                        <TouchableOpacity activeOpacity={0.8}
+                                        <TouchableOpacity activeOpacity={0.7}
                                           onPress={() =>
                                             updateExercise(ex.id, {
                                               settings: (
@@ -2427,14 +2440,14 @@ function WorkoutScreen() {
                                             style={{
                                               fontSize: 14,
                                               color: c.textMuted,
-                                              fontWeight: "700",
+                                              fontWeight: "600",
                                             }}>
                                             ×
                                           </Text>
                                         </TouchableOpacity>
                                       </View>
                                     ))}
-                                    <TouchableOpacity activeOpacity={0.8}
+                                    <TouchableOpacity activeOpacity={0.7}
                                       style={{
                                         backgroundColor: c.surfaceAlt,
                                         borderRadius: 999,
@@ -2493,8 +2506,8 @@ function WorkoutScreen() {
                                       backgroundColor: c.surfaceAlt,
                                       borderRadius: 12,
                                       padding: 10,
-                                      fontSize: 13,
-                                      fontWeight: "700",
+                                      fontSize: 14,
+                                      fontWeight: "600",
                                       color: c.textPrimary,
                                     }}
                                     value={ex.targetReps ?? ""}
@@ -2524,7 +2537,7 @@ function WorkoutScreen() {
                                       alignItems: "center",
                                       gap: 8,
                                     }}>
-                                    <TouchableOpacity activeOpacity={0.8}
+                                    <TouchableOpacity activeOpacity={0.7}
                                       onPress={() =>
                                         updateExercise(ex.id, {
                                           restSeconds: Math.max(
@@ -2536,7 +2549,7 @@ function WorkoutScreen() {
                                       style={{
                                         width: 36,
                                         height: 36,
-                                        borderRadius: 18,
+                                        borderRadius: 16,
                                         backgroundColor: c.surfaceAlt,
                                         alignItems: "center",
                                         justifyContent: "center",
@@ -2569,7 +2582,7 @@ function WorkoutScreen() {
                                       </Text>
                                     </View>
 
-                                    <TouchableOpacity activeOpacity={0.8}
+                                    <TouchableOpacity activeOpacity={0.7}
                                       onPress={() =>
                                         updateExercise(ex.id, {
                                           restSeconds:
@@ -2579,14 +2592,14 @@ function WorkoutScreen() {
                                       style={{
                                         width: 36,
                                         height: 36,
-                                        borderRadius: 18,
+                                        borderRadius: 16,
                                         backgroundColor: c.primary,
                                         alignItems: "center",
                                         justifyContent: "center",
                                       }}>
                                       <Text
                                         style={{
-                                          color: "#fff",
+                                          color: c.onAccent,
                                           fontWeight: "800",
                                           fontSize: 18,
                                         }}>
@@ -2612,7 +2625,7 @@ function WorkoutScreen() {
                                       backgroundColor: c.surfaceAlt,
                                       borderRadius: 12,
                                       padding: 10,
-                                      fontSize: 13,
+                                      fontSize: 14,
                                       color: c.textPrimary,
                                       minHeight: 60,
                                     }}
@@ -2709,7 +2722,7 @@ function WorkoutScreen() {
                                         <Text
                                           style={{
                                             fontSize: 12,
-                                            fontWeight: "700",
+                                            fontWeight: "600",
                                             color: c.textMuted,
                                           }}>
                                           이전 기록
@@ -2741,7 +2754,7 @@ function WorkoutScreen() {
                                               <View
                                                 style={{
                                                   backgroundColor: c.surfaceAlt,
-                                                  borderRadius: 8,
+                                                  borderRadius: 10,
                                                   paddingHorizontal: 8,
                                                   paddingVertical: 3,
                                                 }}>
@@ -2756,7 +2769,7 @@ function WorkoutScreen() {
                                               </View>
                                               <Text
                                                 style={{
-                                                  fontSize: 13,
+                                                  fontSize: 14,
                                                   fontWeight: "800",
                                                   color: text
                                                     ? c.primary
@@ -2858,7 +2871,7 @@ function WorkoutScreen() {
               marginBottom: 20,
             }}
             onPress={() => router.push("/modal/full-calendar" as any)}
-            activeOpacity={0.85}>
+            activeOpacity={0.7}>
             <Icon name="calendar" size={16} color={c.primary} />
             <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>
               기록 캘린더 보기
@@ -2881,7 +2894,7 @@ function WorkoutScreen() {
                         backgroundColor: c.surface,
                         borderWidth: 1,
                         borderColor: c.border,
-                        borderRadius: 20,
+                        borderRadius: 16,
                         padding: 20,
                         alignItems: "center",
                         gap: 8,
@@ -2890,7 +2903,7 @@ function WorkoutScreen() {
                       <Text
                         style={{
                           fontSize: 14,
-                          fontWeight: "700",
+                          fontWeight: "600",
                           color: c.textMuted,
                           textAlign: "center",
                         }}>
@@ -2903,7 +2916,7 @@ function WorkoutScreen() {
                         backgroundColor: c.surface,
                         borderWidth: 1,
                         borderColor: c.border,
-                        borderRadius: 20,
+                        borderRadius: 16,
                         padding: 24,
                         alignItems: "center",
                         gap: 12,
@@ -2916,7 +2929,7 @@ function WorkoutScreen() {
                       <Text
                         style={{
                           fontSize: 14,
-                          fontWeight: "700",
+                          fontWeight: "600",
                           color: isSelectedRestDay ? c.primary : c.textMuted,
                         }}>
                         {isSelectedRestDay
@@ -2936,7 +2949,7 @@ function WorkoutScreen() {
                             params: { date: selectedDate },
                           } as any)
                         }
-                        activeOpacity={0.8}>
+                        activeOpacity={0.7}>
                         <Text
                           style={{
                             fontSize: 14,
@@ -2959,7 +2972,7 @@ function WorkoutScreen() {
                           paddingVertical: 10,
                         }}
                         onPress={() => handleToggleRestDay(selectedDate)}
-                        activeOpacity={0.8}>
+                        activeOpacity={0.7}>
                         <Icon
                           name={isSelectedRestDay ? "trash" : "calendar"}
                           size={14}
@@ -2967,7 +2980,7 @@ function WorkoutScreen() {
                         />
                         <Text
                           style={{
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: "800",
                             color: isSelectedRestDay
                               ? c.danger
@@ -3012,7 +3025,7 @@ function WorkoutScreen() {
                               justifyContent: "center",
                               gap: 6,
                               backgroundColor: c.primary + "18",
-                              borderRadius: 14,
+                              borderRadius: 12,
                               paddingVertical: 11,
                               marginBottom: 12,
                             }}
@@ -3025,11 +3038,11 @@ function WorkoutScreen() {
                                 },
                               } as any)
                             }
-                            activeOpacity={0.8}>
+                            activeOpacity={0.7}>
                             <Icon name="plus" size={14} color={c.primary} />
                             <Text
                               style={{
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: "800",
                                 color: c.primary,
                               }}>
@@ -3071,15 +3084,15 @@ function WorkoutScreen() {
         transparent
         onRequestClose={() => setShowRoutineSheet(false)}>
         <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)" }}
+          style={{ flex: 1, backgroundColor: SCRIM }}
           activeOpacity={1}
           onPress={() => setShowRoutineSheet(false)}
         />
         <View
           style={{
             backgroundColor: c.surface,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             maxHeight: "75%",
             paddingBottom: 34,
           }}>
@@ -3097,12 +3110,12 @@ function WorkoutScreen() {
               style={{
                 flex: 1,
                 fontSize: 17,
-                fontWeight: "900",
+                fontWeight: "800",
                 color: c.textPrimary,
               }}>
               루틴에서 가져오기
             </Text>
-            <TouchableOpacity activeOpacity={0.8} onPress={() => setShowRoutineSheet(false)}>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setShowRoutineSheet(false)}>
               <Text
                 style={{ fontSize: 20, color: c.textMuted, fontWeight: "700" }}>
                 ×
@@ -3125,7 +3138,7 @@ function WorkoutScreen() {
                     backgroundColor: c.surface,
                     borderWidth: 1,
                     borderColor: c.border,
-                    borderRadius: 20,
+                    borderRadius: 16,
                     overflow: "hidden",
                     marginBottom: 10,
                   }}>
@@ -3139,12 +3152,12 @@ function WorkoutScreen() {
                     onPress={() =>
                       setExpandedRoutineInSheet(isExpanded ? null : routine.id)
                     }
-                    activeOpacity={0.8}>
+                    activeOpacity={0.7}>
                     <View style={{ flex: 1 }}>
                       <Text
                         style={{
                           fontSize: 15,
-                          fontWeight: "900",
+                          fontWeight: "800",
                           color: c.textPrimary,
                         }}>
                         {routine.name}
@@ -3158,7 +3171,7 @@ function WorkoutScreen() {
                         {routine.exercises.length}종목
                       </Text>
                     </View>
-                    <TouchableOpacity activeOpacity={0.8}
+                    <TouchableOpacity activeOpacity={0.7}
                       style={{
                         backgroundColor: c.warning,
                         borderRadius: 999,
@@ -3205,7 +3218,7 @@ function WorkoutScreen() {
                       <Text
                         style={{
                           fontSize: 12,
-                          fontWeight: "800",
+                          fontWeight: "600",
                           color: c.onAccent,
                         }}>
                         전체 추가
@@ -3215,7 +3228,7 @@ function WorkoutScreen() {
                       style={{
                         fontSize: 12,
                         color: c.textMuted,
-                        fontWeight: "700",
+                        fontWeight: "600",
                       }}>
                       {isExpanded ? "▲" : "▼"}
                     </Text>
@@ -3245,15 +3258,15 @@ function WorkoutScreen() {
                             <View style={{ flex: 1 }}>
                               <Text
                                 style={{
-                                  fontSize: 13,
-                                  fontWeight: "700",
+                                  fontSize: 14,
+                                  fontWeight: "600",
                                   color: c.textPrimary,
                                 }}>
                                 {re.name}
                               </Text>
                               <Text
                                 style={{
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   color: c.textSecondary,
                                   marginTop: 1,
                                 }}>
@@ -3275,14 +3288,14 @@ function WorkoutScreen() {
                                 <Text
                                   style={{
                                     fontSize: 11,
-                                    fontWeight: "800",
+                                    fontWeight: "700",
                                     color: c.success,
                                   }}>
                                   추가됨
                                 </Text>
                               </View>
                             ) : (
-                              <TouchableOpacity activeOpacity={0.8}
+                              <TouchableOpacity activeOpacity={0.7}
                                 style={{
                                   backgroundColor: c.surfaceAlt,
                                   borderRadius: 999,
@@ -3313,7 +3326,7 @@ function WorkoutScreen() {
                                 <Text
                                   style={{
                                     fontSize: 11,
-                                    fontWeight: "800",
+                                    fontWeight: "700",
                                     color: c.success,
                                   }}>
                                   + 추가
@@ -3340,7 +3353,7 @@ function WorkoutScreen() {
           <View
             style={{
               flex: 1,
-              backgroundColor: "rgba(0,0,0,0.55)",
+              backgroundColor: SCRIM_STRONG,
               alignItems: "center",
               justifyContent: "center",
               padding: 24,
@@ -3355,7 +3368,7 @@ function WorkoutScreen() {
               <Text
                 style={{
                   fontSize: 17,
-                  fontWeight: "900",
+                  fontWeight: "800",
                   color: c.textPrimary,
                   marginBottom: 6,
                 }}>
@@ -3363,7 +3376,7 @@ function WorkoutScreen() {
               </Text>
               <Text
                 style={{
-                  fontSize: 13,
+                  fontSize: 14,
                   color: c.textSecondary,
                   marginBottom: 16,
                 }}>
@@ -3372,10 +3385,10 @@ function WorkoutScreen() {
               <TextInput
                 style={{
                   backgroundColor: c.surfaceAlt,
-                  borderRadius: 14,
+                  borderRadius: 12,
                   padding: 14,
                   fontSize: 15,
-                  fontWeight: "700",
+                  fontWeight: "800",
                   color: c.textPrimary,
                   marginBottom: 16,
                 }}
@@ -3388,11 +3401,11 @@ function WorkoutScreen() {
                 onSubmitEditing={handleSaveAsRoutine}
               />
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity activeOpacity={0.8}
+                <TouchableOpacity activeOpacity={0.7}
                   style={{
                     flex: 1,
                     paddingVertical: 14,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     backgroundColor: c.surfaceAlt,
                     alignItems: "center",
                   }}
@@ -3403,17 +3416,17 @@ function WorkoutScreen() {
                   <Text
                     style={{
                       fontSize: 14,
-                      fontWeight: "700",
+                      fontWeight: "600",
                       color: c.textSecondary,
                     }}>
                     나중에
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.8}
+                <TouchableOpacity activeOpacity={0.7}
                   style={{
                     flex: 1,
                     paddingVertical: 14,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     backgroundColor: c.warning,
                     alignItems: "center",
                   }}
@@ -3485,7 +3498,7 @@ function DiffBadge({
   return (
     <Text
       style={{
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: "700",
         lineHeight: 14,
         color: up ? c.danger : c.primary,
@@ -3588,7 +3601,7 @@ function ExerciseHistoryRow({
                 paddingVertical: 3,
               }}>
               <Text
-                style={{ fontSize: 10, fontWeight: "700", color: c.success }}>
+                style={{ fontSize: 11, fontWeight: "700", color: c.success }}>
                 한팔
               </Text>
             </View>
@@ -3607,7 +3620,7 @@ function ExerciseHistoryRow({
                 }}>
                 <Icon name="trophy" size={11} color={c.stats} />
                 <Text
-                  style={{ fontSize: 11, fontWeight: "800", color: c.stats }}>
+                  style={{ fontSize: 11, fontWeight: "700", color: c.stats }}>
                   PR
                 </Text>
               </View>
@@ -3638,7 +3651,7 @@ function ExerciseHistoryRow({
                 paddingVertical: 2,
               }}>
               <Text
-                style={{ fontSize: 10, fontWeight: "700", color: c.primary }}>
+                style={{ fontSize: 11, fontWeight: "700", color: c.primary }}>
                 {m}
               </Text>
             </View>
@@ -3651,7 +3664,7 @@ function ExerciseHistoryRow({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text
               style={{
-                fontSize: 9,
+                fontSize: 11,
                 color: c.textMuted,
                 fontWeight: "700",
                 width: 24,
@@ -3678,9 +3691,9 @@ function ExerciseHistoryRow({
             </View>
             <Text
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 color: c.textMuted,
-                fontWeight: "600",
+                fontWeight: "700",
                 width: 38,
               }}>
               {allPrevMax}kg
@@ -3689,7 +3702,7 @@ function ExerciseHistoryRow({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text
               style={{
-                fontSize: 9,
+                fontSize: 11,
                 color: c.success,
                 fontWeight: "700",
                 width: 24,
@@ -3716,7 +3729,7 @@ function ExerciseHistoryRow({
             </View>
             <Text
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 color: c.success,
                 fontWeight: "700",
                 width: 38,
@@ -3737,7 +3750,7 @@ function ExerciseHistoryRow({
             gap: 4,
           }}>
           <Icon name="dumbbell" size={12} color={c.success} />
-          <Text style={{ fontSize: 12, fontWeight: "800", color: c.success }}>
+          <Text style={{ fontSize: 12, fontWeight: "600", color: c.success }}>
             +{delta}kg 성장했어요!
           </Text>
         </Animated.View>
@@ -3746,7 +3759,7 @@ function ExerciseHistoryRow({
         <Text
           style={{
             fontSize: 11,
-            fontWeight: "600",
+            fontWeight: "700",
             color: c.danger,
             marginBottom: 4,
           }}>
@@ -4166,7 +4179,7 @@ function HistoryCard({
             );
             setExpanded((v) => !v);
           }}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
           style={{ padding: 16 }}>
           {/* 통계 행 */}
           <View
@@ -4183,8 +4196,8 @@ function HistoryCard({
                 <Icon name="timer" size={12} color={c.textPrimary} />
                 <Text
                   style={{
-                    fontSize: 13,
-                    fontWeight: "700",
+                    fontSize: 14,
+                    fontWeight: "600",
                     color: c.textPrimary,
                   }}>
                   {durationText}
@@ -4196,7 +4209,7 @@ function HistoryCard({
                 style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                 <FlameIcon size={12} color={c.danger} />
                 <Text
-                  style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>
+                  style={{ fontSize: 14, fontWeight: "600", color: c.danger }}>
                   {session.caloriesBurned}kcal
                 </Text>
               </View>
@@ -4205,14 +4218,14 @@ function HistoryCard({
               style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
               <Icon name="dumbbell" size={12} color={c.success} />
               <Text
-                style={{ fontSize: 13, fontWeight: "700", color: c.success }}>
+                style={{ fontSize: 14, fontWeight: "600", color: c.success }}>
                 {volume.toLocaleString()}kg
               </Text>
             </View>
             <Text
               style={{
                 fontSize: 11,
-                fontWeight: "600",
+                fontWeight: "700",
                 color: c.textMuted,
                 marginLeft: "auto" as any,
               }}>
@@ -4222,7 +4235,7 @@ function HistoryCard({
           {/* 종목 이름 목록 */}
           <Text
             style={{
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: "600",
               color: c.textSecondary,
               lineHeight: 20,
@@ -4258,7 +4271,7 @@ function HistoryCard({
                   />
                   <Text style={{ fontSize: 12, color: c.textSecondary }}>{muscle}</Text>
                   <Text
-                    style={{ fontSize: 12, fontWeight: "800", color: c.textPrimary }}>
+                    style={{ fontSize: 12, fontWeight: "600", color: c.textPrimary }}>
                     {count}
                   </Text>
                 </View>
@@ -4279,7 +4292,7 @@ function HistoryCard({
             borderTopWidth: 1,
             borderTopColor: c.surfaceAlt,
           }}>
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
             onPress={() => setShowDateModal(true)}
             style={{
               flexDirection: "row",
@@ -4292,11 +4305,11 @@ function HistoryCard({
               backgroundColor: c.surfaceAlt,
             }}>
             <Icon name="calendar" size={16} color={c.textSecondary} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.textSecondary }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary }}>
               날짜 변경
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
             onPress={() => {
               setRoutineSaveName("");
               setShowRoutineSaveModal(true);
@@ -4312,11 +4325,11 @@ function HistoryCard({
               backgroundColor: c.warning + "20",
             }}>
             <Icon name="star" size={16} color={c.warning} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.warning }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: c.warning }}>
               루틴 저장
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
             onPress={() => {
               if (editMode) {
                 setEditMode(false);
@@ -4342,14 +4355,14 @@ function HistoryCard({
             />
             <Text
               style={{
-                fontSize: 13,
-                fontWeight: "700",
+                fontSize: 14,
+                fontWeight: "600",
                 color: editMode ? c.danger : c.primary,
               }}>
               {editMode ? "취소" : "수정"}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.8}
+          <TouchableOpacity activeOpacity={0.7}
             onPress={handleDelete}
             style={{
               flexDirection: "row",
@@ -4362,7 +4375,7 @@ function HistoryCard({
               backgroundColor: c.danger + "15",
             }}>
             <Icon name="trash" size={18} color={c.danger} />
-            <Text style={{ fontSize: 13, fontWeight: "700", color: c.danger }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: c.danger }}>
               삭제
             </Text>
           </TouchableOpacity>
@@ -4373,7 +4386,7 @@ function HistoryCard({
           <View
             style={{
               flex: 1,
-              backgroundColor: "rgba(0,0,0,0.55)",
+              backgroundColor: SCRIM_STRONG,
               alignItems: "center",
               justifyContent: "center",
               padding: 24,
@@ -4388,7 +4401,7 @@ function HistoryCard({
               <Text
                 style={{
                   fontSize: 17,
-                  fontWeight: "900",
+                  fontWeight: "800",
                   color: c.textPrimary,
                   marginBottom: 4,
                   paddingHorizontal: 4,
@@ -4427,7 +4440,7 @@ function HistoryCard({
                   dotColor: c.primary,
                 }}
               />
-              <TouchableOpacity activeOpacity={0.8}
+              <TouchableOpacity activeOpacity={0.7}
                 onPress={() => setShowDateModal(false)}
                 disabled={dateSaving}
                 style={{
@@ -4455,7 +4468,7 @@ function HistoryCard({
             <View
               style={{
                 flex: 1,
-                backgroundColor: "rgba(0,0,0,0.55)",
+                backgroundColor: SCRIM_STRONG,
                 alignItems: "center",
                 justifyContent: "center",
                 padding: 24,
@@ -4470,7 +4483,7 @@ function HistoryCard({
                 <Text
                   style={{
                     fontSize: 17,
-                    fontWeight: "900",
+                    fontWeight: "800",
                     color: c.textPrimary,
                     marginBottom: 6,
                   }}>
@@ -4478,7 +4491,7 @@ function HistoryCard({
                 </Text>
                 <Text
                   style={{
-                    fontSize: 13,
+                    fontSize: 14,
                     color: c.textSecondary,
                     marginBottom: 16,
                   }}>
@@ -4487,10 +4500,10 @@ function HistoryCard({
                 <TextInput
                   style={{
                     backgroundColor: c.surfaceAlt,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     padding: 14,
                     fontSize: 15,
-                    fontWeight: "700",
+                    fontWeight: "800",
                     color: c.textPrimary,
                     marginBottom: 16,
                   }}
@@ -4503,11 +4516,11 @@ function HistoryCard({
                   onSubmitEditing={handleSaveSessionAsRoutine}
                 />
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <TouchableOpacity activeOpacity={0.8}
+                  <TouchableOpacity activeOpacity={0.7}
                     style={{
                       flex: 1,
                       paddingVertical: 14,
-                      borderRadius: 14,
+                      borderRadius: 12,
                       backgroundColor: c.surfaceAlt,
                       alignItems: "center",
                     }}
@@ -4515,17 +4528,17 @@ function HistoryCard({
                     <Text
                       style={{
                         fontSize: 14,
-                        fontWeight: "700",
+                        fontWeight: "600",
                         color: c.textSecondary,
                       }}>
                       취소
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity activeOpacity={0.8}
+                  <TouchableOpacity activeOpacity={0.7}
                     style={{
                       flex: 1,
                       paddingVertical: 14,
-                      borderRadius: 14,
+                      borderRadius: 12,
                       backgroundColor: c.warning,
                       alignItems: "center",
                     }}
@@ -4581,7 +4594,7 @@ function HistoryCard({
                       placeholder="종목명"
                       placeholderTextColor={c.textMuted}
                     />
-                    <TouchableOpacity activeOpacity={0.8}
+                    <TouchableOpacity activeOpacity={0.7}
                       onPress={() => removeDraftExercise(exIdx)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Icon name="trash" size={16} color={c.danger} />
@@ -4605,7 +4618,7 @@ function HistoryCard({
                           justifyContent: "space-between",
                           marginBottom: 8,
                         }}>
-                        <TouchableOpacity activeOpacity={0.8}
+                        <TouchableOpacity activeOpacity={0.7}
                           style={{
                             flexDirection: "row",
                             alignItems: "center",
@@ -4641,7 +4654,7 @@ function HistoryCard({
                               }}>
                               <Text
                                 style={{
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: "700",
                                   color: c.textMuted,
                                 }}>
@@ -4658,7 +4671,7 @@ function HistoryCard({
                             세트 {setIdx + 1}
                           </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity activeOpacity={0.8}
+                        <TouchableOpacity activeOpacity={0.7}
                           onPress={() => removeDraftSet(exIdx, setIdx)}>
                           <Icon name="trash" size={14} color={c.textMuted} />
                         </TouchableOpacity>
@@ -4694,7 +4707,7 @@ function HistoryCard({
                       />
                     </View>
                   ))}
-                  <TouchableOpacity activeOpacity={0.8}
+                  <TouchableOpacity activeOpacity={0.7}
                     style={{
                       alignItems: "center",
                       paddingVertical: 7,
@@ -4706,7 +4719,7 @@ function HistoryCard({
                     <Text
                       style={{
                         fontSize: 12,
-                        fontWeight: "700",
+                        fontWeight: "600",
                         color: c.success,
                       }}>
                       + 세트 추가
@@ -4714,7 +4727,7 @@ function HistoryCard({
                   </TouchableOpacity>
                 </View>
               ))}
-              <TouchableOpacity activeOpacity={0.8}
+              <TouchableOpacity activeOpacity={0.7}
                 style={{
                   alignItems: "center",
                   paddingVertical: 9,
@@ -4725,11 +4738,11 @@ function HistoryCard({
                 }}
                 onPress={addDraftExercise}>
                 <Text
-                  style={{ fontSize: 13, fontWeight: "700", color: c.success }}>
+                  style={{ fontSize: 14, fontWeight: "600", color: c.success }}>
                   + 종목 추가
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.8}
+              <TouchableOpacity activeOpacity={0.7}
                 style={{
                   alignItems: "center",
                   paddingVertical: 12,
@@ -4800,7 +4813,7 @@ function HistoryCard({
                             [ex.id]: !prev[ex.id],
                           }));
                         }}
-                        activeOpacity={0.8}
+                        activeOpacity={0.7}
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
@@ -4812,7 +4825,7 @@ function HistoryCard({
                           style={{
                             fontSize: 14,
                             color: c.textMuted,
-                            fontWeight: "700",
+                            fontWeight: "600",
                             marginRight: 4,
                             opacity: isActive ? 1 : 0.35,
                           }}>
@@ -4848,8 +4861,8 @@ function HistoryCard({
                                 <Icon name="trophy" size={9} color={c.stats} />
                                 <Text
                                   style={{
-                                    fontSize: 10,
-                                    fontWeight: "800",
+                                    fontSize: 11,
+                                    fontWeight: "700",
                                     color: c.stats,
                                   }}>
                                   PR
@@ -4865,7 +4878,7 @@ function HistoryCard({
                               }}>
                               <Text
                                 style={{
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: "700",
                                   color: c.success,
                                 }}>
@@ -4893,7 +4906,7 @@ function HistoryCard({
                                   }}>
                                   <Text
                                     style={{
-                                      fontSize: 10,
+                                      fontSize: 11,
                                       fontWeight: "700",
                                       color: c.primary,
                                     }}>
@@ -4907,7 +4920,7 @@ function HistoryCard({
                             style={{
                               fontSize: 11,
                               color: c.textSecondary,
-                              fontWeight: "600",
+                              fontWeight: "700",
                               marginTop: 2,
                             }}>
                             {maxInfo ? `최고 ${maxInfo.weight}${maxInfo.unit} · ` : ""}
@@ -5033,8 +5046,8 @@ function HistoryCard({
                                 key={h}
                                 style={{
                                   flex: h === "세트" ? 0.6 : 1,
-                                  fontSize: 10,
-                                  fontWeight: "800",
+                                  fontSize: 11,
+                                  fontWeight: "700",
                                   color: c.textMuted,
                                   textAlign: "center",
                                 }}>
@@ -5065,29 +5078,29 @@ function HistoryCard({
                                     fontSize: 12,
                                     textAlign: "center",
                                     color: c.textMuted,
-                                    fontWeight: "700",
+                                    fontWeight: "600",
                                   }}>
                                   {si + 1}
                                 </Text>
                                 <Text
                                   style={{
                                     flex: 1,
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     textAlign: "center",
-                                    fontWeight: "700",
+                                    fontWeight: "600",
                                     color: c.textPrimary,
                                   }}>
                                   {st.weight}
-                                  <Text style={{ fontSize: 10, color: c.textMuted, fontWeight: "600" }}>
+                                  <Text style={{ fontSize: 11, color: c.textMuted, fontWeight: "700" }}>
                                     {st.unit ?? "kg"}
                                   </Text>
                                 </Text>
                                 <Text
                                   style={{
                                     flex: 1,
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     textAlign: "center",
-                                    fontWeight: "700",
+                                    fontWeight: "600",
                                     color: c.textPrimary,
                                   }}>
                                   {st.reps}
@@ -5095,7 +5108,7 @@ function HistoryCard({
                                 <Text
                                   style={{
                                     flex: 1,
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     textAlign: "center",
                                     fontWeight: "600",
                                     color: c.textSecondary,
@@ -5121,7 +5134,7 @@ function HistoryCard({
                               <Text
                                 style={{
                                   fontSize: 12,
-                                  fontWeight: "700",
+                                  fontWeight: "600",
                                   color: c.textPrimary,
                                 }}>
                                 최고 {maxInfo.weight}{maxInfo.unit}
@@ -5130,7 +5143,7 @@ function HistoryCard({
                             <Text
                               style={{
                                 fontSize: 12,
-                                fontWeight: "700",
+                                fontWeight: "600",
                                 color: c.textPrimary,
                               }}>
                               총 {doneSetCount}세트
@@ -5138,7 +5151,7 @@ function HistoryCard({
                             <Text
                               style={{
                                 fontSize: 12,
-                                fontWeight: "700",
+                                fontWeight: "600",
                                 color: c.success,
                               }}>
                               볼륨 {exVol.toLocaleString()}kg
@@ -5187,7 +5200,7 @@ function HistoryCard({
                                   </Text>
                                   <Text
                                     style={{
-                                      fontSize: 10,
+                                      fontSize: 11,
                                       color: c.textMuted,
                                     }}>
                                     ({fmtDate(prevInfo.date)})
@@ -5247,8 +5260,8 @@ function HistoryCard({
                     <FlameIcon size={12} color={c.danger} />
                     <Text
                       style={{
-                        fontSize: 13,
-                        fontWeight: "700",
+                        fontSize: 14,
+                        fontWeight: "600",
                         color: c.danger,
                       }}>
                       {session.caloriesBurned}kcal

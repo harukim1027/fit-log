@@ -108,7 +108,7 @@ function SetIndicatorImpl({
               <Circle cx="20" cy="20" r="16" fill={c.primary} />
               <Path
                 d="M12.5 20l5 5L28 14"
-                stroke="#fff"
+                stroke={c.onAccent}
                 strokeWidth="3.2"
                 fill="none"
                 strokeLinecap="round"

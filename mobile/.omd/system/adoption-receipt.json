@@ -1,36 +1,36 @@
 {
   "authority": "system-graph",
   "inputs": {
-    "coverage_sha256": "1ccfb0b299e87cdb32f51adc85d6fa9a1f35a7f909437c2850e9e0c23a2083fe",
-    "graph_sha256": "0644cfb07e5e2dd82aac25d046a4d36a3f4c7b56520b17ba2cbad654004cdf14",
-    "provenance_sha256": "b7d525aa8e649e21de7730e742e0f02bf8f303759355a0e1394002c6b6db25f4"
+    "coverage_sha256": "6b263ec95b516954f39d2cd5c88b8532bc9fe09d58a92271764f1a6d4f89cce7",
+    "graph_sha256": "39d7174bcaaca310181f48253f0ced15b426cfef5579152f00d20963cc1b7a60",
+    "provenance_sha256": "6853889056f001f60e8aff49ed7fdba503952716c2fb7fc09e32528c5148bb3c"
   },
   "kind": "design-md-core-adoption-receipt",
   "outputs": {
     "coverage": {
       "path": ".omd/system/coverage.json",
-      "sha256": "0319c64157d14681b46269169d7a010b0043299021ce7f965fad65ea5c100124"
+      "sha256": "0fb83b3048ff128cb890f1a1d95fdca0fd838b73888d2cf4308aa7d6f1cfc65b"
     },
     "design_md": {
       "path": "DESIGN.md",
-      "sha256": "71d452fa645b06cf75414546681d5f4363a6c41b3d3a4dfa64332ff7f0490654"
+      "sha256": "fb1d374bd6d2ab01c72bea7fcf99d2ce86bbf32b5939cb34336db5e69c7ba379"
     },
     "graph": {
       "path": ".omd/system/graph.json",
-      "sha256": "c32e17a096556c884e714c02af630f3588001165f191409b2275ca73d314f6cb"
+      "sha256": "2dfabe078618234e8dc4d7a66d8457524e400e4067fa53dd1046e294433bb3c5"
     },
     "manifest": {
       "path": ".omd/system/manifest.json",
-      "sha256": "3ae87c95ccc6ac0ff04f57c66fd3585b7c7624ed7af2433fb73257f3840a2474"
+      "sha256": "388b1b85bd2bd563c21e5118e8100a867d268c72988394c5848683077edf2449"
     },
     "provenance": {
       "path": ".omd/system/provenance.json",
-      "sha256": "acf48b89fabd361abba03613e0524f0534c02b976e22a983313a286f72ddd281"
+      "sha256": "aa4112b6d5a188fe242207f2c04a87eb173c8a04cc6c8a0ef39ed95e62b46866"
     }
   },
   "review": {
     "authority_transition_approved": true,
-    "receipt_sha256": "227ce80447c8246b4a3b5bef963a175c8f7de1248b75dcf92e8f62a2a0b43fc3",
+    "receipt_sha256": "8015cae9ce045362b271c778c30bcbd47ba889293902888e5ee54ba710259127",
     "reviewer": {
       "identifier": "harukim1027",
       "role": "project-owner"
