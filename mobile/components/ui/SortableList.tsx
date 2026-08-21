@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { View, PanResponder, Animated, ViewStyle, Dimensions } from "react-native";
 import * as Haptics from "expo-haptics";
+import { useThemeStore } from "../../store/themeStore";
 
 // 자동 스크롤: 드래그 중 손가락이 화면 위/아래 가장자리에 닿으면 부모 ScrollView를 스크롤한다.
 const EDGE_THRESHOLD = 120; // 화면 위/아래에서 이 거리(px) 안에 들어오면 자동 스크롤
@@ -28,6 +29,15 @@ export interface SortableListProps<T> {
   scrollOffsetRef?: React.RefObject<number>;
 }
 
+// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
+// 값이 정해지면 이 상수를 토큰 참조로 교체할 것.
+const LIGHT_SHADOW_DRAG = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.25,
+  shadowRadius: 16,
+};
+
 export function SortableList<T>({
   data,
   keyExtractor,
@@ -39,6 +49,7 @@ export function SortableList<T>({
   scrollRef,
   scrollOffsetRef,
 }: SortableListProps<T>) {
+  const isDark = useThemeStore((s) => s.mode) === "dark";
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [totalHeight, setTotalHeight] = useState(0);
 
@@ -413,10 +424,9 @@ export function SortableList<T>({
               transform: [{ translateY: dragY }, { scale: dragScale }],
               zIndex: 999,
               elevation: 999,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.25,
-              shadowRadius: 16,
+              // 회귀 방지: 그림자는 라이트 전용. 다크에서 드래그 중인 행을 들어올린
+              // 느낌은 위의 dragScale(확대)이 이미 만든다.
+              ...(isDark ? null : LIGHT_SHADOW_DRAG),
             }}>
             {renderItem(data[dragIndex], dragIndex, true)}
           </Animated.View>

@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text } from "react-native";
+import { useThemeStore } from "../../store/themeStore";
 
 interface LabelTagProps {
   label: string;
@@ -19,7 +20,18 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
+// 값이 정해지면 이 상수를 토큰 참조로 교체할 것.
+const LIGHT_SHADOW_TAG = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.22,
+  shadowRadius: 4,
+  elevation: 4,
+};
+
 export function LabelTag({ label, color, style }: LabelTagProps) {
+  const isDark = useThemeStore((s) => s.mode) === "dark";
   return (
     <View
       style={[
@@ -35,11 +47,9 @@ export function LabelTag({ label, color, style }: LabelTagProps) {
           paddingRight: 14,
           paddingVertical: 5,
           transform: [{ rotate: "-3deg" }],
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.22,
-          shadowRadius: 4,
-          elevation: 4,
+          // 회귀 방지: 그림자는 라이트 전용. 다크에서는 태그가 color 배경을 갖고 있어
+          // 배경 대비만으로 카드 위에 떠 보인다(DESIGN.md: 그림자는 라이트 모드에서만).
+          ...(isDark ? null : LIGHT_SHADOW_TAG),
           zIndex: 10,
         },
         style,
