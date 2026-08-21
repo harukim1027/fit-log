@@ -136,6 +136,9 @@ const fmtExerciseMeta = (
   return parts.length > 0 ? parts.join(" · ") : null;
 };
 
+/**
+ * Displays the workout tracking screen for active workouts, routines, rest timers, and workout history.
+ */
 function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();
@@ -3448,7 +3451,9 @@ function WorkoutScreen() {
 
 // 운동 화면 전용 ErrorBoundary — 세션/세트 조작이나 히스토리 렌더 중 예외가 나도
 // 앱 전체가 아닌 이 화면만 폴백된다(홈/통계 탭은 계속 사용 가능). 바운더리가
-// WorkoutScreen의 부모여야 WorkoutScreen 자체 렌더 예외까지 잡는다.
+/**
+ * Renders the workout screen within an error boundary.
+ */
 export default function WorkoutScreenRoute() {
   return (
     <ErrorBoundary screenName="운동">
@@ -3457,6 +3462,13 @@ export default function WorkoutScreenRoute() {
   );
 }
 
+/**
+ * Displays the difference between a current value and its previous value.
+ *
+ * @param value - The current numeric value.
+ * @param prevValue - The previous numeric value, if available.
+ * @param unit - The unit displayed after the difference.
+ */
 function DiffBadge({
   value,
   prevValue,

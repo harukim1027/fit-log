@@ -84,6 +84,9 @@ Notifications.setNotificationHandler({
   },
 });
 
+/**
+ * Hydrates the stored theme and synchronizes the application and native color schemes.
+ */
 function useThemeSync() {
   const mode = useThemeStore((s) => s.mode);
   const hydrate = useThemeStore((s) => s.hydrate);
@@ -98,6 +101,11 @@ function useThemeSync() {
   }, [mode]);
 }
 
+/**
+ * Prepares notification services and loads the user's notification settings.
+ *
+ * Clears previously scheduled notifications, configures the notification channel, and requests notification permission.
+ */
 function useNotificationSetup() {
   useEffect(() => {
     // 이전 세션에서 남아있던 예약 알림 전부 제거
