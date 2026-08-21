@@ -4,9 +4,8 @@ import Svg, { Circle } from "react-native-svg";
 import { Calendar } from "react-native-calendars";
 import { useRouter } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
-import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
-import { Icon, FaceAvatar, FlameIcon } from "../../components/AppIcons";
+import { Icon, FaceAvatar } from "../../components/AppIcons";
 import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
@@ -14,6 +13,9 @@ import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../c
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
+import { getAllCategoryRecoveries } from "../../utils/recovery";
+import { useRecoverySettingsStore } from "../../store/recoverySettingsStore";
+import { useCategoryColorStore } from "../../store/categoryColorStore";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
@@ -135,15 +137,15 @@ function HomeScreen() {
       getTotalVolume: s.getTotalVolume,
     }))
   );
-  const { user } = useAuthStore();
   const isDark = useThemeStore((s) => s.mode) === 'dark';
   const [filter, setFilter] = useState<string>('전체');
   // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
   const [selectedDate, setSelectedDate] = useState<string>(() => toYMD(new Date()));
   const [showCalendar, setShowCalendar] = useState(false);
 
-  const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
-  const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
+  // 0=히어로, 1=루틴 관리, 2=최근 기록, 3=이번 주 자극 부위
+  const fadeAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  const slideAnims = useRef([0, 1, 2, 3].map(() => new Animated.Value(24))).current;
 
   useEffect(() => {
     fetchSessions();
@@ -227,9 +229,18 @@ function HomeScreen() {
     });
   }, [sessions, selectedDate]);
 
-  // 이번 주 운동한 일수 / 목표
-  const doneDays = weekDays.filter((d) => d.hasSession).length;
-  const weekGoal = user?.weeklyGoal ?? 4;
+  // ── 히어로: 부위별 회복 상태 (utils/recovery 재사용) ──
+  const getRecoveryHours = useRecoverySettingsStore((st) => st.getHours);
+  const getCategoryColor = useCategoryColorStore((st) => st.getColor);
+  const readyCategories = useMemo(
+    () => getAllCategoryRecoveries(sessions, getRecoveryHours)
+      .filter((r) => r.status === 'ready')
+      .slice(0, 4),
+    [sessions, getRecoveryHours]
+  );
+
+  // 주간 진행률(doneDays/weekGoal)은 "이번 주 운동" 카드와 함께 히어로로 흡수되며 제거됐다.
+  // Step 2/3 캐러셀 정리 후 표시 위치를 다시 정할 때 되살린다.
 
   const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
     const { start, end } = getWeekRange(selectedDate);
@@ -394,22 +405,86 @@ function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
-        {/* ── 요약 알약 + 필터 칩 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], gap: 12 }}>
-          <TouchableOpacity
-            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
-            onPress={() => router.push("/(tabs)/stats")}
-            accessibilityRole="button"
-            accessibilityLabel={`이번 주 운동 ${doneDays}일, 목표 ${weekGoal}일. 통계 보기`}
-            activeOpacity={0.7}>
-            <FlameIcon size={18} />
-            {/* body-strong 14/800 */}
-            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>이번 주 운동</Text>
-            {/* numeric 15/800 */}
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.primary, fontVariant: ["tabular-nums"] }}>{doneDays}/{weekGoal}</Text>
-            <Icon name="chevronRight" size={16} color={c.textMuted} />
-          </TouchableOpacity>
+        {/* ── 히어로 카드 ──
+            홈 히어로 카드 - Step 1 재구성
+            Step 2: 최근 루틴 캐러셀 추가 예정
+            Step 3: 부위별 최근 기록 캐러셀 추가 예정
+            재작업 시 이 히어로 카드 구조 유지 */}
+        <Animated.View
+          style={[
+            {
+              opacity: fadeAnims[0],
+              transform: [{ translateY: slideAnims[0] }],
+              minHeight: 180,
+              padding: 24,
+              gap: 16,
+              borderRadius: 24,
+              backgroundColor: c.surface,
+            },
+            CARD_EDGE,
+            SHADOW_SM,
+          ]}>
+          <View>
+            {/* caption 12/600 */}
+            <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
+              {activeSession ? '진행 중인 운동' : '오늘 준비된 부위'}
+            </Text>
+            {/* display 22/900 */}
+            <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
+              {activeSession
+                ? '운동을 이어가세요'
+                : readyCategories.length > 0
+                  ? `${readyCategories.length}개 부위 회복 완료`
+                  : '모든 부위 회복 중'}
+            </Text>
+          </View>
 
+          {!activeSession && readyCategories.length > 0 && (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {readyCategories.map((rec) => (
+                <View
+                  key={rec.category}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    backgroundColor: getCategoryColor(rec.category) + "20",
+                    borderWidth: 1,
+                    borderColor: getCategoryColor(rec.category),
+                  }}>
+                  {/* micro 11/700. 부위 식별은 틴트 배경과 보더가 지고 라벨은 text-primary —
+                      카테고리 색을 11px 텍스트에 쓰면 대비를 보장할 수 없다. */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: c.textPrimary }}>
+                    {rec.category}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={startWorkout}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={activeSession ? '운동 이어서 시작' : '운동 시작'}
+            style={{
+              marginTop: "auto",
+              minHeight: 44,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingVertical: 14,
+              borderRadius: 999,
+              backgroundColor: c.primary,
+            }}>
+            {/* body-strong 14/800 — 다른 주요 CTA와 동일 */}
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
+              {activeSession ? '이어서 시작' : '운동 시작'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* ── 루틴 관리 + 필터 칩 ── */}
+        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }], gap: 12 }}>
           {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
               routine-manage.tsx로 가는 유일한 홈 화면 진입점.
               activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을 편집할 수 있어야 한다.
@@ -456,7 +531,7 @@ function HomeScreen() {
         </Animated.View>
 
         {/* ── 최근 기록 (상단 색 워시 카드 그리드) ── */}
-        <Animated.View style={{ opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}>
+        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }] }}>
           {/* 섹션 헤더는 카드와 좌우를 맞춘다 — 개별 paddingHorizontal 없이 부모 여백만 쓴다 */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="trophy" size={17} color={c.tagSun} />
@@ -537,7 +612,7 @@ function HomeScreen() {
         </Animated.View>
 
         {/* ── 이번 주 자극 부위 (MuscleMap 재사용) ── */}
-        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
+        <Animated.View style={{ opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }], overflow: 'visible' }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="dumbbell" size={17} color={c.primary} />
             {/* title 17/800 */}
@@ -565,44 +640,8 @@ function HomeScreen() {
 
       </ScrollView>
 
-      {/* ── FAB: "▶ 운동 시작" 확장 알약 ──
-          운동 중(activeSession)일 땐 숨김 → 하단 ActiveWorkoutBar가 "계속하기" 역할.
-          홈에서 실수로 새 세션 시작하는 것을 방지. */}
-      {!activeSession && (
-        <TouchableOpacity
-          onPress={startWorkout}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="운동 시작"
-          style={[
-            {
-              position: "absolute",
-              right: 16,
-              bottom: 28,
-              minHeight: 52,
-              borderRadius: 999,
-              paddingLeft: 18,
-              paddingRight: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              backgroundColor: c.primary,
-            },
-            // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서 컬러 글로우를 쓰던 것을 제거했다.
-            // 다크에서는 primary 자체가 배경(#171B21) 대비 4.58:1이라 글로우 없이도 충분히 도드라진다.
-            !isDark && {
-              shadowColor: c.primary,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.35,
-              shadowRadius: 14,
-              elevation: 6,
-            },
-          ]}>
-          <Icon name="play" size={18} color={c.onAccent} />
-          {/* body-strong 14/800 — workout.tsx의 재시도 버튼과 동일 역할 */}
-          <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>운동 시작</Text>
-        </TouchableOpacity>
-      )}
+      {/* 운동 시작 FAB은 히어로 카드의 큰 버튼에 흡수돼 제거됐다.
+          홈에 동일한 주요 액션을 두 번 두면 DESIGN.md의 "primary는 주요 액션 하나" 규칙에 어긋난다. */}
 
       {/* ── 날짜 선택 캘린더 (헤더 ▼ / 주간 스트립에서 오픈) ── */}
       <Modal
