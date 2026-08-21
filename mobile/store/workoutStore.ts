@@ -18,7 +18,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Exercise, WorkoutSession, WorkoutSet } from "../types/workout";
 import { Routine, RoutineExercise } from "./routineStore";
-import apiClient from "../lib/apiClient";
+import apiClient, { ApiError } from "../lib/apiClient";
 import { calcSessionVolume } from "../utils/workout";
 import { localDateStr } from "../utils/date";
 import { logger } from "../lib/logger";
@@ -153,6 +153,8 @@ interface WorkoutStore {
   activeSession: WorkoutSession | null;
   sessionStartTime: number | null;
   isLoading: boolean;
+  /** 운동 기록 로드 실패 메시지 (null=정상). 크래시 대신 재시도 UI를 띄우기 위한 상태. */
+  loadError: string | null;
   /** 기록 캘린더에서 날짜 탭 시 히스토리 탭으로 점프할 날짜 (YYYY-MM-DD). 소비 후 null. */
   historyJumpDate: string | null;
   setHistoryJumpDate: (date: string | null) => void;
@@ -203,6 +205,7 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   activeSession: null,
   sessionStartTime: null,
   isLoading: false,
+  loadError: null,
   historyJumpDate: null,
   setHistoryJumpDate: (date) => set({ historyJumpDate: date }),
   exerciseHistoryCache: new Map(),
@@ -626,18 +629,31 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   getTotalVolume: (session) => calcSessionVolume(session),
 
   fetchSessions: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, loadError: null });
     try {
       const res = await apiClient.get("/workout");
-      // order 필드 기준으로 운동 종목 정렬 — 서버가 이미 정렬해 주지 않는 경우 대비
-      const sessions = (res.data as WorkoutSession[]).map(s => ({
+      // 방어: 정상 응답이라도 배열이 아니면(서버 계약 위반/프록시 에러 페이지 등)
+      // .map에서 크래시하므로 배열이 아닐 땐 빈 배열로 취급한다.
+      const raw = Array.isArray(res.data) ? (res.data as WorkoutSession[]) : [];
+      // order 필드 기준으로 운동 종목 정렬 — 서버가 이미 정렬해 주지 않는 경우 대비.
+      // exercises가 없는 구버전/부분 레코드도 있을 수 있어 ?? []로 방어.
+      const sessions = raw.map(s => ({
         ...s,
-        exercises: [...s.exercises].sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0)),
+        exercises: [...(s.exercises ?? [])].sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0)),
       }));
-      set({ sessions, isLoading: false });
+      set({ sessions, isLoading: false, loadError: null });
     } catch (e) {
       logger.error('운동 기록 불러오기 실패', e instanceof Error ? e : new Error(String(e)));
-      set({ isLoading: false });
+      // throw 하지 않는다 — 호출부(화면)에서 잡히지 않으면 크래시하므로,
+      // 대신 loadError를 세팅해 화면이 "다시 시도" UI를 그리게 한다.
+      // 404 "Application not found"(Railway 인프라 이슈)는 별도 안내 문구로 구분.
+      const is404 = e instanceof ApiError && e.status === 404;
+      set({
+        isLoading: false,
+        loadError: is404
+          ? '서비스가 일시적으로 사용 불가해요. 잠시 후 다시 시도해주세요.'
+          : '기록을 불러올 수 없어요. 네트워크를 확인해주세요.',
+      });
     }
   },
 

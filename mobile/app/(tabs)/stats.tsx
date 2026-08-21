@@ -27,6 +27,7 @@ import {
 } from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
 import { showCuteAlert } from "../../components/CuteAlert";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
@@ -81,7 +82,7 @@ function makeChartConfig(c: ThemeColors) {
   };
 }
 
-export default function StatsScreen() {
+function StatsScreen() {
   const router = useRouter();
   const c = useColors();
   const { sessions, fetchSessions } = useWorkoutStore(
@@ -627,6 +628,17 @@ export default function StatsScreen() {
         )}
       </ScrollView>
     </View>
+  );
+}
+
+// 통계 화면 전용 ErrorBoundary — 차트/집계 로직에서 예외가 나도(예: 잘못된 데이터로
+// 차트 렌더 실패) 앱 전체가 아닌 이 화면만 폴백된다. 운동/홈 탭은 계속 사용 가능.
+// 바운더리가 StatsScreen의 부모여야 StatsScreen 자체 렌더 예외까지 잡는다.
+export default function StatsScreenRoute() {
+  return (
+    <ErrorBoundary screenName="통계">
+      <StatsScreen />
+    </ErrorBoundary>
   );
 }
 

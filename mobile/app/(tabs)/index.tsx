@@ -14,6 +14,7 @@ import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../c
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
 // 필터 칩에 노출할 카테고리 (전체 + 주요 부위)
@@ -75,7 +76,7 @@ function darken(hex: string, amt: number): string {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
-export default function HomeScreen() {
+function HomeScreen() {
   const router = useRouter();
   const c = useColors();
   const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore(
@@ -525,5 +526,16 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </Modal>
     </View>
+  );
+}
+
+// 화면별 ErrorBoundary로 감싼다 — 홈 렌더 중 예외가 나도 앱 전체가 죽지 않고
+// 이 화면만 폴백 UI로 대체된다(다른 탭은 계속 사용 가능). 바운더리는 반드시
+// HomeScreen의 "부모"여야 HomeScreen 자체 렌더 예외까지 잡을 수 있다.
+export default function HomeScreenRoute() {
+  return (
+    <ErrorBoundary screenName="홈">
+      <HomeScreen />
+    </ErrorBoundary>
   );
 }

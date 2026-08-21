@@ -58,6 +58,7 @@ import { TargetMuscleSelector } from "../../components/workout/TargetMuscleSelec
 import { SettingSelector } from "../../components/workout/SettingSelector";
 import { WorkoutSession } from "../../types/workout";
 import WorkoutTimer from "../../components/WorkoutTimer";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -135,7 +136,7 @@ const fmtExerciseMeta = (
   return parts.length > 0 ? parts.join(" · ") : null;
 };
 
-export default function WorkoutScreen() {
+function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();
   const SHADOW = {
@@ -168,6 +169,7 @@ export default function WorkoutScreen() {
     fetchExerciseHistory,
     sessions,
     isLoading,
+    loadError,
     exerciseHistoryCache,
     workoutPaused,
     setWorkoutPaused,
@@ -196,6 +198,7 @@ export default function WorkoutScreen() {
       fetchExerciseHistory: s.fetchExerciseHistory,
       sessions: s.sessions,
       isLoading: s.isLoading,
+      loadError: s.loadError,
       exerciseHistoryCache: s.exerciseHistoryCache,
       workoutPaused: s.workoutPaused,
       setWorkoutPaused: s.setWorkoutPaused,
@@ -3382,6 +3385,17 @@ export default function WorkoutScreen() {
         onCancel={() => setPadConfig(null)}
       />
     </View>
+  );
+}
+
+// 운동 화면 전용 ErrorBoundary — 세션/세트 조작이나 히스토리 렌더 중 예외가 나도
+// 앱 전체가 아닌 이 화면만 폴백된다(홈/통계 탭은 계속 사용 가능). 바운더리가
+// WorkoutScreen의 부모여야 WorkoutScreen 자체 렌더 예외까지 잡는다.
+export default function WorkoutScreenRoute() {
+  return (
+    <ErrorBoundary screenName="운동">
+      <WorkoutScreen />
+    </ErrorBoundary>
   );
 }
 
