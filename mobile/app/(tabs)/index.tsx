@@ -410,6 +410,22 @@ function HomeScreen() {
             <Icon name="chevronRight" size={16} color={c.textMuted} />
           </TouchableOpacity>
 
+          {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
+              routine-manage.tsx로 가는 유일한 홈 화면 진입점.
+              activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을 편집할 수 있어야 한다.
+              (운동 시작 FAB만 activeSession일 때 숨는다) */}
+          <TouchableOpacity
+            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
+            onPress={() => router.push("/modal/routine-manage" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="루틴 관리 열기"
+            activeOpacity={0.7}>
+            <Icon name="list" size={18} color={c.textSecondary} />
+            {/* body-strong 14/800 — 위 요약 카드와 같은 폼팩터 */}
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>루틴 관리</Text>
+            <Icon name="chevronRight" size={16} color={c.textMuted} />
+          </TouchableOpacity>
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
             {['전체', ...FILTER_CATEGORIES].map((cat) => {
               const on = filter === cat;
