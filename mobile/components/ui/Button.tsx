@@ -32,7 +32,7 @@ const container: Record<ButtonVariant, string> = {
 };
 
 const label: Record<ButtonVariant, string> = {
-  primary: "text-white font-bold",
+  primary: "text-on-accent font-bold",
   secondary: "text-text-primary font-bold",
   danger: "text-danger font-bold",
   ghost: "text-primary font-bold",
@@ -67,7 +67,8 @@ export function Button({
 }: ButtonProps) {
   const c = useColors();
   const spinnerColor: Record<ButtonVariant, string> = {
-    primary: "#FFFFFF",
+    // bg-primary 위 전경색은 onAccent 토큰. 흰색 고정은 다크에서 3.77:1로 미달이었다.
+    primary: c.onAccent,
     secondary: c.primary,
     danger: c.danger,
     ghost: c.primary,

@@ -77,8 +77,12 @@ export function Header({
         ) : null}
       </View>
 
-      {/* 오른쪽: 커스텀 */}
-      <View style={{ width: 56, alignItems: "flex-end", justifyContent: "center" }}>
+      {/* 오른쪽: 커스텀.
+          회귀 방지: width 고정이 아니라 minWidth다. rightElement에 아이콘 버튼을
+          2개 이상 넣는 화면(통계: 테마토글+프로필+로그아웃 ≈ 116pt)이 있어서
+          56pt로 고정하면 마지막 버튼이 화면 밖으로 잘린다. 가운데 타이틀이
+          flex:1이라 이 슬롯이 늘어난 만큼 알아서 줄어든다. */}
+      <View style={{ minWidth: 56, alignItems: "flex-end", justifyContent: "center" }}>
         {hasRight ? rightElement : hasLeft ? <View style={{ width: 40 }} /> : null}
       </View>
     </View>

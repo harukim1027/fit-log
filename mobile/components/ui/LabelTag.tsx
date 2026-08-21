@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { useThemeStore } from "../../store/themeStore";
+import { lightColors, darkColors } from "../../constants/colors";
 
 interface LabelTagProps {
   label: string;
@@ -29,6 +30,30 @@ const LIGHT_SHADOW_TAG = {
   shadowRadius: 4,
   elevation: 4,
 };
+
+// WCAG 2.1 상대 휘도 — 임의의 color prop 위에 올릴 전경색을 대비로 고르기 위해서만 쓴다.
+function relLuminance(hex: string): number {
+  const m = hex.replace("#", "");
+  const full = m.length === 3 ? m.split("").map((x) => x + x).join("") : m;
+  const ch = [0, 2, 4]
+    .map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((x) => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// color prop은 호출부가 자유롭게 넘기므로 흰색을 고정하면 밝은 색에서 대비가 무너진다.
+// 색을 새로 만들지 않고 colors.ts의 onAccent 두 값 중 대비가 높은 쪽만 고른다.
+// (app/(tabs)/index.tsx의 onWash와 같은 방식)
+function onTag(bg: string): string {
+  return contrastRatio(bg, darkColors.onAccent) >= contrastRatio(bg, lightColors.onAccent)
+    ? darkColors.onAccent
+    : lightColors.onAccent;
+}
 
 export function LabelTag({ label, color, style }: LabelTagProps) {
   const isDark = useThemeStore((s) => s.mode) === "dark";
@@ -68,7 +93,7 @@ export function LabelTag({ label, color, style }: LabelTagProps) {
         style={{
           fontSize: 12,
           fontWeight: "800",
-          color: "#FFFFFF",
+          color: onTag(color),
           letterSpacing: 0.3,
         }}>
         {label}
