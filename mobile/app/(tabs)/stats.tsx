@@ -584,7 +584,7 @@ function StatsScreen() {
         {/* PR 기록 */}
         {prs.length > 0 && (
           <View
-            className="bg-surface rounded-[30px] border border-border p-4"
+            className="bg-surface rounded-[16px] border border-border p-4"
             style={[{ gap: 8 }, SHADOW]}>
             <Text
               style={{
