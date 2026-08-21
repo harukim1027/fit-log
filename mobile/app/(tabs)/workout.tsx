@@ -690,6 +690,64 @@ function WorkoutScreen() {
     );
   }
 
+  // 로드 실패 폴백 — workoutStore.fetchSessions가 throw 대신 loadError를 세팅하므로
+  // 여기서 재시도 UI를 그린다. 이게 없으면 실패 시 빈 화면만 남는다.
+  // DESIGN.md: 의미색(danger)은 아이콘에만 싣고 본문은 text-secondary로 둔다
+  // (라이트 테마에서 danger는 흰 카드 위 3.19:1로 본문 대비 기준 미달).
+  if (loadError) {
+    return (
+      <View
+        className="flex-1 bg-background items-center justify-center"
+        style={{ paddingHorizontal: 16 }}>
+        {/* 카드(L1) 위에 올린다 — 라이트 테마에서 danger 아이콘이 background(#F2F6FB)
+            위로는 2.94:1이라 비텍스트 3:1 기준에 미달하고, surface 위에서는 3.19:1로 통과한다. */}
+        <View
+          style={{
+            alignItems: "center",
+            alignSelf: "stretch",
+            paddingVertical: 24,
+            paddingHorizontal: 16,
+            borderRadius: 16,
+            backgroundColor: c.surface,
+          }}>
+          <Icon name="info" size={28} color={c.danger} />
+          <Text
+            accessibilityRole="alert"
+            style={{
+              marginTop: 12,
+              fontSize: 14,
+              fontWeight: "600",
+              lineHeight: 20,
+              color: c.textSecondary,
+              textAlign: "center",
+            }}>
+            {loadError}
+          </Text>
+          <TouchableOpacity
+            onPress={() => fetchSessions()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="운동 기록 다시 불러오기"
+            style={{
+              marginTop: 20,
+              minHeight: 44,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 20,
+              borderRadius: 999,
+              backgroundColor: c.primary,
+            }}>
+            <Icon name="refresh" size={16} color={c.onAccent} />
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
+              다시 시도
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   const timerProps = activeSession
     ? {
         exerciseName: currentExName || activeSession.exercises[activeSession.exercises.length - 1]?.name,
