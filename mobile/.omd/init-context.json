@@ -1,0 +1,22 @@
+{
+  "reference_id": "spotify",
+  "description": "운동 기록 앱 (React Native + Expo, iOS). 다크 모드 기본, 라이트 모드 병행 지원. 타겟: 웨이트 트레이닝 숙련자 (정보 밀도 높음). 이미 사용 중인 컬러 — 배경 다크 #171B21, 서피스 다크 #21272F, 프라이머리 #2E82F0, 데인저 #EF5E80/#F07A95, 서세스 #2E9E83/#4FA98C. 참조 브랜드 Spotify (다크 모드 기본, 강한 대비, 정보 밀도 높은 리스트/카드). 조정: 시그니처 그린 #1DB954 미채택, 음악 관련 요소 제외. 참조 축 5개 — 다크 모드 계층, 정보 밀도 높은 리스트 스타일, 여백 규칙, 타이포그래피 위계, 인터랙션 피드백. 결과물 위치 mobile/DESIGN.md.",
+  "mode": "inspired",
+  "delta_set": {
+    "axes": {
+      "density.shift": 1
+    },
+    "voiceHints": [
+      "숙련자 대상 도구 톤",
+      "설명 문장보다 짧은 명령형 라벨",
+      "동기부여·칭찬 문구 없음"
+    ],
+    "matchedKeywords": ["dark", "dense", "bold", "consumer"],
+    "warnings": [
+      "레퍼런스 primary(#1ed760)와 프로젝트 primary(#2E82F0)가 충돌한다. 사용자가 프로젝트 값을 명시적으로 유지하도록 지시했으므로 레퍼런스 색은 채택하지 않는다.",
+      "레퍼런스 패킷에는 모션(duration/easing) 측정값이 없다. 모션 토큰은 레퍼런스에서 도출하지 않고 agent-proposed-greenfield-decision으로 분리했다.",
+      "레퍼런스의 음악 도메인 컴포넌트(플레이어 검색, 원형 재생 컨트롤, 뉴스룸 CTA)는 Harulog 도메인과 무관해 컴포넌트 승격 대상에서 제외했다."
+    ]
+  },
+  "bootstrapped_at": "2026-08-21T00:00:00Z"
+}

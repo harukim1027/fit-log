@@ -1,0 +1,113 @@
+{
+  "checks": {
+    "assets_fonts_licenses": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "bound_system_authority": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "component_state_coverage": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "contrast": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "implementation_contract_complete": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "opaque_extension_preservation": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "portable_core_structure": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "reduced_motion": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "responsive_320_200": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "token_reference_closure": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    },
+    "unknown_absence": {
+      "method": "controller-computed-system-graph-v2",
+      "pass": true
+    }
+  },
+  "design_md_sha256": "71d452fa645b06cf75414546681d5f4363a6c41b3d3a4dfa64332ff7f0490654",
+  "graph_sha256": "c32e17a096556c884e714c02af630f3588001165f191409b2275ca73d314f6cb",
+  "groups": {
+    "components-states": {
+      "evidence": [
+        "components/ui/Button.tsx",
+        "components/ui/Card.tsx",
+        "components/ui/Input.tsx",
+        "components/ui/LabelTag.tsx",
+        "components/ui/ProgressBar.tsx",
+        "components/ui/SortableList.tsx",
+        "CLAUDE.md#5. 인터랙션 피드백"
+      ],
+      "status": "covered"
+    },
+    "content-locales": {
+      "evidence": [
+        "app/(tabs)/index.tsx",
+        "app/(tabs)/workout.tsx"
+      ],
+      "status": "covered"
+    },
+    "experience": {
+      "evidence": [
+        ".omd/init-context.json#description",
+        "app/(tabs)/workout.tsx",
+        "app/(tabs)/diet.tsx",
+        "app/(tabs)/stats.tsx"
+      ],
+      "status": "covered"
+    },
+    "foundations": {
+      "evidence": [
+        "constants/colors.ts",
+        "CLAUDE.md#1. 색상 시스템",
+        "CLAUDE.md#4. 그림자와 시각적 계층",
+        ".claude/data/references/spotify/DESIGN.md#2. Color Palette & Roles"
+      ],
+      "status": "covered"
+    },
+    "governance": {
+      "evidence": [
+        ".omd/init-context.json#reference_id",
+        ".omd/init-context.json#delta_set.warnings",
+        "constants/colors.ts"
+      ],
+      "status": "covered"
+    },
+    "layout-platforms": {
+      "evidence": [
+        "CLAUDE.md#2. 여백과 정렬",
+        "CLAUDE.md#7. 반응성",
+        "CLAUDE.md#8. React Native 특수사항"
+      ],
+      "status": "covered"
+    },
+    "typography-assets": {
+      "evidence": [
+        "CLAUDE.md#3. 폰트/텍스트 위계",
+        "app.json#expo"
+      ],
+      "status": "covered"
+    }
+  },
+  "schema_version": "2.0.0"
+}
