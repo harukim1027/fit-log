@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkoutStore } from "../../store/workoutStore";
@@ -25,6 +25,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 export default function FullCalendarScreen() {
   const router = useRouter();
   const c = useColors();
+  const insets = useSafeAreaInsets();
   const { sessions, fetchSessions, setHistoryJumpDate } = useWorkoutStore(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -76,7 +77,11 @@ export default function FullCalendarScreen() {
   const emptySlots = Array(firstDayOfWeek).fill(null);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["top", "bottom"]}>
+    // 회귀 방지: 상단 인셋은 SafeAreaView의 edges="top"이 아니라 useSafeAreaInsets()로 준다.
+    // presentation="fullScreenModal"에서는 edges="top"이 적용되지 않아 타이틀이 상태바와 겹쳤다.
+    // 공용 Header 컴포넌트(paddingTop: insets.top + 6)와 같은 방식이며, 이 화면은
+    // Header를 쓰지 않고 자체 헤더를 그리기 때문에 직접 계산해야 한다.
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["bottom"]}>
       {/* 헤더 */}
       <View
         style={{
@@ -84,7 +89,8 @@ export default function FullCalendarScreen() {
           alignItems: "center",
           justifyContent: "space-between",
           paddingHorizontal: 16,
-          paddingVertical: 14,
+          paddingTop: insets.top + 6,
+          paddingBottom: 14,
         }}>
         <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary }}>
           기록 캘린더
