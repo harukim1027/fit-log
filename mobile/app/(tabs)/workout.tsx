@@ -58,6 +58,7 @@ import { TargetMuscleSelector } from "../../components/workout/TargetMuscleSelec
 import { SettingSelector } from "../../components/workout/SettingSelector";
 import { WorkoutSession } from "../../types/workout";
 import WorkoutTimer from "../../components/WorkoutTimer";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -135,7 +136,10 @@ const fmtExerciseMeta = (
   return parts.length > 0 ? parts.join(" · ") : null;
 };
 
-export default function WorkoutScreen() {
+/**
+ * Displays the workout tracking screen for active workouts, routines, rest timers, and workout history.
+ */
+function WorkoutScreen() {
   const router = useRouter();
   const c = useColors();
   const SHADOW = {
@@ -168,6 +172,7 @@ export default function WorkoutScreen() {
     fetchExerciseHistory,
     sessions,
     isLoading,
+    loadError,
     exerciseHistoryCache,
     workoutPaused,
     setWorkoutPaused,
@@ -196,6 +201,7 @@ export default function WorkoutScreen() {
       fetchExerciseHistory: s.fetchExerciseHistory,
       sessions: s.sessions,
       isLoading: s.isLoading,
+      loadError: s.loadError,
       exerciseHistoryCache: s.exerciseHistoryCache,
       workoutPaused: s.workoutPaused,
       setWorkoutPaused: s.setWorkoutPaused,
@@ -683,6 +689,64 @@ export default function WorkoutScreen() {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color={c.success} />
+      </View>
+    );
+  }
+
+  // 로드 실패 폴백 — workoutStore.fetchSessions가 throw 대신 loadError를 세팅하므로
+  // 여기서 재시도 UI를 그린다. 이게 없으면 실패 시 빈 화면만 남는다.
+  // DESIGN.md: 의미색(danger)은 아이콘에만 싣고 본문은 text-secondary로 둔다
+  // (라이트 테마에서 danger는 흰 카드 위 3.19:1로 본문 대비 기준 미달).
+  if (loadError) {
+    return (
+      <View
+        className="flex-1 bg-background items-center justify-center"
+        style={{ paddingHorizontal: 16 }}>
+        {/* 카드(L1) 위에 올린다 — 라이트 테마에서 danger 아이콘이 background(#F2F6FB)
+            위로는 2.94:1이라 비텍스트 3:1 기준에 미달하고, surface 위에서는 3.19:1로 통과한다. */}
+        <View
+          style={{
+            alignItems: "center",
+            alignSelf: "stretch",
+            paddingVertical: 24,
+            paddingHorizontal: 16,
+            borderRadius: 16,
+            backgroundColor: c.surface,
+          }}>
+          <Icon name="info" size={28} color={c.danger} />
+          <Text
+            accessibilityRole="alert"
+            style={{
+              marginTop: 12,
+              fontSize: 14,
+              fontWeight: "600",
+              lineHeight: 20,
+              color: c.textSecondary,
+              textAlign: "center",
+            }}>
+            {loadError}
+          </Text>
+          <TouchableOpacity
+            onPress={() => fetchSessions()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="운동 기록 다시 불러오기"
+            style={{
+              marginTop: 20,
+              minHeight: 44,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 20,
+              borderRadius: 999,
+              backgroundColor: c.primary,
+            }}>
+            <Icon name="refresh" size={16} color={c.onAccent} />
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
+              다시 시도
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -3385,6 +3449,26 @@ export default function WorkoutScreen() {
   );
 }
 
+// 운동 화면 전용 ErrorBoundary — 세션/세트 조작이나 히스토리 렌더 중 예외가 나도
+// 앱 전체가 아닌 이 화면만 폴백된다(홈/통계 탭은 계속 사용 가능). 바운더리가
+/**
+ * Renders the workout screen within an error boundary.
+ */
+export default function WorkoutScreenRoute() {
+  return (
+    <ErrorBoundary screenName="운동">
+      <WorkoutScreen />
+    </ErrorBoundary>
+  );
+}
+
+/**
+ * Displays the difference between a current value and its previous value.
+ *
+ * @param value - The current numeric value.
+ * @param prevValue - The previous numeric value, if available.
+ * @param unit - The unit displayed after the difference.
+ */
 function DiffBadge({
   value,
   prevValue,

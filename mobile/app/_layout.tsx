@@ -7,7 +7,7 @@ import { useColorScheme, vars } from "nativewind";
 import { useRouter, useSegments } from "expo-router";
 import { useAuthStore } from "../store/authStore";
 import { useThemeStore } from "../store/themeStore";
-import { useColors } from "../constants/colors";
+import { useColors, lightColors, darkColors, type ThemeColors } from "../constants/colors";
 import apiClient, { setUnauthorizedHandler } from "../lib/apiClient";
 import { secureStorage } from "../lib/secureStorage";
 import { requestNotificationPermission, setupNotificationChannel } from "../lib/workoutNotification";
@@ -15,7 +15,7 @@ import { useWorkoutStore } from "../store/workoutStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { showCuteAlert } from "../components/CuteAlert";
 import * as Notifications from 'expo-notifications';
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CuteAlertHost } from "../components/CuteAlert";
@@ -33,53 +33,41 @@ if (!__DEV__) {
 
 // NativeWind v4: CSS 변수는 컴파일 타임에 :root 값으로 고정되므로
 // vars()로 런타임에 주입해야 dark mode CSS 변수가 실제로 교체됩니다.
-const lightVars = vars({
-  "--color-primary":        "61 139 224",
-  "--color-secondary":      "91 155 217",
-  "--color-success":        "46 158 131",
-  "--color-warning":        "197 127 28",
-  "--color-danger":         "224 106 134",
-  "--color-on-accent":      "255 255 255",
-  "--color-background":     "242 246 251",
-  "--color-surface":        "255 255 255",
-  "--color-surface-alt":    "234 241 248",
-  "--color-surface-high":   "228 236 244",
-  "--color-border":         "220 230 240",
-  "--color-text-primary":   "22 32 43",
-  "--color-text-secondary": "90 102 117",
-  "--color-text-muted":     "154 166 180",
-  "--color-stats":          "197 127 28",
-  "--color-carb":           "217 154 43",
-  "--color-fat":            "224 106 134",
-  "--color-diet":           "61 139 224",
-  "--color-workout":        "91 155 217",
-  "--color-water":          "61 139 224",
-  "--color-protein":        "61 139 224",
+//
+// 회귀 방지: 값을 여기에 손으로 적지 말 것. constants/colors.ts가 색의 단일
+// 출처이고(DESIGN.md 계약), 과거 여기 하드코딩된 값이 primary/warning/danger/
+// stats/carb/fat에서 colors.ts와 어긋난 채로 남아 있었음. 반드시 파생시킬 것.
+const toRgbChannels = (hex: string) => {
+  const h = hex.replace("#", "");
+  return `${parseInt(h.slice(0, 2), 16)} ${parseInt(h.slice(2, 4), 16)} ${parseInt(h.slice(4, 6), 16)}`;
+};
+
+const themeVars = (c: ThemeColors) => vars({
+  "--color-primary":        toRgbChannels(c.primary),
+  "--color-secondary":      toRgbChannels(c.secondary),
+  "--color-success":        toRgbChannels(c.success),
+  "--color-warning":        toRgbChannels(c.warning),
+  "--color-danger":         toRgbChannels(c.danger),
+  "--color-on-accent":      toRgbChannels(c.onAccent),
+  "--color-background":     toRgbChannels(c.background),
+  "--color-surface":        toRgbChannels(c.surface),
+  "--color-surface-alt":    toRgbChannels(c.surfaceAlt),
+  "--color-surface-high":   toRgbChannels(c.surfaceHigh),
+  "--color-border":         toRgbChannels(c.border),
+  "--color-text-primary":   toRgbChannels(c.textPrimary),
+  "--color-text-secondary": toRgbChannels(c.textSecondary),
+  "--color-text-muted":     toRgbChannels(c.textMuted),
+  "--color-stats":          toRgbChannels(c.stats),
+  "--color-carb":           toRgbChannels(c.carb),
+  "--color-fat":            toRgbChannels(c.fat),
+  "--color-diet":           toRgbChannels(c.diet),
+  "--color-workout":        toRgbChannels(c.workout),
+  "--color-water":          toRgbChannels(c.water),
+  "--color-protein":        toRgbChannels(c.protein),
 });
 
-const darkVars = vars({
-  "--color-primary":        "61 139 224",
-  "--color-secondary":      "91 155 217",
-  "--color-success":        "79 169 140",
-  "--color-warning":        "205 177 120",
-  "--color-danger":         "213 141 156",
-  "--color-on-accent":      "2 21 38",
-  "--color-background":     "23 27 33",
-  "--color-surface":        "33 39 47",
-  "--color-surface-alt":    "34 48 63",
-  "--color-surface-high":   "42 51 64",
-  "--color-border":         "56 64 73",
-  "--color-text-primary":   "224 230 236",
-  "--color-text-secondary": "144 154 166",
-  "--color-text-muted":     "100 110 122",
-  "--color-stats":          "205 177 120",
-  "--color-carb":           "205 177 120",
-  "--color-fat":            "213 141 156",
-  "--color-diet":           "61 139 224",
-  "--color-workout":        "91 155 217",
-  "--color-water":          "61 139 224",
-  "--color-protein":        "61 139 224",
-});
+const lightVars = themeVars(lightColors);
+const darkVars = themeVars(darkColors);
 
 // 운동 진행 알림은 무음, 휴식 종료 알림은 포그라운드에서도 소리+배너 표시
 Notifications.setNotificationHandler({
@@ -96,14 +84,28 @@ Notifications.setNotificationHandler({
   },
 });
 
+/**
+ * Hydrates the stored theme and synchronizes the application and native color schemes.
+ */
 function useThemeSync() {
   const mode = useThemeStore((s) => s.mode);
   const hydrate = useThemeStore((s) => s.hydrate);
   const { setColorScheme } = useColorScheme();
   useEffect(() => { hydrate(); }, []);
-  useEffect(() => { setColorScheme(mode); }, [mode]);
+  useEffect(() => {
+    setColorScheme(mode);
+    // 회귀 방지: 네이티브 chrome(키보드, 시스템 Alert, 액션시트)을 앱 테마에 맞춘다.
+    // app.json의 userInterfaceStyle이 "automatic"이어야 이 override가 먹는다.
+    // "light"/"dark"로 고정하면 iOS가 스타일을 잠가 여기서 바꿀 수 없다.
+    Appearance.setColorScheme(mode);
+  }, [mode]);
 }
 
+/**
+ * Prepares notification services and loads the user's notification settings.
+ *
+ * Clears previously scheduled notifications, configures the notification channel, and requests notification permission.
+ */
 function useNotificationSetup() {
   useEffect(() => {
     // 이전 세션에서 남아있던 예약 알림 전부 제거

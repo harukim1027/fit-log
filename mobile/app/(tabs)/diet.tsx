@@ -27,6 +27,7 @@ import {
   SaladIcon,
 } from "../../components/AppIcons";
 import { useColors, ThemeColors } from "../../constants/colors";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -72,7 +73,10 @@ const makeShadowSm = (c: ThemeColors) => ({
 
 type DietTab = 'today' | 'calendar';
 
-export default function DietScreen() {
+/**
+ * Displays and manages daily diet records and calendar history.
+ */
+function DietScreen() {
   const router = useRouter();
   const c = useColors();
   const MEAL_BG = getMealBg(c);
@@ -839,6 +843,18 @@ export default function DietScreen() {
       </View>
       )}
     </View>
+  );
+}
+
+// 식단 화면 전용 ErrorBoundary — 홈/운동/통계와 동일하게 화면 단위로 격리한다.
+/**
+ * Renders the diet screen within a screen-level error boundary.
+ */
+export default function DietScreenRoute() {
+  return (
+    <ErrorBoundary screenName="식단">
+      <DietScreen />
+    </ErrorBoundary>
   );
 }
 

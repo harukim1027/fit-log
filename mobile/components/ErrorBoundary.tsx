@@ -29,6 +29,8 @@ interface State {
 interface ClassProps {
   children: React.ReactNode;
   onReset?: () => void;
+  /** 어느 화면에서 터졌는지 — Sentry 태그 + 폴백 문구에 사용 */
+  screenName?: string;
   primaryColor: string;
   dangerColor: string;
   bgColor: string;
@@ -45,10 +47,12 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // Sentry에 컴포넌트 스택을 함께 전송해 어느 컴포넌트에서 터졌는지 추적
+    // Sentry에 컴포넌트 스택 + 화면 이름을 함께 전송해 어느 화면·컴포넌트에서 터졌는지 추적
     Sentry.captureException(error, {
+      tags: { screen: this.props.screenName ?? 'unknown' },
       contexts: {
         react: { componentStack: info.componentStack ?? '' },
+        screen: { name: this.props.screenName ?? 'unknown' },
       },
     });
   }
@@ -65,7 +69,11 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
       return this.props.children as React.ReactElement;
     }
 
-    const { primaryColor, dangerColor, bgColor, textPrimaryColor, textSecondaryColor } = this.props;
+    const { primaryColor, dangerColor, bgColor, textPrimaryColor, textSecondaryColor, screenName } = this.props;
+    // 화면 단위 바운더리면 "다른 탭은 정상"이라는 안심 문구를, 앱 최상단이면 일반 문구를 보여준다.
+    const bodyText = screenName
+      ? `${screenName} 화면에서 오류가 발생했어요.\n다른 탭은 정상 사용할 수 있어요.\n개발팀에 자동으로 보고됐어요.`
+      : '예상치 못한 오류가 발생했어요.\n개발팀에 자동으로 보고됐어요.';
 
     return (
       <View
@@ -96,8 +104,7 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
             marginBottom: 32,
             lineHeight: 22,
           }}>
-          예상치 못한 오류가 발생했어요.{'\n'}
-          개발팀에 자동으로 보고됐어요.
+          {bodyText}
         </Text>
         <TouchableOpacity
           style={{
@@ -118,21 +125,26 @@ class ErrorBoundaryClass extends React.Component<ClassProps, State> {
 }
 
 /**
- * 실제 사용하는 컴포넌트.
- * useColors()로 현재 테마를 읽어 클래스 컴포넌트에 전달한다.
- * 크래시 화면도 앱 테마(라이트/다크)를 따르도록.
+ * Provides themed error handling for a React component subtree.
+ *
+ * @param onReset - Callback invoked when the error boundary is reset
+ * @param screenName - Optional screen name used to identify the boundary in error reporting and fallback messaging
  */
 export function ErrorBoundary({
   children,
   onReset,
+  screenName,
 }: {
   children: React.ReactNode;
   onReset?: () => void;
+  /** 화면별 바운더리로 쓸 때 전달 — Sentry 태그 + 폴백 문구에 반영 */
+  screenName?: string;
 }) {
   const c = useColors();
   return (
     <ErrorBoundaryClass
       onReset={onReset}
+      screenName={screenName}
       primaryColor={c.primary}
       dangerColor={c.danger}
       bgColor={c.background}

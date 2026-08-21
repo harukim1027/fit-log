@@ -1,0 +1,489 @@
+{
+  "decisions": [
+    {
+      "evidence": [
+        "app.json#expo.ios.bundleIdentifier",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/identity/name",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description"
+      ],
+      "path": "/identity/scope",
+      "source_class": "prompt-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description"
+      ],
+      "path": "/experience/summary",
+      "source_class": "prompt-fact"
+    },
+    {
+      "evidence": [
+        "app/(tabs)/workout.tsx",
+        "app/(tabs)/diet.tsx",
+        "app/(tabs)/stats.tsx",
+        "store/workoutStore.ts"
+      ],
+      "path": "/experience/primary_tasks",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".claude/data/references/spotify/DESIGN.md#1. Visual Theme & Atmosphere",
+        ".claude/data/reference-quality.json#counts.verified_v2",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/experience/design_direction/0",
+      "source_class": "verified-reference-inspiration"
+    },
+    {
+      "evidence": [
+        ".claude/data/references/spotify/DESIGN.md#5. Layout Principles",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/experience/design_direction/1",
+      "source_class": "verified-reference-inspiration"
+    },
+    {
+      "evidence": [
+        ".claude/data/references/spotify/DESIGN.md#Captured player hierarchy",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/experience/design_direction/2",
+      "source_class": "verified-reference-inspiration"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/experience/design_direction/3",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description",
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/experience/avoid",
+      "source_class": "prompt-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.background",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.surface",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.surface-alt",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.surface-high",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.border",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.text-primary",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.text-secondary",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.text-muted",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/foundations/tokens/color.dark.primary",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/foundations/tokens/color.dark.danger",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts",
+        ".omd/init-context.json#description"
+      ],
+      "path": "/foundations/tokens/color.dark.success",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.warning",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.on-accent",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.light.background",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.light.surface",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.light.primary",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.light.danger",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.light.success",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.light.text-muted",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#2. 여백과 정렬"
+      ],
+      "path": "/foundations/tokens/space.16",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "components/ui/Button.tsx",
+        "components/ui/Avatar.tsx"
+      ],
+      "path": "/foundations/tokens/radius.pill",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "components/ui/Card.tsx"
+      ],
+      "path": "/foundations/tokens/radius.card",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#5. 인터랙션 피드백"
+      ],
+      "path": "/foundations/tokens/opacity.pressed",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#5. 인터랙션 피드백"
+      ],
+      "path": "/foundations/tokens/opacity.disabled",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#delta_set.warnings",
+        "CLAUDE.md#6. 접근성"
+      ],
+      "path": "/foundations/tokens/target.min",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        ".claude/data/references/spotify/DESIGN.md#15. Motion & Easing",
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/foundations/tokens/duration.press",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        ".claude/data/references/spotify/DESIGN.md#15. Motion & Easing",
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/foundations/tokens/duration.row",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        ".claude/data/references/spotify/DESIGN.md#15. Motion & Easing",
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/foundations/tokens/duration.sheet",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#1. 색상 시스템",
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/rules/1",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#4. 그림자와 시각적 계층"
+      ],
+      "path": "/foundations/rules/2",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/rules/3",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts",
+        "CLAUDE.md#6. 접근성"
+      ],
+      "path": "/foundations/rules/4",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/contrast_pairs",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#delta_set.warnings",
+        "CLAUDE.md#10. Reanimated / Worklet 주의"
+      ],
+      "path": "/foundations/reduced_motion",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#3. 폰트/텍스트 위계",
+        ".claude/data/references/spotify/DESIGN.md#Captured player hierarchy"
+      ],
+      "path": "/typography_assets/roles",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "app.json#expo"
+      ],
+      "path": "/typography_assets/assets/0",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/typography_assets/rules/1",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#5. 인터랙션 피드백"
+      ],
+      "path": "/components_states/rules/0",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description",
+        ".claude/data/references/spotify/DESIGN.md#14. States"
+      ],
+      "path": "/components_states/rules/2",
+      "source_class": "verified-reference-inspiration"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#5. 인터랙션 피드백"
+      ],
+      "path": "/components_states/rules/3",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#6. 접근성"
+      ],
+      "path": "/components_states/rules/5",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#9. 컴포넌트 재사용"
+      ],
+      "path": "/components_states/rules/6",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "components/ui/Button.tsx",
+        "components/ui/Card.tsx",
+        "components/ui/Input.tsx",
+        "components/ui/LabelTag.tsx",
+        "components/ui/ProgressBar.tsx",
+        "components/ui/SortableList.tsx"
+      ],
+      "path": "/components_states/components",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#2. 여백과 정렬",
+        "CLAUDE.md#7. 반응성",
+        "CLAUDE.md#이 프로젝트에서 하지 말 것"
+      ],
+      "path": "/layout_platforms/rules",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#8. React Native 특수사항",
+        "CLAUDE.md#10. Reanimated / Worklet 주의",
+        "CLAUDE.md#실기기 우선"
+      ],
+      "path": "/layout_platforms/platforms/0/rules",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#delta_set.warnings"
+      ],
+      "path": "/layout_platforms/minimum_width_px",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        "app/(tabs)/workout.tsx",
+        "app/(tabs)/stats.tsx"
+      ],
+      "path": "/content_locales/terminology",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "app/(tabs)/index.tsx"
+      ],
+      "path": "/content_locales/locales/0/status",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "app/(tabs)/index.tsx",
+        ".omd/init-context.json#delta_set.voiceHints"
+      ],
+      "path": "/content_locales/voice",
+      "source_class": "agent-proposed-greenfield-decision"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description",
+        ".omd/init-context.json#reference_id"
+      ],
+      "path": "/governance/priority",
+      "source_class": "prompt-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/governance/change_policy/0",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description"
+      ],
+      "path": "/experience/brand-thesis",
+      "source_class": "unresolved"
+    },
+    {
+      "evidence": [
+        ".omd/init-context.json#description"
+      ],
+      "path": "/experience/tagline",
+      "source_class": "unresolved"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/tokens/color.dark.focus-ring",
+      "source_class": "unresolved"
+    },
+    {
+      "evidence": [
+        "CLAUDE.md#4. 그림자와 시각적 계층"
+      ],
+      "path": "/foundations/tokens/shadow.light",
+      "source_class": "unresolved"
+    }
+  ],
+  "design_md_sha256": "71d452fa645b06cf75414546681d5f4363a6c41b3d3a4dfa64332ff7f0490654",
+  "graph_sha256": "c32e17a096556c884e714c02af630f3588001165f191409b2275ca73d314f6cb",
+  "schema_version": "2.0.0"
+}
