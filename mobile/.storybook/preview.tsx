@@ -31,6 +31,18 @@ const preview: Preview = {
     },
   ],
   parameters: {
+    a11y: {
+      config: {
+        rules: [
+          {
+            // story root가 landmark 밖이라 발생하는 Storybook 하네스
+            // 아티팩트. RN 앱에는 landmark 개념이 없어 무효한 룰.
+            id: "region",
+            enabled: false,
+          },
+        ],
+      },
+    },
     backgrounds: {
       options: {
         dark: { name: "Dark", value: "#171B21" },
