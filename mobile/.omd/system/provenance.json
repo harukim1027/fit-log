@@ -281,21 +281,21 @@
         "CLAUDE.md#1. 색상 시스템",
         "constants/colors.ts"
       ],
-      "path": "/foundations/rules/1",
+      "path": "/foundations/rules/2",
       "source_class": "repository-fact"
     },
     {
       "evidence": [
         "CLAUDE.md#4. 그림자와 시각적 계층"
       ],
-      "path": "/foundations/rules/2",
+      "path": "/foundations/rules/3",
       "source_class": "repository-fact"
     },
     {
       "evidence": [
         "constants/colors.ts"
       ],
-      "path": "/foundations/rules/3",
+      "path": "/foundations/rules/4",
       "source_class": "agent-proposed-greenfield-decision"
     },
     {
@@ -303,7 +303,7 @@
         "constants/colors.ts",
         "CLAUDE.md#6. 접근성"
       ],
-      "path": "/foundations/rules/4",
+      "path": "/foundations/rules/5",
       "source_class": "agent-proposed-greenfield-decision"
     },
     {
@@ -481,9 +481,25 @@
       ],
       "path": "/foundations/tokens/shadow.light",
       "source_class": "unresolved"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts",
+        "components/ui/NumberPad.tsx",
+        "components/ui/Stepper.tsx"
+      ],
+      "path": "/foundations/rules/1",
+      "source_class": "repository-fact"
+    },
+    {
+      "evidence": [
+        "constants/colors.ts"
+      ],
+      "path": "/foundations/rules/0",
+      "source_class": "repository-fact"
     }
   ],
-  "design_md_sha256": "71d452fa645b06cf75414546681d5f4363a6c41b3d3a4dfa64332ff7f0490654",
-  "graph_sha256": "c32e17a096556c884e714c02af630f3588001165f191409b2275ca73d314f6cb",
+  "design_md_sha256": "fb1d374bd6d2ab01c72bea7fcf99d2ce86bbf32b5939cb34336db5e69c7ba379",
+  "graph_sha256": "2dfabe078618234e8dc4d7a66d8457524e400e4067fa53dd1046e294433bb3c5",
   "schema_version": "2.0.0"
 }

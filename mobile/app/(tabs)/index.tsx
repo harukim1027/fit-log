@@ -163,8 +163,7 @@ function HomeScreen() {
 
   // 캘린더 팝업 테마 (운동 화면과 동일 토큰 규칙)
   const calTheme = {
-    // 모달 컨테이너가 L3(surface-high)이므로 캘린더 배경도 같은 계단에 맞춘다
-    calendarBackground: c.surfaceHigh,
+    calendarBackground: c.surface,
     textSectionTitleColor: c.textSecondary,
     selectedDayBackgroundColor: c.primary,
     selectedDayTextColor: c.onAccent,
@@ -603,8 +602,10 @@ function HomeScreen() {
           onPress={() => setShowCalendar(false)}>
           {/* 달력 영역 탭은 닫힘 전파 차단 */}
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ marginHorizontal: 16 }}>
-            {/* 시트/모달은 L3(surface-high) + radius.sheet(24) */}
-            <View style={[{ backgroundColor: c.surfaceHigh, borderRadius: 24, padding: 12, overflow: "hidden" }, CARD_EDGE]}>
+            {/* 시트/모달 컨테이너는 surface. surfaceHigh는 계단이 아니라 인라인 요소
+                채움용이고(트랙·링·그래버), 라이트에서는 캔버스보다 어두워 시트가
+                가라앉아 보인다. radius는 radius.sheet(24). */}
+            <View style={[{ backgroundColor: c.surface, borderRadius: 24, padding: 12, overflow: "hidden" }, CARD_EDGE]}>
               <Calendar
                 current={selectedDate}
                 maxDate={toYMD(new Date())}

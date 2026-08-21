@@ -72,8 +72,8 @@ Harulog는 웨이트 트레이닝 숙련자가 운동 세트, 식단, 체중을 
 - **color.dark.secondary**: `#5B9BD9` — 보조 강조, 운동 카테고리.
 - **color.dark.success**: `#4FA98C` — 완료된 세트, 목표 달성.
 - **color.dark.surface**: `#21272F` — L1 카드. 캔버스 위 기본 컨테이너.
-- **color.dark.surface-alt**: `#22303F` — L2 중첩. 카드 안의 행, 선택된 상태, 입력 필드.
-- **color.dark.surface-high**: `#2A3340` — L3 시트·모달·활성 세그먼트.
+- **color.dark.surface-alt**: `#22303F` — L2 중첩. 카드 안의 행, 선택된 상태, 입력 필드. 시트·모달 내부 블록도 여기.
+- **color.dark.surface-high**: `#2A3340` — 인라인 요소 채움 — 진행 바 트랙, 완료도 링, 그래버, 활성 세그먼트. 시트 컨테이너에는 쓰지 않는다.
 - **color.dark.text-muted**: `#646E7A` — 단위, 비활성 힌트. 본문 크기 필수 정보에는 쓰지 않는다.
 - **color.dark.text-primary**: `#E0E6EC` — 제목과 값.
 - **color.dark.text-secondary**: `#909AA6` — 본문 보조, 라벨.
@@ -86,8 +86,8 @@ Harulog는 웨이트 트레이닝 숙련자가 운동 세트, 식단, 체중을 
 - **color.light.secondary**: `#5B9BD9` — 보조 강조.
 - **color.light.success**: `#2E9E83` — 완료·달성.
 - **color.light.surface**: `#FFFFFF` — L1 카드.
-- **color.light.surface-alt**: `#EAF1F8` — L2 중첩.
-- **color.light.surface-high**: `#E4ECF4` — L3 시트·모달.
+- **color.light.surface-alt**: `#EAF1F8` — L2 중첩. 카드 안의 행, 선택된 상태, 입력 필드.
+- **color.light.surface-high**: `#E4ECF4` — 인라인 요소 채움 — 진행 바 트랙, 완료도 링, 그래버, 활성 세그먼트. 라이트에서는 캔버스보다 어둡다.
 - **color.light.text-muted**: `#9AA6B4` — 단위, 비활성 힌트.
 - **color.light.text-primary**: `#16202B` — 제목과 값.
 - **color.light.text-secondary**: `#5A6675` — 본문 보조, 라벨.
@@ -130,7 +130,9 @@ Required.
 
 ### Foundation rules
 
-- 명도 계단은 항상 배경 → 카드 → 중첩 → 시트 순서다. 한 화면에서 이 순서를 건너뛰지 않는다. 카드 위에 다시 카드를 올려야 하면 surface-alt를 쓰고, 그 위는 보더로만 나눈다.
+- 계층은 캔버스에서 멀어질수록 대비가 커지는 방향으로 쌓는다. 다크에서는 그 방향이 밝아지는 쪽(background #171B21 → surface #21272F → surface-alt #22303F)이고, 라이트에서는 흰 카드가 가장 밝고 중첩 블록이 캔버스보다 어두워지는 쪽(surface #FFFFFF → background #F2F6FB → surface-alt #EAF1F8)이다. 두 테마의 명도 순서는 서로 반대이므로 라이트를 다크의 반전으로 만들지 않는다. 카드 위에 다시 카드를 올려야 하면 surface-alt를 쓰고, 그 위는 보더로만 나눈다.
+
+- surface-high는 계단의 네 번째 칸이 아니다. surface-alt와의 대비가 다크 1.05 / 라이트 1.05로 사실상 같은 면이라 깊이를 표현하지 못한다. 진행 바 트랙, 완료도 링, 시트 그래버, 활성 세그먼트처럼 카드 안에서 형태로 구분되는 인라인 요소의 채움에만 쓴다. 시트와 모달의 컨테이너는 surface를 쓴다.
 
 - 색은 하드코딩하지 않는다. 반드시 `useColors()`에서 가져온다. `backgroundColor: c.surface` (O) / `backgroundColor: '#21272F'` (X).
 
@@ -338,7 +340,7 @@ Required.
 
 - 스크린 좌우 여백은 부모 컨테이너의 `paddingHorizontal`로 한 번만 준다. 카드마다 `marginHorizontal`을 붙이지 않는다.
 
-- 세로 간격은 부모의 `gap`으로 만든다. 자식마다 `marginBottom`을 지정하지 않는다.
+- 세로 간격은 균일한 형제 목록에서 부모의 gap으로 만든다 — 같은 종류의 카드·행이 나란히 놓일 때가 여기 해당한다. 자식마다 marginBottom을 붙여 목록 간격을 만들지 않는다. 다만 성격이 다른 블록이 섞여 있거나 자식이 하나뿐이면 gap이 표현할 수 없는 간격이므로(형제 전체가 같은 값을 받고 마지막 자식의 여백은 사라진다) 그 자리에는 부모의 paddingBottom 또는 해당 블록의 marginBottom을 남긴다. 어느 쪽인지는 부모의 JSX 자식 구성으로 판단한다.
 
 - 밀도 계단: 카드 사이 `space.12`, 섹션 사이 `space.24`, 카드 내부 패딩 `space.16`, 카드 안 행 사이 `space.8`.
 
@@ -446,3 +448,4 @@ Record, review, and validate changes before adoption.
 - /experience/tagline — unresolved; evidence: .omd/init-context.json#description
 - /foundations/tokens/color.dark.focus-ring — unresolved; evidence: constants/colors.ts
 - /foundations/tokens/shadow.light — unresolved; evidence: CLAUDE.md#4. 그림자와 시각적 계층
+- /foundations/rules/1 — repository-fact; evidence: constants/colors.ts, components/ui/NumberPad.tsx, components/ui/Stepper.tsx
