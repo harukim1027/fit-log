@@ -12,7 +12,7 @@ import { ThemeToggle } from "../../components/ui";
 import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
-import { toKg } from "../../utils/workout";
+import { toKg, calcSessionVolume } from "../../utils/workout";
 import { getAllCategoryRecoveries } from "../../utils/recovery";
 import { useRecoverySettingsStore } from "../../store/recoverySettingsStore";
 import { useCategoryColorStore } from "../../store/categoryColorStore";
@@ -122,6 +122,26 @@ const LIGHT_SHADOW_SM = {
 // 모달 스크림. 계층 토큰이 아니라 화면 전체를 덮는 암막이라 별도 상수로 둔다.
 const SCRIM = "rgba(0,0,0,0.5)";
 
+
+// 홈 히어로 5-케이스 분기 (신규/진행중/오늘완료/회복완료/모두회복중)
+// 각 케이스 조건은 명확히 배타적. 우선순위: active > new > done_today > ready > all_resting
+// 재작업 시 이 5개 케이스 모두 유지 필요
+type HeroCase = 'active' | 'new' | 'done_today' | 'ready' | 'all_resting';
+
+function getHeroCase(
+  hasActiveSession: boolean,
+  sessions: WorkoutSession[],
+  readyCount: number,
+  todayYMD: string,
+): HeroCase {
+  if (hasActiveSession) return 'active';
+  if (sessions.length === 0) return 'new';
+  // session.date는 이미 로컬 기준 YYYY-MM-DD 문자열이다. new Date()로 재파싱하면
+  // UTC로 해석돼 음수 오프셋 지역에서 하루 밀린다 — 문자열로 그대로 비교한다.
+  if (sessions.some((s) => s.date.slice(0, 10) === todayYMD)) return 'done_today';
+  return readyCount > 0 ? 'ready' : 'all_resting';
+}
+
 /**
  * Renders the home screen with workout summaries, recent sessions, weekly muscle coverage, and workout controls.
  */
@@ -138,6 +158,10 @@ function HomeScreen() {
     }))
   );
   const isDark = useThemeStore((s) => s.mode) === 'dark';
+  // 타이머는 스토어 레벨 setInterval이라 화면과 무관하게 매초 갱신된다.
+  // 여기서 분 단위로 파생해 구독하면 zustand가 값이 바뀔 때만 리렌더하므로
+  // 1분에 한 번만 다시 그린다(별도 tick 상태 불필요). 일시정지도 자동 반영된다.
+  const elapsedMin = useWorkoutStore((s) => Math.floor(s.workoutElapsed / 60));
   const [filter, setFilter] = useState<string>('전체');
   // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
   const [selectedDate, setSelectedDate] = useState<string>(() => toYMD(new Date()));
@@ -318,6 +342,99 @@ function HomeScreen() {
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
   })();
 
+  // ── 히어로 케이스 판정 + 케이스별 콘텐츠 ──
+  const todayYMD = toYMD(new Date());
+  const heroCase = useMemo(
+    () => getHeroCase(!!activeSession, sessions, readyCategories.length, todayYMD),
+    [activeSession, sessions, readyCategories.length, todayYMD]
+  );
+
+  // 케이스 B: 진행 중인 세션 요약
+  const activeData = useMemo(() => {
+    if (!activeSession) return null;
+    const counts: Record<string, number> = {};
+    for (const ex of activeSession.exercises) {
+      const cat = ex.category || '기타';
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    const mainCategory = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+    let totalSets = 0, completedSets = 0;
+    for (const ex of activeSession.exercises) {
+      totalSets += ex.sets.length;
+      completedSets += ex.sets.filter((st) => st.completed).length;
+    }
+    return { mainCategory, exerciseCount: activeSession.exercises.length, totalSets, completedSets };
+  }, [activeSession]);
+
+  const elapsedText = elapsedMin < 60
+    ? `${elapsedMin}분 경과`
+    : `${Math.floor(elapsedMin / 60)}시간 ${elapsedMin % 60}분 경과`;
+
+  // 케이스 C: 오늘 완료된 세션 집계.
+  // 볼륨은 utils/workout의 calcSessionVolume을 쓴다 — lbs 환산, 단팔 운동 ×2,
+  // 미완료 세트 제외 규칙이 이미 들어 있어 직접 계산하면 그 규칙이 갈라진다.
+  const todayData = useMemo(() => {
+    const todaySessions = sessions.filter((s) => s.date.slice(0, 10) === todayYMD);
+    let totalSets = 0, exerciseCount = 0;
+    for (const s of todaySessions) {
+      for (const ex of s.exercises) {
+        exerciseCount++;
+        totalSets += ex.sets.filter((st) => st.completed).length;
+      }
+    }
+    const totalVolume = todaySessions.reduce((sum, s) => sum + calcSessionVolume(s), 0);
+    return { totalVolume: Math.round(totalVolume).toLocaleString(), totalSets, exerciseCount };
+  }, [sessions, todayYMD]);
+
+  const hero = useMemo(() => {
+    switch (heroCase) {
+      case 'active':
+        return {
+          label: '진행 중',
+          headline: activeData && activeData.mainCategory
+            ? `${activeData.mainCategory} 운동 · ${elapsedText}`
+            : '운동 진행 중',
+          subtext: activeData
+            ? `${activeData.exerciseCount}종목 · ${activeData.completedSets}/${activeData.totalSets}세트`
+            : '',
+          showChips: false,
+          buttonText: '이어서 하기',
+        };
+      case 'new':
+        return {
+          label: '시작하기',
+          headline: 'Harulog에 오신 걸 환영해요',
+          subtext: '첫 운동을 기록해보세요',
+          showChips: false,
+          buttonText: '운동 시작',
+        };
+      case 'done_today':
+        return {
+          label: '오늘 운동 완료',
+          headline: `${todayData.totalVolume}kg · ${todayData.totalSets}세트`,
+          subtext: `${todayData.exerciseCount}종목 완료`,
+          showChips: false,
+          buttonText: '운동 추가하기',
+        };
+      case 'ready':
+        return {
+          label: '오늘 준비된 부위',
+          headline: `${readyCategories.length}개 부위 회복 완료`,
+          subtext: '',
+          showChips: true,
+          buttonText: '운동 시작',
+        };
+      case 'all_resting':
+        return {
+          label: '오늘의 컨디션',
+          headline: '모든 부위 회복 중',
+          subtext: '가볍게 시작하거나 쉬어가세요',
+          showChips: false,
+          buttonText: '운동 시작',
+        };
+    }
+  }, [heroCase, activeData, elapsedText, todayData, readyCategories.length]);
+
   const startWorkout = () => {
     if (!activeSession) startSession();
     router.push("/(tabs)/workout");
@@ -427,19 +544,21 @@ function HomeScreen() {
           <View>
             {/* caption 12/600 */}
             <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
-              {activeSession ? '진행 중인 운동' : '오늘 준비된 부위'}
+              {hero.label}
             </Text>
             {/* display 22/900 */}
             <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, marginTop: 4, letterSpacing: -0.5 }}>
-              {activeSession
-                ? '운동을 이어가세요'
-                : readyCategories.length > 0
-                  ? `${readyCategories.length}개 부위 회복 완료`
-                  : '모든 부위 회복 중'}
+              {hero.headline}
             </Text>
+            {hero.subtext ? (
+              /* body 14/600 */
+              <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginTop: 4 }}>
+                {hero.subtext}
+              </Text>
+            ) : null}
           </View>
 
-          {!activeSession && readyCategories.length > 0 && (
+          {hero.showChips && readyCategories.length > 0 && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {readyCategories.map((rec) => (
                 <View
@@ -466,7 +585,7 @@ function HomeScreen() {
             onPress={startWorkout}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={activeSession ? '운동 이어서 시작' : '운동 시작'}
+            accessibilityLabel={hero.buttonText}
             style={{
               marginTop: "auto",
               minHeight: 44,
@@ -478,7 +597,7 @@ function HomeScreen() {
             }}>
             {/* body-strong 14/800 — 다른 주요 CTA와 동일 */}
             <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
-              {activeSession ? '이어서 시작' : '운동 시작'}
+              {hero.buttonText}
             </Text>
           </TouchableOpacity>
         </Animated.View>
