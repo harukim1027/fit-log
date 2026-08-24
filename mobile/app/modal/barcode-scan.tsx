@@ -7,11 +7,14 @@ import { useState, useEffect } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Icon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
-import { Button, Header } from "../../design-system";
+import { Button, Header, IconButton } from "../../design-system";
 import { useLocalSearchParams } from "expo-router";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
 import { useColors } from "../../constants/colors";
+
+// 카메라 위 오버레이용. index.tsx / routine-manage.tsx와 같은 값·같은 관례.
+const SCRIM = "rgba(0,0,0,0.5)";
 
 const CORNER = 24;
 
@@ -95,11 +98,23 @@ export default function BarcodeScanModal() {
         <SafeAreaView
           style={{ flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingVertical: 40 }}
           edges={["top", "bottom"]}>
-          <TouchableOpacity activeOpacity={0.8}
-            className="self-end mr-5 bg-black/50 rounded-[20px] p-2"
-            onPress={() => router.back()}>
+          {/* 카메라 위에 얹는 닫기 버튼. IconButton의 filled 기본 배경(surfaceAlt)은
+              카메라 화면에서 보이지 않으므로 스크림으로 덮는다.
+              박스는 42 → 44(+2), 우측 여백은 mr-5(17.33) → 20(+2.67). 둘 다
+              onLayout 실측값이다. 계획서의 "이미 44"는 p-2를 8로 본 오산이었다 —
+              NativeWind rem이 14라 p-2는 7이고 mr-5는 17.5다. */}
+          <IconButton
+            accessibilityLabel="바코드 스캔 닫기"
+            onPress={() => router.back()}
+            variant="filled"
+            style={{
+              alignSelf: "flex-end",
+              marginRight: 20,
+              backgroundColor: SCRIM,
+              borderRadius: 20,
+            }}>
             <Icon name="close" size={28} color={c.surface} />
-          </TouchableOpacity>
+          </IconButton>
 
           <View style={{ width: 260, height: 160, position: 'relative' }}>
             <View style={[cornerBase, { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 }]} />
