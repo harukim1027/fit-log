@@ -40,6 +40,13 @@ Button 사전 조사에서 `Record<ButtonVariant, …>` 5건이 호출부로 오
 가능하면 텍스트 grep 대신 TypeScript AST로 센다. JSX 자식 구성이나
 prop 유무처럼 "형태가 수렴하는가"를 판단하는 근거는 grep으로 얻기 어렵다.
 
+**AST로 찾았더라도 속성을 읽을 때 "매치 줄 + N줄" 같은 고정 창을 쓰지 말 것.**
+IconButton 조사에서 창이 자식 View의 스타일을 빨아들여 `filled` 17건 / `plain`
+20건이 나왔는데, 여는 태그의 attributes로 범위를 좁히자 실제로는 **12 / 25**
+였다. `WaterTracker.tsx:39`는 6줄 아래 진행 바의 `backgroundColor`가 딸려와
+filled로 잘못 분류됐고, `barcode-scan.tsx:91`은 아래쪽 스캔 프레임의
+260×160이 버튼 크기로 잡혔다. 노드의 시작·끝 위치로 잘라 읽어야 한다.
+
 ## 검증 절차
 
 각 컴포넌트는 아래를 모두 통과해야 한다.
@@ -73,6 +80,77 @@ prop 유무처럼 "형태가 수렴하는가"를 판단하는 근거는 grep으�
 못해 투명 조상을 흰색으로 가정하고, 다크 테마에서 존재하지 않는 대비 위반을
 만든다. `tokens/accentTint()`처럼 **캔버스 기준으로 미리 합성한 불투명 색**을
 쓴다. 부모 배경이 바뀌어도 결과가 흔들리지 않는 이점도 있다.
+
+## 컴파일러로 규칙을 강제한 사례
+
+`IconButton`의 `accessibilityLabel`은 **optional이 아니라 필수**다. 편의를
+깎아서 얻은 것이 아니라 이 컴포넌트를 만든 이유 자체다.
+
+DESIGN.md는 "아이콘 단독 버튼에는 `accessibilityLabel`이 필수"라고 규정한다.
+그런데 실사용 37건 중 지키는 곳은 **1건**이었다. 규칙이 틀려서가 아니라
+문서에 적힌 규칙에는 강제력이 없기 때문이다. 코드 리뷰가 매번 잡아주지
+않으면 조용히 어긋나고, 어긋난 채로 1년을 간다.
+
+타입으로 옮기면 성질이 달라진다. Phase 1-B에서 호출부를 옮길 때
+`accessibilityLabel`이 빠진 36건은 **컴파일이 되지 않는다.** 잊을 수도, 나중에
+하기로 미룰 수도 없다. 실제로 확인한 에러는 이렇다.
+
+```
+error TS2741: Property 'accessibilityLabel' is missing in type
+'{ children: Element; onPress: () => void; }' but required in type 'IconButtonProps'.
+```
+
+같은 이유로 `target.min` 44도 문서가 아니라 컴포넌트 안에 넣었다. 37건 중
+24건이 44에 도달할 수단이 없었는데(크기를 명시한 14건은 38·36·32·28처럼
+**예외 없이 전부** 44 미만이고, `hitSlop`을 쓴 곳은 13건뿐이다),
+`minWidth`/`minHeight`를 컴포넌트가 들고 있으면 호출부가 무엇을 하든 성립한다.
+
+**원칙: 지켜지지 않는 문서 규칙을 발견하면 문구를 강하게 고치기 전에
+타입이나 기본값으로 옮길 수 있는지 먼저 본다.**
+
+## Phase 1-B 교체 대상
+
+### IconButton — 37곳 / 15개 파일
+
+`filled/plain`은 현재 배경색 유무로 판정한 값이다. 옮길 때 실물로 확인할 것.
+`44 미달`은 고정 크기가 44 미만이면서 `hitSlop`도 없는 건수 —
+IconButton으로 옮기면 자동 해소된다.
+
+| 파일 | 건수 | filled / plain | label 있음 | 44 미달 | 줄 번호 |
+|---|---|---|---|---|---|
+| `app/(tabs)/diet.tsx` | 7 | 5 / 2 | 0 | 7 | 350, 381, 603, 738, 755, 949, 1078 |
+| `app/(tabs)/workout.tsx` | 6 | 0 / 6 | 0 | 5 | 1016, 1024, 1037, 2238, 4597, 4674 |
+| `app/modal/routine-manage.tsx` | 5 | 0 / 5 | 0 | 3 | 513, 516, 888, 1097, 1165 |
+| `components/workout/ExerciseAdder.tsx` | 4 | 0 / 4 | 0 | 4 | 719, 751, 1023, 1156 |
+| `app/(tabs)/stats.tsx` | 2 | 0 / 2 | 0 | 0 | 306, 312 |
+| `app/modal/add-food.tsx` | 2 | 0 / 2 | 0 | 2 | 436, 681 |
+| `components/ui/Header.tsx` | 2 | 2 / 0 | 0 | 0 | 51, 59 |
+| `components/workout/SettingSelector.tsx` | 2 | 1 / 1 | 0 | 1 | 123, 187 |
+| `app/modal/barcode-scan.tsx` | 1 | 1 / 0 | 0 | 1 | 91 |
+| `app/modal/edit-profile.tsx` | 1 | 1 / 0 | 0 | 0 | 128 |
+| `app/modal/full-calendar.tsx` | 1 | 0 / 1 | 0 | 0 | 98 |
+| `components/RestTimer.tsx` | 1 | 0 / 1 | 0 | 0 | 411 |
+| `components/RoutineColorPicker.tsx` | 1 | 1 / 0 | 0 | 1 | 66 |
+| `components/WaterTracker.tsx` | 1 | 0 / 1 | 0 | 0 | 39 |
+| `components/ui/ThemeToggle.tsx` | 1 | 1 / 0 | **1** | 0 | 10 |
+| **합계** | **37** | **12 / 25** | **1** | **24** | |
+
+주의할 곳:
+- `filled`의 기본 배경은 `surfaceAlt`, 기본 radius는 pill(999)이다.
+  벗어나는 곳은 `style`로 덮어야 모양이 유지된다:
+  `diet.tsx:603·755`(radius 12), `diet.tsx:738`(radius 10 + `danger` 틴트),
+  `barcode-scan.tsx:91`(카메라 위 `bg-black/50` — surfaceAlt로 두면 안 보인다),
+  `RoutineColorPicker.tsx:66`(배경이 사용자가 고른 색),
+  `SettingSelector.tsx:187`(`primary` 배경 = 선택 상태).
+- `components/ui/Header.tsx`의 2건은 Header 자체를 design-system으로 옮길 때
+  같이 처리하는 편이 낫다.
+- `plain` 25건 중 19건은 `style`이 아예 없는 맨 터치 요소다. 옮기면 박스가
+  44로 커지므로 밀집한 행에서 레이아웃이 밀릴 수 있다. 파일 단위로 옮기고
+  화면을 눈으로 확인할 것.
+
+### Button — 8곳 / 6개 파일
+
+`components/ui/Button.tsx`의 `@deprecated` 주석에 변환 항목을 적어 두었다.
 
 ## 알려진 미해결 항목
 

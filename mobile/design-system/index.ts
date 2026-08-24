@@ -5,6 +5,12 @@ export type { CardProps, CardVariant, CardSlotProps } from "./components/Card";
 export { Button } from "./components/Button";
 export type { ButtonProps } from "./components/Button";
 
+export { IconButton } from "./components/IconButton";
+export type {
+  IconButtonProps,
+  IconButtonVariant,
+} from "./components/IconButton";
+
 export { Section } from "./components/Section";
 export type {
   SectionProps,
