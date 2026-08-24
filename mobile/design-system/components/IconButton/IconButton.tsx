@@ -36,7 +36,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { useColors } from "../../tokens";
+import { useColors, radius, size } from "../../tokens";
 
 /**
  * plain  25건. 컨테이너 장식 없이 아이콘만 놓는다.
@@ -77,8 +77,8 @@ const styles = StyleSheet.create({
     //
     // 대신 밀집한 행에서는 레이아웃이 넓어진다. Phase 1-B에서 호출부를
     // 옮길 때 좁은 행을 눈으로 확인할 것.
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: size.touchTarget,
+    minHeight: size.touchTarget,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     // 다수인 pill을 기본값으로 두고, DESIGN.md가 radius.pill의 용처로 "버튼"을
     // 명시한 것과 이미 만든 Button이 999를 쓰는 것과도 맞는다.
     // 둥근사각이 필요한 호출부는 style로 borderRadius만 덮는다.
-    borderRadius: 999,
+    borderRadius: radius.pill,
   },
   // 비활성은 opacity로. Button과 같다.
   disabled: { opacity: 0.5 },

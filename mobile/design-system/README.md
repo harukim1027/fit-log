@@ -4,10 +4,36 @@
 
 ```
 design-system/
-├── components/     # Card, Section, ...
-├── tokens/         # 앱 constants/colors.ts로 가는 유일한 통로
+├── components/     # Card, Section, Button, IconButton, Header
+├── tokens/
+│   ├── index.ts    # 앱 constants/colors.ts로 가는 유일한 통로 + 색 헬퍼
+│   └── scale.ts    # space / radius / size 수치 토큰 (여기가 원본)
 └── index.ts        # 통합 export
 ```
+
+## Phase 1-A 완료
+
+컴포넌트 5개. 넷은 흩어진 패턴을 모은 신규 수렴이고, Header 하나는 이미
+공용화돼 있던 것의 이전이다.
+
+| 컴포넌트 | 성격 | 실사용 근거 | 만들지 않은 API와 근거 |
+|---|---|---|---|
+| **Card** | 신규 수렴 | 카드 패턴 다수 | `elevated`/`outlined` — 그림자가 라이트 전용이라 별개 variant가 아니라 같은 카드의 테마별 모습이었다. `Card.Header` — 제목을 카드 밖에 두어 사용처 0건 |
+| **Section** | 신규 수렴 | 섹션 헤더 5건 (홈 2, 운동 2, 통계 1) | 섹션 레벨 `onPress` — 사용처 0건. 섹션 외부 여백 — 간격이 화면마다 달라(홈 20 / 통계 12) 부모 책임 |
+| **Button** | 신규 수렴 | 폼 CTA 8곳 / 6파일 | `variant` — 8곳 전부 기본값, 실사용 0건. `size` — 0건. `fullWidth` — 8곳 중 7곳이 전체 폭이라 기본값화. `leftIcon` 0건, `rightIcon` 1건 |
+| **IconButton** | 신규 수렴 | 아이콘 전용 터치 요소 37곳 / 15파일 | `size` — 아이콘 크기가 13~28에 11개 값으로 흩어져 밀도 판단에 딸림. `icon` name prop — 실사용이 `Icon`/`FlameIcon`/`HeartIcon` 등 여러 체계 |
+| **Header** | **이전** | 13곳 / 10파일이 이미 단일 컴포넌트 사용 | 없음 — prop 7개 전부 실사용이라 제거 대상이 없었다 |
+
+관통하는 원칙 하나: **실사용 0건인 API는 만들지 않는다.** Card의 variant 2종,
+Button의 variant 4종·size, IconButton의 size가 전부 이 이유로 빠졌다.
+같은 잣대를 토큰에도 적용해 radius의 chip 10 / sheet 24를 뽑지 않았다.
+
+IconButton은 여기서 한 걸음 더 나가 `accessibilityLabel`을 **타입 필수**로 뒀다 —
+"컴파일러로 규칙을 강제한 사례" 참조.
+
+**Phase 1-B 교체 대상 총계: 58곳 / 19개 파일**
+(IconButton 37곳·15파일, Header 13곳·10파일, Button 8곳·6파일 — 파일은 겹친다).
+아래 "Phase 1-B 교체 대상"에 파일별 목록이 있다.
 
 ## 규칙
 
@@ -69,6 +95,18 @@ filled로 잘못 분류됐고, `barcode-scan.tsx:91`은 아래쪽 스캔 프레�
 (`Violations 1 / Passes 17`)를 그대로 표시했다. 재실행 버튼을 누른 뒤에야
 `Violations 0`이 나왔다.
 
+### 스크립트로 스토리를 훑을 때는 충분히 기다릴 것
+
+여러 스토리를 자동으로 돌며 axe를 실행하면 **캔버스 배경이 칠해지기 전에
+검사가 돌아** 없는 대비 위반이 무더기로 나온다. axe는 불투명 배경을 못 찾으면
+흰색으로 가정하므로, 다크 테마 글자(`#e0e6ec`)가 흰 배경 위에 있다고 판단해
+1.25:1 같은 값을 보고한다. **`bgColor`가 `#ffffff`로 찍히면 거의 항상 이 경우다.**
+
+토큰 추출 작업에서 대기 1.1초로 훑었더니 Section 스토리 12건이 위반으로
+나왔는데, 2.8초로 늘리자 다크는 0건이 됐다. 토큰 교체 전후를 `git stash`로
+갈라 같은 조건에서 재보고 나서야 회귀가 아님을 확인할 수 있었다.
+**위반이 갑자기 늘면 코드를 의심하기 전에 측정 방법부터 의심한다.**
+
 ### a11y `region` 룰
 
 `region` 룰은 `.storybook/preview.tsx`에서 꺼 두었다. story root가 landmark
@@ -118,7 +156,7 @@ React, react-native, `../../tokens`만 쓴다.
 |---|---|---|
 | `IconButton` | 뒤로/닫기 버튼 | 뺄 수 있지만 뺄 이유가 없다 (아래) |
 | `components/AppIcons` | chevronLeft·close 글리프 | 아니오 — 자체 구현해도 아이콘은 그려야 한다 |
-| `expo-router` | `onBack`/`onClose` 미전달 시 `router.back()` | 아니오 — 13곳 중 11곳이 이 기본값에 의존한다 |
+| `expo-router` | `onBack`/`onClose` 미전달 시 `router.back()` | 아니오 — 좌측 버튼이 있는 10곳 중 5곳이 이 기본값에 의존한다 |
 | `react-native-safe-area-context` | 상단 인셋 | 아니오 — 헤더의 본질이다 |
 
 `IconButton`을 자체 구현으로 대체하는 선택지를 검토했지만 택하지 않았다.
@@ -171,7 +209,7 @@ IconButton으로 옮기면 자동 해소된다.
   44로 커지므로 밀집한 행에서 레이아웃이 밀릴 수 있다. 파일 단위로 옮기고
   화면을 눈으로 확인할 것.
 
-### Header — 13곳 / 11개 파일
+### Header — 13곳 / 10개 파일
 
 API가 동일하므로 import 경로만 바꾸면 된다. 다만 뒤로/닫기 버튼이 40에서
 44로 커져 좌측이 4pt 넓어 보일 수 있으니 화면마다 눈으로 확인할 것.
@@ -201,23 +239,84 @@ API가 동일하므로 import 경로만 바꾸면 된다. 다만 뒤로/닫기 �
 
 ## 알려진 미해결 항목
 
-### 라이트 모드 primary 대비 4.17:1 (필요 4.5:1)
+### 라이트 모드 의미색 대비 미달
 
-`#FFFFFF` on `#1E7AEA`. 14px/800은 WCAG large text(18.66px bold 이상)가
-아니므로 4.5:1이 필요하다.
+**다크 모드는 전 스토리 위반 0건이다. 아래는 전부 라이트 전용이다.**
 
-DESIGN.md의 `contrast_pairs`가 이 쌍을 `minimum 4:1`로 명시하고 있다 —
-미달을 모르고 지나친 게 아니라 **의도적으로 완화한 값**이다. 그래서 Button
-스토리의 라이트 모드 a11y 위반 1건은 컴포넌트 결함이 아니다.
+스토리 37개 × 다크/라이트 74조합을 훑은 결과 라이트에서만 9건이 나왔고,
+셋 다 같은 뿌리다 — DESIGN.md가 이미 기록한 "라이트 테마 의미색은 본문 크기
+텍스트 대비에 미달한다"는 사실이다. 컴포넌트 결함이 아니다.
 
-- 영향 범위: `c.onAccent` 사용 14개 파일 36곳 (앱 전역 primary CTA 전부)
+| 조합 | 실측 | 필요 | 나오는 곳 |
+|---|---|---|---|
+| `#FFFFFF` on `#1E7AEA` (primary) | **4.17:1** | 4.5:1 | Button 스토리 4개 |
+| `#1E7AEA` (primary) on `#F2F6FB` (background) | **3.84:1** | 4.5:1 | Section 스토리 4개 — `LinkAction`("전체 보기 ›", 11/700) |
+| `#FFFFFF` on `#E0950F` (warning) | **2.47:1** | 4.5:1 | Section 스토리 1개 — `ButtonAction`("운동 시작", 14/800) |
+
+첫 줄은 DESIGN.md `contrast_pairs`가 `on-accent on primary: minimum 4:1`로
+**의도적으로 완화**해 둔 쌍이다. 나머지 둘은 Foundation 규칙이 이미 수치까지
+적어 둔 것과 일치한다("흰 카드 위 실측 대비는 danger 3.19, success 3.32,
+warning 2.48, primary 4.18로 모두 4.5:1에 못 미친다").
+
+**스토리 픽스처를 통과하는 색으로 바꾸지 않았다.** `LinkAction`과
+`ButtonAction`은 홈의 "전체 보기"와 운동의 "운동 시작"을 그대로 재현한 것이라,
+색을 갈아 검사만 통과시키면 스토리가 앱의 실제 모습에 대해 거짓말을 하게 된다.
+미달은 미달대로 두고 여기 기록한다.
+
+- 영향 범위: `c.onAccent` 사용 14개 파일 36곳 + 라이트 의미색 텍스트 전반
 - 처리 시점: Phase 2 디자인 재작업
 - 처리 방법: `constants/colors.ts`와 DESIGN.md를 **같은 커밋에서** 수정해야
   한다. 색 토큰 변경은 거버넌스 사안이라 컴포넌트 작업 중에 끼워 고치지 않는다.
 
 다크 모드는 `#021526` on `#2E82F0` = 4.89:1로 통과한다.
 
-## spacing / radius 토큰
+## DESIGN.md와의 불일치
 
-아직 추출하지 않았다. Phase 1-A 컴포넌트 5개가 모두 나온 뒤 실제 사용 분포를
-보고 정한다. 지금 뽑으면 컴포넌트 한둘의 우연한 선택이 전체 스케일로 굳는다.
+### radius 사다리 5단계 중 2개가 실사용 0건
+
+DESIGN.md의 radius 토큰은 chip 10 / control 12 / card 16 / sheet 24 / pill 999
+다섯 단계다. Phase 1-A 컴포넌트 5개가 실제로 쓴 것은 **12, 16, 999 셋뿐**이고
+**chip 10과 sheet 24는 0건**이다. 그래서 `tokens/scale.ts`에 셋만 담았다.
+
+이건 Button의 `variant`가 primary/secondary/ghost/danger 4종을 노출하는데
+호출부 8곳 전부가 기본값만 쓰던 것과 **같은 현상이 디자인 문서 레벨에서
+일어난 것**이다. 컴포넌트에서는 실사용 0건인 API를 만들지 않는다는 원칙을
+지켜 왔는데, 문서의 토큰 사다리에는 같은 잣대를 적용한 적이 없었다.
+
+사다리에 칸이 있다는 것 자체는 문제가 아니다 — 태그와 바텀시트 컴포넌트가
+아직 없을 뿐이다. 다만 **"DESIGN.md에 있으니 토큰으로 뽑는다"는 근거로는
+부족하다**는 것이 이번에 드러났다. 실사용이 생기면 그때 올린다.
+
+- 처리 시점: Phase 2 디자인 재작업
+- **DESIGN.md는 이번에 수정하지 않았다** — 거버넌스 사안이고, 실사용 0건이
+  값이 틀렸다는 뜻도 아니다.
+
+## spacing / radius / size 토큰
+
+`tokens/scale.ts`에 있다. Phase 1-A 컴포넌트 5개가 모두 나온 뒤에 뽑았다 —
+먼저 뽑았으면 컴포넌트 한둘의 우연한 선택이 전체 스케일로 굳었을 것이다.
+
+| 축 | 담은 값 | 네이밍 |
+|---|---|---|
+| `space` | 2, 8, 10, 12, 16 | 값 기반 (`space[8]`) |
+| `radius` | `control` 12, `card` 16, `pill` 999 | 의미 기반 |
+| `size` | `touchTarget` 44 | 의미 기반 |
+
+**값이 같아도 축이 다르면 별도 토큰이다.** `radius.control`(12)과 `space[12]`는
+숫자가 같지만 분리한다. Card가 한 스타일에서 둘을 겸하기 때문이다
+(`nested: { borderRadius: 12, padding: 12 }`). 묶으면 모서리만 바꾸려 할 때
+패딩이 따라 움직인다.
+
+**space만 값 기반으로 이름 붙였다.** `space.sm` 같은 의미 이름을 쓰려면
+"sm이 무엇과 무엇 사이인가"가 정해져 있어야 하는데 아직 사용처가 그 축을
+확정할 만큼 모이지 않았다. radius는 DESIGN.md가 이미 용처를 규정해 두어
+그 이름을 그대로 썼다. Phase 1-B에서 호출부 58곳을 옮기고 나면 space의
+의미 축도 드러날 것이다.
+
+**뽑지 않은 것**
+- radius `chip` 10, `sheet` 24 — DESIGN.md 사다리에 있으나 실사용 0건.
+  위 "DESIGN.md와의 불일치" 참조.
+- `56` — Header의 행 높이이자 좌우 슬롯 폭. 사용처가 Header 하나뿐이라
+  `Header.tsx`의 `SLOT` 상수로 남겼다. 두 번째 사용처가 생기면 승격한다.
+- space `4`, `6`, `20`, `24` — DESIGN.md에 있고 화면 레이아웃에서는 쓰이지만
+  컴포넌트 내부에서는 아직 0건이다.

@@ -32,7 +32,7 @@ import {
   type ViewStyle,
   type TextStyle,
 } from "react-native";
-import { useColors, type ThemeColors } from "../../tokens";
+import { useColors, space, type ThemeColors } from "../../tokens";
 
 export interface SectionProps {
   children: React.ReactNode;
@@ -68,17 +68,17 @@ const styles = StyleSheet.create({
   // 컴포넌트가 정하지 않는다.
   root: {},
   // 제목 행. Title과 Action을 한 줄에 놓고 Action을 우측으로 민다.
-  header: { flexDirection: "row", alignItems: "center", gap: 8 },
+  header: { flexDirection: "row", alignItems: "center", gap: space[8] },
   // Title이 남는 폭을 먹어 Action을 우측 끝으로 밀고,
   // 제목이 길면 Action을 밀어내지 않고 Title 쪽이 줄어든다.
-  titleSlot: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  titleSlot: { flex: 1, flexDirection: "row", alignItems: "center", gap: space[8] },
   title: { fontSize: 17, fontWeight: "800", letterSpacing: -0.4 },
   // Action은 스타일이 없는 슬롯이다. 수직 중앙 정렬만 책임진다.
   action: { flexShrink: 0, justifyContent: "center" },
   // 제목 ↔ 콘텐츠 간격 12 고정. gap prop은 열지 않는다.
   // 홈 2건이 12, 운동 1건이 16인데 후자를 드리프트로 본다.
   // Phase 1-B에서 실물 확인 후 필요하면 토큰 기반으로 개방한다.
-  content: { marginTop: 12 },
+  content: { marginTop: space[12] },
 });
 
 function SectionRoot({ children, style, testID }: SectionProps) {

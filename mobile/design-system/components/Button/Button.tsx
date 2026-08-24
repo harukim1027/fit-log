@@ -38,7 +38,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { useColors } from "../../tokens";
+import { useColors, space, radius, size } from "../../tokens";
 
 export interface ButtonProps {
   /** 라벨. 문자열을 넣으면 body-strong 14/800 onAccent로 렌더된다. */
@@ -59,12 +59,12 @@ const styles = StyleSheet.create({
   root: {
     // 전체 폭이 기본값. 좁게 쓰려면 호출부가 style로 alignSelf/width를 준다.
     alignSelf: "stretch",
-    minHeight: 44,
+    minHeight: size.touchTarget,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 999,
+    paddingVertical: space[16],
+    paddingHorizontal: space[16],
+    borderRadius: radius.pill,
   },
   // 비활성 시각 처리는 opacity로 한다. 앱 전체에서 색을 교체하는 사례가
   // 0건이고, 기존 Button도 opacity-50을 쓴다.

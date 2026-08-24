@@ -28,8 +28,10 @@
  *                44 보장과 label 필수를 Header가 또 한 벌 구현해야 한다.
  *   AppIcons     chevronLeft·close 글리프. 자체 구현해도 아이콘은 그려야 하고,
  *                경로를 복제하면 앱과 모양이 갈린다.
- *   expo-router  onBack/onClose를 넘기지 않은 11곳이 router.back() 기본값에
- *                의존한다. 없애려면 두 prop을 필수로 바꿔야 해서 API 재설계다.
+ *   expo-router  좌측 버튼이 있는 10곳 중 5곳이 핸들러를 넘기지 않아
+ *                router.back() 기본값에 의존한다(register, add-food,
+ *                barcode-scan, routine-manage:359, set-target).
+ *                없애려면 두 prop을 필수로 바꿔야 해서 API 재설계다.
  *
  * 패키지로 분리할 때 교체 지점은 tokens/ 하나가 아니라 셋이 된다.
  */
@@ -37,7 +39,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useColors } from "../../tokens";
+import { useColors, space } from "../../tokens";
 import { IconButton } from "../IconButton";
 import { Icon } from "../../../components/AppIcons";
 
@@ -55,25 +57,36 @@ export interface HeaderProps {
   testID?: string;
 }
 
+/**
+ * 헤더 행 높이이자 좌우 슬롯의 기준 폭.
+ *
+ * 토큰으로 올리지 않는다 — Header 말고 쓰는 곳이 없다. 사용처가 하나인 값을
+ * 토큰으로 승격하면 스케일에 근거 없는 칸이 생긴다(chip 10, sheet 24를
+ * 추출하지 않은 것과 같은 판단이다). 두 번째 사용처가 생기면 그때 올린다.
+ *
+ * 좌우가 같은 값이어야 가운데 제목이 화면 중앙에 온다. 따로 떼지 말 것.
+ */
+const SLOT = 56;
+
 // 색이 없는 정적 수치만.
 const styles = StyleSheet.create({
   root: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-    minHeight: 56,
+    paddingHorizontal: space[8],
+    paddingBottom: space[10],
+    minHeight: SLOT,
   },
   // 좌우 슬롯을 같은 폭으로 잡아 가운데 제목이 화면 중앙에 오게 한다.
-  leftSlot: { width: 56, alignItems: "flex-start", justifyContent: "center" },
+  leftSlot: { width: SLOT, alignItems: "flex-start", justifyContent: "center" },
   titleSlot: { flex: 1, alignItems: "center", justifyContent: "center" },
   // 회귀 방지: width 고정이 아니라 minWidth다. rightElement에 아이콘 버튼을
   // 2개 이상 넣는 화면(통계: 테마토글+프로필+로그아웃 ≈ 116pt)이 있어서
   // 56pt로 고정하면 마지막 버튼이 화면 밖으로 잘린다. 가운데 제목이 flex:1
   // 이라 이 슬롯이 늘어난 만큼 알아서 줄어든다. 지우지 말 것.
-  rightSlot: { minWidth: 56, alignItems: "flex-end", justifyContent: "center" },
+  rightSlot: { minWidth: SLOT, alignItems: "flex-end", justifyContent: "center" },
   title: { fontSize: 17, fontWeight: "800" },
-  subtitle: { fontSize: 12, fontWeight: "600", marginTop: 2 },
+  subtitle: { fontSize: 12, fontWeight: "600", marginTop: space[2] },
 });
 
 export function Header({

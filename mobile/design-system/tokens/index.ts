@@ -6,11 +6,14 @@
  * 않는다. 전부 이 파일을 거친다. 나중에 패키지로 분리할 때 이 파일만 교체하면 된다.
  *
  * 색 값을 여기에 복제하지 않는다 — constants/colors.ts가 단일 진실 소스다.
- * spacing/radius 수치 토큰은 앱에 아직 없다. Card에서 필요한 값이 확정된 뒤
- * Phase 1-B에서 만든다(지금 만들면 근거 없는 스케일이 굳는다).
+ * spacing/radius/size 수치 토큰은 앱에 없어 이 디렉터리가 원본이다.
+ * scale.ts에 있고, Phase 1-A 컴포넌트 5개의 실사용 값만 담는다.
  */
 export { useColors, lightColors, darkColors } from "../../constants/colors";
 export type { ThemeColors } from "../../constants/colors";
+
+export { space, radius, size } from "./scale";
+export type { SpaceToken, RadiusToken, SizeToken } from "./scale";
 
 import type { ThemeColors } from "../../constants/colors";
 
