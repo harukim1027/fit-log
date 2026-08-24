@@ -1,4 +1,5 @@
 import React from "react";
+import { View } from "react-native";
 import type { Preview } from "@storybook/react";
 import { useThemeStore } from "../store/themeStore";
 
@@ -29,8 +30,38 @@ const preview: Preview = {
       }
       return <Story />;
     },
+    /**
+     * 스토리를 RN View 안에 넣는다.
+     *
+     * Storybook의 #storybook-root는 맨 `div`(display: block)라 그 자식은
+     * flex item이 아니다. react-native-web은 TouchableOpacity를 `<button>`으로
+     * 렌더하는데, flex 부모가 없으면 `<button>`이 shrink-to-fit으로 잡혀
+     * alignSelf: "stretch"가 무시되고 콘텐츠 크기만큼 자란다.
+     * 실제로 긴 라벨 Button이 320 화면에서 부모 288을 넘어 395로 커지고
+     * numberOfLines 말줄임이 걸리지 않았다.
+     *
+     * 앱에서 컴포넌트는 언제나 RN View 안에 놓이므로 이쪽이 실물에 맞다.
+     * 컴포넌트를 웹 아티팩트에 맞춰 비틀지 않기 위해 하네스에서 해결한다.
+     */
+    (Story) => (
+      <View style={{ alignItems: "stretch" }}>
+        <Story />
+      </View>
+    ),
   ],
   parameters: {
+    a11y: {
+      config: {
+        rules: [
+          {
+            // story root가 landmark 밖이라 발생하는 Storybook 하네스
+            // 아티팩트. RN 앱에는 landmark 개념이 없어 무효한 룰.
+            id: "region",
+            enabled: false,
+          },
+        ],
+      },
+    },
     backgrounds: {
       options: {
         dark: { name: "Dark", value: "#171B21" },

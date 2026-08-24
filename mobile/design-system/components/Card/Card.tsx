@@ -33,6 +33,8 @@ import {
   lightColors,
   accentTint,
   LIGHT_CARD_SHADOW,
+  space,
+  radius,
   type AccentToken,
   type ThemeColors,
 } from "../../tokens";
@@ -84,11 +86,11 @@ function useCardContext(componentName: string): CardContextValue | null {
 // (radius.card 16 / radius.control 12 / space.16 / space.12 / space.8)
 // 수치 토큰 자체는 아직 앱에 없어 Phase 1-B에서 tokens/로 뺀다.
 const styles = StyleSheet.create({
-  default: { borderRadius: 16, padding: 16, borderWidth: 1 },
-  nested: { borderRadius: 12, padding: 12 },
-  accent: { borderRadius: 16, padding: 16, borderWidth: 1 },
-  body: { gap: 8 },
-  footer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  default: { borderRadius: radius.card, padding: space[16], borderWidth: 1 },
+  nested: { borderRadius: radius.control, padding: space[12] },
+  accent: { borderRadius: radius.card, padding: space[16], borderWidth: 1 },
+  body: { gap: space[8] },
+  footer: { marginTop: space[12], paddingTop: space[12], borderTopWidth: 1 },
   pressed: { opacity: 0.7 },
 });
 

@@ -1,3 +1,13 @@
+/**
+ * @deprecated design-system/components/Button 을 사용하세요.
+ *
+ * 기존 호출부 8곳(6개 파일) 교체는 Phase 1-B에서 진행합니다.
+ * 교체 시 변환이 필요한 지점:
+ *   title="저장"  → children ("저장")
+ *   className="mt-2" (4곳) → 부모 gap 또는 style. 새 Button은 className을 받지 않습니다.
+ *   rightIcon (onboarding "다음" 1곳) → children으로 직접 구성
+ *   fullWidth (7곳) → 기본값이므로 제거. 좁은 버튼(barcode-scan)만 style로 지정
+ */
 import React, { useRef } from "react";
 import {
   TouchableOpacity,

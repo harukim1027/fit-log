@@ -1,3 +1,10 @@
+/**
+ * @deprecated design-system/components/Header 를 사용하세요.
+ *
+ * 13개 호출부 교체는 Phase 1-B에서 진행합니다.
+ * API는 동일하므로 import 경로만 바꾸면 됩니다. 다만 새 Header는
+ * 뒤로/닫기 버튼이 40이 아니라 44라 좌측 슬롯이 4pt 넓어 보일 수 있습니다.
+ */
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 
