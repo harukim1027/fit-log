@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Header, Card, ThemeToggle } from "../../components/ui";
+import { Card, ThemeToggle } from "../../components/ui";
+import { Header } from "../../design-system";
 import {
   Icon,
   SaladIcon,

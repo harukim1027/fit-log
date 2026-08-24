@@ -13,7 +13,8 @@ import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Header, SortableList } from "../../components/ui";
+import { SortableList } from "../../components/ui";
+import { Header } from "../../design-system";
 import { Icon } from "../../components/AppIcons";
 import {
   useRoutineStore,

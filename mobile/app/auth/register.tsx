@@ -6,8 +6,8 @@ import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header, Input } from "../../components/ui";
-import { Button } from "../../design-system";
+import { Input } from "../../components/ui";
+import { Button, Header } from "../../design-system";
 import { LogoMark } from "../../components/AppIcons";
 
 export default function RegisterScreen() {

@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Header, Card, Input, NumberPad } from "../../components/ui";
-import { Button } from "../../design-system";
+import { Card, Input, NumberPad } from "../../components/ui";
+import { Button, Header } from "../../design-system";
 import { Stepper } from "../../components/ui/Stepper";
 import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
