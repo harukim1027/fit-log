@@ -12,7 +12,8 @@ import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useDietStore } from "../../store/dietStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
-import { Header, Button, NumberPad } from "../../components/ui";
+import { Header, NumberPad } from "../../components/ui";
+import { Button } from "../../design-system";
 import { Stepper } from "../../components/ui/Stepper";
 import { Icon } from "../../components/AppIcons";
 import { useColors, ThemeColors } from "../../constants/colors";
@@ -365,7 +366,7 @@ export default function SetTargetModal() {
         </Text>
       </ScrollView>
       <View style={{ paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 }}>
-        <Button title="저장" onPress={handleSave} fullWidth />
+        <Button onPress={handleSave}>저장</Button>
       </View>
     </SafeAreaView>
   );

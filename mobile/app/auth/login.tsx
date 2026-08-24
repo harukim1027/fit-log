@@ -7,7 +7,8 @@ import * as WebBrowser from "expo-web-browser";
 import { useAuthStore } from "../../store/authStore";
 import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Input, Button } from "../../components/ui";
+import { Input } from "../../components/ui";
+import { Button } from "../../design-system";
 import { LogoMark, Icon } from "../../components/AppIcons";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -106,13 +107,12 @@ export default function LoginScreen() {
             secureTextEntry
           />
           <Button
-            title="로그인"
             onPress={handleLogin}
             loading={isLoading}
             disabled={!email.trim() || !password}
-            fullWidth
-            className="mt-2"
-          />
+            style={{ marginTop: 8 }}>
+            로그인
+          </Button>
           <TouchableOpacity activeOpacity={0.8}
             className="items-center mt-4"
             onPress={() => router.push("/auth/register" as any)}>

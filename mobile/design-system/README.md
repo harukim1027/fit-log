@@ -32,7 +32,8 @@ IconButton은 여기서 한 걸음 더 나가 `accessibilityLabel`을 **타입 �
 "컴파일러로 규칙을 강제한 사례" 참조.
 
 **Phase 1-B 교체 대상 총계: 58곳 / 19개 파일**
-(IconButton 37곳·15파일, Header 13곳·10파일, Button 8곳·6파일 — 파일은 겹친다).
+(IconButton 37곳·15파일, Header 13곳·10파일, ~~Button 8곳·6파일~~ ✅ 완료 — 파일은 겹친다).
+남은 것은 IconButton 37곳과 Header 13곳이다.
 아래 "Phase 1-B 교체 대상"에 파일별 목록이 있다.
 
 ## 규칙
@@ -233,9 +234,57 @@ API가 동일하므로 import 경로만 바꾸면 된다. 다만 뒤로/닫기 �
 `stats.tsx:300`의 `rightElement`가 클리핑 회귀의 발원지다 — 아이콘 버튼
 3개(≈116pt)를 넣는 유일한 화면이라 교체 후 반드시 실기기에서 확인할 것.
 
-### Button — 8곳 / 6개 파일
+### ~~Button — 8곳 / 6개 파일~~ ✅ 완료
 
-`components/ui/Button.tsx`의 `@deprecated` 주석에 변환 항목을 적어 두었다.
+전부 `design-system`으로 교체했다. `components/ui/Button.tsx`는 참조 0을
+확인했고 삭제는 별도 커밋에서 한다.
+
+변환 방식:
+
+| 기존 | 교체 후 |
+|---|---|
+| `title="저장"` | `children` (`<Button …>저장</Button>`) |
+| `fullWidth` | 제거 (새 Button의 기본값) |
+| `className="mt-2"` 등 4곳 | `style={{ marginTop: 8 }}` |
+| `className="bg-workout"` 1곳 | `style={{ backgroundColor: c.workout }}` |
+| `rightIcon` 1곳 | `children`으로 직접 구성 |
+| 비-fullWidth 1곳 | `style={{ alignSelf: "center", paddingHorizontal: 32 }}` |
+
+#### 교체하며 바뀐 것 — 시각 변화가 있었다
+
+기존 `components/ui/Button`이 DESIGN.md에서 벗어나 있었기 때문에 교체가 곧
+외관 변경이었다. 8곳 전부 해당한다.
+
+| 항목 | 기존(size=lg 기본값) | 새 Button |
+|---|---|---|
+| `borderRadius` | 24 (`rounded-3xl`) | **999** (`radius.pill`) |
+| `paddingHorizontal` | 32 (`px-8`) | **16** (`space[16]`) |
+| 라벨 | 16/700 (`text-base font-bold`) | **14/800** (body-strong) |
+| `activeOpacity` | 0.9 | **0.7** (`opacity.pressed`) |
+| 누름 애니메이션 | spring scale 0.96 | **없음** |
+| `marginHorizontal` | 10 (fullWidth 시 자동) | **0** |
+
+`paddingVertical` 16과 disabled `opacity` 0.5는 동일하다.
+
+특히 **`fullWidth`가 좌우 마진 10을 함께 넣고 있었다**(`marginHorizontal:
+horizontalMargin ?? 10`). prop만 지우면 버튼이 20pt 넓어진다 — 의도한
+결과지만 화면마다 여백이 달라 보일 수 있으니 확인이 필요하다.
+
+#### 교체하며 발견한 새 Button의 부족한 점
+
+**`children`이 문자열이 아니면 라벨 서식과 접근성 이름을 둘 다 잃는다.**
+Button은 문자열일 때만 `<Text>`로 감싸 14/800 `onAccent`를 입히고,
+`accessibilityLabel`도 문자열 children에서만 뽑는다. 아이콘을 곁들인
+`onboarding.tsx`의 "다음" 버튼은 호출부가 **Button 내부의 라벨 스타일을
+그대로 베껴 써야 했다.** 나중에 Button의 라벨 서식이 바뀌면 이 호출부만
+드리프트한다.
+
+`accessibilityLabel`이 optional이라 잊기도 쉽다 — IconButton처럼 필수였다면
+컴파일러가 잡았을 것이다(문자열 children이 있으면 불필요하므로 단순 필수화는
+답이 아니다).
+
+이번에는 prop을 추가하지 않고 기록만 한다. 아이콘+라벨 사례가 1건뿐이라
+API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 판단한다.**
 
 ## 알려진 미해결 항목
 

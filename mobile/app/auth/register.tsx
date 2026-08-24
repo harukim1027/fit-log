@@ -6,7 +6,8 @@ import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header, Input, Button } from "../../components/ui";
+import { Header, Input } from "../../components/ui";
+import { Button } from "../../design-system";
 import { LogoMark } from "../../components/AppIcons";
 
 export default function RegisterScreen() {
@@ -67,13 +68,12 @@ export default function RegisterScreen() {
             secureTextEntry
           />
           <Button
-            title="회원가입"
             onPress={handleRegister}
             loading={isLoading}
             disabled={!name.trim() || !email.trim() || !password}
-            fullWidth
-            className="mt-2"
-          />
+            style={{ marginTop: 8 }}>
+            회원가입
+          </Button>
           <TouchableOpacity activeOpacity={0.8} className="items-center mt-4" onPress={() => router.back()}>
             <Text className="text-sm text-text-secondary">
               이미 계정이 있으신가요? <Text className="text-primary font-bold">로그인</Text>

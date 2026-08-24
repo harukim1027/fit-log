@@ -7,7 +7,8 @@ import { useState, useEffect } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Icon } from "../../components/AppIcons";
 import { useDietStore } from "../../store/dietStore";
-import { Header, Button } from "../../components/ui";
+import { Header } from "../../components/ui";
+import { Button } from "../../design-system";
 import { useLocalSearchParams } from "expo-router";
 import { MealType, FoodItem } from "../../types/diet";
 import apiClient from "../../lib/apiClient";
@@ -70,7 +71,14 @@ export default function BarcodeScanModal() {
           <Text className="text-base text-text-primary text-center mb-5 mt-10">
             카메라 권한이 필요해요
           </Text>
-          <Button title="권한 허용" onPress={requestPermission} />
+          {/* 8곳 중 유일하게 전체 폭이 아닌 버튼. 새 Button은 전체 폭이
+              기본이라 alignSelf로 되돌리고, 기존 px-8(32)과 맞춰 좌우 패딩을
+              준다. 부모가 items-center라 alignSelf 없이는 stretch가 이긴다. */}
+          <Button
+            onPress={requestPermission}
+            style={{ alignSelf: "center", paddingHorizontal: 32 }}>
+            권한 허용
+          </Button>
         </View>
       </View>
     );
