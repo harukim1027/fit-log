@@ -14,6 +14,7 @@ design-system/
 - `components/`는 앱 코드(`constants/`, `store/`)를 직접 import 하지 않는다. 반드시 `tokens/`를 거친다. 나중에 패키지로 분리할 때 `tokens/index.ts`만 교체하면 된다.
 - 색 값을 복제하지 않는다. `constants/colors.ts`가 단일 진실 소스다. hex 하드코딩 금지.
 - 컴포넌트끼리 import 하지 않는다. 조합은 사용처가 한다(예: `Section.Content` 안에 `Card`).
+  **예외는 `Header` 하나뿐이다** — 아래 "Header의 의존성 예외" 참조.
 - `any` 금지. `style`은 `StyleProp<ViewStyle>`.
 - 색 없는 정적 수치는 `StyleSheet.create`, 테마 의존 색은 인라인 병합. 앱의 지배적 관례가 인라인이기 때문이다(컴포넌트 44개 중 `StyleSheet.create`는 1개).
 
@@ -108,6 +109,28 @@ error TS2741: Property 'accessibilityLabel' is missing in type
 **원칙: 지켜지지 않는 문서 규칙을 발견하면 문구를 강하게 고치기 전에
 타입이나 기본값으로 옮길 수 있는지 먼저 본다.**
 
+## Header의 의존성 예외
+
+`Header`는 design-system에서 유일하게 `tokens/` 밖을 import 한다. 나머지 넷은
+React, react-native, `../../tokens`만 쓴다.
+
+| 의존 | 쓰는 곳 | 뺄 수 있나 |
+|---|---|---|
+| `IconButton` | 뒤로/닫기 버튼 | 뺄 수 있지만 뺄 이유가 없다 (아래) |
+| `components/AppIcons` | chevronLeft·close 글리프 | 아니오 — 자체 구현해도 아이콘은 그려야 한다 |
+| `expo-router` | `onBack`/`onClose` 미전달 시 `router.back()` | 아니오 — 13곳 중 11곳이 이 기본값에 의존한다 |
+| `react-native-safe-area-context` | 상단 인셋 | 아니오 — 헤더의 본질이다 |
+
+`IconButton`을 자체 구현으로 대체하는 선택지를 검토했지만 택하지 않았다.
+그렇게 해도 나머지 셋이 남아 독립성은 회복되지 않는 반면, 44 보장과
+`accessibilityLabel` 필수를 Header가 한 벌 더 구현해야 한다 —
+IconButton이 바로 그 두 가지를 위해 만들어진 컴포넌트인데도.
+**"내부 import 금지"는 목적이 아니라 결합을 줄이려는 수단이고, 여기서는
+수단을 지키려다 결합이 늘어나는 상황이었다.**
+
+패키지로 분리한다면 교체 지점이 `tokens/` 하나가 아니라 아이콘과 라우팅까지
+셋이 된다. 다른 컴포넌트로 이 예외를 넓히지 말 것.
+
 ## Phase 1-B 교체 대상
 
 ### IconButton — 37곳 / 15개 파일
@@ -147,6 +170,30 @@ IconButton으로 옮기면 자동 해소된다.
 - `plain` 25건 중 19건은 `style`이 아예 없는 맨 터치 요소다. 옮기면 박스가
   44로 커지므로 밀집한 행에서 레이아웃이 밀릴 수 있다. 파일 단위로 옮기고
   화면을 눈으로 확인할 것.
+
+### Header — 13곳 / 11개 파일
+
+API가 동일하므로 import 경로만 바꾸면 된다. 다만 뒤로/닫기 버튼이 40에서
+44로 커져 좌측이 4pt 넓어 보일 수 있으니 화면마다 눈으로 확인할 것.
+
+| 파일 | 줄 | 넘기는 prop |
+|---|---|---|
+| `app/(tabs)/diet.tsx` | 228 | title |
+| `app/(tabs)/stats.tsx` | 300 | title, subtitle, rightElement |
+| `app/(tabs)/workout.tsx` | 784 | title |
+| `app/auth/register.tsx` | 38 | title, showBack |
+| `app/modal/add-food.tsx` | 302 | title, subtitle, showClose, rightElement |
+| `app/modal/barcode-scan.tsx` | 68 | title, showClose |
+| `app/modal/routine-manage.tsx` | 359 | title, showClose |
+| `app/modal/routine-manage.tsx` | 647 | title, showClose, onClose |
+| `app/modal/routine-manage.tsx` | 743 | title, showClose, onClose |
+| `app/modal/routine-manage.tsx` | 927 | title, showClose, onClose |
+| `app/modal/set-target.tsx` | 225 | title, showClose |
+| `app/onboarding.tsx` | 101 | title, showBack, onBack, rightElement |
+| `components/workout/ExerciseAdder.tsx` | 638 | title, showClose, onClose |
+
+`stats.tsx:300`의 `rightElement`가 클리핑 회귀의 발원지다 — 아이콘 버튼
+3개(≈116pt)를 넣는 유일한 화면이라 교체 후 반드시 실기기에서 확인할 것.
 
 ### Button — 8곳 / 6개 파일
 
