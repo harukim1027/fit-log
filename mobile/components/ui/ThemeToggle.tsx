@@ -1,21 +1,30 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { View } from "react-native";
+import { IconButton } from "../../design-system";
 import { useThemeStore } from "../../store/themeStore";
 import { useColors } from "../../constants/colors";
 
+/**
+ * `size`는 **아이콘 기준 크기**다. 박스 크기가 아니다.
+ *
+ * IconButton으로 옮기면서 박스는 44(DESIGN.md target.min)로 고정됐다 —
+ * 44는 호출부가 아니라 컴포넌트가 보장한다. 호출부가 넘기는 36/38은
+ * 이제 안쪽 해/달 글리프 크기(size * 0.5 = 18/19)만 정한다.
+ *
+ * 배경은 IconButton의 filled(= surfaceAlt)가 그린다. MoonIcon의 초승달은
+ * 배경과 같은 색 원을 겹쳐 파내는 방식이라 그 색이 surfaceAlt여야 하는데,
+ * `bg-surface-alt`와 `c.surfaceAlt`가 같은 CSS 변수를 가리키므로 그대로 맞는다.
+ */
 export function ThemeToggle({ size = 36 }: { size?: number }) {
   const { mode, toggle } = useThemeStore();
 
   return (
-    <TouchableOpacity
+    <IconButton
       onPress={toggle}
-      style={{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center" }}
-      className="bg-surface-alt"
-      activeOpacity={0.7}
-      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+      variant="filled"
       accessibilityLabel={mode === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}>
       {mode === "dark" ? <SunIcon size={size * 0.5} /> : <MoonIcon size={size * 0.5} />}
-    </TouchableOpacity>
+    </IconButton>
   );
 }
 
