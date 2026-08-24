@@ -6,7 +6,8 @@ import {
   UIManager, Image, ActivityIndicator, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Header, NumberPad } from "../ui";
+import { NumberPad } from "../ui";
+import { Header } from "../../design-system";
 import { Icon, FlameIcon } from "../AppIcons";
 import { SetInputRow } from "./SetInputRow";
 import apiClient from "../../lib/apiClient";

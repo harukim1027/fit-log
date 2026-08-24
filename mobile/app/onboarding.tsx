@@ -4,8 +4,8 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { showCuteAlert } from "../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Header, NumberPad } from "../components/ui";
-import { Button } from "../design-system";
+import { NumberPad } from "../components/ui";
+import { Button, Header } from "../design-system";
 import { Icon, GoalIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useColors } from "../constants/colors";
@@ -229,9 +229,11 @@ export default function OnboardingScreen() {
         <View className="px-6 pt-3 pb-2 border-t border-border bg-background">
           {step < 1 ? (
             /* 새 Button에는 rightIcon prop이 없다. children으로 직접 구성한다.
-               children이 문자열이 아니면 Button이 라벨 서식(14/800 onAccent)을
-               입히지 않으므로 Text를 직접 쓰고, 접근성 이름도 못 뽑으므로
-               accessibilityLabel을 명시한다. */
+               접근성 이름도 문자열 children에서만 뽑히므로 명시한다.
+
+               Button의 children이 문자열이 아니면 라벨 서식이 적용되지 않아
+               여기서 14/800 onAccent를 직접 지정한다.
+               design-system Button의 라벨 서식이 바뀌면 이 호출부도 함께 수정할 것. */
             <Button onPress={goNext} disabled={!goal} accessibilityLabel="다음">
               <View className="flex-row items-center">
                 <Text

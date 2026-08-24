@@ -31,12 +31,12 @@ import * as Haptics from "expo-haptics";
 import { showCuteAlert } from "../../components/CuteAlert";
 import { useRouter } from "expo-router";
 import {
-  Header,
   Card,
   SortableList,
   NumberPad,
   SetIndicator,
 } from "../../components/ui";
+import { Header } from "../../design-system";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { useRoutineStore } from "../../store/routineStore";

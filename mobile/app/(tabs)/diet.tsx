@@ -11,7 +11,8 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Header, SortableList } from "../../components/ui";
+import { SortableList } from "../../components/ui";
+import { Header } from "../../design-system";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Calendar } from "react-native-calendars";
 import { useDietStore } from "../../store/dietStore";
