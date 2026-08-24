@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Header, Card, Input, Button, NumberPad } from "../../components/ui";
+import { Header, Card, Input, NumberPad } from "../../components/ui";
+import { Button } from "../../design-system";
 import { Stepper } from "../../components/ui/Stepper";
 import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
@@ -479,11 +480,10 @@ export default function AddFoodModal() {
               </Card>
             )}
             <Button
-              title="추가하기"
               onPress={handleAddSearch}
-              fullWidth
-              className="mt-2 mb-2"
-            />
+              style={{ marginTop: 8, marginBottom: 8 }}>
+              추가하기
+            </Button>
           </>
         )}
 
@@ -750,7 +750,9 @@ export default function AddFoodModal() {
                 />
               </View>
             </View>
-            <Button title="추가하기" onPress={handleAddManual} fullWidth className="mb-2" />
+            <Button onPress={handleAddManual} style={{ marginBottom: 8 }}>
+              추가하기
+            </Button>
           </ScrollView>
         )}
       </View>

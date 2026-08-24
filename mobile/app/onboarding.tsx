@@ -4,7 +4,8 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { showCuteAlert } from "../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Header, Button, NumberPad } from "../components/ui";
+import { Header, NumberPad } from "../components/ui";
+import { Button } from "../design-system";
 import { Icon, GoalIcon } from "../components/AppIcons";
 import { useAuthStore } from "../store/authStore";
 import { useColors } from "../constants/colors";
@@ -227,22 +228,31 @@ export default function OnboardingScreen() {
         {/* 하단 버튼 */}
         <View className="px-6 pt-3 pb-2 border-t border-border bg-background">
           {step < 1 ? (
-            <Button
-              title="다음"
-              rightIcon={<Icon name="chevronRight" size={20} color={c.surface} />}
-              onPress={goNext}
-              disabled={!goal}
-              fullWidth
-            />
+            /* 새 Button에는 rightIcon prop이 없다. children으로 직접 구성한다.
+               children이 문자열이 아니면 Button이 라벨 서식(14/800 onAccent)을
+               입히지 않으므로 Text를 직접 쓰고, 접근성 이름도 못 뽑으므로
+               accessibilityLabel을 명시한다. */
+            <Button onPress={goNext} disabled={!goal} accessibilityLabel="다음">
+              <View className="flex-row items-center">
+                <Text
+                  style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
+                  다음
+                </Text>
+                <View className="ml-2">
+                  <Icon name="chevronRight" size={20} color={c.surface} />
+                </View>
+              </View>
+            </Button>
           ) : (
+            /* 기존 className="bg-workout"의 배경 오버라이드를 style로 옮겼다.
+               Button이 backgroundColor: c.primary 뒤에 style을 병합하므로 이긴다. */
             <Button
-              title={isLoading ? "저장 중..." : "시작하기"}
               onPress={handleFinish}
               loading={isLoading}
               disabled={!gender || !age || !height || !weight}
-              fullWidth
-              className="bg-workout"
-            />
+              style={{ backgroundColor: c.workout }}>
+              {isLoading ? "저장 중..." : "시작하기"}
+            </Button>
           )}
         </View>
       </KeyboardAwareScrollView>
