@@ -13,6 +13,7 @@ import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { GoalIcon, Icon } from "../../components/AppIcons";
+import { IconButton } from "../../design-system";
 import { NumberPad } from "../../components/ui";
 
 const GOALS = [
@@ -125,17 +126,19 @@ export default function EditProfileModal() {
         borderBottomColor: c.surfaceAlt,
         backgroundColor: c.background,
       }}>
-        <TouchableOpacity activeOpacity={0.7}
-          style={{
-            width: 36, height: 36, alignItems: "center", justifyContent: "center",
-            borderRadius: 999, backgroundColor: c.surfaceAlt,
-          }}
+        {/* filled의 기본값이 그대로 맞는다 — 배경 surfaceAlt, radius pill(999).
+            박스는 36 → 44. hitSlop 10은 뺐다: 히트가 56 → 44로 줄지만
+            보이는 원 전체가 눌리게 되고 44는 IconButton이 보장한다. */}
+        <IconButton
+          accessibilityLabel="프로필 편집 닫기"
           onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          variant="filled">
           <Icon name="close" size={18} color={c.textPrimary} />
-        </TouchableOpacity>
+        </IconButton>
         <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>프로필 편집</Text>
-        <View style={{ width: 36 }} />
+        {/* 제목을 가운데 두려고 좌측 버튼과 같은 폭을 비워 두는 자리.
+            버튼이 44가 됐으므로 여기도 44여야 제목이 안 밀린다. */}
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
