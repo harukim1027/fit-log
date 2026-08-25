@@ -121,15 +121,17 @@ export function SettingSelector({
         <View key={k.id} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
           {chip(k.name, !isCustom && selectedKey === k.name, () => selectKey(k.name), k.id)}
           {onDeleteExtraKey && (
-            /* 박스 13 → 44. hitSlop 6을 더해도 25라 애초에 44에 못 미쳤다.
-               ⚠️ 음수 마진은 13px 글리프를 칩 오른쪽 위 모서리에 붙이려고 준
-               값이다. 44 박스에서는 같은 뜻으로 동작하지 않는다 —
-               글리프가 칩 모서리가 아니라 칩 오른쪽 여백 가운데로 온다.
-               가로 ScrollView 안이라 잘리지는 않고 칩 묶음이 ~31 넓어진다.
-               값을 그대로 둔 것은 교체만 하고 디자인 판단은 미루기 위해서다. */
+            /* 칩 오른쪽 위 모서리에 붙는 배지. box 모드(44)로 만들면
+               묶음 폭이 61.67 → 92.67로 늘고 글리프가 칩에서 20pt 떨어져
+               어느 칩의 삭제인지 불분명해진다.
+               음수 마진으로 44 박스를 칩 위로 끌어올리는 방식은
+               칩 오른쪽 절반이 삭제 버튼에 가려져 오탭 위험이 있어 택하지 않았다.
+               부모에 overflow: hidden 없음을 확인함 (시트 컨테이너 borderRadius만,
+               칩 컨테이너는 flexWrap). */
             <IconButton
               accessibilityLabel={`${k.name} 항목 삭제`}
               onPress={() => onDeleteExtraKey(k.id)}
+              touchTargetMode="hitSlop"
               style={{ marginLeft: -4, marginTop: -8 }}>
               <Icon name="close" size={13} color={c.textMuted} />
             </IconButton>
