@@ -33,7 +33,7 @@ IconButton은 여기서 한 걸음 더 나가 `accessibilityLabel`을 **타입 �
 
 **Phase 1-B 교체 대상 총계: 58곳 / 19개 파일**
 (IconButton 37곳·15파일, ~~Header 13곳·10파일~~ ✅, ~~Button 8곳·6파일~~ ✅ — 파일은 겹친다).
-**남은 것은 IconButton 37곳뿐이다.**
+**IconButton은 37곳 중 2곳(`barcode-scan`, `ThemeToggle`)을 옮겼고 35곳이 남았다.**
 아래 "Phase 1-B 교체 대상"에 파일별 목록이 있다.
 
 ## 규칙
@@ -172,30 +172,40 @@ IconButton이 바로 그 두 가지를 위해 만들어진 컴포넌트인데도
 
 ## Phase 1-B 교체 대상
 
-### IconButton — 37곳 / 15개 파일
+### IconButton — 37곳 / 15개 파일 (2곳 완료, 35곳 남음)
 
 `filled/plain`은 현재 배경색 유무로 판정한 값이다. 옮길 때 실물로 확인할 것.
-`44 미달`은 고정 크기가 44 미만이면서 `hitSlop`도 없는 건수 —
-IconButton으로 옮기면 자동 해소된다.
+`히트 44 미달`은 **실제 히트 영역**(박스 + `hitSlop`)이 44에 못 미치는 건수다.
+IconButton으로 옮기면 자동 해소된다. 줄 번호는 AST 재수집분(1-based)이다.
 
-| 파일 | 건수 | filled / plain | label 있음 | 44 미달 | 줄 번호 |
+> **이 열의 첫 집계(24)는 정의가 틀렸다.** "고정 크기가 44 미만이면서 `hitSlop`도
+> 없는 건수"로 셌기 때문에, `hitSlop`이 있지만 그래도 44에 못 미치는 곳이 전부
+> 통과로 잡혔다 — `stats` 39.5, `full-calendar` 42, `WaterTracker` 38,
+> `routine-manage:889·1098` 31, `RestTimer` 30. **`hitSlop`이 있다는 사실은
+> 44를 채웠다는 뜻이 아니다.** 다시 세면 37곳 중 **33곳**이 미달이고, 44에 닿는
+> 곳은 `Header` 2건(60), `edit-profile`(56), `ThemeToggle`(48) 넷뿐이었다.
+
+| 파일 | 건수 | filled / plain | label 있음 | 히트 44 미달 | 줄 번호 |
 |---|---|---|---|---|---|
-| `app/(tabs)/diet.tsx` | 7 | 5 / 2 | 0 | 7 | 350, 381, 603, 738, 755, 949, 1078 |
-| `app/(tabs)/workout.tsx` | 6 | 0 / 6 | 0 | 5 | 1016, 1024, 1037, 2238, 4597, 4674 |
-| `app/modal/routine-manage.tsx` | 5 | 0 / 5 | 0 | 3 | 513, 516, 888, 1097, 1165 |
-| `components/workout/ExerciseAdder.tsx` | 4 | 0 / 4 | 0 | 4 | 719, 751, 1023, 1156 |
-| `app/(tabs)/stats.tsx` | 2 | 0 / 2 | 0 | 0 | 306, 312 |
-| `app/modal/add-food.tsx` | 2 | 0 / 2 | 0 | 2 | 436, 681 |
-| `components/ui/Header.tsx` | 2 | 2 / 0 | 0 | 0 | 51, 59 |
-| `components/workout/SettingSelector.tsx` | 2 | 1 / 1 | 0 | 1 | 123, 187 |
-| `app/modal/barcode-scan.tsx` | 1 | 1 / 0 | 0 | 1 | 91 |
+| `app/(tabs)/diet.tsx` | 7 | 5 / 2 | 0 | 7 | 351, 382, 604, 739, 756, 950, 1079 |
+| `app/(tabs)/workout.tsx` | 6 | 0 / 6 | 0 | **6** | 1016, 1024, 1037, 2238, 4597, 4674 |
+| `app/modal/routine-manage.tsx` | 5 | 0 / 5 | 0 | **5** | 514, 517, 889, 1098, 1166 |
+| `components/workout/ExerciseAdder.tsx` | 4 | 0 / 4 | 0 | 4 | 720, 752, 1024, 1157 |
+| `app/(tabs)/stats.tsx` | 2 | 0 / 2 | 0 | **2** | 307, 313 |
+| `app/modal/add-food.tsx` | 2 | 0 / 2 | 0 | 2 | 437, 681 |
+| `components/ui/Header.tsx` | 2 | 2 / 0 | 0 | 0 | 58, 66 |
+| `components/workout/SettingSelector.tsx` | 2 | 1 / 1 | 0 | **2** | 123, 187 |
+| ~~`app/modal/barcode-scan.tsx`~~ ✅ | 1 | 1 / 0 | 0 | 1 | 98 |
 | `app/modal/edit-profile.tsx` | 1 | 1 / 0 | 0 | 0 | 128 |
-| `app/modal/full-calendar.tsx` | 1 | 0 / 1 | 0 | 0 | 98 |
-| `components/RestTimer.tsx` | 1 | 0 / 1 | 0 | 0 | 411 |
+| `app/modal/full-calendar.tsx` | 1 | 0 / 1 | 0 | **1** | 98 |
+| `components/RestTimer.tsx` | 1 | 0 / 1 | 0 | **1** | 411 |
 | `components/RoutineColorPicker.tsx` | 1 | 1 / 0 | 0 | 1 | 66 |
-| `components/WaterTracker.tsx` | 1 | 0 / 1 | 0 | 0 | 39 |
-| `components/ui/ThemeToggle.tsx` | 1 | 1 / 0 | **1** | 0 | 10 |
-| **합계** | **37** | **12 / 25** | **1** | **24** | |
+| `components/WaterTracker.tsx` | 1 | 0 / 1 | 0 | **1** | 39 |
+| ~~`components/ui/ThemeToggle.tsx`~~ ✅ | 1 | 1 / 0 | **1** | 0 | 10 |
+| **합계** | **37** | **12 / 25** | **1** | **33** | |
+
+교체를 끝낸 2곳을 빼면 **남은 35곳 중 32곳이 히트 44 미달**이고, `label`이 붙은
+곳은 **0곳**이다(유일하게 있던 `ThemeToggle`을 옮겼다).
 
 주의할 곳:
 - `filled`의 기본 배경은 `surfaceAlt`, 기본 radius는 pill(999)이다.
@@ -205,10 +215,82 @@ IconButton으로 옮기면 자동 해소된다.
   `RoutineColorPicker.tsx:66`(배경이 사용자가 고른 색),
   `SettingSelector.tsx:187`(`primary` 배경 = 선택 상태).
 - **`components/ui/Header.tsx`의 2건(58·66)은 교체하지 않는다.** Header 이전이
-  끝나 이 파일은 배럴에서만 참조되는 삭제 예정 파일이다. 실질 대상은 **35곳**.
+  끝나 이 파일은 배럴에서만 참조되는 삭제 예정 파일이다. 실질 대상은 **35곳**이고,
+  그중 2곳을 옮겼으므로 **남은 실질 대상은 33곳**이다.
 - `plain` 25건 중 19건은 `style`이 아예 없는 맨 터치 요소다. 옮기면 박스가
   44로 커지므로 밀집한 행에서 레이아웃이 밀릴 수 있다. 파일 단위로 옮기고
   화면을 눈으로 확인할 것.
+
+#### ⚠️ NativeWind의 `rem`은 16이 아니라 14다
+
+**Tailwind 클래스로 준 크기를 웹 기준으로 환산하지 말 것.** NativeWind v4의
+네이티브 `rem` 기본값은 14라, 모든 간격 클래스가 웹에서 기대하는 값의
+**0.875배**로 렌더된다. 아래는 시뮬레이터에서 `onLayout`으로 잰 값이다
+(iPhone 13 mini / 375pt. 렌더는 1/3pt 격자로 반올림되므로 31.5는 31.33으로 찍힌다).
+
+| 클래스 | 웹(rem 16) | 실측 |
+|---|---|---|
+| `w-9` / `h-9` | 36 | **31.5** |
+| `w-10` / `h-10` | 40 | **35** |
+| `w-11` / `h-11` | 44 | **38.5** |
+| `p-1.5` | 6 | **5.25** |
+| `p-2` / `px-2` | 8 | **7** |
+| `p-4` | 16 | **14** |
+| `py-1` | 4 | **3.5** |
+| `px-5` / `mr-5` | 20 | **17.5** |
+| `gap-1` / `gap-2` / `gap-3` | 4 / 8 / 12 | **3.5 / 7 / 10.5** |
+
+**`w-11 h-11`이 44가 아니라 38.5라는 점이 특히 위험하다.** 44를 의도하고
+`w-11 h-11`을 쓴 곳은 코드만 봐서는 `target.min`을 지킨 것처럼 보이지만 실제로는
+미달이다. 지금 IconButton 대상 중에는 없지만, 앞으로 생기면 같은 방식으로
+조용히 어긋난다.
+
+이 오산 때문에 이 문서의 첫 집계가 두 군데 틀렸다.
+
+| 위치 | 첫 집계 | 실측 | 원인 |
+|---|---|---|---|
+| `barcode-scan.tsx:98` | "이미 44 (아이콘 28 + p-2 8×2)" | **42** | `p-2`가 8이 아니라 7 |
+| `stats.tsx:307·313` | 36 | **31.33** | `w-9 h-9`가 36이 아니라 31.5 |
+
+`stats`가 틀리면서 헤더 우측 슬롯도 116이 아니라 **106**이었다.
+
+**원칙: 크기를 클래스로 준 호출부는 계산하지 말고 `onLayout`으로 잰다.**
+스크린샷 픽셀 측정은 둥근 모서리에서 안티에일리어싱 때문에 사방 1~2px씩 작게
+잡히므로 교차검증용으로만 쓴다. 실제로 `barcode-scan`을 픽셀로 재면 41.7,
+`onLayout`으로 재면 42다.
+
+#### 실측 방법 — 시뮬레이터를 탭 없이 몰아가기
+
+Header 이전 때는 "시뮬레이터를 프로그램으로 탭할 수 없어 자동 확인이 불가능"
+했지만, dev client는 **URL만으로 서버 교체와 화면 이동이 된다.**
+
+```bash
+# 1) metro를 빈 포트에 띄운다 (8081이 다른 프로젝트에 잡혀 있어도 된다)
+npx expo start --port 8082
+
+# 2) dev client를 그 서버에 붙인다 — 탭 없이 앱이 새 번들을 받는다
+xcrun simctl openurl <UDID> \
+  "exp+fitlog://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8082"
+
+# 3) 화면 이동도 딥링크로
+xcrun simctl openurl <UDID> "exp+fitlog://stats"
+xcrun simctl openurl <UDID> "exp+fitlog://modal/routine-manage?editId=<id>"
+
+# 4) 스크린샷
+xcrun simctl io <UDID> screenshot out.png
+```
+
+크기는 재고 싶은 요소에 `onLayout`을 **임시로** 붙여 `console.log`하고
+metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이면 대부분 열린다.
+
+주의할 점 셋:
+- **딥링크를 연달아 보내면 모달이 쌓인다.** iOS 모달 스택은 한 겹마다 아래로
+  내려가므로 같은 화면인데 좌표가 46pt씩 어긋난다. 비교 전에 2)로 리로드해
+  네비게이션을 초기화할 것. 이걸 모르고 before/after를 재면 없는 이동이 보인다.
+- **스크린샷 픽셀 ≠ pt.** iPhone 13 mini는 375pt를 1080px로 내려 담아 배율이
+  3이 아니라 **2.88**이다. `1080 / 375`로 직접 구해 쓸 것.
+- 화면 진입에 로그인·데이터가 필요한 곳(`routine-manage`의 편집 모드 등)은
+  계정에 해당 데이터가 없으면 여전히 못 연다.
 
 #### 교체 계획 — 위험도 분류
 
@@ -239,21 +321,26 @@ IconButton으로 옮기면 자동 해소된다.
 | 상 | `ExerciseAdder.tsx:720·752` | 16·16 | +28 | 검색 결과 행 |
 | 중 | `diet.tsx:351·382` | 38 | +6 | 여유 있음 |
 | 중 | `diet.tsx:604·739·756` | 32·28·32 | +12~16 | 단독에 가까움 |
-| 중 | `stats.tsx:307·313` | 36 | +8 | 헤더 우측 슬롯 116 → 140pt |
+| 중 | `stats.tsx:307·313` | **31.33** | **+12.67** | 헤더 우측 슬롯 **106 → 139.33pt** |
 | 중 | `add-food.tsx:437` | 20 | +24 | 하트 토글, 행에 여유 |
 | 중 | `edit-profile.tsx:128` | 36 | +8 | |
 | 중 | `full-calendar.tsx:98` | 26 | +18 | |
 | 중 | `RestTimer.tsx:411` | 14 | +30 | 단독 배치 |
 | 중 | `RoutineColorPicker.tsx:66` | 36 | +8 | 배경이 사용자 선택 색 |
 | 중 | `ExerciseAdder.tsx:1024·1157` | 28 | +16 | |
-| 중 | `SettingSelector.tsx:123·187` | 13·36 | +31·8 | |
-| 하 | `barcode-scan.tsx:98` | 44 | 0 | 이미 44 |
-| 하 | `ThemeToggle.tsx:10` | size prop | 0 | 호출부가 크기 지정, label 이미 있음 |
+| 중 | `SettingSelector.tsx:123·187` | 13 · **42×36** | +31 · **가로 +2 / 세로 +8** | 187은 `paddingHorizontal 14 + 아이콘 14` |
+| ~~하~~ ✅ | `barcode-scan.tsx:98` | **42** | **+2** | 1단계 교체 완료 (`e7c479e`) |
+| ~~하~~ ✅ | `ThemeToggle.tsx:10` | **36 / 38** | **+8 / +6** | 2단계 교체 완료 (`c0de5c5`). 히트는 원래도 48이었으나 박스는 커진다 |
 | 하 | `components/ui/Header.tsx:58·66` | 40 | +4 | **삭제 예정 — 교체 안 함** |
 
-`stats.tsx:307·313`이 44가 되면 헤더 우측 슬롯이 116 → 140pt가 되어
-320 폭에서 제목 슬롯이 132 → 108pt로 줄어든다. "통계"는 짧아 문제없지만
-Header 교체 때 확인한 값과 달라지므로 다시 봐야 한다.
+`stats.tsx:307·313`이 44가 되면 헤더 우측 슬롯이 **106 → 139.33pt**가 된다.
+`ThemeToggle` 교체(2단계)로 이미 106 → 114를 지났고, 남은 두 개가 44가 되면
+139.33이 된다. 320 폭에서 제목 슬롯은 **142 → (현재)134 → 108.67pt**다.
+"통계"는 짧아 문제없지만 실측으로 다시 확인할 것.
+
+> 2단계까지 끝난 시점에서 375 폭 시뮬레이터로 확인했다. 제목 슬롯 197 → 189,
+> 클리핑 없음. 로그아웃 아이콘이 또 잘려 보였으나 5배 확대 결과 정상이었다
+> (아래 "Header" 절에 적힌 착시. 이번이 세 번째다).
 
 #### 교체 순서 제안
 
@@ -261,8 +348,8 @@ Header 교체 때 확인한 값과 달라지므로 다시 봐야 한다.
 
 | # | 파일 | 건수 | 최고위험 | 화면 / 진입 경로 |
 |---|---|---|---|---|
-| 1 | `app/modal/barcode-scan.tsx` | 1 | 하 | 식품 추가 → 바코드 |
-| 2 | `components/ui/ThemeToggle.tsx` | 1 | 하 | 통계 헤더 우측 |
+| ~~1~~ ✅ | `app/modal/barcode-scan.tsx` | 1 | 하 | 식품 추가 → 바코드 |
+| ~~2~~ ✅ | `components/ui/ThemeToggle.tsx` | 1 | 하 | 통계 헤더 우측 |
 | 3 | `components/RoutineColorPicker.tsx` | 1 | 중 | 루틴 편집 → 색상 |
 | 4 | `app/modal/edit-profile.tsx` | 1 | 중 | 통계 → 프로필 |
 | 5 | `app/modal/full-calendar.tsx` | 1 | 중 | 홈 → 년월 스트립 |
@@ -339,12 +426,14 @@ prop은 한 곳도 손대지 않았다.** `components/ui/Header.tsx`는 참조 0
 
 **`stats.tsx:300`의 rightElement 3개는 커지지 않는다.** 그 셋은 IconButton이
 아니라 호출부가 직접 만든 요소다(`ThemeToggle size={36}` + `w-9 h-9`
-TouchableOpacity 2개 + `gap-1`, 합 116pt). 이번 교체 범위 밖이라 슬롯 폭이
+TouchableOpacity 2개 + `gap-1`, 합 **106pt**). 이번 교체 범위 밖이라 슬롯 폭이
 그대로이고 제목이 밀리지 않는다. 320 폭 기준 제목 슬롯은
-`320 - 16(좌우 패딩) - 56(좌측) - 116(우측) = 132pt`로 교체 전과 같다.
+`320 - 16(좌우 패딩) - 56(좌측) - 106(우측) = 142pt`로 교체 전과 같다.
 이 셋이 44로 커지는 것은 **IconButton 교체(37곳) 때**이고, 그때 우측 슬롯이
-116 → 140pt가 되어 제목 슬롯이 132 → 108pt로 줄어든다. 그 시점에 다시
-확인해야 한다.
+106 → 139.33pt가 되어 제목 슬롯이 142 → 108.67pt로 줄어든다.
+
+> 여기 적혀 있던 116·132는 `w-9 h-9`를 36으로 본 값이라 틀렸다. 실측은
+> 31.33이고 `gap-1`은 3.67이다 — 위 "NativeWind의 `rem`은 16이 아니라 14다" 참조.
 
 | 파일 | 줄 | 넘기는 prop |
 |---|---|---|
@@ -363,7 +452,7 @@ TouchableOpacity 2개 + `gap-1`, 합 116pt). 이번 교체 범위 밖이라 슬�
 | `components/workout/ExerciseAdder.tsx` | 638 | title, showClose, onClose |
 
 `stats.tsx:300`의 `rightElement`가 클리핑 회귀의 발원지다 — 아이콘 버튼
-3개(≈116pt)를 넣는 유일한 화면이다. **교체 후 시뮬레이터에서 확인했고
+3개(≈106pt)를 넣는 유일한 화면이다. **교체 후 시뮬레이터에서 확인했고
 클리핑 없음.** IconButton 교체 때 다시 볼 것.
 
 > 확인 중 로그아웃 아이콘이 잘린 것처럼 보였으나 확대해 보니 정상이었다.
