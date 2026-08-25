@@ -16,8 +16,28 @@ import ColorPicker, {
   Preview,
 } from "reanimated-color-picker";
 import { useColors } from "../constants/colors";
+import { IconButton } from "../design-system";
 import { Icon } from "./AppIcons";
 import { ROUTINE_COLOR_POOL } from "../store/routineStore";
+
+/**
+ * 스크린리더가 읽을 색 이름. `ROUTINE_COLOR_POOL`의 주석에 적힌 이름과 같다.
+ *
+ * 팔레트 칩은 아이콘도 글자도 없는 순수한 색 덩어리라 읽을 것이 하나도 없다.
+ * 해시값("#F07A95")을 그대로 읽히면 한 글자씩 발음돼 쓸모가 없으므로 이름을 준다.
+ * 풀에 없는 색(색상 휠로 고른 값)은 이 표에 없으니 해시로 떨어진다 —
+ * 칩으로 그려지지 않는 값이라 실제로는 걸리지 않는다.
+ */
+const COLOR_NAMES: Record<string, string> = {
+  "#f07a95": "분홍",
+  "#2e82f0": "파랑",
+  "#4fa98c": "초록",
+  "#9b7ede": "보라",
+  "#e89b4f": "주황",
+  "#54b0c4": "청록",
+  "#d97ab8": "자홍",
+  "#7c8b3d": "올리브",
+};
 
 interface Props {
   value: string;
@@ -63,22 +83,21 @@ export function RoutineColorPicker({ value, onChange }: Props) {
         {ROUTINE_COLOR_POOL.map((color) => {
           const on = value?.toLowerCase() === color.toLowerCase();
           return (
-            <TouchableOpacity
+            // 배경이 곧 이 칩의 내용이라 filled 기본 배경(surfaceAlt)을 style로 덮는다.
+            // radius는 덮지 않는다 — filled의 pill(999)이 44 박스에서 원이 되고,
+            // 이건 기존 36/18(=원)과 같은 모양이다.
+            <IconButton
               key={color}
+              accessibilityLabel={`루틴 색상 ${COLOR_NAMES[color.toLowerCase()] ?? color.toUpperCase()}${on ? " 선택됨" : ""}`}
               onPress={() => onChange(color)}
-              activeOpacity={0.8}
+              variant="filled"
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
                 backgroundColor: color,
                 borderWidth: on ? 3 : 0,
                 borderColor: c.textPrimary,
-                alignItems: "center",
-                justifyContent: "center",
               }}>
               {on && <Icon name="check" size={15} color="#fff" />}
-            </TouchableOpacity>
+            </IconButton>
           );
         })}
       </View>
