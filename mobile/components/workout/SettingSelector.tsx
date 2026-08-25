@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { useColors } from "../../constants/colors";
 import { Icon } from "../AppIcons";
+import { IconButton } from "../../design-system";
 
 /** 기구 설정 기본 키 목록 (마지막 "직접 입력"은 컴포넌트가 자동으로 덧붙임) */
 export const DEFAULT_SETTING_KEYS = [
@@ -120,12 +121,18 @@ export function SettingSelector({
         <View key={k.id} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
           {chip(k.name, !isCustom && selectedKey === k.name, () => selectKey(k.name), k.id)}
           {onDeleteExtraKey && (
-            <TouchableOpacity activeOpacity={0.8}
-              style={{ marginLeft: -4, marginTop: -8 }}
+            /* 박스 13 → 44. hitSlop 6을 더해도 25라 애초에 44에 못 미쳤다.
+               ⚠️ 음수 마진은 13px 글리프를 칩 오른쪽 위 모서리에 붙이려고 준
+               값이다. 44 박스에서는 같은 뜻으로 동작하지 않는다 —
+               글리프가 칩 모서리가 아니라 칩 오른쪽 여백 가운데로 온다.
+               가로 ScrollView 안이라 잘리지는 않고 칩 묶음이 ~31 넓어진다.
+               값을 그대로 둔 것은 교체만 하고 디자인 판단은 미루기 위해서다. */
+            <IconButton
+              accessibilityLabel={`${k.name} 항목 삭제`}
               onPress={() => onDeleteExtraKey(k.id)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              style={{ marginLeft: -4, marginTop: -8 }}>
               <Icon name="close" size={13} color={c.textMuted} />
-            </TouchableOpacity>
+            </IconButton>
           )}
         </View>
       ))}
@@ -184,17 +191,20 @@ export function SettingSelector({
             returnKeyType="done"
             onSubmitEditing={submit}
           />
-          <TouchableOpacity activeOpacity={0.8}
-            style={{
-              backgroundColor: c.primary,
-              borderRadius: 10,
-              height: 36,
-              paddingHorizontal: 14,
-              justifyContent: "center",
-            }}
-            onPress={submit}>
+          {/* 박스 42×36 → 44×44. height 36과 paddingHorizontal 14는 뺐다 —
+              IconButton의 minWidth/minHeight 44가 Yoga에서 width/height보다
+              우선이라 남겨도 효과가 없다.
+              ⚠️ 같은 행의 TextInput은 height 36 그대로다. alignItems: center라
+              버튼만 위아래로 4씩 삐져나온다. DESIGN.md의 input도 target.min을
+              참조하므로 입력창도 44가 맞아 보이지만, IconButton 교체 범위 밖이라
+              건드리지 않았다. */}
+          <IconButton
+            accessibilityLabel="설정 값 추가"
+            onPress={submit}
+            variant="filled"
+            style={{ backgroundColor: c.primary, borderRadius: 10 }}>
             <Icon name="check" size={14} color={c.surface} />
-          </TouchableOpacity>
+          </IconButton>
         </View>
       </View>
     );
