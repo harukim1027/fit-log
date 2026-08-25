@@ -11,7 +11,8 @@
 // 루트(app/_layout.tsx)에 <CuteAlertHost/> 를 한 번 마운트해야 함.
 // ============================================================
 import React, { useEffect, useRef, useState } from "react";
-import { Text, Pressable, Modal, Animated, StyleSheet, View } from "react-native";
+import { Text, Pressable, Modal, Animated, StyleSheet, View, Platform } from "react-native";
+import { FullWindowOverlay } from "react-native-screens";
 import Svg, { Path, Rect, Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useColors } from "../constants/colors";
@@ -93,8 +94,7 @@ export function CuteAlertHost() {
   const col = c[TONE_KEY[opts.tone]] ?? c.primary;
   const btns = opts.buttons ?? [{ label: "확인", style: "primary" as const }];
 
-  return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={() => close()}>
+  const body = (
       <Animated.View style={[s.scrim, { opacity }]}>
         <Animated.View style={[s.card, { backgroundColor: c.surface, borderColor: c.border, transform: [{ scale }, { translateX: shakeX }] }]}>
           {opts.showClose && (
@@ -122,12 +122,23 @@ export function CuteAlertHost() {
           </View>
         </Animated.View>
       </Animated.View>
+  );
+
+  // iOS: 네이티브 모달(react-native-screens의 fullScreenModal) 위에 그리려면
+  // 별도 UIWindow가 필요하다. RN <Modal>은 루트 뷰컨트롤러에서 present되므로
+  // 이미 present된 모달 라우트 뒤에 깔린다. FullWindowOverlay가 그 문제를 푼다.
+  if (Platform.OS === "ios") {
+    return visible ? <FullWindowOverlay>{body}</FullWindowOverlay> : null;
+  }
+  return (
+    <Modal transparent visible={visible} animationType="none" onRequestClose={() => close()}>
+      {body}
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: "rgba(5,9,14,0.55)", alignItems: "center", justifyContent: "center", padding: 28 },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(5,9,14,0.55)", alignItems: "center", justifyContent: "center", padding: 28 },
   card: { width: 300, borderWidth: 1, borderRadius: 24, paddingTop: 24, paddingHorizontal: 18, paddingBottom: 18, alignItems: "center" },
   closeBtn: { position: "absolute", top: 12, right: 12, width: 28, height: 28, alignItems: "center", justifyContent: "center", zIndex: 2 },
   iconring: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", marginBottom: 6 },
