@@ -19,6 +19,8 @@ import {
   ScrollView,
 } from "react-native";
 import { useColors } from "../../constants/colors";
+import { Icon } from "../AppIcons";
+import { IconButton } from "../../design-system";
 import { EXERCISE_CATEGORIES } from "../../constants";
 
 /** 카테고리별 기본 타겟부위 옵션 (마지막 '직접 입력'은 자유 입력 토글) */
@@ -150,29 +152,9 @@ export function TargetMuscleSelector({
               gap: 8,
               marginBottom: showInput ? 10 : 0,
             }}>
-            {presetParts.map((part) => {
-              if (part === "직접 입력") {
-                return (
-                  <TouchableOpacity activeOpacity={0.8}
-                    key="custom"
-                    style={{
-                      borderRadius: 999,
-                      paddingHorizontal: 14,
-                      paddingVertical: 6,
-                      backgroundColor: showInput ? c.primary : c.surfaceAlt,
-                    }}
-                    onPress={() => setShowInput((v) => !v)}>
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "700",
-                        color: showInput ? c.surface : c.textSecondary,
-                      }}>
-                      + 직접 입력
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
+            {presetParts
+              .filter((part) => part !== "직접 입력")
+              .map((part) => {
               const on = targetMuscles.includes(part);
               return (
                 <TouchableOpacity activeOpacity={0.8}
@@ -192,9 +174,9 @@ export function TargetMuscleSelector({
                     }}>
                     {part}
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              })}
             {/* 직접 입력으로 추가된 항목 태그 (프리셋에 없는 값) */}
             {targetMuscles
               .filter((p) => !presetParts.includes(p))
@@ -221,6 +203,23 @@ export function TargetMuscleSelector({
                 </TouchableOpacity>
               ))}
           </View>
+          {/* 부위 생성 액션. **칩이 아니다.**
+              예전에는 "+ 직접 입력"이 선택지 칩과 같은 알약 모양이었고
+              입력창이 열리면 배경이 primary로 차서 선택된 것처럼 보였다.
+              형태는 SettingSelector의 "+ 항목 추가"와 같다 — 배경 없이 글자만.
+              (앱의 기존 텍스트 액션: workout.tsx:2465, :3325) */}
+          {!showInput && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="타겟 부위 추가"
+              onPress={() => setShowInput(true)}
+              style={{ alignSelf: "flex-start", paddingVertical: 6, paddingRight: 6, marginTop: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>
+                + 부위 추가
+              </Text>
+            </TouchableOpacity>
+          )}
           {showInput && (
             <View
               style={{
@@ -258,6 +257,12 @@ export function TargetMuscleSelector({
                   추가
                 </Text>
               </TouchableOpacity>
+              {/* 생성 액션이 칩 토글이 아니게 되면서 닫을 수단이 필요해졌다. */}
+              <IconButton
+                accessibilityLabel="타겟 부위 입력 취소"
+                onPress={() => { setInputText(""); setShowInput(false); }}>
+                <Icon name="close" size={16} color={c.textSecondary} />
+              </IconButton>
             </View>
           )}
         </View>

@@ -23,6 +23,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useColors } from "../../constants/colors";
+import { showCuteAlert } from "../CuteAlert";
 import { Icon } from "../AppIcons";
 import { IconButton } from "../../design-system";
 
@@ -74,7 +75,7 @@ export function SettingSelector({
   const selectKey = (k: string) => {
     setIsCustom(false);
     setEditingCustom(false);
-    setCustomKey("");
+    // customKey 는 비우지 않는다 — 선택이 옮겨가도 만들어 둔 초안은 남는다.
     setSelectedKey(k);
   };
 
@@ -109,81 +110,104 @@ export function SettingSelector({
   };
 
   /**
-   * 삭제 가능한 커스텀 키는 칩 **안쪽 우측**에 ×를 둔다.
+   * 커스텀 항목 삭제는 **길게 누르기**다.
    *
-   * 예전에는 칩 밖에 음수 마진으로 배지를 띄웠는데, 어느 칩의 삭제인지
-   * 불분명했고 IconButton으로 옮기며 박스가 커지자 글리프가 칩에서 20pt
-   * 떨어져 나갔다. 안으로 넣으면 소속이 구조로 드러난다.
+   * 칩 안에 ×를 두는 방식을 거쳐 왔는데, 44 터치 영역을 hitSlop으로 채우면
+   * 히트 영역이 라벨 쪽으로 번져 "선택하려다 삭제"가 날 여지가 남았다.
+   * 길게 누르기는 그 겹침을 시간 축으로 옮겨 없앤다.
    *
-   * ×에 paddingHorizontal 6을 줘 박스 폭을 25로 키운 이유: hitSlop 모드는 부족한 만큼을
-   * 사방에 절반씩 채우므로 박스가 작을수록 hitSlop이 커진다. 박스 13이면
-   * hitSlop이 15.5라 히트 영역이 라벨 오른쪽 7.5pt를 덮어 "선택하려다 삭제"가
-   * 난다. 박스 25면 hitSlop이 9.5로 줄어 겹침이 1.5pt까지 내려간다.
-   * 아이콘 크기(13)는 그대로다 — 커진 것은 터치 박스뿐이다.
+   * 그래서 커스텀 칩과 기본 칩의 렌더 구조가 완전히 같다. 다른 것은
+   * `onLongPress`와 `accessibilityHint`가 붙는지뿐이다.
    *
-   * 패딩은 가로에만 준다. 세로로도 주면 박스가 25×25가 돼 칩 높이를
-   * 29 → 41로 밀어 올린다(칩 세로 패딩 16 + 박스 25). hitSlop은 축마다
-   * 따로 계산되므로 박스가 25×13이어도 히트 영역은 44×44가 된다.
-   *
-   * box 모드(44)를 못 쓰는 이유는 칩 높이가 29라서다.
+   * RN Touchable은 `onLongPress`가 발동하면 뗄 때 `onPress`를 부르지 않는다.
+   * 길게 눌렀다 떼어도 선택이 함께 실행되지 않는다.
    */
   const chip = (
     label: string,
     on: boolean,
     onPress: () => void,
     key?: string,
-    onDelete?: () => void,
-    deleteLabel?: string,
-  ) => {
-    // ×는 라벨과 같은 색을 쓴다. 선택 상태에서 배경이 바뀌어도 대비가
-    // 라벨과 같이 움직여 묻히지 않는다. textMuted는 선택된 칩 위에서 흐려진다.
-    const fg = on ? (sheet ? c.primary : c.surface) : c.textSecondary;
-    return (
-      <TouchableOpacity activeOpacity={0.8}
-        key={key ?? label}
-        accessibilityRole="button"
-        accessibilityState={{ selected: on }}
+    onLongPress?: () => void,
+    a11yHint?: string,
+  ) => (
+    <TouchableOpacity activeOpacity={0.8}
+      key={key ?? label}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityHint={a11yHint}
+      style={{
+        borderRadius: sheet ? 20 : 999,
+        paddingHorizontal: sheet ? 14 : 10,
+        paddingVertical: sheet ? 8 : 5,
+        backgroundColor: on ? (sheet ? c.primary + "28" : c.primary) : c.surfaceAlt,
+      }}
+      onPress={onPress}
+      onLongPress={onLongPress}>
+      <Text
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: onDelete ? 8 : 0,
-          borderRadius: sheet ? 20 : 999,
-          paddingLeft: sheet ? 14 : 10,
-          // ×가 자기 여백을 갖고 있어 오른쪽 패딩을 줄인다.
-          paddingRight: onDelete ? 8 : sheet ? 14 : 10,
-          paddingVertical: sheet ? 8 : 5,
-          backgroundColor: on ? (sheet ? c.primary + "28" : c.primary) : c.surfaceAlt,
-        }}
-        onPress={onPress}>
-        <Text
-          style={{
-            fontSize: sheet ? 13 : 11,
-            fontWeight: "700",
-            color: fg,
-          }}>
-          {label}
-        </Text>
-        {onDelete && (
-          <IconButton
-            accessibilityLabel={deleteLabel ?? `${label} 항목 삭제`}
-            onPress={onDelete}
-            touchTargetMode="hitSlop"
-            style={{ paddingHorizontal: 6 }}>
-            <Icon name="close" size={13} color={fg} />
-          </IconButton>
-        )}
-      </TouchableOpacity>
-    );
+          fontSize: sheet ? 13 : 11,
+          fontWeight: "700",
+          color: on ? (sheet ? c.primary : c.surface) : c.textSecondary,
+        }}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  /**
+   * 선택 중인 항목이 지워지면 선택을 풀고 값도 비운다. 남겨 두면 사라진
+   * 항목에 값을 적어 넣는 상태가 된다.
+   */
+  const clearIfSelected = (name: string, wasDraft: boolean) => {
+    const selectedNow = wasDraft ? isCustom : !isCustom && selectedKey === name;
+    if (!selectedNow) return;
+    setIsCustom(false);
+    setSelectedKey("");
+    setValue("");
+  };
+
+  /**
+   * 삭제 확인. 파괴적 액션이라 확인 다이얼로그를 반드시 거친다(DESIGN.md).
+   * 형태는 앱의 기존 삭제 확인 3건과 같다 — showCuteAlert + icon "trash"
+   * + tone "danger" + [취소 soft, 삭제 primary].
+   * (CuteAlert의 버튼 style은 "primary" | "soft" 둘뿐이라 destructive가 없다.
+   *  파괴성은 tone과 아이콘이 진다.)
+   */
+  const confirmDelete = (name: string, remove: () => void, wasDraft = false) => {
+    showCuteAlert({
+      icon: "trash",
+      tone: "danger",
+      title: "삭제할까요?",
+      message: `'${name}' 항목을 삭제합니다.`,
+      buttons: [
+        { label: "취소", style: "soft" },
+        {
+          label: "삭제",
+          style: "primary",
+          onPress: () => { remove(); clearIfSelected(name, wasDraft); },
+        },
+      ],
+    });
   };
 
   /**
    * 확정된 커스텀 이름은 **선택된 칩**으로 보여 준다. 아직 서버에 저장되기
-   * 전이라 extraKeys 에는 없다. 탭하면 이름을 다시 고칠 수 있다.
+   * 전이라 extraKeys 에는 없다.
+   *
+   * 다른 칩을 눌러도 사라지지 않는다. 예전에는 selectKey 가 customKey 까지
+   * 비워서, 이름을 확정해 두고 다른 항목을 한 번 눌러 보면 방금 만든 것이
+   * 없어졌다. 선택이 옮겨가는 것과 초안이 사라지는 것은 다른 일이다.
    */
-  const draftChip =
-    isCustom && customKey.trim()
-      ? chip(customKey.trim(), true, () => openNameInput(), "__draft__")
-      : null;
+  const draftChip = customKey.trim()
+    ? chip(
+        customKey.trim(),
+        isCustom,
+        () => { setIsCustom(true); setSelectedKey(""); },
+        "__draft__",
+        () => confirmDelete(customKey.trim(), () => setCustomKey(""), true),
+        "길게 눌러 삭제할 수 있습니다",
+      )
+    : null;
 
   const keyChips = (
     <>
@@ -194,8 +218,10 @@ export function SettingSelector({
           !isCustom && selectedKey === k.name,
           () => selectKey(k.name),
           k.id,
-          onDeleteExtraKey ? () => onDeleteExtraKey(k.id) : undefined,
-          `${k.name} 항목 삭제`,
+          onDeleteExtraKey
+            ? () => confirmDelete(k.name, () => onDeleteExtraKey(k.id))
+            : undefined,
+          onDeleteExtraKey ? "길게 눌러 삭제할 수 있습니다" : undefined,
         ),
       )}
       {draftChip}
@@ -228,71 +254,65 @@ export function SettingSelector({
   );
 
   /**
-   * 이름 입력창. 예전에는 확정도 취소도 없어 한 번 열리면 빠져나갈 방법이
-   * 다른 칩을 누르는 것뿐이었다(그마저 눈에 띄지 않았다).
+   * 이름 입력창. **보조 입력이므로 주 액션보다 작아야 한다.**
+   *
+   * 처음에는 입력창 아래에 취소/확인을 큰 버튼 두 개로 뒀는데, 시트 하단의
+   * 주 액션("추가하기")과 크기가 비슷해 위계가 무너졌고 파란 큰 버튼이 한
+   * 화면에 둘 생겼다. DESIGN.md: "파란색은 예산이다."
+   *
+   * 형태는 앱에 이미 있는 인라인 입력 패턴을 따른다 —
+   * `TargetMuscleSelector.tsx:232`의 `[입력창 flex:1][작은 추가 버튼]` 한 줄.
+   * 취소는 버튼에서 × 아이콘으로 줄였다.
+   *
+   * 예전에는 확정도 취소도 없어 한 번 열리면 빠져나갈 방법이 다른 칩을
+   * 누르는 것뿐이었다(그마저 눈에 띄지 않았다).
    */
   const customKeyInput = editingCustom ? (
-    <View style={{ marginTop: sheet ? 10 : 6, gap: sheet ? 8 : 6 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginTop: sheet ? 8 : 6,
+      }}>
       <TextInput
         ref={customRef}
         style={{
+          flex: 1,
+          minHeight: 44,
           backgroundColor: c.surfaceAlt,
-          borderRadius: sheet ? 14 : 10,
-          padding: sheet ? 13 : undefined,
-          height: sheet ? undefined : 36,
-          paddingHorizontal: sheet ? undefined : 10,
-          fontSize: sheet ? 15 : 13,
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          fontSize: 13,
           fontWeight: "700",
           color: c.textPrimary,
-          borderWidth: 1.5,
-          borderColor: c.primary + "60",
         }}
-        placeholder="설정 항목 이름 입력 (예: 케이블각도, 풀리높이)"
+        placeholder="항목 이름 (예: 케이블각도)"
         value={customKey}
         onChangeText={setCustomKey}
         placeholderTextColor={c.textMuted}
         returnKeyType="done"
         onSubmitEditing={confirmName}
       />
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="항목 이름 입력 취소"
-          onPress={cancelName}
-          style={{
-            flex: 1,
-            minHeight: 44,
-            borderRadius: sheet ? 14 : 10,
-            backgroundColor: c.surfaceAlt,
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-          <Text style={{ fontSize: sheet ? 14 : 12, fontWeight: "700", color: c.textSecondary }}>
-            취소
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="항목 이름 확인"
-          accessibilityState={{ disabled: !customKey.trim() }}
-          disabled={!customKey.trim()}
-          onPress={confirmName}
-          style={{
-            flex: 1,
-            minHeight: 44,
-            borderRadius: sheet ? 14 : 10,
-            backgroundColor: c.primary,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: customKey.trim() ? 1 : 0.5,
-          }}>
-          <Text style={{ fontSize: sheet ? 14 : 12, fontWeight: "800", color: c.onAccent }}>
-            확인
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="항목 이름 확인"
+        accessibilityState={{ disabled: !customKey.trim() }}
+        disabled={!customKey.trim()}
+        onPress={confirmName}
+        style={{
+          minHeight: 44,
+          justifyContent: "center",
+          backgroundColor: c.primary,
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          opacity: customKey.trim() ? 1 : 0.5,
+        }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: c.onAccent }}>확인</Text>
+      </TouchableOpacity>
+      <IconButton accessibilityLabel="항목 이름 입력 취소" onPress={cancelName}>
+        <Icon name="close" size={16} color={c.textSecondary} />
+      </IconButton>
     </View>
   ) : null;
 
