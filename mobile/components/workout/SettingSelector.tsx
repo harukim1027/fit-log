@@ -41,8 +41,6 @@ export interface ExtraSettingKey {
   name: string;
 }
 
-const CUSTOM = "직접 입력";
-
 interface Props {
   /** 항목 추가 시 호출. 직접 입력이면 key는 사용자가 입력한 항목명. */
   onAdd: (key: string, value: string) => void;
@@ -62,7 +60,10 @@ export function SettingSelector({
 }: Props) {
   const c = useColors();
   const [selectedKey, setSelectedKey] = useState(presetKeys[0] ?? "");
+  /** 커스텀 항목이 현재 선택돼 있는가 (이름 확정 후) */
   const [isCustom, setIsCustom] = useState(false);
+  /** 이름 입력창이 열려 있는가. isCustom 과 분리해야 "입력 중"과 "확정됨"이 갈린다. */
+  const [editingCustom, setEditingCustom] = useState(false);
   const [customKey, setCustomKey] = useState("");
   const [value, setValue] = useState("");
   const customRef = useRef<TextInput>(null);
@@ -72,14 +73,29 @@ export function SettingSelector({
 
   const selectKey = (k: string) => {
     setIsCustom(false);
+    setEditingCustom(false);
     setCustomKey("");
     setSelectedKey(k);
   };
 
-  const enableCustom = () => {
+  /** "+ 항목 추가" — 이름 입력창만 연다. 이 버튼은 선택 상태를 갖지 않는다. */
+  const openNameInput = () => {
+    setEditingCustom(true);
+    setTimeout(() => customRef.current?.focus(), 100);
+  };
+
+  /** 이름 확정 — 입력창을 닫고 그 이름을 현재 선택으로 만든다. */
+  const confirmName = () => {
+    if (!customKey.trim()) return;
     setIsCustom(true);
     setSelectedKey("");
-    setTimeout(() => customRef.current?.focus(), 100);
+    setEditingCustom(false);
+  };
+
+  /** 이름 입력 취소 — 열기 전 상태로 되돌린다. */
+  const cancelName = () => {
+    setEditingCustom(false);
+    if (!isCustom) setCustomKey("");
   };
 
   const submit = () => {
@@ -88,6 +104,7 @@ export function SettingSelector({
     setValue("");
     setCustomKey("");
     setIsCustom(false);
+    setEditingCustom(false);
     setSelectedKey(presetKeys[0] ?? "");
   };
 
@@ -159,7 +176,14 @@ export function SettingSelector({
     );
   };
 
-  const customChip = chip(`+ ${CUSTOM}`, isCustom, enableCustom, "__custom__");
+  /**
+   * 확정된 커스텀 이름은 **선택된 칩**으로 보여 준다. 아직 서버에 저장되기
+   * 전이라 extraKeys 에는 없다. 탭하면 이름을 다시 고칠 수 있다.
+   */
+  const draftChip =
+    isCustom && customKey.trim()
+      ? chip(customKey.trim(), true, () => openNameInput(), "__draft__")
+      : null;
 
   const keyChips = (
     <>
@@ -174,32 +198,102 @@ export function SettingSelector({
           `${k.name} 항목 삭제`,
         ),
       )}
-      {customChip}
+      {draftChip}
     </>
   );
 
-  const customKeyInput = isCustom ? (
-    <TextInput
-      ref={customRef}
-      style={{
-        backgroundColor: c.surfaceAlt,
-        borderRadius: sheet ? 14 : 10,
-        padding: sheet ? 13 : undefined,
-        height: sheet ? undefined : 36,
-        paddingHorizontal: sheet ? undefined : 10,
-        fontSize: sheet ? 15 : 13,
-        fontWeight: "700",
-        color: c.textPrimary,
-        marginTop: sheet ? 10 : 6,
-        borderWidth: 1.5,
-        borderColor: c.primary + "60",
-      }}
-      placeholder="설정 항목 이름 입력 (예: 케이블각도, 풀리높이)"
-      value={customKey}
-      onChangeText={setCustomKey}
-      placeholderTextColor={c.textMuted}
-      returnKeyType="next"
-    />
+  /**
+   * 항목 생성 액션. **칩이 아니다.**
+   *
+   * 예전에는 "+ 직접 입력"이 선택지 칩들과 같은 알약 모양으로 같은 줄에 있어
+   * 설정 항목 중 하나처럼 보였다. 누르면 선택 상태(파란 배경)까지 됐다.
+   * 선택 UI로 생성 기능을 표현하고 있었다.
+   *
+   * 형태는 앱의 기존 텍스트 액션을 따른다 — 배경 없이 글자만
+   * (`workout.tsx:2465`, `:3325`의 "+ 추가"와 같은 꼴).
+   * primary 대신 textSecondary 를 쓰는 이유는 이 시트에 이미 primary 액션
+   * ("추가하기")이 있어서다. DESIGN.md: "파란색은 예산이다."
+   */
+  const addKeyAction = editingCustom ? null : (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="설정 항목 추가"
+      onPress={openNameInput}
+      style={{ alignSelf: "flex-start", paddingVertical: 6, paddingRight: 6 }}>
+      <Text style={{ fontSize: sheet ? 12 : 11, fontWeight: "700", color: c.textSecondary }}>
+        + 항목 추가
+      </Text>
+    </TouchableOpacity>
+  );
+
+  /**
+   * 이름 입력창. 예전에는 확정도 취소도 없어 한 번 열리면 빠져나갈 방법이
+   * 다른 칩을 누르는 것뿐이었다(그마저 눈에 띄지 않았다).
+   */
+  const customKeyInput = editingCustom ? (
+    <View style={{ marginTop: sheet ? 10 : 6, gap: sheet ? 8 : 6 }}>
+      <TextInput
+        ref={customRef}
+        style={{
+          backgroundColor: c.surfaceAlt,
+          borderRadius: sheet ? 14 : 10,
+          padding: sheet ? 13 : undefined,
+          height: sheet ? undefined : 36,
+          paddingHorizontal: sheet ? undefined : 10,
+          fontSize: sheet ? 15 : 13,
+          fontWeight: "700",
+          color: c.textPrimary,
+          borderWidth: 1.5,
+          borderColor: c.primary + "60",
+        }}
+        placeholder="설정 항목 이름 입력 (예: 케이블각도, 풀리높이)"
+        value={customKey}
+        onChangeText={setCustomKey}
+        placeholderTextColor={c.textMuted}
+        returnKeyType="done"
+        onSubmitEditing={confirmName}
+      />
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="항목 이름 입력 취소"
+          onPress={cancelName}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            borderRadius: sheet ? 14 : 10,
+            backgroundColor: c.surfaceAlt,
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+          <Text style={{ fontSize: sheet ? 14 : 12, fontWeight: "700", color: c.textSecondary }}>
+            취소
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="항목 이름 확인"
+          accessibilityState={{ disabled: !customKey.trim() }}
+          disabled={!customKey.trim()}
+          onPress={confirmName}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            borderRadius: sheet ? 14 : 10,
+            backgroundColor: c.primary,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: customKey.trim() ? 1 : 0.5,
+          }}>
+          <Text style={{ fontSize: sheet ? 14 : 12, fontWeight: "800", color: c.onAccent }}>
+            확인
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   ) : null;
 
   // ── inline variant (운동 중 카드) ──
@@ -207,7 +301,10 @@ export function SettingSelector({
     return (
       <View style={{ gap: 6 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ flexDirection: "row", gap: 4 }}>{keyChips}</View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            {keyChips}
+            {addKeyAction}
+          </View>
         </ScrollView>
         {customKeyInput}
         <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
@@ -257,6 +354,7 @@ export function SettingSelector({
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
         {keyChips}
       </View>
+      {addKeyAction}
       {customKeyInput}
       <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginTop: 16, marginBottom: 10 }}>
         값 입력
