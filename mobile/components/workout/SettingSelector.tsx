@@ -91,53 +91,89 @@ export function SettingSelector({
     setSelectedKey(presetKeys[0] ?? "");
   };
 
-  const chip = (label: string, on: boolean, onPress: () => void, key?: string) => (
-    <TouchableOpacity activeOpacity={0.8}
-      key={key ?? label}
-      style={{
-        borderRadius: sheet ? 20 : 999,
-        paddingHorizontal: sheet ? 14 : 10,
-        paddingVertical: sheet ? 8 : 5,
-        backgroundColor: on ? (sheet ? c.primary + "28" : c.primary) : c.surfaceAlt,
-      }}
-      onPress={onPress}>
-      <Text
+  /**
+   * 삭제 가능한 커스텀 키는 칩 **안쪽 우측**에 ×를 둔다.
+   *
+   * 예전에는 칩 밖에 음수 마진으로 배지를 띄웠는데, 어느 칩의 삭제인지
+   * 불분명했고 IconButton으로 옮기며 박스가 커지자 글리프가 칩에서 20pt
+   * 떨어져 나갔다. 안으로 넣으면 소속이 구조로 드러난다.
+   *
+   * ×에 paddingHorizontal 6을 줘 박스 폭을 25로 키운 이유: hitSlop 모드는 부족한 만큼을
+   * 사방에 절반씩 채우므로 박스가 작을수록 hitSlop이 커진다. 박스 13이면
+   * hitSlop이 15.5라 히트 영역이 라벨 오른쪽 7.5pt를 덮어 "선택하려다 삭제"가
+   * 난다. 박스 25면 hitSlop이 9.5로 줄어 겹침이 1.5pt까지 내려간다.
+   * 아이콘 크기(13)는 그대로다 — 커진 것은 터치 박스뿐이다.
+   *
+   * 패딩은 가로에만 준다. 세로로도 주면 박스가 25×25가 돼 칩 높이를
+   * 29 → 41로 밀어 올린다(칩 세로 패딩 16 + 박스 25). hitSlop은 축마다
+   * 따로 계산되므로 박스가 25×13이어도 히트 영역은 44×44가 된다.
+   *
+   * box 모드(44)를 못 쓰는 이유는 칩 높이가 29라서다.
+   */
+  const chip = (
+    label: string,
+    on: boolean,
+    onPress: () => void,
+    key?: string,
+    onDelete?: () => void,
+    deleteLabel?: string,
+  ) => {
+    // ×는 라벨과 같은 색을 쓴다. 선택 상태에서 배경이 바뀌어도 대비가
+    // 라벨과 같이 움직여 묻히지 않는다. textMuted는 선택된 칩 위에서 흐려진다.
+    const fg = on ? (sheet ? c.primary : c.surface) : c.textSecondary;
+    return (
+      <TouchableOpacity activeOpacity={0.8}
+        key={key ?? label}
+        accessibilityRole="button"
+        accessibilityState={{ selected: on }}
         style={{
-          fontSize: sheet ? 13 : 11,
-          fontWeight: "700",
-          color: on ? (sheet ? c.primary : c.surface) : c.textSecondary,
-        }}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+          flexDirection: "row",
+          alignItems: "center",
+          gap: onDelete ? 8 : 0,
+          borderRadius: sheet ? 20 : 999,
+          paddingLeft: sheet ? 14 : 10,
+          // ×가 자기 여백을 갖고 있어 오른쪽 패딩을 줄인다.
+          paddingRight: onDelete ? 8 : sheet ? 14 : 10,
+          paddingVertical: sheet ? 8 : 5,
+          backgroundColor: on ? (sheet ? c.primary + "28" : c.primary) : c.surfaceAlt,
+        }}
+        onPress={onPress}>
+        <Text
+          style={{
+            fontSize: sheet ? 13 : 11,
+            fontWeight: "700",
+            color: fg,
+          }}>
+          {label}
+        </Text>
+        {onDelete && (
+          <IconButton
+            accessibilityLabel={deleteLabel ?? `${label} 항목 삭제`}
+            onPress={onDelete}
+            touchTargetMode="hitSlop"
+            style={{ paddingHorizontal: 6 }}>
+            <Icon name="close" size={13} color={fg} />
+          </IconButton>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const customChip = chip(`+ ${CUSTOM}`, isCustom, enableCustom, "__custom__");
 
   const keyChips = (
     <>
       {presetKeys.map((k) => chip(k, !isCustom && selectedKey === k, () => selectKey(k)))}
-      {extraKeys.map((k) => (
-        <View key={k.id} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-          {chip(k.name, !isCustom && selectedKey === k.name, () => selectKey(k.name), k.id)}
-          {onDeleteExtraKey && (
-            /* 칩 오른쪽 위 모서리에 붙는 배지. box 모드(44)로 만들면
-               묶음 폭이 61.67 → 92.67로 늘고 글리프가 칩에서 20pt 떨어져
-               어느 칩의 삭제인지 불분명해진다.
-               음수 마진으로 44 박스를 칩 위로 끌어올리는 방식은
-               칩 오른쪽 절반이 삭제 버튼에 가려져 오탭 위험이 있어 택하지 않았다.
-               부모에 overflow: hidden 없음을 확인함 (시트 컨테이너 borderRadius만,
-               칩 컨테이너는 flexWrap). */
-            <IconButton
-              accessibilityLabel={`${k.name} 항목 삭제`}
-              onPress={() => onDeleteExtraKey(k.id)}
-              touchTargetMode="hitSlop"
-              style={{ marginLeft: -4, marginTop: -8 }}>
-              <Icon name="close" size={13} color={c.textMuted} />
-            </IconButton>
-          )}
-        </View>
-      ))}
+      {extraKeys.map((k) =>
+        chip(
+          k.name,
+          !isCustom && selectedKey === k.name,
+          () => selectKey(k.name),
+          k.id,
+          onDeleteExtraKey ? () => onDeleteExtraKey(k.id) : undefined,
+          `${k.name} 항목 삭제`,
+        ),
+      )}
       {customChip}
     </>
   );
