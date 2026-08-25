@@ -61,50 +61,80 @@ export function SettingSelector({
 }: Props) {
   const c = useColors();
   const [selectedKey, setSelectedKey] = useState(presetKeys[0] ?? "");
-  /** 커스텀 항목이 현재 선택돼 있는가 (이름 확정 후) */
-  const [isCustom, setIsCustom] = useState(false);
-  /** 이름 입력창이 열려 있는가. isCustom 과 분리해야 "입력 중"과 "확정됨"이 갈린다. */
+  /** 이름 입력창이 열려 있는가 */
   const [editingCustom, setEditingCustom] = useState(false);
-  const [customKey, setCustomKey] = useState("");
+  /** 입력창에 치고 있는 글자 */
+  const [newKeyText, setNewKeyText] = useState("");
+  /**
+   * 이번 화면에서 만든, 아직 서버에 저장되기 전인 항목들.
+   *
+   * 예전에는 `customKey` 문자열 하나가 "초안"이자 "현재 선택"을 겸했다.
+   * 그래서 초안을 하나밖에 못 만들었고, 확인을 눌러도 글자가 남아 다음 항목을
+   * 만들려면 손으로 지워야 했다. 목록으로 바꾸니 그 두 문제가 같이 없어지고,
+   * 초안도 프리셋·저장된 커스텀과 똑같이 `selectedKey` 하나로 다뤄진다.
+   */
+  const [draftKeys, setDraftKeys] = useState<string[]>([]);
+  const [keyError, setKeyError] = useState("");
   const [value, setValue] = useState("");
   const customRef = useRef<TextInput>(null);
 
   const sheet = variant === "sheet";
-  const finalKey = isCustom ? customKey.trim() : selectedKey;
+  const finalKey = selectedKey;
 
   const selectKey = (k: string) => {
-    setIsCustom(false);
     setEditingCustom(false);
-    // customKey 는 비우지 않는다 — 선택이 옮겨가도 만들어 둔 초안은 남는다.
     setSelectedKey(k);
   };
 
-  /** "+ 항목 추가" — 이름 입력창만 연다. 이 버튼은 선택 상태를 갖지 않는다. */
+  /** 이미 있는 이름인가 — 프리셋·저장된 커스텀·이번에 만든 초안 전부와 대조. */
+  const existingKeys = [
+    ...presetKeys,
+    ...extraKeys.map((k) => k.name),
+    ...draftKeys,
+  ];
+
+  /** "+ 항목 추가" — 입력창만 연다. 이 버튼은 선택 상태를 갖지 않는다. */
   const openNameInput = () => {
+    setNewKeyText("");
+    setKeyError("");
     setEditingCustom(true);
     setTimeout(() => customRef.current?.focus(), 100);
   };
 
-  /** 이름 확정 — 입력창을 닫고 그 이름을 현재 선택으로 만든다. */
+  /**
+   * 이름 확정 — 항목을 만들고 **입력 상태를 완전히 초기화**한다.
+   * 글자를 비우고 입력창을 닫아, 곧바로 "+ 항목 추가"를 다시 눌러
+   * 다음 항목을 만들 수 있게 한다.
+   */
   const confirmName = () => {
-    if (!customKey.trim()) return;
-    setIsCustom(true);
-    setSelectedKey("");
+    const v = newKeyText.trim();
+    if (!v) return;
+    if (existingKeys.some((k) => k.toLowerCase() === v.toLowerCase())) {
+      setKeyError("이미 있는 항목이에요");
+      return;
+    }
+    setDraftKeys((prev) => [...prev, v]);
+    setSelectedKey(v);
+    setNewKeyText("");
+    setKeyError("");
     setEditingCustom(false);
   };
 
-  /** 이름 입력 취소 — 열기 전 상태로 되돌린다. */
+  /** 취소 — 확인과 같이 비우고 닫는다. */
   const cancelName = () => {
+    setNewKeyText("");
+    setKeyError("");
     setEditingCustom(false);
-    if (!isCustom) setCustomKey("");
   };
 
   const submit = () => {
     if (!finalKey || !value.trim()) return;
     onAdd(finalKey, value.trim());
     setValue("");
-    setCustomKey("");
-    setIsCustom(false);
+    // 값이 붙었으니 초안의 역할은 끝났다. 시트 변형에서는 부모가 이 키를
+    // 서버에 저장해 extraKeys 로 돌려준다.
+    setDraftKeys([]);
+    setNewKeyText("");
     setEditingCustom(false);
     setSelectedKey(presetKeys[0] ?? "");
   };
@@ -158,10 +188,8 @@ export function SettingSelector({
    * 선택 중인 항목이 지워지면 선택을 풀고 값도 비운다. 남겨 두면 사라진
    * 항목에 값을 적어 넣는 상태가 된다.
    */
-  const clearIfSelected = (name: string, wasDraft: boolean) => {
-    const selectedNow = wasDraft ? isCustom : !isCustom && selectedKey === name;
-    if (!selectedNow) return;
-    setIsCustom(false);
+  const clearIfSelected = (name: string) => {
+    if (selectedKey !== name) return;
     setSelectedKey("");
     setValue("");
   };
@@ -173,7 +201,7 @@ export function SettingSelector({
    * (CuteAlert의 버튼 style은 "primary" | "soft" 둘뿐이라 destructive가 없다.
    *  파괴성은 tone과 아이콘이 진다.)
    */
-  const confirmDelete = (name: string, remove: () => void, wasDraft = false) => {
+  const confirmDelete = (name: string, remove: () => void) => {
     showCuteAlert({
       icon: "trash",
       tone: "danger",
@@ -184,38 +212,34 @@ export function SettingSelector({
         {
           label: "삭제",
           style: "primary",
-          onPress: () => { remove(); clearIfSelected(name, wasDraft); },
+          onPress: () => { remove(); clearIfSelected(name); },
         },
       ],
     });
   };
 
   /**
-   * 확정된 커스텀 이름은 **선택된 칩**으로 보여 준다. 아직 서버에 저장되기
-   * 전이라 extraKeys 에는 없다.
-   *
-   * 다른 칩을 눌러도 사라지지 않는다. 예전에는 selectKey 가 customKey 까지
-   * 비워서, 이름을 확정해 두고 다른 항목을 한 번 눌러 보면 방금 만든 것이
-   * 없어졌다. 선택이 옮겨가는 것과 초안이 사라지는 것은 다른 일이다.
+   * 이번에 만든 초안 항목들. 아직 서버에 없으므로 extraKeys 와 별개다.
+   * 선택은 다른 칩과 똑같이 selectedKey 로 다루고, 길게 눌러 지운다.
    */
-  const draftChip = customKey.trim()
-    ? chip(
-        customKey.trim(),
-        isCustom,
-        () => { setIsCustom(true); setSelectedKey(""); },
-        "__draft__",
-        () => confirmDelete(customKey.trim(), () => setCustomKey(""), true),
-        "길게 눌러 삭제할 수 있습니다",
-      )
-    : null;
+  const draftChips = draftKeys.map((k) =>
+    chip(
+      k,
+      selectedKey === k,
+      () => selectKey(k),
+      `__draft__${k}`,
+      () => confirmDelete(k, () => setDraftKeys((prev) => prev.filter((x) => x !== k))),
+      "길게 눌러 삭제할 수 있습니다",
+    ),
+  );
 
   const keyChips = (
     <>
-      {presetKeys.map((k) => chip(k, !isCustom && selectedKey === k, () => selectKey(k)))}
+      {presetKeys.map((k) => chip(k, selectedKey === k, () => selectKey(k)))}
       {extraKeys.map((k) =>
         chip(
           k.name,
-          !isCustom && selectedKey === k.name,
+          selectedKey === k.name,
           () => selectKey(k.name),
           k.id,
           onDeleteExtraKey
@@ -224,7 +248,7 @@ export function SettingSelector({
           onDeleteExtraKey ? "길게 눌러 삭제할 수 있습니다" : undefined,
         ),
       )}
-      {draftChip}
+      {draftChips}
     </>
   );
 
@@ -256,63 +280,67 @@ export function SettingSelector({
   /**
    * 이름 입력창. **보조 입력이므로 주 액션보다 작아야 한다.**
    *
-   * 처음에는 입력창 아래에 취소/확인을 큰 버튼 두 개로 뒀는데, 시트 하단의
-   * 주 액션("추가하기")과 크기가 비슷해 위계가 무너졌고 파란 큰 버튼이 한
-   * 화면에 둘 생겼다. DESIGN.md: "파란색은 예산이다."
+   * 행 구성은 앱에 이미 있는 인라인 입력 패턴을 따른다 —
+   * `TargetMuscleSelector.tsx:232`의 `[입력창 flex:1][작은 추가 버튼]` **두 칸**.
+   * 취소 ×를 세 번째 칸으로 두었더니 한 덩어리로 안 읽히고 오른쪽 여백을
+   * 많이 먹어서, 입력창 **안쪽** 우측으로 넣었다. 행은 두 칸 그대로다.
    *
-   * 형태는 앱에 이미 있는 인라인 입력 패턴을 따른다 —
-   * `TargetMuscleSelector.tsx:232`의 `[입력창 flex:1][작은 추가 버튼]` 한 줄.
-   * 취소는 버튼에서 × 아이콘으로 줄였다.
-   *
-   * 예전에는 확정도 취소도 없어 한 번 열리면 빠져나갈 방법이 다른 칩을
-   * 누르는 것뿐이었다(그마저 눈에 띄지 않았다).
+   * 취소도 확인과 똑같이 글자를 비우고 창을 닫는다. 둘의 뒷정리가 다르면
+   * "취소했는데 글자가 남아 있는" 상태가 생긴다.
    */
   const customKeyInput = editingCustom ? (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginTop: sheet ? 8 : 6,
-      }}>
-      <TextInput
-        ref={customRef}
-        style={{
-          flex: 1,
-          minHeight: 44,
-          backgroundColor: c.surfaceAlt,
-          borderRadius: 12,
-          paddingHorizontal: 12,
-          fontSize: 13,
-          fontWeight: "700",
-          color: c.textPrimary,
-        }}
-        placeholder="항목 이름 (예: 케이블각도)"
-        value={customKey}
-        onChangeText={setCustomKey}
-        placeholderTextColor={c.textMuted}
-        returnKeyType="done"
-        onSubmitEditing={confirmName}
-      />
-      <TouchableOpacity activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel="항목 이름 확인"
-        accessibilityState={{ disabled: !customKey.trim() }}
-        disabled={!customKey.trim()}
-        onPress={confirmName}
-        style={{
-          minHeight: 44,
-          justifyContent: "center",
-          backgroundColor: c.primary,
-          borderRadius: 12,
-          paddingHorizontal: 14,
-          opacity: customKey.trim() ? 1 : 0.5,
-        }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: c.onAccent }}>확인</Text>
-      </TouchableOpacity>
-      <IconButton accessibilityLabel="항목 이름 입력 취소" onPress={cancelName}>
-        <Icon name="close" size={16} color={c.textSecondary} />
-      </IconButton>
+    <View style={{ marginTop: sheet ? 8 : 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flex: 1, justifyContent: "center" }}>
+          <TextInput
+            ref={customRef}
+            style={{
+              minHeight: 44,
+              backgroundColor: c.surfaceAlt,
+              borderRadius: 12,
+              paddingLeft: 12,
+              // 안쪽 × 자리
+              paddingRight: 44,
+              fontSize: 13,
+              fontWeight: "700",
+              color: c.textPrimary,
+              borderWidth: keyError ? 1.5 : 0,
+              borderColor: keyError ? c.danger : undefined,
+            }}
+            placeholder="항목 이름 (예: 케이블각도)"
+            value={newKeyText}
+            onChangeText={(t) => { setNewKeyText(t); if (keyError) setKeyError(""); }}
+            placeholderTextColor={c.textMuted}
+            returnKeyType="done"
+            onSubmitEditing={confirmName}
+          />
+          <View style={{ position: "absolute", right: 0 }}>
+            <IconButton accessibilityLabel="항목 이름 입력 취소" onPress={cancelName}>
+              <Icon name="close" size={16} color={c.textSecondary} />
+            </IconButton>
+          </View>
+        </View>
+        <TouchableOpacity activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="항목 이름 확인"
+          accessibilityState={{ disabled: !newKeyText.trim() }}
+          disabled={!newKeyText.trim()}
+          onPress={confirmName}
+          style={{
+            minHeight: 44,
+            justifyContent: "center",
+            backgroundColor: c.primary,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            opacity: newKeyText.trim() ? 1 : 0.5,
+          }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: c.onAccent }}>확인</Text>
+        </TouchableOpacity>
+      </View>
+      {/* 안내 문구는 앱의 인라인 필드 에러 패턴을 따른다 (ExerciseAdder:767). */}
+      {!!keyError && (
+        <Text style={{ fontSize: 11, color: c.danger, marginTop: 4 }}>{keyError}</Text>
+      )}
     </View>
   ) : null;
 
