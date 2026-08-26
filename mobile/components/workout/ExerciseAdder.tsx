@@ -19,6 +19,7 @@ import { ExerciseSetting } from "../../types/workout";
 import MuscleMap, { MUSCLE_MAP } from "../MuscleMap";
 import { TargetMuscleSelector } from "./TargetMuscleSelector";
 import { SettingSelector, DEFAULT_SETTING_KEYS } from "./SettingSelector";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "../../constants/colors";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 
@@ -107,6 +108,9 @@ type SelectedExercise = {
 };
 
 type CustomKey = { id: string; name: string };
+
+/** 조회 실패 시 폴백으로 쓸 목록 캐시. routineStore 의 'routines:v2' 와 같은 역할. */
+const SETTING_KEYS_CACHE = 'workoutSettingKeys:v1';
 
 export type ExerciseAddResult = {
   name: string;
@@ -221,12 +225,59 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   // Equipment settings sheet
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [customSettingKeys, setCustomSettingKeys] = useState<CustomKey[]>([]);
+  /**
+   * 서버도 캐시도 못 읽어 하드코딩 목록으로 버티는 중인가.
+   *
+   * 이때의 항목에는 서버 id가 없어 지울 대상이 없다. 그래서 삭제 콜백을
+   * 넘기지 않고, SettingSelector 는 콜백이 없으면 길게 누르기를 붙이지 않는다.
+   */
+  const [settingsFallback, setSettingsFallback] = useState(false);
 
   // Success animation (session mode)
   const [isSuccess, setIsSuccess] = useState(false);
   const successScale = useRef(new Animated.Value(0)).current;
 
   const keyboardHeight = useKeyboardHeight();
+
+  /**
+   * 기구 설정 항목 목록을 가져온다.
+   *
+   * 예전에는 기본 6개가 클라이언트 상수라 네트워크와 무관하게 항상 보였다.
+   * 사용자 소유 데이터로 옮기면서 조회가 실패하면 목록이 텅 비게 됐으므로
+   * 3단 폴백을 둔다. `store/routineStore.ts`의 loadRoutines 와 같은 방식이다.
+   *
+   *   1. 성공             → 표시 + AsyncStorage 캐시
+   *   2. 실패 + 캐시      → 캐시 표시
+   *   3. 실패 + 캐시 없음 → DEFAULT_SETTING_KEYS 를 **표시 전용**으로
+   *
+   * 3의 항목은 서버 id가 없어 삭제할 수 없다. settingsFallback 으로 표시해
+   * 삭제 콜백을 넘기지 않는다.
+   *
+   * 예전 `.catch(() => {})` 는 실패를 조용히 삼켜 폴백이 돌았는지도 알 수 없었다.
+   */
+  const loadSettingKeys = async () => {
+    try {
+      const res = await apiClient.get<CustomKey[]>("/workout-settings");
+      setCustomSettingKeys(res.data);
+      setSettingsFallback(false);
+      await AsyncStorage.setItem(SETTING_KEYS_CACHE, JSON.stringify(res.data));
+    } catch {
+      try {
+        const raw = await AsyncStorage.getItem(SETTING_KEYS_CACHE);
+        if (raw) {
+          setCustomSettingKeys(JSON.parse(raw));
+          setSettingsFallback(false);
+          console.warn("[workout-settings] 조회 실패 — 캐시로 폴백");
+          return;
+        }
+      } catch {}
+      setCustomSettingKeys(
+        DEFAULT_SETTING_KEYS.map((name) => ({ id: `fallback:${name}`, name })),
+      );
+      setSettingsFallback(true);
+      console.warn("[workout-settings] 조회·캐시 모두 실패 — 기본 목록 표시 전용");
+    }
+  };
 
   useEffect(() => {
     loadSettings().then(() => {
@@ -235,9 +286,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       if (editMode && initialExercise) return;
       setUnit(useSettingsStore.getState().weightUnit);
     });
-    apiClient.get<CustomKey[]>("/workout-settings")
-      .then(res => setCustomSettingKeys(res.data))
-      .catch(() => {});
+    loadSettingKeys();
   }, []);
 
   useEffect(() => {
@@ -479,7 +528,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     if (isNewCustomKey) {
       try {
         const res = await apiClient.post<CustomKey>("/workout-settings", { name: key });
-        setCustomSettingKeys(prev => [...prev, res.data]);
+        setCustomSettingKeys(prev => {
+          const next = [...prev, res.data];
+          AsyncStorage.setItem(SETTING_KEYS_CACHE, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
       } catch {}
     }
     setSettings(prev => [...prev, { key, value }]);
@@ -489,7 +542,11 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const deleteCustomKey = async (id: string) => {
     try {
       await apiClient.delete(`/workout-settings/${id}`);
-      setCustomSettingKeys(prev => prev.filter(k => k.id !== id));
+      setCustomSettingKeys(prev => {
+        const next = prev.filter(k => k.id !== id);
+        AsyncStorage.setItem(SETTING_KEYS_CACHE, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
     } catch {
       showCuteAlert({ icon: 'alert', tone: 'danger', title: '삭제 실패', message: '잠시 후 다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     }
@@ -1350,7 +1407,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 key={showSettingsSheet ? "open" : "closed"}
                 variant="sheet"
                 extraKeys={customSettingKeys}
-                onDeleteExtraKey={deleteCustomKey}
+                onDeleteExtraKey={settingsFallback ? undefined : deleteCustomKey}
                 onAdd={handleAddSetting}
               />
             </View>

@@ -27,7 +27,18 @@ import { showCuteAlert } from "../CuteAlert";
 import { Icon } from "../AppIcons";
 import { IconButton } from "../../design-system";
 
-/** 기구 설정 기본 키 목록 (마지막 "직접 입력"은 컴포넌트가 자동으로 덧붙임) */
+/**
+ * 기구 설정 기본 항목 — **오프라인 폴백 전용**.
+ *
+ * 정본은 서버의 `api/src/workout-settings/default-setting-keys.ts` 다.
+ * 이 목록은 조회도 캐시도 실패했을 때 화면이 텅 비는 것을 막으려고만 쓴다
+ * (`ExerciseAdder`의 `loadSettingKeys` 3단 폴백). 그때의 항목은 서버 id가
+ * 없어 삭제할 수 없다.
+ *
+ * **서버 DEFAULT_SETTING_KEYS와 순서까지 동일해야 한다.** 어긋나면
+ * "기본 항목 되돌리기"가 이 목록과 다른 것을 채워 넣어 화면과 서버가 벌어진다.
+ * 값을 바꿀 일이 생기면 서버를 먼저 고치고 여기를 맞춘다.
+ */
 export const DEFAULT_SETTING_KEYS = [
   "시트높이",
   "등받이각도",
@@ -45,7 +56,6 @@ export interface ExtraSettingKey {
 interface Props {
   /** 항목 추가 시 호출. 직접 입력이면 key는 사용자가 입력한 항목명. */
   onAdd: (key: string, value: string) => void;
-  presetKeys?: string[];
   /** 서버에 저장된 사용자 정의 키 (있으면 칩으로 렌더, 삭제 가능) */
   extraKeys?: ExtraSettingKey[];
   onDeleteExtraKey?: (id: string) => void;
@@ -54,13 +64,12 @@ interface Props {
 
 export function SettingSelector({
   onAdd,
-  presetKeys = DEFAULT_SETTING_KEYS,
   extraKeys = [],
   onDeleteExtraKey,
   variant = "inline",
 }: Props) {
   const c = useColors();
-  const [selectedKey, setSelectedKey] = useState(presetKeys[0] ?? "");
+  const [selectedKey, setSelectedKey] = useState("");
   /** 이름 입력창이 열려 있는가 */
   const [editingCustom, setEditingCustom] = useState(false);
   /** 입력창에 치고 있는 글자 */
@@ -87,11 +96,7 @@ export function SettingSelector({
   };
 
   /** 이미 있는 이름인가 — 프리셋·저장된 커스텀·이번에 만든 초안 전부와 대조. */
-  const existingKeys = [
-    ...presetKeys,
-    ...extraKeys.map((k) => k.name),
-    ...draftKeys,
-  ];
+  const existingKeys = [...extraKeys.map((k) => k.name), ...draftKeys];
 
   /** "+ 항목 추가" — 입력창만 연다. 이 버튼은 선택 상태를 갖지 않는다. */
   const openNameInput = () => {
@@ -136,7 +141,7 @@ export function SettingSelector({
     setDraftKeys([]);
     setNewKeyText("");
     setEditingCustom(false);
-    setSelectedKey(presetKeys[0] ?? "");
+    setSelectedKey("");
   };
 
   /**
@@ -235,7 +240,6 @@ export function SettingSelector({
 
   const keyChips = (
     <>
-      {presetKeys.map((k) => chip(k, selectedKey === k, () => selectKey(k)))}
       {extraKeys.map((k) =>
         chip(
           k.name,
