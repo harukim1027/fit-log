@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
+import { WorkoutSettingsService } from '../workout-settings/workout-settings.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepo: Repository<User>,
+    private workoutSettings: WorkoutSettingsService,
   ) {}
 
   async create(email: string, password: string, name?: string): Promise<User> {
@@ -17,7 +19,11 @@ export class UsersService {
     if (existing) throw new ConflictException('이미 사용 중인 이메일이에요');
     const hashed = await bcrypt.hash(password, 10);
     const user = this.usersRepo.create({ email, password: hashed, name });
-    return this.usersRepo.save(user);
+    const saved = await this.usersRepo.save(user);
+    // 기구 설정 기본 항목을 깔아 준다. 실패해도 가입은 성공시킨다 —
+    // 사용자가 "기본 항목 되돌리기"로 스스로 복구할 수 있다.
+    await this.workoutSettings.seedDefaults(saved.id);
+    return saved;
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -47,7 +53,9 @@ export class UsersService {
 
     // Brand-new social sign-up (no password).
     const newUser = this.usersRepo.create({ email, name, provider, providerId });
-    return this.usersRepo.save(newUser);
+    const savedNew = await this.usersRepo.save(newUser);
+    await this.workoutSettings.seedDefaults(savedNew.id);
+    return savedNew;
   }
 
   async updateProfile(id: string, data: UpdateUserDto): Promise<User> {
