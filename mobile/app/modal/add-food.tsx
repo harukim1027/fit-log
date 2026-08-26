@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Card, Input, NumberPad } from "../../components/ui";
-import { Button, Header } from "../../design-system";
+import { Button, Header, IconButton } from "../../design-system";
 import { Stepper } from "../../components/ui/Stepper";
 import { useState, useEffect, useCallback } from "react";
 import { Icon, HeartIcon, BowlMascot, EmptyMascot } from "../../components/AppIcons";
@@ -434,13 +434,22 @@ export default function AddFoodModal() {
                             <Text style={{ fontSize: 11, fontWeight: '800', color: '#7C5CBF' }}>가져오기</Text>
                           </TouchableOpacity>
                         ) : (
-                          <TouchableOpacity activeOpacity={0.8} onPress={() => handleToggleFavorite(food)}>
+                          /* box 모드(기본). 우측 컬럼 폭은 "NNNkcal" 텍스트가 정하고
+                             44 박스는 그보다 좁아 폭이 늘지 않는다. 세로만 20 → 44 인데
+                             같은 행 좌측 블록(이름·브랜드·영양 3줄)이 이미 그만큼 높다. */
+                          <IconButton
+                            accessibilityLabel={
+                              isFavorite(food.name)
+                                ? `${food.name} 즐겨찾기 해제`
+                                : `${food.name} 즐겨찾기 추가`
+                            }
+                            onPress={() => handleToggleFavorite(food)}>
                             <HeartIcon
                               filled={isFavorite(food.name)}
                               size={20}
                               color={isFavorite(food.name) ? c.secondary : c.textMuted}
                             />
-                          </TouchableOpacity>
+                          </IconButton>
                         )}
                       </View>
                     </View>
@@ -678,9 +687,17 @@ export default function AddFoodModal() {
                         }>
                         <Text className="text-xs text-diet font-bold">추가</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity activeOpacity={0.8} onPress={() => removeFavorite(food.id)}>
+                      {/* hitSlop 모드. box(44)로 하면 `[추가][하트]` 행이 72 → 96 으로
+                          늘고, 우측 컬럼이 그만큼 넓어져 같은 행의 flex-1 이름 블록을
+                          24pt 밀어낸다. 카드 높이도 45 → 66 이 된다.
+                          조상에 overflow: hidden 이 없음을 확인했다
+                          (Card·ScrollView 모두 지정 없음). */}
+                      <IconButton
+                        accessibilityLabel={`${food.foodName} 즐겨찾기 해제`}
+                        onPress={() => removeFavorite(food.id)}
+                        touchTargetMode="hitSlop">
                         <HeartIcon filled size={20} color={c.secondary} />
-                      </TouchableOpacity>
+                      </IconButton>
                     </View>
                   </View>
                 </Card>
