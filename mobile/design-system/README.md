@@ -86,6 +86,46 @@ filled로 잘못 분류됐고, `barcode-scan.tsx:91`은 아래쪽 스캔 프레�
 5. a11y 위반 0건
 6. `design-system/index.ts`에 export 추가
 
+### 검증용 임시 코드 원복 체크리스트
+
+실물 확인을 하려면 아래를 임시로 바꿔야 하는 일이 반복된다. **원복을 놓치면
+소스는 깨끗한데 앱만 이상하게 보인다** — 실제로 "운동 추가에 들어가자마자
+기구 설정 시트가 열리고 입력창에 글자와 에러가 들어 있는" 상태를 만든 적이 있다.
+
+임시로 바꾸게 되는 것들:
+
+| 종류 | 예 |
+|---|---|
+| `useState` 초깃값 | 시트 열림, 입력 모드, 입력값, 에러, 선택 상태 |
+| API 응답 덮어쓰기 차단 | `.then(res => { if (res.data.length) set(...) })` |
+| 데이터 시드 | `useState([{ id: 't1', name: '밴드' }])` |
+| 핸들러 무력화 | `deleteCustomKey` 앞에 `return` |
+| 프로브 | `onLayout` 로그, `console.log` |
+
+규칙:
+
+1. **임시 변경에는 반드시 `// TEMP:` 주석을 단다.** 값만 바꾸면 나중에
+   원래 값이 무엇이었는지 알 수 없다.
+2. 작업 종료 전 `grep -rn "TEMP:"` 로 전량 확인한다.
+3. `git diff` 로 최종 확인한 뒤 커밋한다.
+
+`grep ... | head || echo "없음"` 처럼 쓰지 말 것 — 파이프의 종료 코드는
+`head` 것이라 항상 0이고, `||` 뒤가 실행되지 않아 **확인한 척만 하게 된다.**
+`grep -rn "TEMP:" ... ; echo "exit=$?"` 처럼 grep 자신의 결과를 본다.
+
+#### 앱이 이상하면 소스보다 번들을 먼저 의심한다
+
+소스를 원복해도 **시뮬레이터가 옛 번들을 물고 있으면 증상이 그대로다.**
+Fast Refresh는 앱이 떠 있을 때만 반영되므로, 원복을 앱이 종료된 상태에서
+했다면 다음 실행까지 반영되지 않는다.
+
+```bash
+xcrun simctl terminate <UDID> com.harulog.app
+xcrun simctl launch    <UDID> com.harulog.app
+```
+
+`git status` 가 깨끗한데 화면이 이상하면 거의 항상 이 경우다.
+
 ### a11y 패널 주의
 
 **Storybook a11y 패널은 HMR 후 자동 갱신되지 않는다.
