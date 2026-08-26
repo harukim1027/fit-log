@@ -59,8 +59,10 @@ export function ActiveWorkoutBar() {
       accessibilityLabel="운동 진행 중, 운동 화면으로 이동"
       style={{
         position: "absolute",
-        // 탭바(높이 72 + 하단 안전영역) 위로 띄움
-        bottom: insets.bottom + 82,
+        // 탭바(높이 64 + 하단 안전영역) 위로 10pt 띄움.
+        // 64는 (tabs)/_layout.tsx의 tabBarStyle.height와 같은 값이어야 한다 —
+        // 거기서 바꾸면 여기도 같이 바꿀 것.
+        bottom: insets.bottom + 74,
         left: 12,
         right: 12,
         backgroundColor: c.primary,

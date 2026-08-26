@@ -54,8 +54,13 @@ export default function TabLayout() {
           backgroundColor: c.surface,
           borderTopWidth: 1,
           borderTopColor: c.border,
-          height: 72 + insets.bottom,
-          paddingBottom: insets.bottom + 8,
+          // height는 padding을 포함한 총 높이라 insets.bottom이 height와
+          // paddingBottom 양쪽에 나타나는 것이 정상이다(중복 계산이 아니다).
+          // 콘텐츠 박스 = height - paddingTop - paddingBottom = 54.
+          // 회귀 방지: paddingBottom에 안전영역 위로 +8을 더 얹지 말 것.
+          // 그러면 바만 8pt 높아지고 아이콘·라벨이 하단에서 떠 보인다.
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 10,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: -6 },

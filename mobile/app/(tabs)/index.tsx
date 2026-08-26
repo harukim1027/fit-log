@@ -390,7 +390,11 @@ function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         /* 좌우 여백은 여기 한 번만 (space.16). 섹션 사이는 부모 gap(space.20)이 만든다. */
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 120, gap: 20 }}
+        /* 하단 여백은 ActiveWorkoutBar가 뜰 때만 필요하다. 그 바는 화면 하단
+           116~174pt를 차지하고 콘텐츠 영역은 탭바 위에서 끝나므로 실제 가려지는
+           높이는 약 68pt다. 평상시 40은 stats·workout과 같은 값이다.
+           회귀 방지: 상수 120으로 되돌리지 말 것 — 운동 중이 아닐 때 80pt가 죽는다. */
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: activeSession ? 80 : 40, gap: 20 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
