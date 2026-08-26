@@ -330,9 +330,9 @@ function HomeScreen() {
           <ThemeToggle size={38} />
           <TouchableOpacity activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="내 목표 설정"
+            accessibilityLabel="프로필 편집"
             style={[{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }, SHADOW_SM]}
-            onPress={() => router.push("/modal/set-target" as any)}>
+            onPress={() => router.push("/modal/edit-profile" as any)}>
             <FaceAvatar size={28} color={c.onAccent} />
           </TouchableOpacity>
         </View>

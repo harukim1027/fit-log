@@ -183,6 +183,90 @@ Git Push → GitHub Actions
 - [ ] 소셜 기능 (친구 운동 공유)
 - [ ] AI 운동 추천
 
+## 🧭 Phase 2 네비게이션 재설계
+
+프로필·목표 관련 진입점이 흩어져 있고 항목이 중복되어, 설정 화면으로 통합하고
+모달을 스택으로 전환하기 위한 사전 조사 결과다.
+
+### 현재 라우트 구조
+
+모달 7개가 전부 `presentation: "fullScreenModal"` + `animation: "slide_from_bottom"`으로
+`app/_layout.tsx`에 선언돼 있다.
+
+| 경로 | 진입 경로 | 닫기 |
+|---|---|---|
+| `modal/edit-profile` | 홈 우상단 아바타, 통계 헤더 person | 자체 헤더 X |
+| `modal/routine-manage` | 홈, 운동 탭 | Header showClose |
+| `modal/add-workout` | 운동 탭 | ExerciseAdder Header showClose |
+| `modal/full-calendar` | 운동 탭 | 자체 헤더 X |
+| `modal/add-food` | `diet.tsx` (도달 불가) | Header showClose |
+| `modal/barcode-scan` | add-food 헤더 | Header showClose |
+
+`gestureEnabled`는 어디에도 설정돼 있지 않다. `fullScreenModal`은 스와이프 dismiss가
+비활성이므로 **현재 닫는 수단은 사실상 X 버튼 하나뿐**이다(+ Android 하드웨어 뒤로가기).
+
+식단 탭은 `(tabs)/_layout.tsx`에서 `href: null`로 숨겨져 있고 파일은 보존돼 있다.
+따라서 `add-food` / `barcode-scan`은 라우트는 살아 있으나 진입점이 없다.
+
+### 미저장 가드 전무
+
+`beforeRemove` / `usePreventRemove` / `BackHandler` / dirty 체크가 **레포 전체에 0건**이다.
+유일한 확인 다이얼로그는 `workout.tsx`의 운동 세션 종료("저장하지 않고 종료")인데,
+이건 라우트 이탈이 아니라 세션 종료다.
+
+현재는 X가 "취소"로 읽히고 실제 동작도 폐기라서 일관되다. 문제는 다음 항목이다.
+
+### 스택 전환 시 스와이프가 자동 활성화된다
+
+`card` presentation은 iOS에서 뒤로가기 스와이프가 기본 활성이다. 즉 전환하는 순간
+7개 화면 전부에 **새 이탈 경로가 생긴다**. 지금까지 "의도적 폐기"였던 동작이
+스와이프 오조작으로 바뀌므로, 작성 중 내용이 사고로 사라진다.
+
+위험도가 높은 순서:
+1. `routine-manage` create — 루틴명 + 종목 N개가 확인 없이 폐기
+2. `ExerciseAdder` — 종목·세트·설정
+3. `edit-profile`, `add-food`
+
+### routine-manage 1199줄 내부 상태머신
+
+다단계 흐름이 라우트 체인이 아니라 **단일 라우트 안의 상태머신**이다.
+
+```
+routine-manage (라우트 1개)
+├─ mode: "list"            Header showClose → router.back()   ← 유일한 진짜 이탈
+├─ mode: "create"/"edit"   Header showClose → setMode("list")
+│   └─ subMode: "addExercise"/"editExercise" → <ExerciseAdder onClose={setSubMode} />
+├─ mode: "combine-select"  Header showClose → setMode("list")
+└─ mode: "combine-edit"    Header showClose → setMode("combine-select")
+```
+
+"루틴 관리 → 새 루틴 → 종목 추가" 3단계가 라우트 1개다. X 버튼 4개 중 3개는 내부
+모드를 되돌릴 뿐이다. 스택으로 전환하면서 이 화면을 쪼개지 않으면, 스와이프가
+"새 루틴 작성 중"에도 루틴 관리 전체를 닫아버린다.
+
+### 작업 순서
+
+1. **set-target 정리** — 완료 (`refactor/remove-set-target`)
+2. **설정 탭 신설** — 흩어진 설정성 항목 통합
+3. **미저장 가드** — dirty 체크 + 이탈 확인 다이얼로그
+4. **스택 전환** — `fullScreenModal` → `card`, showClose → showBack
+
+**3번이 4번보다 먼저여야 하는 이유**: 4번은 그 자체로 새로운 데이터 소실 경로를
+만든다. 스와이프는 X 버튼과 달리 오조작이 쉽고 되돌릴 수 없다. 가드가 없는 상태에서
+스택으로 먼저 전환하면, 가드를 붙이기 전까지의 기간 동안 사용자가 작성 중이던
+루틴·운동 기록을 실제로 잃는다. 순서를 뒤집으면 회귀가 아니라 신규 결함을 배포하는 셈이다.
+
+### 설정 화면으로 옮길 항목
+
+| 항목 | 현재 위치 |
+|---|---|
+| 이름 · 성별 · 나이 · 신장 · 체중 | edit-profile |
+| 목표 · 주간 운동 목표 | edit-profile |
+| 무게 단위 · 부위 선택기 · 휴식 알림 | edit-profile (settingsStore) |
+| 테마 | 홈 헤더 + 통계 헤더 **2곳 중복** |
+| 로그아웃 | 통계 헤더 |
+| 계정(이메일·비번변경·탈퇴) | **없음 — 신설 후보** |
+
 ## 🚀 로컬 실행
 ```bash
 # 백엔드

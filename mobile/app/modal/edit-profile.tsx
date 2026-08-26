@@ -14,13 +14,13 @@ import {
 } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
-import { useDietStore } from "../../store/dietStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { GoalIcon, Icon } from "../../components/AppIcons";
 import { IconButton } from "../../design-system";
 import { NumberPad } from "../../components/ui";
+import { Stepper } from "../../components/ui/Stepper";
 
 const GOALS = [
   { key: "체중감량" },
@@ -51,7 +51,6 @@ export default function EditProfileModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuthStore();
-  const { setTargetCalories } = useDietStore();
   const {
     weightUnit,
     showBodypartSelector,
@@ -76,9 +75,6 @@ export default function EditProfileModal() {
   const [weeklyGoal, setWeeklyGoal] = useState(
     user?.weeklyGoal ? String(user.weeklyGoal) : ""
   );
-  const [targetCal, setTargetCal] = useState(
-    String(user?.targetCalories ?? "")
-  );
   const [isSaving, setIsSaving] = useState(false);
 
   type PadConfig = {
@@ -102,7 +98,8 @@ export default function EditProfileModal() {
     backgroundColor: c.surface,
     borderRadius: 12,
     padding: 14,
-    // 입력값은 numeric 15/800 — 체중·키·나이·목표 칼로리가 다수다
+    // 입력값은 numeric 15/800 — 나이·키·주간 목표가 다수다
+    // (체중은 Stepper로 분리됐고, 목표 칼로리는 제거됐다)
     fontSize: 15,
     fontWeight: "800" as const,
     color: c.textPrimary,
@@ -123,8 +120,20 @@ export default function EditProfileModal() {
     const weightNum = parseFloat(weight);
     const heightNum = parseFloat(height);
     const ageNum = parseInt(age);
-    const targetCalNum = parseInt(targetCal);
     const weeklyGoalNum = parseInt(weeklyGoal);
+
+    // Stepper가 이미 20~300으로 clamp하지만, 저장된 기존 값이 범위 밖일 수
+    // 있어 한 번 더 막는다. 제거된 set-target이 갖고 있던 검증을 옮겨온 것.
+    if (weight && (isNaN(weightNum) || weightNum < 20 || weightNum > 300)) {
+      showCuteAlert({
+        icon: "pencil",
+        tone: "warn",
+        title: "올바른 체중을 입력해주세요",
+        message: "20 ~ 300 사이로 입력해주세요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -139,9 +148,7 @@ export default function EditProfileModal() {
           isNaN(weeklyGoalNum) || weeklyGoalNum <= 0
             ? undefined
             : weeklyGoalNum,
-        targetCalories: isNaN(targetCalNum) ? undefined : targetCalNum,
       });
-      if (!isNaN(targetCalNum)) setTargetCalories(targetCalNum);
       router.back();
     } catch (e: any) {
       showCuteAlert({
@@ -294,14 +301,6 @@ export default function EditProfileModal() {
                 suffix: "cm",
                 max: 250,
               },
-              {
-                label: "체중",
-                value: weight,
-                set: setWeight,
-                decimal: true,
-                suffix: "kg",
-                max: 300,
-              },
             ] as const
           ).map(({ label, value, set, decimal, suffix, max }) => (
             <View key={label} style={{ flex: 1 }}>
@@ -329,6 +328,29 @@ export default function EditProfileModal() {
             </View>
           ))}
         </View>
+
+        {/* 체중 — 제거된 목표 설정(set-target) 화면에서 옮겨온 Stepper.
+            나이·신장과 달리 −/+ 미세 조정이 필요하고, Stepper가 min/max를
+            직접 clamp하므로 openPad 경로의 max 미전달 문제를 받지 않는다. */}
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: "700",
+            color: c.textMuted,
+            marginBottom: 6,
+            marginTop: 12,
+          }}>
+          체중
+        </Text>
+        <Stepper
+          value={weight || "70"}
+          onChange={setWeight}
+          step={1}
+          min={20}
+          max={300}
+          suffix="kg"
+          decimal
+        />
 
         {/* 목표 */}
         <Text
@@ -385,36 +407,6 @@ export default function EditProfileModal() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
-
-        {/* 목표 칼로리 */}
-        <Text
-          style={{
-            fontSize: 14,
-            fontWeight: "600",
-            color: c.textSecondary,
-            marginBottom: 10,
-            marginTop: 20,
-          }}>
-          목표 칼로리
-        </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={[inputStyle, { flex: 1, alignItems: "center" }]}
-            onPress={() => openPad(targetCal, false, "kcal", setTargetCal)}>
-            <Text
-              style={{
-                fontSize: 15,
-                color: targetCal ? c.textPrimary : c.textMuted,
-              }}>
-              {targetCal || "2000"}
-            </Text>
-          </TouchableOpacity>
-          <Text
-            style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>
-            kcal / 일
-          </Text>
         </View>
 
         {/* 주간 운동 목표 */}
