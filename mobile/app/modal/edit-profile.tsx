@@ -8,10 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
@@ -164,16 +161,25 @@ export default function EditProfileModal() {
   };
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: c.background }}
-      edges={["top"]}>
+    // 회귀 방지: 상단 인셋은 SafeAreaView의 edges="top"이 아니라 useSafeAreaInsets()로 준다.
+    // presentation="fullScreenModal"에서는 edges="top"이 적용되지 않아 닫기 버튼이
+    // 상태바 시계와 겹쳤다(full-calendar.tsx가 같은 이유로 같은 처리를 한다).
+    // 딥링크로 이 화면이 루트가 될 때는 edges="top"이 먹어서 증상이 가려지므로,
+    // 반드시 통계 탭 → 프로필 아이콘 경로로 확인할 것.
+    //
+    // 하단은 SafeAreaView에 맡기지 않는다 — 저장 버튼 컨테이너가 이미
+    // Math.max(insets.bottom, 12)로 직접 처리하고 있어 edges="bottom"을 주면
+    // 이번엔 하단이 이중 적용된다.
+    <View style={{ flex: 1, backgroundColor: c.background }}>
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           paddingHorizontal: 16,
-          paddingVertical: 14,
+          // 공용 Header 및 full-calendar와 같은 값(insets.top + 6)
+          paddingTop: insets.top + 6,
+          paddingBottom: 14,
           borderBottomWidth: 1,
           borderBottomColor: c.surfaceAlt,
           backgroundColor: c.background,
@@ -668,6 +674,6 @@ export default function EditProfileModal() {
         }}
         onCancel={() => setPadConfig(null)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
