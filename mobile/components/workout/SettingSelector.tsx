@@ -14,7 +14,7 @@
  * - 'sheet' : 모달 시트 레이아웃 (라벨 + 줄바꿈 칩 + "추가하기" 버튼)
  */
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -59,6 +59,8 @@ interface Props {
   /** 서버에 저장된 사용자 정의 키 (있으면 칩으로 렌더, 삭제 가능) */
   extraKeys?: ExtraSettingKey[];
   onDeleteExtraKey?: (id: string) => void;
+  /** 기본 항목 되돌리기. 없으면 액션을 그리지 않는다(3단 폴백 등). */
+  onRestoreDefaults?: () => void;
   variant?: "inline" | "sheet";
 }
 
@@ -66,6 +68,7 @@ export function SettingSelector({
   onAdd,
   extraKeys = [],
   onDeleteExtraKey,
+  onRestoreDefaults,
   variant = "inline",
 }: Props) {
   const c = useColors();
@@ -84,11 +87,30 @@ export function SettingSelector({
    */
   const [draftKeys, setDraftKeys] = useState<string[]>([]);
   const [keyError, setKeyError] = useState("");
+  /**
+   * 목록이 처음 채워졌을 때 첫 항목을 자동 선택한다.
+   *
+   * 예전에는 기본 목록이 클라이언트 상수라 `presetKeys[0]`을 초깃값으로 쓸 수
+   * 있었다. 서버에서 오게 되면서 첫 렌더에는 목록이 비어 있어 선택이 빈
+   * 문자열로 시작했다. 로드 이후 한 번만 채워 예전 동작을 되돌린다.
+   *
+   * "한 번만"인 이유: 매번 채우면 사용자가 선택 항목을 삭제했을 때
+   * (clearIfSelected 가 의도적으로 비운다) 곧바로 다른 것이 선택돼 버린다.
+   */
+  const didAutoSelect = useRef(false);
   const [value, setValue] = useState("");
   const customRef = useRef<TextInput>(null);
 
+  useEffect(() => {
+    if (didAutoSelect.current || !extraKeys.length) return;
+    didAutoSelect.current = true;
+    setSelectedKey(extraKeys[0].name);
+  }, [extraKeys]);
+
   const sheet = variant === "sheet";
   const finalKey = selectedKey;
+  /** submit() 이 실제로 무언가 하는 조건 — 항목이 골라져 있고 값이 있을 때. */
+  const canSubmit = !!finalKey && !!value.trim();
 
   const selectKey = (k: string) => {
     setEditingCustom(false);
@@ -268,6 +290,36 @@ export function SettingSelector({
    * primary 대신 textSecondary 를 쓰는 이유는 이 시트에 이미 primary 액션
    * ("추가하기")이 있어서다. DESIGN.md: "파란색은 예산이다."
    */
+  /** 기본 항목 중 지금 목록에 없는 것. 하나라도 있으면 되돌리기를 보여 준다. */
+  const missingDefaults = DEFAULT_SETTING_KEYS.filter(
+    (k) => !existingKeys.some((e) => e.toLowerCase() === k.toLowerCase()),
+  );
+
+  /**
+   * 기본 항목 되돌리기. **칩이 아니다** — "+ 항목 추가"와 같은 텍스트 액션이다
+   * (`workout.tsx:2465` 패턴).
+   *
+   * 빠진 것이 하나도 없으면 아무 일도 하지 않는 버튼이 되므로 숨긴다.
+   * 3단 폴백(서버·캐시 모두 실패) 중에는 `onRestoreDefaults`가 넘어오지 않아
+   * 역시 숨겨진다 — 서버에 못 닿는 중이라 restore 도 실패한다.
+   *
+   * 확인 팝업은 두지 않는다. 없는 것만 더할 뿐 무엇도 지우지 않아
+   * 파괴적 액션이 아니다.
+   */
+  const restoreAction =
+    onRestoreDefaults && missingDefaults.length > 0 && !editingCustom ? (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="기본 항목 되돌리기"
+        onPress={onRestoreDefaults}
+        style={{ alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 6 }}>
+        <Text style={{ fontSize: sheet ? 12 : 11, fontWeight: "700", color: c.textSecondary }}>
+          기본 항목 되돌리기
+        </Text>
+      </TouchableOpacity>
+    ) : null;
+
   const addKeyAction = editingCustom ? null : (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -356,6 +408,7 @@ export function SettingSelector({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             {keyChips}
             {addKeyAction}
+            {restoreAction}
           </View>
         </ScrollView>
         {customKeyInput}
@@ -406,7 +459,10 @@ export function SettingSelector({
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
         {keyChips}
       </View>
-      {addKeyAction}
+      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
+        {addKeyAction}
+        {restoreAction}
+      </View>
       {customKeyInput}
       <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary, marginTop: 16, marginBottom: 10 }}>
         값 입력
@@ -427,8 +483,20 @@ export function SettingSelector({
         returnKeyType="done"
         onSubmitEditing={submit}
       />
+      {/* 항목을 전부 지운 사용자는 고를 것이 없어 finalKey 가 빈 문자열이다.
+          그때 submit() 은 조용히 반환하므로, 눌리는데 아무 일도 안 나는 버튼이
+          된다. 같은 화면의 "확인" 버튼과 같은 방식으로 막는다. */}
       <TouchableOpacity
-        style={{ backgroundColor: c.primary, borderRadius: 24, padding: 15, alignItems: "center" }}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canSubmit }}
+        disabled={!canSubmit}
+        style={{
+          backgroundColor: c.primary,
+          borderRadius: 24,
+          padding: 15,
+          alignItems: "center",
+          opacity: canSubmit ? 1 : 0.5,
+        }}
         onPress={submit}
         activeOpacity={0.8}>
         <Text style={{ fontSize: 15, fontWeight: "800", color: c.surface }}>추가하기</Text>

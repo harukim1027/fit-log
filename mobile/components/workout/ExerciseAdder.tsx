@@ -523,8 +523,9 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
    * 프리셋/기존 커스텀 키에 없는 새 키(=직접 입력)면 서버에 저장해 다음에도 재사용.
    */
   const handleAddSetting = async (key: string, value: string) => {
-    const isNewCustomKey =
-      !DEFAULT_SETTING_KEYS.includes(key) && !customSettingKeys.some(k => k.name === key);
+    // 기본 항목도 이제 customSettingKeys 로 들어오므로 목록 하나만 보면 된다.
+    // 예전에는 DEFAULT_SETTING_KEYS 도 함께 봐야 했다(그때는 클라이언트 상수였다).
+    const isNewCustomKey = !customSettingKeys.some(k => k.name === key);
     if (isNewCustomKey) {
       try {
         const res = await apiClient.post<CustomKey>("/workout-settings", { name: key });
@@ -537,6 +538,28 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
     }
     setSettings(prev => [...prev, { key, value }]);
     closeSettingsSheet();
+  };
+
+  /**
+   * 기본 항목 되돌리기 — 빠진 기본 항목만 서버가 채우고 전체 목록을 돌려준다.
+   *
+   * 실패를 조용히 삼키지 않는다. 눌렀는데 아무 일도 안 일어나면 사용자는
+   * 버튼이 고장 난 것인지 원래 그런 것인지 알 수 없다.
+   */
+  const restoreDefaultKeys = async () => {
+    try {
+      const res = await apiClient.post<CustomKey[]>("/workout-settings/restore");
+      setCustomSettingKeys(res.data);
+      await AsyncStorage.setItem(SETTING_KEYS_CACHE, JSON.stringify(res.data));
+    } catch {
+      showCuteAlert({
+        icon: 'alert',
+        tone: 'danger',
+        title: '되돌리기 실패',
+        message: '잠시 후 다시 시도해주세요',
+        buttons: [{ label: '확인', style: 'primary' }],
+      });
+    }
   };
 
   const deleteCustomKey = async (id: string) => {
@@ -1408,6 +1431,7 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                 variant="sheet"
                 extraKeys={customSettingKeys}
                 onDeleteExtraKey={settingsFallback ? undefined : deleteCustomKey}
+                onRestoreDefaults={settingsFallback ? undefined : restoreDefaultKeys}
                 onAdd={handleAddSetting}
               />
             </View>
