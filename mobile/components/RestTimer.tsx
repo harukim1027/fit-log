@@ -39,6 +39,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { cancelRestEndNotification } from "../lib/workoutNotification";
 import { Icon } from "./AppIcons";
+import { IconButton } from "../design-system";
 import { useColors } from "../constants/colors";
 
 const PRESETS = [
@@ -408,9 +409,14 @@ export default function RestTimer({
               style={{ transform: [{ scaleX: 0.6 }, { scaleY: 0.6 }] }}
             />
           )}
-          <TouchableOpacity activeOpacity={0.8} onPress={reset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          {/* 박스 14 → 44. hitSlop 8은 뺀다 — 14+16=30으로 애초에 44에 못 미쳤다.
+              ⚠️ 이 버튼이 든 좌측 블록은 flexShrink: 0이고 같은 줄에 Switch가 있다
+              (Switch의 scale 0.6은 시각 효과일 뿐 레이아웃 폭 51은 그대로다).
+              블록이 69 → 99로 넓어지고 그만큼 가운데 flex: 1 시간 표시가 줄어든다.
+              계획서의 "단독 배치"는 틀렸다. */}
+          <IconButton accessibilityLabel="휴식 타이머 초기화" onPress={reset}>
             <Icon name="refresh" size={14} color={c.danger} />
-          </TouchableOpacity>
+          </IconButton>
         </View>
       </View>
 

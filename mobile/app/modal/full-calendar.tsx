@@ -11,6 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useColors } from "../../constants/colors";
 import { Icon } from "../../components/AppIcons";
+import { IconButton } from "../../design-system";
 import {
   getMuscleSetCountsForDate,
   getMuscleColor,
@@ -95,11 +96,13 @@ export default function FullCalendarScreen() {
         <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary }}>
           기록 캘린더
         </Text>
-        <TouchableOpacity activeOpacity={0.7}
-          onPress={() => router.back()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        {/* 박스 26 → 44. hitSlop 8은 뺀다 — 26+16=42로 애초에 44에 못 미쳤다.
+            행은 [제목][닫기] 둘뿐이라 폭을 다투지 않는다. */}
+        <IconButton
+          accessibilityLabel="기록 캘린더 닫기"
+          onPress={() => router.back()}>
           <Icon name="close" size={26} color={c.textPrimary} />
-        </TouchableOpacity>
+        </IconButton>
       </View>
 
       {/* 월 네비게이션 */}

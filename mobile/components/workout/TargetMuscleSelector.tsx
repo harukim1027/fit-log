@@ -19,6 +19,8 @@ import {
   ScrollView,
 } from "react-native";
 import { useColors } from "../../constants/colors";
+import { Icon } from "../AppIcons";
+import { IconButton } from "../../design-system";
 import { EXERCISE_CATEGORIES } from "../../constants";
 
 /** 카테고리별 기본 타겟부위 옵션 (마지막 '직접 입력'은 자유 입력 토글) */
@@ -53,6 +55,7 @@ export function TargetMuscleSelector({
   const c = useColors();
   const [showInput, setShowInput] = useState(false);
   const [inputText, setInputText] = useState("");
+  const [inputError, setInputError] = useState("");
 
   const SHADOW = {
     shadowColor: "#000",
@@ -71,11 +74,27 @@ export function TargetMuscleSelector({
         : [...targetMuscles, part]
     );
 
+  /**
+   * 부위 추가. SettingSelector 의 confirmName 과 동작을 맞춘다 —
+   * 빈 값은 버튼이 막고, 중복은 안내를 띄우고, 성공하면 글자를 비우고 닫는다.
+   * 예전에는 중복이면 아무 일도 없이 조용히 닫혀서 왜 안 들어갔는지 알 수 없었다.
+   */
   const addCustom = () => {
     const v = inputText.trim();
-    if (v && !targetMuscles.includes(v))
-      onTargetMusclesChange([...targetMuscles, v]);
+    if (!v) return;
+    if (targetMuscles.some((p) => p.toLowerCase() === v.toLowerCase())) {
+      setInputError("이미 있는 부위예요");
+      return;
+    }
+    onTargetMusclesChange([...targetMuscles, v]);
     setInputText("");
+    setInputError("");
+    setShowInput(false);
+  };
+
+  const cancelInput = () => {
+    setInputText("");
+    setInputError("");
     setShowInput(false);
   };
 
@@ -150,29 +169,9 @@ export function TargetMuscleSelector({
               gap: 8,
               marginBottom: showInput ? 10 : 0,
             }}>
-            {presetParts.map((part) => {
-              if (part === "직접 입력") {
-                return (
-                  <TouchableOpacity activeOpacity={0.8}
-                    key="custom"
-                    style={{
-                      borderRadius: 999,
-                      paddingHorizontal: 14,
-                      paddingVertical: 6,
-                      backgroundColor: showInput ? c.primary : c.surfaceAlt,
-                    }}
-                    onPress={() => setShowInput((v) => !v)}>
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "700",
-                        color: showInput ? c.surface : c.textSecondary,
-                      }}>
-                      + 직접 입력
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
+            {presetParts
+              .filter((part) => part !== "직접 입력")
+              .map((part) => {
               const on = targetMuscles.includes(part);
               return (
                 <TouchableOpacity activeOpacity={0.8}
@@ -192,9 +191,9 @@ export function TargetMuscleSelector({
                     }}>
                     {part}
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              })}
             {/* 직접 입력으로 추가된 항목 태그 (프리셋에 없는 값) */}
             {targetMuscles
               .filter((p) => !presetParts.includes(p))
@@ -221,43 +220,74 @@ export function TargetMuscleSelector({
                 </TouchableOpacity>
               ))}
           </View>
+          {/* 부위 생성 액션. **칩이 아니다.**
+              예전에는 "+ 직접 입력"이 선택지 칩과 같은 알약 모양이었고
+              입력창이 열리면 배경이 primary로 차서 선택된 것처럼 보였다.
+              형태는 SettingSelector의 "+ 항목 추가"와 같다 — 배경 없이 글자만.
+              (앱의 기존 텍스트 액션: workout.tsx:2465, :3325) */}
+          {!showInput && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="타겟 부위 추가"
+              onPress={() => { setInputText(""); setInputError(""); setShowInput(true); }}
+              style={{ alignSelf: "flex-start", paddingVertical: 6, paddingRight: 6, marginTop: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: c.textSecondary }}>
+                + 부위 추가
+              </Text>
+            </TouchableOpacity>
+          )}
           {showInput && (
-            <View
-              style={{
-                flexDirection: "row",
-                gap: 8,
-                alignItems: "center",
-                marginTop: 8,
-              }}>
-              <TextInput
-                style={{
-                  flex: 1,
-                  backgroundColor: c.surfaceAlt,
-                  borderRadius: 12,
-                  padding: 10,
-                  fontSize: 13,
-                  color: c.textPrimary,
-                }}
-                placeholder="타겟 부위 직접 입력"
-                placeholderTextColor={c.textMuted}
-                value={inputText}
-                onChangeText={setInputText}
-                returnKeyType="done"
-                onSubmitEditing={addCustom}
-              />
-              <TouchableOpacity activeOpacity={0.8}
-                style={{
-                  backgroundColor: c.primary,
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                }}
-                onPress={addCustom}>
-                <Text
-                  style={{ fontSize: 13, fontWeight: "700", color: c.surface }}>
-                  추가
-                </Text>
-              </TouchableOpacity>
+            <View style={{ marginTop: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ flex: 1, justifyContent: "center" }}>
+                  <TextInput
+                    style={{
+                      minHeight: 44,
+                      backgroundColor: c.surfaceAlt,
+                      borderRadius: 12,
+                      paddingLeft: 12,
+                      paddingRight: 44,
+                      fontSize: 13,
+                      color: c.textPrimary,
+                      borderWidth: inputError ? 1.5 : 0,
+                      borderColor: inputError ? c.danger : undefined,
+                    }}
+                    placeholder="부위 이름 (예: 전거근)"
+                    placeholderTextColor={c.textMuted}
+                    value={inputText}
+                    onChangeText={(t) => { setInputText(t); if (inputError) setInputError(""); }}
+                    returnKeyType="done"
+                    onSubmitEditing={addCustom}
+                  />
+                  {/* 생성 액션이 칩 토글이 아니게 되면서 닫을 수단이 필요해졌다.
+                      행을 두 칸으로 유지하려고 입력창 안쪽에 둔다. */}
+                  <View style={{ position: "absolute", right: 0 }}>
+                    <IconButton accessibilityLabel="부위 이름 입력 취소" onPress={cancelInput}>
+                      <Icon name="close" size={16} color={c.textSecondary} />
+                    </IconButton>
+                  </View>
+                </View>
+                <TouchableOpacity activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="부위 이름 확인"
+                  accessibilityState={{ disabled: !inputText.trim() }}
+                  disabled={!inputText.trim()}
+                  onPress={addCustom}
+                  style={{
+                    minHeight: 44,
+                    justifyContent: "center",
+                    backgroundColor: c.primary,
+                    borderRadius: 12,
+                    paddingHorizontal: 14,
+                    opacity: inputText.trim() ? 1 : 0.5,
+                  }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: c.onAccent }}>확인</Text>
+                </TouchableOpacity>
+              </View>
+              {!!inputError && (
+                <Text style={{ fontSize: 11, color: c.danger, marginTop: 4 }}>{inputError}</Text>
+              )}
             </View>
           )}
         </View>

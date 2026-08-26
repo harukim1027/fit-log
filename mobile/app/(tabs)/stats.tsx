@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Card, ThemeToggle } from "../../components/ui";
-import { Header } from "../../design-system";
+import { Header, IconButton } from "../../design-system";
 import {
   Icon,
   SaladIcon,
@@ -304,18 +304,19 @@ function StatsScreen() {
         rightElement={
           <View className="flex-row items-center gap-1">
             <ThemeToggle size={36} />
-            <TouchableOpacity activeOpacity={0.7}
-              className="w-9 h-9 items-center justify-center rounded-xl"
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            {/* 박스 31.33 → 44. w-9은 36이 아니라 31.5다(NativeWind rem 14).
+                hitSlop 4를 더해도 39.33이라 애초에 44에 못 미쳤다.
+                rounded-xl은 뺀다 — plain은 배경이 없어 radius가 보이지 않는다. */}
+            <IconButton
+              accessibilityLabel="프로필 편집"
               onPress={() => router.push("/modal/edit-profile" as any)}>
               <Icon name="person" size={22} color={c.success} />
-            </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.7}
-              className="w-9 h-9 items-center justify-center rounded-xl"
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            </IconButton>
+            <IconButton
+              accessibilityLabel="로그아웃"
               onPress={handleLogout}>
               <Icon name="logout" size={22} color={c.danger} />
-            </TouchableOpacity>
+            </IconButton>
           </View>
         }
       />

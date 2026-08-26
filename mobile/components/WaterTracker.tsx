@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useWaterStore } from '../store/waterStore';
 import { WaterMascot, WaterDrop, Icon } from './AppIcons';
+import { IconButton } from '../design-system';
 import { useColors } from '../constants/colors';
 import { NumberPad } from './ui/NumberPad';
 
@@ -36,9 +37,23 @@ export default function WaterTracker() {
             오늘 {cups}잔째 · {progress >= 1 ? '목표 달성!' : '잘하고 있어요!'}
           </Text>
         </View>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => resetWater()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        {/* hitSlop 모드. box(44)로 하면 이 행의 flex: 1 텍스트 블록이 26pt 줄어든다
+            (18 → 44). 그 블록은 "오늘 N잔째 · 잘하고 있어요!" 한 줄을 담고 있어
+            폭을 내주면 잘린다. 세로는 마스코트 56이 잡고 있어 어차피 안 변한다.
+
+            기존 hitSlop 10 은 18 + 20 = 38 로 44에 못 미쳤다.
+            계획서가 이 건을 "44 미달 0"으로 셌던 이유가 그 hitSlop 이다.
+
+            조상에 overflow: hidden 이 없다 — 카드는 borderRadius 30 만 있고,
+            overflow: hidden 을 가진 진행 바는 조상이 아니라 형제다.
+            (계획서가 이 자리를 filled 로 오분류했던 것도 그 진행 바의
+             backgroundColor 를 6줄 아래에서 빨아들였기 때문이다. 실제로는 plain.) */}
+        <IconButton
+          accessibilityLabel="물 기록 초기화"
+          onPress={() => resetWater()}
+          touchTargetMode="hitSlop">
           <Icon name="refresh" size={18} color={c.textMuted} />
-        </TouchableOpacity>
+        </IconButton>
       </View>
 
       {/* 진행 바 */}

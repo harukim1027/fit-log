@@ -12,6 +12,7 @@ export { IconButton } from "./components/IconButton";
 export type {
   IconButtonProps,
   IconButtonVariant,
+  TouchTargetMode,
 } from "./components/IconButton";
 
 export { Section } from "./components/Section";

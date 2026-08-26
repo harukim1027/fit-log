@@ -29,10 +29,11 @@
  * Card·Section·Button과 같다. 색 없는 정적 수치만 StyleSheet.create로 빼고
  * 테마 의존 색은 인라인 병합한다.
  */
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   TouchableOpacity,
   StyleSheet,
+  type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -47,6 +48,30 @@ import { useColors, radius, size } from "../../tokens";
  */
 export type IconButtonVariant = "plain" | "filled";
 
+/**
+ * 44(`target.min`)를 **어떻게** 확보할지.
+ *
+ * box      박스 자체를 44로 키운다. 기본값.
+ * hitSlop  박스는 아이콘 크기 그대로 두고 `hitSlop`으로만 44를 채운다.
+ *          레이아웃이 전혀 변하지 않는다.
+ *
+ * ── 기본값이 "box"인 이유 ──────────────────────────────────────────────────
+ * `hitSlop`은 부모가 `overflow: "hidden"`으로 자르면 넘친 부분의 터치가
+ * 함께 사라진다. 오류도 경고도 없이 조용히 무효화되므로, 코드상으로는 44인데
+ * 실제로는 아닌 상태가 만들어진다. 박스를 키우는 쪽은 부모가 무엇을 하든
+ * 성립하고 실측으로 검증된다.
+ *
+ * 그래서 "hitSlop"은 **밀집한 행에서 레이아웃을 지켜야 하고, 부모가 자르지
+ * 않는 것이 확인된 곳에서만** 쓴다. 실사용 근거는 아이콘이 몰린 행 2개다
+ * (`workout.tsx`의 루틴 카드 우측 3개 = 행 +82pt,
+ *  `routine-manage.tsx`의 루틴 행 우측 2개 = 행 +52pt).
+ *
+ * ── 두 모드의 공통점 ───────────────────────────────────────────────────────
+ * **어느 쪽이든 44는 이 컴포넌트가 보장한다.** 호출부가 스스로 44를 구현하는
+ * 경로는 열지 않는다 — 그 경로를 열면 IconButton을 만든 이유가 사라진다.
+ */
+export type TouchTargetMode = "box" | "hitSlop";
+
 export interface IconButtonProps {
   /** 아이콘 엘리먼트. 크기·색은 이 엘리먼트가 스스로 정한다. */
   children: React.ReactNode;
@@ -57,6 +82,8 @@ export interface IconButtonProps {
   accessibilityLabel: string;
   onPress: () => void;
   variant?: IconButtonVariant;
+  /** 44를 박스로 확보할지(기본) hitSlop으로 확보할지. */
+  touchTargetMode?: TouchTargetMode;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -65,22 +92,20 @@ export interface IconButtonProps {
 // 색이 없는 정적 수치만. 근거는 DESIGN.md의 target.min / radius 토큰이다.
 const styles = StyleSheet.create({
   root: {
-    // DESIGN.md target.min 44. 실사용 37건 중 24건이 44에 도달할 수단이
-    // 전혀 없었다. 크기를 명시한 14건은 예외 없이 전부 44 미만이고
-    // (38, 36, 32, 28 …), hitSlop을 쓴 13건을 더해도 13건만 남는다.
-    //
-    // DESIGN.md는 "아이콘이 작으면 hitSlop으로 채운다"고 적지만 여기서는
-    // minWidth/minHeight를 쓴다. hitSlop은 부모가 overflow로 자르면 실제
-    // 히트 영역이 따라 줄어 보장이 되지 않고, 렌더된 아이콘 크기를 모르는
-    // 상태에서 채울 양을 계산할 수도 없다. 박스 자체를 44로 두면 조건 없이
-    // 성립하고 실측으로 검증된다.
-    //
-    // 대신 밀집한 행에서는 레이아웃이 넓어진다. Phase 1-B에서 호출부를
-    // 옮길 때 좁은 행을 눈으로 확인할 것.
-    minWidth: size.touchTarget,
-    minHeight: size.touchTarget,
     alignItems: "center",
     justifyContent: "center",
+  },
+  // touchTargetMode="box"에서만 붙는다.
+  //
+  // DESIGN.md target.min 44. 실사용 37건 중 24건이 44에 도달할 수단이
+  // 전혀 없었다. 크기를 명시한 14건은 예외 없이 전부 44 미만이고
+  // (38, 36, 32, 28 …), hitSlop을 쓴 13건을 더해도 13건만 남는다.
+  //
+  // 박스를 키우는 쪽이 기본인 이유는 TouchTargetMode 주석에 적었다.
+  // 요약하면 hitSlop은 부모가 자르면 조용히 무효화되기 때문이다.
+  boxTarget: {
+    minWidth: size.touchTarget,
+    minHeight: size.touchTarget,
   },
   filled: {
     // 실사용 12건의 radius는 pill/원형 7건 대 둥근사각 4건이다.
@@ -100,11 +125,37 @@ export function IconButton({
   accessibilityLabel,
   onPress,
   variant = "plain",
+  touchTargetMode = "box",
   disabled = false,
   style,
   testID,
 }: IconButtonProps) {
   const c = useColors();
+
+  // hitSlop 모드에서만 쓴다. 렌더된 크기를 알아야 채울 양을 계산할 수 있어
+  // onLayout으로 측정한다. 측정 전에는 null이고 hitSlop을 주지 않는다 —
+  // 크기를 0으로 가정하면 22씩 붙어 실제보다 넓은 영역이 잡힌다.
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(
+    null
+  );
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setMeasured((prev) =>
+      prev && prev.w === width && prev.h === height ? prev : { w: width, h: height }
+    );
+  }, []);
+
+  // 부족한 만큼을 사방에 절반씩. 이미 44 이상인 축은 0이다(음수 금지).
+  const hitSlop =
+    touchTargetMode === "hitSlop" && measured
+      ? {
+          top: Math.max(0, (size.touchTarget - measured.h) / 2),
+          bottom: Math.max(0, (size.touchTarget - measured.h) / 2),
+          left: Math.max(0, (size.touchTarget - measured.w) / 2),
+          right: Math.max(0, (size.touchTarget - measured.w) / 2),
+        }
+      : undefined;
 
   return (
     <TouchableOpacity
@@ -116,8 +167,11 @@ export function IconButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       testID={testID}
+      onLayout={touchTargetMode === "hitSlop" ? onLayout : undefined}
+      hitSlop={hitSlop}
       style={[
         styles.root,
+        touchTargetMode === "box" && styles.boxTarget,
         variant === "filled" && styles.filled,
         // 배경은 surfaceAlt. filled 12건 중 6건으로 최다이고(surface 2건,
         // 나머지는 danger 틴트·동적 색 같은 일회성), DESIGN.md에서 surface-alt가

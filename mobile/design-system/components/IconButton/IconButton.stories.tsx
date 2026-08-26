@@ -124,6 +124,82 @@ export const MixedIcons: Story = {
   ),
 };
 
+/**
+ * touchTargetMode="hitSlop" — 박스는 아이콘 크기 그대로, 터치 영역만 44.
+ * 점선이 실제 박스다. box 모드와 달리 박스가 커지지 않는다.
+ *
+ * ⚠️ **이 스토리로 확인할 수 있는 것은 레이아웃뿐이다.**
+ * react-native-web은 `hitSlop`을 구현하지 않아 DOM에 아무것도 남기지 않는다.
+ * 터치 영역이 실제로 44인지는 **iOS 실기기/시뮬레이터에서만** 확인된다.
+ * hitSlop 모드를 실제 호출부에 쓸 때 반드시 기기에서 눌러볼 것.
+ */
+export const HitSlopMode: Story = {
+  args: { children: <IconChevron /> },
+  name: "touchTargetMode=hitSlop",
+  parameters: { controls: { disable: true } },
+  render: () => (
+    <View style={{ gap: 16 }}>
+      {(["box", "hitSlop"] as const).map((mode) => (
+        <View key={mode} style={{ gap: 6 }}>
+          <Caption>{mode} — 아이콘 16px</Caption>
+          <HitBox>
+            <IconButton
+              accessibilityLabel={`${mode} 모드 버튼`}
+              onPress={() => {}}
+              touchTargetMode={mode}>
+              <IconChevron size={16} />
+            </IconButton>
+          </HitBox>
+        </View>
+      ))}
+    </View>
+  ),
+};
+
+/**
+ * ★ 밀집 행 재현 — `workout.tsx`의 루틴 카드 우측이 이 형태다.
+ *
+ * 작은 아이콘 4개를 gap 10으로 나란히 놓았을 때 두 모드의 폭 차이를 본다.
+ * box 모드는 행이 178pt로 불어나 왼쪽 이름 슬롯을 밀어내고, hitSlop 모드는
+ * 95pt를 유지한다. 터치 영역은 양쪽 다 44다.
+ */
+export const DenseRow: Story = {
+  args: { children: <IconChevron /> },
+  name: "밀집 행 — box vs hitSlop",
+  parameters: { controls: { disable: true } },
+  render: () => {
+    const icons: { name: string; size: number; label: string }[] = [
+      { name: "menu", size: 16, label: "순서 변경" },
+      { name: "lock", size: 16, label: "공개 설정" },
+      { name: "pencil", size: 17, label: "루틴 수정" },
+      { name: "trash", size: 17, label: "루틴 삭제" },
+    ];
+    return (
+      <View style={{ gap: 20 }}>
+        {(["box", "hitSlop"] as const).map((mode) => (
+          <View key={mode} style={{ gap: 6 }}>
+            <Caption>{mode}</Caption>
+            <HitBox>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                {icons.map((it) => (
+                  <IconButton
+                    key={it.name}
+                    accessibilityLabel={it.label}
+                    onPress={() => {}}
+                    touchTargetMode={mode}>
+                    <IconNamed name={it.name} size={it.size} />
+                  </IconButton>
+                ))}
+              </View>
+            </HitBox>
+          </View>
+        ))}
+      </View>
+    );
+  },
+};
+
 /** 두 variant를 나란히 놓고 배경 툴바로 다크/라이트를 비교한다. */
 export const AllVariants: Story = {
   args: { children: <IconChevron /> },
@@ -165,4 +241,10 @@ function IconChevron({ size = 22 }: { size?: number }) {
 function IconTrash() {
   const c = useColors();
   return <Icon name="trash" size={20} color={c.danger} />;
+}
+
+/** 밀집 행 스토리에서 이름으로 아이콘을 고를 때 쓴다. */
+function IconNamed({ name, size }: { name: string; size: number }) {
+  const c = useColors();
+  return <Icon name={name} size={size} color={c.textSecondary} />;
 }
