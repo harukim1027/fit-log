@@ -28,10 +28,11 @@
  *                44 보장과 label 필수를 Header가 또 한 벌 구현해야 한다.
  *   AppIcons     chevronLeft·close 글리프. 자체 구현해도 아이콘은 그려야 하고,
  *                경로를 복제하면 앱과 모양이 갈린다.
- *   expo-router  좌측 버튼이 있는 10곳 중 5곳이 핸들러를 넘기지 않아
+ *   expo-router  좌측 버튼이 있는 9곳 중 4곳이 핸들러를 넘기지 않아
  *                router.back() 기본값에 의존한다(register, add-food,
- *                barcode-scan, routine-manage:359, set-target).
+ *                barcode-scan, routine-manage:359).
  *                없애려면 두 prop을 필수로 바꿔야 해서 API 재설계다.
+ *                (set-target은 제거됐다 — refactor/remove-set-target)
  *
  * 패키지로 분리할 때 교체 지점은 tokens/ 하나가 아니라 셋이 된다.
  */

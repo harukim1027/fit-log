@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { showCuteAlert } from "../../components/CuteAlert";
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
-import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../store/authStore";
-import { useDietStore } from "../../store/dietStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { GoalIcon, Icon } from "../../components/AppIcons";
 import { IconButton } from "../../design-system";
 import { NumberPad } from "../../components/ui";
+import { Stepper } from "../../components/ui/Stepper";
 
 const GOALS = [
   { key: "체중감량" },
@@ -45,11 +48,20 @@ export default function EditProfileModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuthStore();
-  const { setTargetCalories } = useDietStore();
-  const { weightUnit, showBodypartSelector, notifyBeforeRestEnd, loadSettings, setWeightUnit, setShowBodypartSelector, setNotifyBeforeRestEnd } = useSettingsStore();
+  const {
+    weightUnit,
+    showBodypartSelector,
+    notifyBeforeRestEnd,
+    loadSettings,
+    setWeightUnit,
+    setShowBodypartSelector,
+    setNotifyBeforeRestEnd,
+  } = useSettingsStore();
   const keyboardHeight = useKeyboardHeight();
 
-  useEffect(() => { loadSettings(); }, []);
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   const [name, setName] = useState(user?.name ?? "");
   const [weight, setWeight] = useState(String(user?.weight ?? ""));
@@ -60,15 +72,21 @@ export default function EditProfileModal() {
   const [weeklyGoal, setWeeklyGoal] = useState(
     user?.weeklyGoal ? String(user.weeklyGoal) : ""
   );
-  const [targetCal, setTargetCal] = useState(
-    String(user?.targetCalories ?? "")
-  );
   const [isSaving, setIsSaving] = useState(false);
 
-  type PadConfig = { value: string; decimal: boolean; suffix: string; onConfirm: (v: string) => void };
+  type PadConfig = {
+    value: string;
+    decimal: boolean;
+    suffix: string;
+    onConfirm: (v: string) => void;
+  };
   const [padConfig, setPadConfig] = useState<PadConfig | null>(null);
-  const openPad = (value: string, decimal: boolean, suffix: string, onConfirm: (v: string) => void) =>
-    setPadConfig({ value, decimal, suffix, onConfirm });
+  const openPad = (
+    value: string,
+    decimal: boolean,
+    suffix: string,
+    onConfirm: (v: string) => void
+  ) => setPadConfig({ value, decimal, suffix, onConfirm });
 
   // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서는 surface 명도 차가 경계를 만든다.
   const cardShadow = isDark ? null : LIGHT_CARD_SHADOW;
@@ -77,7 +95,8 @@ export default function EditProfileModal() {
     backgroundColor: c.surface,
     borderRadius: 12,
     padding: 14,
-    // 입력값은 numeric 15/800 — 체중·키·나이·목표 칼로리가 다수다
+    // 입력값은 numeric 15/800 — 나이·키·주간 목표가 다수다
+    // (체중은 Stepper로 분리됐고, 목표 칼로리는 제거됐다)
     fontSize: 15,
     fontWeight: "800" as const,
     color: c.textPrimary,
@@ -85,13 +104,33 @@ export default function EditProfileModal() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { showCuteAlert({ icon: 'pencil', tone: 'info', title: '이름을 입력해주세요', buttons: [{ label: '확인', style: 'primary' }] }); return; }
+    if (!name.trim()) {
+      showCuteAlert({
+        icon: "pencil",
+        tone: "info",
+        title: "이름을 입력해주세요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
+      return;
+    }
 
     const weightNum = parseFloat(weight);
     const heightNum = parseFloat(height);
     const ageNum = parseInt(age);
-    const targetCalNum = parseInt(targetCal);
     const weeklyGoalNum = parseInt(weeklyGoal);
+
+    // Stepper가 이미 20~300으로 clamp하지만, 저장된 기존 값이 범위 밖일 수
+    // 있어 한 번 더 막는다. 제거된 set-target이 갖고 있던 검증을 옮겨온 것.
+    if (weight && (isNaN(weightNum) || weightNum < 20 || weightNum > 300)) {
+      showCuteAlert({
+        icon: "pencil",
+        tone: "warn",
+        title: "올바른 체중을 입력해주세요",
+        message: "20 ~ 300 사이로 입력해주세요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -102,30 +141,49 @@ export default function EditProfileModal() {
         age: isNaN(ageNum) ? undefined : ageNum,
         gender: gender || undefined,
         goal: goal || undefined,
-        weeklyGoal: isNaN(weeklyGoalNum) || weeklyGoalNum <= 0 ? undefined : weeklyGoalNum,
-        targetCalories: isNaN(targetCalNum) ? undefined : targetCalNum,
+        weeklyGoal:
+          isNaN(weeklyGoalNum) || weeklyGoalNum <= 0
+            ? undefined
+            : weeklyGoalNum,
       });
-      if (!isNaN(targetCalNum)) setTargetCalories(targetCalNum);
       router.back();
     } catch (e: any) {
-      showCuteAlert({ icon: 'alert', tone: 'danger', title: '저장 실패', message: e.message ?? '다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
+      showCuteAlert({
+        icon: "alert",
+        tone: "danger",
+        title: "저장 실패",
+        message: e.message ?? "다시 시도해주세요",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["top"]}>
-      <View style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: c.surfaceAlt,
-        backgroundColor: c.background,
-      }}>
+    // 회귀 방지: 상단 인셋은 SafeAreaView의 edges="top"이 아니라 useSafeAreaInsets()로 준다.
+    // presentation="fullScreenModal"에서는 edges="top"이 적용되지 않아 닫기 버튼이
+    // 상태바 시계와 겹쳤다(full-calendar.tsx가 같은 이유로 같은 처리를 한다).
+    // 딥링크로 이 화면이 루트가 될 때는 edges="top"이 먹어서 증상이 가려지므로,
+    // 반드시 통계 탭 → 프로필 아이콘 경로로 확인할 것.
+    //
+    // 하단은 SafeAreaView에 맡기지 않는다 — 저장 버튼 컨테이너가 이미
+    // Math.max(insets.bottom, 12)로 직접 처리하고 있어 edges="bottom"을 주면
+    // 이번엔 하단이 이중 적용된다.
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 16,
+          // 공용 Header 및 full-calendar와 같은 값(insets.top + 6)
+          paddingTop: insets.top + 6,
+          paddingBottom: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: c.surfaceAlt,
+          backgroundColor: c.background,
+        }}>
         {/* filled의 기본값이 그대로 맞는다 — 배경 surfaceAlt, radius pill(999).
             박스는 36 → 44. hitSlop 10은 뺐다: 히트가 56 → 44로 줄지만
             보이는 원 전체가 눌리게 되고 44는 IconButton이 보장한다. */}
@@ -135,7 +193,9 @@ export default function EditProfileModal() {
           variant="filled">
           <Icon name="close" size={18} color={c.textPrimary} />
         </IconButton>
-        <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>프로필 편집</Text>
+        <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>
+          프로필 편집
+        </Text>
         {/* 제목을 가운데 두려고 좌측 버튼과 같은 폭을 비워 두는 자리.
             버튼이 44가 됐으므로 여기도 44여야 제목이 안 밀린다. */}
         <View style={{ width: 44 }} />
@@ -144,207 +204,456 @@ export default function EditProfileModal() {
       <ScrollView
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ padding: 20, paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20 }}
+        contentContainerStyle={{
+          padding: 20,
+          paddingBottom: keyboardHeight > 0 ? keyboardHeight + 20 : 20,
+        }}
         style={{ flex: 1 }}>
+        {/* 이름 */}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: c.textSecondary,
+            marginBottom: 10,
+            marginTop: 20,
+          }}>
+          이름
+        </Text>
+        <TextInput
+          style={inputStyle}
+          value={name}
+          onChangeText={setName}
+          placeholder="이름"
+          placeholderTextColor={c.textMuted}
+          returnKeyType="next"
+        />
 
-          {/* 이름 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>이름</Text>
-          <TextInput
-            style={inputStyle}
-            value={name}
-            onChangeText={setName}
-            placeholder="이름"
-            placeholderTextColor={c.textMuted}
-            returnKeyType="next"
-          />
-
-          {/* 성별 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>성별</Text>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            {["남", "여"].map((g) => (
-              <TouchableOpacity activeOpacity={0.7}
-                key={g}
+        {/* 성별 */}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: c.textSecondary,
+            marginBottom: 10,
+            marginTop: 20,
+          }}>
+          성별
+        </Text>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          {["남", "여"].map((g) => (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              key={g}
+              style={[
+                {
+                  flex: 1,
+                  backgroundColor: c.surface,
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  borderWidth: 2,
+                  borderColor: "transparent",
+                  ...cardShadow,
+                },
+                gender === g
+                  ? {
+                      backgroundColor: c.primary + "18",
+                      borderColor: c.primary,
+                    }
+                  : undefined,
+              ]}
+              onPress={() => setGender(g)}>
+              <Text
                 style={[
-                  { flex: 1, backgroundColor: c.surface, borderRadius: 16, paddingVertical: 14, alignItems: "center", borderWidth: 2, borderColor: 'transparent', ...cardShadow },
-                  gender === g ? { backgroundColor: c.primary + "18", borderColor: c.primary } : undefined,
-                ]}
-                onPress={() => setGender(g)}>
-                <Text style={[
                   { fontSize: 15, fontWeight: "800", color: c.textSecondary },
-                  gender === g ? { color: c.primary, fontWeight: "700" } : undefined,
+                  gender === g
+                    ? { color: c.primary, fontWeight: "700" }
+                    : undefined,
                 ]}>
-                  {g === "남" ? "남성" : "여성"}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* 신체 정보 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>신체 정보</Text>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            {([
-              { label: '나이', value: age, set: setAge, decimal: false, suffix: '세', max: 120 },
-              { label: '신장', value: height, set: setHeight, decimal: true, suffix: 'cm', max: 250 },
-              { label: '체중', value: weight, set: setWeight, decimal: true, suffix: 'kg', max: 300 },
-            ] as const).map(({ label, value, set, decimal, suffix, max }) => (
-              <View key={label} style={{ flex: 1 }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: c.textMuted, marginBottom: 6 }}>{label}</Text>
-                <TouchableOpacity activeOpacity={0.7}
-                  style={[inputStyle, { alignItems: 'center' }]}
-                  onPress={() => openPad(value, decimal, suffix, set)}>
-                  <Text style={{ fontSize: 15, color: value ? c.textPrimary : c.textMuted }}>
-                    {value || suffix}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-
-          {/* 목표 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>목표</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {GOALS.map((g) => (
-              <TouchableOpacity activeOpacity={0.7}
-                key={g.key}
-                style={[
-                  { width: "47%", backgroundColor: c.surface, borderRadius: 16, paddingVertical: 14, alignItems: "center", gap: 4, borderWidth: 2, borderColor: 'transparent', ...cardShadow },
-                  goal === g.key ? { backgroundColor: c.primary + "18", borderColor: c.primary } : undefined,
-                ]}
-                onPress={() => setGoal(g.key)}>
-                <View style={{ alignItems: 'center', justifyContent: 'center', height: 28 }}>
-                  <GoalIcon goal={g.key} size={26} />
-                </View>
-                <Text style={[
-                  { fontSize: 14, fontWeight: "600", color: c.textSecondary },
-                  goal === g.key ? { color: c.primary, fontWeight: "700" } : undefined,
-                ]}>
-                  {g.key}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* 목표 칼로리 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>목표 칼로리</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TouchableOpacity activeOpacity={0.7}
-              style={[inputStyle, { flex: 1, alignItems: 'center' }]}
-              onPress={() => openPad(targetCal, false, 'kcal', setTargetCal)}>
-              <Text style={{ fontSize: 15, color: targetCal ? c.textPrimary : c.textMuted }}>
-                {targetCal || '2000'}
+                {g === "남" ? "남성" : "여성"}
               </Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>kcal / 일</Text>
-          </View>
+          ))}
+        </View>
 
-          {/* 주간 운동 목표 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>주간 운동 목표</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TouchableOpacity activeOpacity={0.7}
-              style={[inputStyle, { flex: 1, alignItems: 'center' }]}
-              onPress={() => openPad(weeklyGoal, false, '회', (v) => {
-                const n = parseInt(v);
-                setWeeklyGoal(n > 0 ? String(n) : '');
-              })}>
-              <Text style={{ fontSize: 15, color: weeklyGoal ? c.textPrimary : c.textMuted }}>
-                {weeklyGoal || '미설정'}
+        {/* 신체 정보 */}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: c.textSecondary,
+            marginBottom: 10,
+            marginTop: 20,
+          }}>
+          신체 정보
+        </Text>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          {(
+            [
+              {
+                label: "나이",
+                value: age,
+                set: setAge,
+                decimal: false,
+                suffix: "세",
+                max: 120,
+              },
+              {
+                label: "신장",
+                value: height,
+                set: setHeight,
+                decimal: true,
+                suffix: "cm",
+                max: 250,
+              },
+            ] as const
+          ).map(({ label, value, set, decimal, suffix, max }) => (
+            <View key={label} style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "700",
+                  color: c.textMuted,
+                  marginBottom: 6,
+                }}>
+                {label}
               </Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>회 / 주</Text>
-          </View>
-
-          {/* 앱 설정 */}
-          <Text style={{ fontSize: 14, fontWeight: "600", color: c.textSecondary, marginBottom: 10, marginTop: 20 }}>앱 설정</Text>
-
-          {/* 무게 단위 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, marginBottom: 10 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Icon name="dumbbell" size={16} color={c.textSecondary} />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>무게 단위</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {(['kg', 'lbs'] as const).map(u => (
-                <TouchableOpacity activeOpacity={0.7}
-                  key={u}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={[inputStyle, { alignItems: "center" }]}
+                onPress={() => openPad(value, decimal, suffix, set)}>
+                <Text
                   style={{
-                    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-                    backgroundColor: weightUnit === u ? c.primary : c.surfaceAlt,
-                  }}
-                  onPress={() => setWeightUnit(u)}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: weightUnit === u ? c.surface : c.textSecondary }}>
-                    {u}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    fontSize: 15,
+                    color: value ? c.textPrimary : c.textMuted,
+                  }}>
+                  {value || suffix}
+                </Text>
+              </TouchableOpacity>
             </View>
-          </View>
+          ))}
+        </View>
 
-          {/* 운동 부위 선택 표시 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, marginBottom: 10 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 12 }}>
-              <Icon name="target" size={16} color={c.textSecondary} />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>운동 추가 시 부위 선택 표시</Text>
-            </View>
+        {/* 체중 — 제거된 목표 설정(set-target) 화면에서 옮겨온 Stepper.
+            나이·신장과 달리 −/+ 미세 조정이 필요하고, Stepper가 min/max를
+            직접 clamp하므로 openPad 경로의 max 미전달 문제를 받지 않는다. */}
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: "700",
+            color: c.textMuted,
+            marginBottom: 6,
+            marginTop: 12,
+          }}>
+          체중
+        </Text>
+        <Stepper
+          value={weight || "70"}
+          onChange={setWeight}
+          step={1}
+          min={20}
+          max={300}
+          suffix="kg"
+          decimal
+        />
+
+        {/* 목표 */}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: c.textSecondary,
+            marginBottom: 10,
+            marginTop: 20,
+          }}>
+          목표
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {GOALS.map((g) => (
             <TouchableOpacity
+              activeOpacity={0.7}
+              key={g.key}
+              style={[
+                {
+                  width: "47%",
+                  backgroundColor: c.surface,
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  gap: 4,
+                  borderWidth: 2,
+                  borderColor: "transparent",
+                  ...cardShadow,
+                },
+                goal === g.key
+                  ? {
+                      backgroundColor: c.primary + "18",
+                      borderColor: c.primary,
+                    }
+                  : undefined,
+              ]}
+              onPress={() => setGoal(g.key)}>
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 28,
+                }}>
+                <GoalIcon goal={g.key} size={26} />
+              </View>
+              <Text
+                style={[
+                  { fontSize: 14, fontWeight: "600", color: c.textSecondary },
+                  goal === g.key
+                    ? { color: c.primary, fontWeight: "700" }
+                    : undefined,
+                ]}>
+                {g.key}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* 주간 운동 목표 */}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: c.textSecondary,
+            marginBottom: 10,
+            marginTop: 20,
+          }}>
+          주간 운동 목표
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={[inputStyle, { flex: 1, alignItems: "center" }]}
+            onPress={() =>
+              openPad(weeklyGoal, false, "회", (v) => {
+                const n = parseInt(v);
+                setWeeklyGoal(n > 0 ? String(n) : "");
+              })
+            }>
+            <Text
               style={{
-                width: 46, height: 26, borderRadius: 13,
-                backgroundColor: showBodypartSelector ? c.primary : c.surfaceAlt,
-                justifyContent: 'center', paddingHorizontal: 2,
-              }}
-              onPress={() => setShowBodypartSelector(!showBodypartSelector)}
-              activeOpacity={0.7}>
-              {/* 노브는 off일 때 트랙(surfaceAlt)과 명도 차가 1.12뿐이라 그림자가 유일한
+                fontSize: 15,
+                color: weeklyGoal ? c.textPrimary : c.textMuted,
+              }}>
+              {weeklyGoal || "미설정"}
+            </Text>
+          </TouchableOpacity>
+          <Text
+            style={{ fontSize: 14, color: c.textSecondary, fontWeight: "600" }}>
+            회 / 주
+          </Text>
+        </View>
+
+        {/* 앱 설정 */}
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: "600",
+            color: c.textSecondary,
+            marginBottom: 10,
+            marginTop: 20,
+          }}>
+          앱 설정
+        </Text>
+
+        {/* 무게 단위 */}
+        <View
+          style={[
+            inputStyle,
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: 16,
+              marginBottom: 10,
+            },
+          ]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Icon name="dumbbell" size={16} color={c.textSecondary} />
+            <Text
+              style={{ fontSize: 14, fontWeight: "600", color: c.textPrimary }}>
+              무게 단위
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {(["kg", "lbs"] as const).map((u) => (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                key={u}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 999,
+                  backgroundColor: weightUnit === u ? c.primary : c.surfaceAlt,
+                }}
+                onPress={() => setWeightUnit(u)}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "600",
+                    color: weightUnit === u ? c.surface : c.textSecondary,
+                  }}>
+                  {u}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 운동 부위 선택 표시 */}
+        <View
+          style={[
+            inputStyle,
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: 16,
+              marginBottom: 10,
+            },
+          ]}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              flex: 1,
+              marginRight: 12,
+            }}>
+            <Icon name="target" size={16} color={c.textSecondary} />
+            <Text
+              style={{ fontSize: 14, fontWeight: "600", color: c.textPrimary }}>
+              운동 추가 시 부위 선택 표시
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              width: 46,
+              height: 26,
+              borderRadius: 13,
+              backgroundColor: showBodypartSelector ? c.primary : c.surfaceAlt,
+              justifyContent: "center",
+              paddingHorizontal: 2,
+            }}
+            onPress={() => setShowBodypartSelector(!showBodypartSelector)}
+            activeOpacity={0.7}>
+            {/* 노브는 off일 때 트랙(surfaceAlt)과 명도 차가 1.12뿐이라 그림자가 유일한
                   경계였다. 다크에서는 그 그림자가 안 보이므로 보더로 대체한다.
                   on일 때는 트랙이 primary라 배경 대비만으로 충분하다. */}
-              <View style={[{
-                width: 22, height: 22, borderRadius: 11, backgroundColor: c.surface,
-                transform: [{ translateX: showBodypartSelector ? 20 : 0 }],
-              }, isDark
-                ? (!showBodypartSelector && { borderWidth: 1, borderColor: c.border })
-                : LIGHT_KNOB_SHADOW]} />
-            </TouchableOpacity>
-          </View>
+            <View
+              style={[
+                {
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: c.surface,
+                  transform: [{ translateX: showBodypartSelector ? 20 : 0 }],
+                },
+                isDark
+                  ? !showBodypartSelector && {
+                      borderWidth: 1,
+                      borderColor: c.border,
+                    }
+                  : LIGHT_KNOB_SHADOW,
+              ]}
+            />
+          </TouchableOpacity>
+        </View>
 
-          {/* 휴식 30초 전 알림 */}
-          <View style={[inputStyle, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }]}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Icon name="timer" size={16} color={c.textSecondary} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary }}>휴식 30초 전 알림</Text>
-              </View>
-              <Text style={{ fontSize: 12, color: c.textSecondary, marginTop: 2, marginLeft: 24 }}>
-                휴식 종료 30초 전에 미리 알려드려요
+        {/* 휴식 30초 전 알림 */}
+        <View
+          style={[
+            inputStyle,
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: 16,
+            },
+          ]}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Icon name="timer" size={16} color={c.textSecondary} />
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "600",
+                  color: c.textPrimary,
+                }}>
+                휴식 30초 전 알림
               </Text>
             </View>
-            <TouchableOpacity
+            <Text
               style={{
-                width: 46, height: 26, borderRadius: 13,
-                backgroundColor: notifyBeforeRestEnd ? c.primary : c.surfaceAlt,
-                justifyContent: 'center', paddingHorizontal: 2,
-              }}
-              onPress={() => setNotifyBeforeRestEnd(!notifyBeforeRestEnd)}
-              activeOpacity={0.7}>
-              {/* 노브는 off일 때 트랙(surfaceAlt)과 명도 차가 1.12뿐이라 그림자가 유일한
+                fontSize: 12,
+                color: c.textSecondary,
+                marginTop: 2,
+                marginLeft: 24,
+              }}>
+              휴식 종료 30초 전에 미리 알려드려요
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              width: 46,
+              height: 26,
+              borderRadius: 13,
+              backgroundColor: notifyBeforeRestEnd ? c.primary : c.surfaceAlt,
+              justifyContent: "center",
+              paddingHorizontal: 2,
+            }}
+            onPress={() => setNotifyBeforeRestEnd(!notifyBeforeRestEnd)}
+            activeOpacity={0.7}>
+            {/* 노브는 off일 때 트랙(surfaceAlt)과 명도 차가 1.12뿐이라 그림자가 유일한
                   경계였다. 다크에서는 그 그림자가 안 보이므로 보더로 대체한다.
                   on일 때는 트랙이 primary라 배경 대비만으로 충분하다. */}
-              <View style={[{
-                width: 22, height: 22, borderRadius: 11, backgroundColor: c.surface,
-                transform: [{ translateX: notifyBeforeRestEnd ? 20 : 0 }],
-              }, isDark
-                ? (!notifyBeforeRestEnd && { borderWidth: 1, borderColor: c.border })
-                : LIGHT_KNOB_SHADOW]} />
-            </TouchableOpacity>
-          </View>
+            <View
+              style={[
+                {
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: c.surface,
+                  transform: [{ translateX: notifyBeforeRestEnd ? 20 : 0 }],
+                },
+                isDark
+                  ? !notifyBeforeRestEnd && {
+                      borderWidth: 1,
+                      borderColor: c.border,
+                    }
+                  : LIGHT_KNOB_SHADOW,
+              ]}
+            />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
-      <View style={{ paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.surfaceAlt, backgroundColor: c.background, paddingBottom: Math.max(insets.bottom, 12) }}>
+      <View
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: c.surfaceAlt,
+          backgroundColor: c.background,
+          paddingBottom: Math.max(insets.bottom, 12),
+        }}>
         <TouchableOpacity
-          style={[{
-            backgroundColor: c.primary,
-            borderRadius: 999,
-            paddingVertical: 16,
-            alignItems: "center",
-          }, isSaving ? { opacity: 0.6 } : undefined]}
+          style={[
+            {
+              backgroundColor: c.primary,
+              borderRadius: 999,
+              paddingVertical: 16,
+              alignItems: "center",
+            },
+            isSaving ? { opacity: 0.6 } : undefined,
+          ]}
           onPress={handleSave}
           disabled={isSaving}
           activeOpacity={0.7}>
@@ -356,12 +665,15 @@ export default function EditProfileModal() {
 
       <NumberPad
         visible={padConfig !== null}
-        value={padConfig?.value ?? '0'}
+        value={padConfig?.value ?? "0"}
         decimal={padConfig?.decimal ?? false}
         suffix={padConfig?.suffix}
-        onConfirm={v => { padConfig?.onConfirm(v); setPadConfig(null); }}
+        onConfirm={(v) => {
+          padConfig?.onConfirm(v);
+          setPadConfig(null);
+        }}
         onCancel={() => setPadConfig(null)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
