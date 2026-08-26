@@ -21,4 +21,10 @@ export class WorkoutSettingsController {
   remove(@Request() req: any, @Param('id') id: string) {
     return this.service.remove(req.user.id, id);
   }
+
+  /** 기본 항목 중 지워진 것만 다시 채우고 전체 목록을 반환한다. */
+  @Post('restore')
+  restore(@Request() req: any) {
+    return this.service.restore(req.user.id);
+  }
 }
