@@ -152,6 +152,10 @@ function HomeScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const weekListRef = useRef<FlatList<string>>(null);
   const { width: winWidth } = useWindowDimensions();
+  // 주 목록의 과거 하한을 늘리기만 하는 앵커 (∨ 달력이 범위 밖을 고른 경우)
+  const [pastAnchor, setPastAnchor] = useState<string | null>(null);
+  // 스와이프로 온 이동은 목록이 이미 그 자리에 있으므로 동기화를 건너뛴다.
+  const skipSyncRef = useRef(false);
 
   const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
@@ -205,28 +209,43 @@ function HomeScreen() {
   // 미래 주는 넣지 않는다. 미래 날짜는 이미 disabled라 7칸이 전부 비활성인
   // 스트립과 "이번 주 운동 0/4"라는 오해 소지 있는 요약만 남는다.
   // 과거 한계는 최초 세션이 속한 주다. User에 가입일 필드가 없어 sessions로 잡는다.
+  // 회귀 방지: 이 useMemo의 의존성에 selectedDate를 넣지 말 것.
+  // 넣으면 앞으로 이동할 때마다 하한이 따라 올라와 배열이 줄고, 지나온 주가
+  // 사라져 뒤로 돌아갈 수 없다(연속 이동이 멈추던 원인).
+  // 범위 밖 과거는 아래 pastAnchor가 "늘리기만" 하는 방식으로 처리한다.
   const weeks = useMemo(() => {
     const curStart = getWeekRange(toYMD(new Date())).start;
-    let firstStart = curStart;
+    let firstStart: Date;
     if (sessions.length > 0) {
       let earliest = sessions[0].date;
       for (const s of sessions) if (s.date < earliest) earliest = s.date;
       firstStart = getWeekRange(earliest).start;
+    } else {
+      // 볼 기록이 없어도 좌우 이동이 죽은 컨트롤이 되지 않도록 최근 4주를 연다.
+      firstStart = new Date(curStart);
+      firstStart.setDate(firstStart.getDate() - 7 * 4);
     }
-    // ∨ 달력에는 하한(minDate)이 없어 최초 세션보다 이전 날짜도 고를 수 있다.
-    // 그 주가 목록에 없으면 weekIndex가 마지막으로 폴백해 헤더는 고른 주를,
-    // 스트립은 이번 주를 가리키고 "오늘로"까지 숨는다. 범위를 넓혀 막는다.
-    const selStart = getWeekRange(selectedDate).start;
-    if (selStart < firstStart) firstStart = selStart;
+    if (pastAnchor) {
+      const a = new Date(pastAnchor + 'T00:00:00');
+      if (a < firstStart) firstStart = a;
+    }
     const out: string[] = [];
     const cur = new Date(firstStart);
-    // 세션이 0개면 firstStart === curStart라 이번 주 하나만 담긴다.
     while (cur <= curStart) {
       out.push(toYMD(cur));
       cur.setDate(cur.getDate() + 7);
     }
     return out;
-  }, [sessions, selectedDate]);
+  }, [sessions, pastAnchor]);
+
+  // ∨ 달력에는 하한(minDate)이 없어 범위보다 이전 날짜를 고를 수 있다. 그 주가
+  // 목록에 없으면 weekIndex가 마지막으로 폴백해 헤더는 고른 주를, 스트립은
+  // 이번 주를 가리킨다. 그때만 하한을 늘린다 — 줄이지는 않는다.
+  useEffect(() => {
+    if (weeks.length === 0) return;
+    const s = toYMD(getWeekRange(selectedDate).start);
+    if (s < weeks[0]) setPastAnchor(s);
+  }, [selectedDate, weeks]);
 
   // 표시 중인 주의 인덱스. selectedDate가 단일 출처라 별도 상태를 두지 않는다.
   const weekIndex = useMemo(() => {
@@ -311,6 +330,12 @@ function HomeScreen() {
   // 스와이프로 온 경우엔 이미 인덱스가 같아 no-op이다.
   useEffect(() => {
     if (weeks.length === 0) return;
+    // 스와이프 직후에는 목록이 이미 그 칸에 멈춰 있다. 같은 인덱스로 다시
+    // scrollToIndex를 걸면 감속 중인 스크롤과 부딪힐 수 있어 건너뛴다.
+    if (skipSyncRef.current) {
+      skipSyncRef.current = false;
+      return;
+    }
     weekListRef.current?.scrollToIndex({ index: weekIndex, animated: false });
   }, [weekIndex, weeks.length]);
 
@@ -389,14 +414,22 @@ function HomeScreen() {
       ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
       : "전신 골고루 자극했어요!";
 
-  // 주 단위 뷰이므로 라벨도 주 범위로 말한다. 같은 달이면 뒤쪽 "N월"을 생략한다.
+  // 주 단위 뷰이므로 라벨도 주 단위로 말한다. "8월 3째주".
+  //
+  // 기준: 그 달의 첫 일요일이 시작하는 주가 1째주다. 주는 항상 자기 일요일이
+  // 속한 달에 귀속되므로 월이 걸치는 주도 한 달로만 결정된다 —
+  // 8/30~9/5는 일요일이 8월 30일이고 8월의 일요일이 2·9·16·23·30이라 8월 5째주,
+  // 7/26~8/1은 일요일이 7월 26일이라 7월 4째주다. 병기가 필요 없다.
+  //
+  // (대안이던 "1일이 속한 주 = 1째주"는 2026년 8월처럼 1일이 토요일이면
+  //  7/26~8/1을 8월 1째주로 잡아 한 주씩 밀린다.)
   const weekRangeTitle = (() => {
-    const { start, end } = getWeekRange(selectedDate);
-    const sM = start.getMonth() + 1, sD = start.getDate();
-    const eM = end.getMonth() + 1, eD = end.getDate();
-    return sM === eM
-      ? `${sM}월 ${sD}일 - ${eD}일`
-      : `${sM}월 ${sD}일 - ${eM}월 ${eD}일`;
+    const sun = getWeekRange(selectedDate).start;
+    const y = sun.getFullYear(), m = sun.getMonth();
+    const firstOfMonth = new Date(y, m, 1);
+    const firstSundayDate = 1 + ((7 - firstOfMonth.getDay()) % 7);
+    const n = Math.floor((sun.getDate() - firstSundayDate) / 7) + 1;
+    return `${m + 1}월 ${n}째주`;
   })();
 
   const startWorkout = () => {
@@ -469,7 +502,10 @@ function HomeScreen() {
           getItemLayout={(_, i) => ({ length: winWidth, offset: winWidth * i, index: i })}
           onMomentumScrollEnd={(e) => {
             const i = Math.round(e.nativeEvent.contentOffset.x / winWidth);
-            if (i !== weekIndex) goToWeek(i);
+            if (i !== weekIndex) {
+              skipSyncRef.current = true;
+              goToWeek(i);
+            }
           }}
           renderItem={({ item }) => (
             <View style={{ width: winWidth, flexDirection: "row", paddingHorizontal: 16, gap: 2 }}>
