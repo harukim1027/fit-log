@@ -1,5 +1,14 @@
-import React, { useEffect, useRef, useMemo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Animated, Modal } from "react-native";
+import React, { useCallback, useEffect, useRef, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  Modal,
+  FlatList,
+  useWindowDimensions,
+} from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Calendar } from "react-native-calendars";
 import { useRouter } from "expo-router";
@@ -141,6 +150,12 @@ function HomeScreen() {
   // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
   const [selectedDate, setSelectedDate] = useState<string>(() => toYMD(new Date()));
   const [showCalendar, setShowCalendar] = useState(false);
+  const weekListRef = useRef<FlatList<string>>(null);
+  const { width: winWidth } = useWindowDimensions();
+  // 주 목록의 과거 하한을 늘리기만 하는 앵커 (∨ 달력이 범위 밖을 고른 경우)
+  const [pastAnchor, setPastAnchor] = useState<string | null>(null);
+  // 스와이프로 온 이동은 목록이 이미 그 자리에 있으므로 동기화를 건너뛴다.
+  const skipSyncRef = useRef(false);
 
   const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
   const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
@@ -190,12 +205,64 @@ function HomeScreen() {
     }
   };
 
-  // ── 선택 날짜가 속한 주(일~토) 스트립 데이터 ──
-  const weekDays = useMemo(() => {
+  // ── 이동 가능한 주 목록 (일요일 시작 YMD 오름차순, 마지막 = 이번 주) ──
+  // 미래 주는 넣지 않는다. 미래 날짜는 이미 disabled라 7칸이 전부 비활성인
+  // 스트립과 "이번 주 운동 0/4"라는 오해 소지 있는 요약만 남는다.
+  // 과거 한계는 최초 세션이 속한 주다. User에 가입일 필드가 없어 sessions로 잡는다.
+  // 회귀 방지: 이 useMemo의 의존성에 selectedDate를 넣지 말 것.
+  // 넣으면 앞으로 이동할 때마다 하한이 따라 올라와 배열이 줄고, 지나온 주가
+  // 사라져 뒤로 돌아갈 수 없다(연속 이동이 멈추던 원인).
+  // 범위 밖 과거는 아래 pastAnchor가 "늘리기만" 하는 방식으로 처리한다.
+  const weeks = useMemo(() => {
+    const curStart = getWeekRange(toYMD(new Date())).start;
+    let firstStart: Date;
+    if (sessions.length > 0) {
+      let earliest = sessions[0].date;
+      for (const s of sessions) if (s.date < earliest) earliest = s.date;
+      firstStart = getWeekRange(earliest).start;
+    } else {
+      // 볼 기록이 없어도 좌우 이동이 죽은 컨트롤이 되지 않도록 최근 4주를 연다.
+      firstStart = new Date(curStart);
+      firstStart.setDate(firstStart.getDate() - 7 * 4);
+    }
+    if (pastAnchor) {
+      const a = new Date(pastAnchor + 'T00:00:00');
+      if (a < firstStart) firstStart = a;
+    }
+    const out: string[] = [];
+    const cur = new Date(firstStart);
+    while (cur <= curStart) {
+      out.push(toYMD(cur));
+      cur.setDate(cur.getDate() + 7);
+    }
+    return out;
+  }, [sessions, pastAnchor]);
+
+  // ∨ 달력에는 하한(minDate)이 없어 범위보다 이전 날짜를 고를 수 있다. 그 주가
+  // 목록에 없으면 weekIndex가 마지막으로 폴백해 헤더는 고른 주를, 스트립은
+  // 이번 주를 가리킨다. 그때만 하한을 늘린다 — 줄이지는 않는다.
+  useEffect(() => {
+    if (weeks.length === 0) return;
+    const s = toYMD(getWeekRange(selectedDate).start);
+    if (s < weeks[0]) setPastAnchor(s);
+  }, [selectedDate, weeks]);
+
+  // 표시 중인 주의 인덱스. selectedDate가 단일 출처라 별도 상태를 두지 않는다.
+  const weekIndex = useMemo(() => {
+    const startYMD = toYMD(getWeekRange(selectedDate).start);
+    const i = weeks.indexOf(startYMD);
+    return i >= 0 ? i : weeks.length - 1;
+  }, [weeks, selectedDate]);
+
+  const isCurrentWeek = weekIndex === weeks.length - 1;
+
+  // ── 임의의 주(일~토) 스트립 데이터 생성 ──
+  // FlatList의 각 셀이 자기 주를 그려야 해서 selectedDate 고정이 아니라 인자를 받는다.
+  const weekDaysOf = useCallback((weekStartYMD: string) => {
     const realToday = new Date();
     realToday.setHours(0, 0, 0, 0);
     const realTodayYMD = toYMD(realToday);
-    const { start: sunday } = getWeekRange(selectedDate);
+    const sunday = new Date(weekStartYMD + 'T00:00:00');
     const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
     return Array.from({ length: 7 }, (_, i) => {
@@ -217,6 +284,7 @@ function HomeScreen() {
       return {
         dow: DOW[i],
         num: d.getDate(),
+        month: d.getMonth() + 1,             // a11y 라벨용 ("8월 26일 …")
         ymd,
         isSelected: ymd === selectedDate,   // 채운 알약 = 조회 중인 날짜
         isToday: ymd === realTodayYMD,       // 실제 오늘(작은 점 마커)
@@ -226,6 +294,50 @@ function HomeScreen() {
       };
     });
   }, [sessions, selectedDate]);
+
+  // 주간 요약·PR·자극부위가 쓰는 "표시 중인 주"
+  const weekDays = useMemo(
+    () => weekDaysOf(weeks[weekIndex] ?? toYMD(getWeekRange(selectedDate).start)),
+    [weekDaysOf, weeks, weekIndex, selectedDate]
+  );
+
+  // ── 주 이동 ──
+  // selectedDate를 옮기는 것만으로 스트립·헤더·주간 집계가 전부 따라온다.
+  // 착지일은 "같은 요일 유지, 단 오늘로 clamp".
+  //   - 같은 요일: 주를 넘겨도 읽던 위치(예: 수요일)가 보존돼 주 간 비교가 쉽다.
+  //   - clamp: 지난주 토요일을 보다 이번 주로 오면 같은 요일이 미래가 되는데,
+  //     미래 날짜는 disabled라 "비활성인데 선택됨" 모순이 생긴다. 과거 주는
+  //     전부 오늘 이전이라 clamp가 걸리지 않고 이번 주에서만 작동한다.
+  const dayInWeek = (weekStartYMD: string) => {
+    const dow = new Date(selectedDate + 'T00:00:00').getDay();
+    const d = new Date(weekStartYMD + 'T00:00:00');
+    d.setDate(d.getDate() + dow);
+    const todayYMD = toYMD(new Date());
+    const ymd = toYMD(d);
+    return ymd > todayYMD ? todayYMD : ymd;
+  };
+
+  const goToWeek = (index: number) => {
+    const clamped = Math.max(0, Math.min(weeks.length - 1, index));
+    setSelectedDate(dayInWeek(weeks[clamped]));
+  };
+
+  // 목록 위치를 weekIndex에 맞춘다. 두 경우에 필요하다.
+  //   1) sessions가 비동기라 첫 렌더에는 weeks가 [이번 주] 하나뿐이다. 로드 후
+  //      weeks가 앞으로 늘어나면 initialScrollIndex(0)가 가리키던 칸이 최초 주로
+  //      밀려 이번 주가 아닌 곳이 보인다.
+  //   2) "오늘로"와 accessibilityActions는 selectedDate만 바꾸므로 목록이 따라와야 한다.
+  // 스와이프로 온 경우엔 이미 인덱스가 같아 no-op이다.
+  useEffect(() => {
+    if (weeks.length === 0) return;
+    // 스와이프 직후에는 목록이 이미 그 칸에 멈춰 있다. 같은 인덱스로 다시
+    // scrollToIndex를 걸면 감속 중인 스크롤과 부딪힐 수 있어 건너뛴다.
+    if (skipSyncRef.current) {
+      skipSyncRef.current = false;
+      return;
+    }
+    weekListRef.current?.scrollToIndex({ index: weekIndex, animated: false });
+  }, [weekIndex, weeks.length]);
 
   // 이번 주 운동한 일수 / 목표
   const doneDays = weekDays.filter((d) => d.hasSession).length;
@@ -302,9 +414,22 @@ function HomeScreen() {
       ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
       : "전신 골고루 자극했어요!";
 
-  const monthTitle = (() => {
-    const d = new Date(selectedDate + "T00:00:00");
-    return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+  // 주 단위 뷰이므로 라벨도 주 단위로 말한다. "8월 3째주".
+  //
+  // 기준: 그 달의 첫 일요일이 시작하는 주가 1째주다. 주는 항상 자기 일요일이
+  // 속한 달에 귀속되므로 월이 걸치는 주도 한 달로만 결정된다 —
+  // 8/30~9/5는 일요일이 8월 30일이고 8월의 일요일이 2·9·16·23·30이라 8월 5째주,
+  // 7/26~8/1은 일요일이 7월 26일이라 7월 4째주다. 병기가 필요 없다.
+  //
+  // (대안이던 "1일이 속한 주 = 1째주"는 2026년 8월처럼 1일이 토요일이면
+  //  7/26~8/1을 8월 1째주로 잡아 한 주씩 밀린다.)
+  const weekRangeTitle = (() => {
+    const sun = getWeekRange(selectedDate).start;
+    const y = sun.getFullYear(), m = sun.getMonth();
+    const firstOfMonth = new Date(y, m, 1);
+    const firstSundayDate = 1 + ((7 - firstOfMonth.getDay()) % 7);
+    const n = Math.floor((sun.getDate() - firstSundayDate) / 7) + 1;
+    return `${m + 1}월 ${n}째주`;
   })();
 
   const startWorkout = () => {
@@ -314,18 +439,39 @@ function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      {/* ── 헤더: 월 타이틀(표시용) + 테마토글 + 아바타 ── */}
+      {/* ── 헤더: 주 범위 + (이번 주가 아니면) 오늘로 + 테마토글 + 아바타 ── */}
       <View style={{ paddingHorizontal: 16, paddingTop: 60, paddingBottom: 6, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <TouchableOpacity
-          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-          onPress={() => setShowCalendar(true)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="날짜 선택 달력 열기">
-          {/* display 22/900 */}
-          <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5 }}>{monthTitle}</Text>
-          <Icon name="chevronDown" size={18} color={c.textPrimary} />
-        </TouchableOpacity>
+        {/* 걸친 주("8월 30일 - 9월 5일") + "오늘로"가 동시에 뜨면 375에서 빠듯하다.
+            flexShrink로 제목이 먼저 줄고, numberOfLines로 우측 아이콘을 밀지 않는다. */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
+          <TouchableOpacity
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1 }}
+            onPress={() => setShowCalendar(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="날짜 선택 달력 열기">
+            {/* display 22/900 */}
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, letterSpacing: -0.5, flexShrink: 1 }}>
+              {weekRangeTitle}
+            </Text>
+            <Icon name="chevronDown" size={18} color={c.textPrimary} />
+          </TouchableOpacity>
+          {/* 헤더가 "8월 4째주"로 주 단위를 말하므로 버튼도 주 단위로 맞춘다.
+              달력 모달의 "오늘로"는 날짜 단위 선택기라 그대로 둔다.
+              스펙은 동일 (body-strong 14/800, primary, minHeight 44). */}
+          {!isCurrentWeek && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="이번 주로 이동"
+              onPress={() => setSelectedDate(toYMD(new Date()))}
+              style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>이번 주</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <ThemeToggle size={38} />
           <TouchableOpacity activeOpacity={0.7}
@@ -338,53 +484,99 @@ function HomeScreen() {
         </View>
       </View>
 
-      {/* ── 주간 스트립 (일~토, 완료도 링) ── */}
-      <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10, gap: 2 }}>
-        {weekDays.map((d) => {
-          const R = 16, CIRC = 2 * Math.PI * R;
-          const isSun = d.dow === '일';
-          return (
-            <TouchableOpacity
-              key={d.ymd}
-              style={{ flex: 1, alignItems: "center", gap: 6 }}
-              activeOpacity={d.isFuture ? 1 : 0.7}
-              disabled={d.isFuture}
-              accessibilityRole="button"
-              accessibilityState={{ selected: d.isSelected, disabled: d.isFuture }}
-              accessibilityLabel={`${d.dow}요일 ${d.num}일${d.hasSession ? ', 운동 기록 있음' : ''}`}
-              onPress={() => setSelectedDate(d.ymd)}>
-              {/* caption 12/600 */}
-              <Text style={{ fontSize: 12, fontWeight: "600", color: isSun ? c.tagCoral : c.textSecondary }}>{d.dow}</Text>
-              <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-                {d.isSelected ? (
-                  <View style={{ position: "absolute", width: 36, height: 36, borderRadius: 999, backgroundColor: c.primary }} />
-                ) : !d.isFuture && d.pct > 0 ? (
-                  <Svg width={40} height={40} style={{ position: "absolute" }}>
-                    <Circle cx={20} cy={20} r={R} fill="none" stroke={c.surfaceHigh} strokeWidth={3.5} />
-                    <Circle
-                      cx={20} cy={20} r={R} fill="none" stroke={c.primary} strokeWidth={3.5}
-                      strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - d.pct)}
-                      transform="rotate(-90 20 20)"
-                    />
-                  </Svg>
-                ) : null}
-                {/* numeric 15/800 + tabular-nums — 주간 스트립이 넘어가도 자릿수가 흔들리지 않게 */}
-                <Text style={{
-                  fontSize: 15,
-                  fontWeight: "800",
-                  fontVariant: ["tabular-nums"],
-                  color: d.isSelected ? c.onAccent : d.isFuture ? c.textMuted : c.textPrimary,
-                }}>
-                  {d.num}
-                </Text>
-                {/* 실제 오늘(선택 안 된 상태) 표시 점 */}
-                {d.isToday && !d.isSelected && (
-                  <View style={{ position: "absolute", bottom: 0, width: 4, height: 4, borderRadius: 2, backgroundColor: c.primary }} />
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+      {/* ── 주간 스트립 (일~토, 완료도 링). 좌우 스와이프로 주 이동 ── */}
+      <View style={{ paddingTop: 6, paddingBottom: 10 }}>
+        <FlatList
+          ref={weekListRef}
+          data={weeks}
+          keyExtractor={(w) => w}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          // DESIGN.md §5: FlatList는 렌더 예산을 명시한다. 한 셀이 화면 한 폭이라
+          // 한 번에 1장만 보이고, 좌우 인접 주만 미리 그려 두면 충분하다.
+          initialNumToRender={1}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          initialScrollIndex={weekIndex}
+          // getItemLayout이 있어야 initialScrollIndex와 scrollToIndex가
+          // 측정 없이 바로 동작한다(onScrollToIndexFailed 불필요).
+          getItemLayout={(_, i) => ({ length: winWidth, offset: winWidth * i, index: i })}
+          onMomentumScrollEnd={(e) => {
+            const i = Math.round(e.nativeEvent.contentOffset.x / winWidth);
+            if (i !== weekIndex) {
+              skipSyncRef.current = true;
+              goToWeek(i);
+            }
+          }}
+          renderItem={({ item }) => (
+            <View style={{ width: winWidth, flexDirection: "row", paddingHorizontal: 16, gap: 2 }}>
+              {weekDaysOf(item).map((d) => {
+                const R = 16, CIRC = 2 * Math.PI * R;
+                const isSun = d.dow === '일';
+                return (
+                  <TouchableOpacity
+                    key={d.ymd}
+                    style={{ flex: 1, alignItems: "center", gap: 6 }}
+                    activeOpacity={d.isFuture ? 1 : 0.7}
+                    disabled={d.isFuture}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: d.isSelected, disabled: d.isFuture }}
+                    // VoiceOver가 켜지면 좌우 스와이프는 요소 간 이동에 가로채여
+                    // 주 이동이 불가능해진다. 그 대체 경로를 액션 로터로 연다.
+                    // 회귀 방지: 이 액션을 스트립 컨테이너로 올리지 말 것.
+                    // 컨테이너는 accessible={false}여야 날짜 셀이 개별 포커스를
+                    // 받는데, 포커스할 수 없는 요소의 액션은 도달할 수 없다.
+                    accessibilityActions={[
+                      { name: 'increment', label: '다음 주' },
+                      { name: 'decrement', label: '이전 주' },
+                    ]}
+                    onAccessibilityAction={(e) => {
+                      if (e.nativeEvent.actionName === 'increment') goToWeek(weekIndex + 1);
+                      else if (e.nativeEvent.actionName === 'decrement') goToWeek(weekIndex - 1);
+                    }}
+                    accessibilityLabel={
+                      `${d.month}월 ${d.num}일 ${d.dow}요일` +
+                      (d.isToday ? ', 오늘' : '') +
+                      (d.hasSession ? ', 운동 기록 있음' : '') +
+                      (d.isFuture ? ', 선택할 수 없음' : d.isSelected ? ', 선택됨' : '')
+                    }
+                    onPress={() => setSelectedDate(d.ymd)}>
+                    {/* caption 12/600 */}
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: isSun ? c.tagCoral : c.textSecondary }}>{d.dow}</Text>
+                    <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+                      {d.isSelected ? (
+                        <View style={{ position: "absolute", width: 36, height: 36, borderRadius: 999, backgroundColor: c.primary }} />
+                      ) : !d.isFuture && d.pct > 0 ? (
+                        <Svg width={40} height={40} style={{ position: "absolute" }}>
+                          <Circle cx={20} cy={20} r={R} fill="none" stroke={c.surfaceHigh} strokeWidth={3.5} />
+                          <Circle
+                            cx={20} cy={20} r={R} fill="none" stroke={c.primary} strokeWidth={3.5}
+                            strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - d.pct)}
+                            transform="rotate(-90 20 20)"
+                          />
+                        </Svg>
+                      ) : null}
+                      {/* numeric 15/800 + tabular-nums — 주간 스트립이 넘어가도 자릿수가 흔들리지 않게 */}
+                      <Text style={{
+                        fontSize: 15,
+                        fontWeight: "800",
+                        fontVariant: ["tabular-nums"],
+                        color: d.isSelected ? c.onAccent : d.isFuture ? c.textMuted : c.textPrimary,
+                      }}>
+                        {d.num}
+                      </Text>
+                      {/* 실제 오늘(선택 안 된 상태) 표시 점 */}
+                      {d.isToday && !d.isSelected && (
+                        <View style={{ position: "absolute", bottom: 0, width: 4, height: 4, borderRadius: 2, backgroundColor: c.primary }} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        />
       </View>
 
       <ScrollView
