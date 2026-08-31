@@ -458,15 +458,17 @@ function HomeScreen() {
             </Text>
             <Icon name="chevronDown" size={18} color={c.textPrimary} />
           </TouchableOpacity>
-          {/* 달력 모달의 "오늘로"와 같은 스펙 (14/800, primary, minHeight 44) */}
+          {/* 헤더가 "8월 4째주"로 주 단위를 말하므로 버튼도 주 단위로 맞춘다.
+              달력 모달의 "오늘로"는 날짜 단위 선택기라 그대로 둔다.
+              스펙은 동일 (body-strong 14/800, primary, minHeight 44). */}
           {!isCurrentWeek && (
             <TouchableOpacity
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="오늘 날짜로 이동"
+              accessibilityLabel="이번 주로 이동"
               onPress={() => setSelectedDate(toYMD(new Date()))}
               style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 4 }}>
-              <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>오늘로</Text>
+              <Text style={{ fontSize: 14, fontWeight: "800", color: c.primary }}>이번 주</Text>
             </TouchableOpacity>
           )}
         </View>
