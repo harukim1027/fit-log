@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NumberPad } from "../ui";
-import { Header } from "../../design-system";
+import { Header, IconButton } from "../../design-system";
 import { Icon, FlameIcon } from "../AppIcons";
 import { SetInputRow } from "./SetInputRow";
 import apiClient from "../../lib/apiClient";
@@ -797,9 +797,15 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   autoCorrect={false}
                 />
                 {searchQuery ? (
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => setSearchQuery("")}>
+                  // 검색바 한 행이 [돋보기 16][입력 flex:1][지우기 16]이다.
+                  // box로 키우면 행 높이가 40 → 64로 늘고 입력 폭도 28 줄어든다.
+                  // 이 파일에는 overflow 지정이 0건이라 hitSlop이 잘리지 않는다.
+                  <IconButton
+                    accessibilityLabel="검색어 지우기"
+                    onPress={() => setSearchQuery("")}
+                    touchTargetMode="hitSlop">
                     <Icon name="close" size={16} color={c.textMuted} />
-                  </TouchableOpacity>
+                  </IconButton>
                 ) : null}
               </View>
 
@@ -829,9 +835,14 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   onLayout={e => { customFormY.current = e.nativeEvent.layout.y; }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>종목 추가</Text>
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}>
+                    {/* [제목][닫기] 헤더 행. box면 행 높이가 20 → 44로 늘어
+                        아래 폼 전체가 24pt 밀린다. */}
+                    <IconButton
+                      accessibilityLabel="종목 추가 폼 닫기"
+                      onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}
+                      touchTargetMode="hitSlop">
                       <Icon name="close" size={16} color={c.textMuted} />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
 
                   <TextInput
@@ -1101,10 +1112,21 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                               }
                               <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>세트 {i + 1}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity activeOpacity={0.8} style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: sets.length > 1 ? 0.7 : 0.2 }}
-                              onPress={() => { if (sets.length > 1) setSets(prev => prev.filter((_, idx) => idx !== i)); }}>
+                            {/* 세트마다 반복되는 행이라 box(28 → 44)는 세트 수만큼
+                                누적된다(5세트면 +80pt). 그래서 hitSlop.
+                                onPress 안에 있던 sets.length 가드를 disabled로 옮겼다 —
+                                시각만 흐리고 눌리던 상태가 실제 비활성이 되고
+                                accessibilityState.disabled도 함께 붙는다.
+                                기존 시각(활성 0.7 / 비활성 0.2)은 style로 유지한다.
+                                IconButton의 style이 마지막이라 disabled의 0.5를 덮는다. */}
+                            <IconButton
+                              accessibilityLabel={`${i + 1}세트 삭제`}
+                              disabled={sets.length <= 1}
+                              onPress={() => setSets(prev => prev.filter((_, idx) => idx !== i))}
+                              touchTargetMode="hitSlop"
+                              style={{ width: 28, height: 28, borderRadius: 8, opacity: sets.length > 1 ? 0.7 : 0.2 }}>
                               <Icon name="trash" size={13} color={c.textMuted} />
-                            </TouchableOpacity>
+                            </IconButton>
                           </View>
                           <SetInputRow
                             weight={st.weight}
@@ -1234,17 +1256,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         <View key={i} style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, marginBottom: 6 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                             <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{i + 1}세트</Text>
-                            <TouchableOpacity activeOpacity={0.8}
-                              style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: routineSets.length > 1 ? 0.7 : 0.2 }}
+                            {/* 세션 모드의 세트 삭제와 같은 판단 — 반복 행이라 hitSlop. */}
+                            <IconButton
+                              accessibilityLabel={`${i + 1}세트 삭제`}
+                              disabled={routineSets.length <= 1}
                               onPress={() => {
-                                if (routineSets.length > 1) {
-                                  const next = routineSets.filter((_, idx) => idx !== i);
-                                  setRoutineSets(next);
-                                  setDefaultSets(String(next.length));
-                                }
-                              }}>
+                                const next = routineSets.filter((_, idx) => idx !== i);
+                                setRoutineSets(next);
+                                setDefaultSets(String(next.length));
+                              }}
+                              touchTargetMode="hitSlop"
+                              style={{ width: 28, height: 28, borderRadius: 8, opacity: routineSets.length > 1 ? 0.7 : 0.2 }}>
                               <Icon name="trash" size={13} color={c.textMuted} />
-                            </TouchableOpacity>
+                            </IconButton>
                           </View>
                           <SetInputRow
                             weight={rs.weight}
