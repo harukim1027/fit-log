@@ -1367,7 +1367,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       onPress={() => removeSetting(i)}
                       activeOpacity={0.7}>
                       <Text style={{ fontSize: 12, fontWeight: "600", color: c.primary }}>{s.key}: {s.value}</Text>
-                      <Icon name="close" size={11} color={c.primary} />
+                      {/* ×는 값이 아니라 "누르면 지워진다"는 표시다. 라벨과 같은
+                          primary면 둘이 같은 무게로 읽혀 값의 일부처럼 보인다.
+                          textMuted는 이 칩 배경(primary+"18") 위에서 라이트 2.19:1 /
+                          다크 2.59:1로 아이콘 기준 3:1에 못 미쳐 쓰지 않는다.
+                          textSecondary는 5.18 / 4.70으로 현재 primary(3.70 / 3.55)보다
+                          오히려 높다. */}
+                      <Icon name="close" size={11} color={c.textSecondary} />
                     </TouchableOpacity>
                   ))}
                 </View>
