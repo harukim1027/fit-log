@@ -170,9 +170,12 @@ Git Push → GitHub Actions
     → OTA 업데이트 (코드 변경만)
 ```
 
-> ⚠️ 배포 전에 반드시 해소해야 하는 항목은 [`DEPLOY-BLOCKERS.md`](./DEPLOY-BLOCKERS.md)에 있다.
-> 현재 미해소 1건 — 운영에서 TypeORM `synchronize: true`가 켜져 있다
-> (코드와 리허설은 완료, 운영 적용만 남음).
+> 배포 전에 반드시 해소해야 하는 항목은 [`DEPLOY-BLOCKERS.md`](./DEPLOY-BLOCKERS.md)에 있다.
+> **현재 미해소 0건.**
+>
+> 스키마 변경은 마이그레이션으로만 한다. `synchronize`는 꺼져 있고, 배포 시
+> `startCommand`가 기동 전에 `migration:run`을 돌린다. 절차는 위 문서의
+> "스키마를 바꾸는 방법".
 
 ## 🛡 에러 처리 전략
 - Sentry 에러 모니터링 (프로덕션)
