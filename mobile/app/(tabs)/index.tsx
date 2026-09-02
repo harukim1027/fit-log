@@ -341,6 +341,11 @@ function HomeScreen() {
 
   // 이번 주 운동한 일수 / 목표
   const doneDays = weekDays.filter((d) => d.hasSession).length;
+  // 회귀 방지: `?? 4`를 지우지 말 것. 서버 `weeklyGoal`에 default 4가 붙었지만
+  // 그건 **새로 만들어지는 행에만** 적용된다 — 컬럼 default 추가는 기존 레코드를
+  // 채우지 않으므로 이미 있는 사용자는 NULL로 남는다(백필하지 않기로 했다).
+  // 폴백을 빼면 그 사용자들에게 분모가 사라져 "0/"으로 보인다.
+  // 구버전 앱 호환도 같은 이유로 여기에 걸려 있다.
   const weekGoal = user?.weeklyGoal ?? 4;
 
   const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
