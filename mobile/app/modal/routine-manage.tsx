@@ -14,7 +14,7 @@ import { useWorkoutStore } from "../../store/workoutStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SortableList } from "../../components/ui";
-import { Header } from "../../design-system";
+import { Header, IconButton } from "../../design-system";
 import { Icon } from "../../components/AppIcons";
 import {
   useRoutineStore,
@@ -508,16 +508,22 @@ export default function RoutineManageModal() {
                         <View
                           style={{
                             flexDirection: "row",
-                            gap: 10,
+                            // 18 두 개가 44 두 개가 되면서 묶음이 46 → 88pt가 된다.
+                            // gap 10을 없애 증가분을 20 줄인다. 아이콘 사이 간격은
+                            // 박스가 각각 13씩 여백을 갖게 되어 시각적으로는 유지된다.
+                            gap: 0,
                             alignItems: "center",
                           }}>
-                          <TouchableOpacity activeOpacity={0.7} onPress={() => openEdit(r)}>
+                          <IconButton
+                            accessibilityLabel={`${r.name} 편집`}
+                            onPress={() => openEdit(r)}>
                             <Icon name="pencil" size={18} color={c.textSecondary} />
-                          </TouchableOpacity>
-                          <TouchableOpacity activeOpacity={0.7}
+                          </IconButton>
+                          <IconButton
+                            accessibilityLabel={`${r.name} 삭제`}
                             onPress={() => setDeleteTarget(r.id)}>
                             <Icon name="trash" size={18} color={c.textMuted} />
-                          </TouchableOpacity>
+                          </IconButton>
                         </View>
                       </View>
                       <View
@@ -886,15 +892,15 @@ export default function RoutineManageModal() {
                         </View>
                       )}
                     </View>
-                    <TouchableOpacity activeOpacity={0.7}
+                    <IconButton
+                      accessibilityLabel={`${ex.name} 제외`}
                       onPress={() =>
                         setCombineExercises((prev) =>
                           prev.filter((e) => e.key !== ex.key)
                         )
-                      }
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      }>
                       <Icon name="close" size={15} color={c.textMuted} />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
                 )}
               />
@@ -1095,15 +1101,15 @@ export default function RoutineManageModal() {
                         </View>
                       ) : null}
                     </View>
-                    <TouchableOpacity activeOpacity={0.7}
+                    <IconButton
+                      accessibilityLabel={`${ex.name} 삭제`}
                       onPress={() =>
                         setExercises((prev) =>
                           prev.filter((e) => e.key !== ex.key)
                         )
-                      }
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      }>
                       <Icon name="trash" size={15} color={c.textMuted} />
-                    </TouchableOpacity>
+                    </IconButton>
                     {/* 드래그 핸들 — 우측 */}
                     <View style={{ width: 32, alignItems: "center", justifyContent: "center" }}>
                       <Icon name="menu" size={18} color={c.textMuted} />
@@ -1163,9 +1169,11 @@ export default function RoutineManageModal() {
           <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingBottom: 32 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>
               <Text style={{ fontSize: 17, fontWeight: '800', color: c.textPrimary }}>운동 기록에서 불러오기</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setShowHistorySheet(false)}>
+              <IconButton
+                accessibilityLabel="닫기"
+                onPress={() => setShowHistorySheet(false)}>
                 <Icon name="close" size={20} color={c.textMuted} />
-              </TouchableOpacity>
+              </IconButton>
             </View>
             <ScrollView contentContainerStyle={{ padding: 16 }}>
               {sessions.slice(0, 30).map(session => (
