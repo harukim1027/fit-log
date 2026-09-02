@@ -756,6 +756,33 @@ API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 �
 
 ## 알려진 미해결 항목
 
+### 바텀시트 값이 DESIGN.md와 어긋난다
+
+시트 dismiss 표준화(오버레이 형제 분리 + 닫기 확인 + `onRequestClose` 보완)를
+하면서 **동작만 고치고 값은 손대지 않았다.** DESIGN.md는 omd 투영본이라 직접
+편집 대상이 아니고, 스크림은 아예 토큰이 없어 신설 여부가 별도 판단이다.
+
+앱의 바텀시트는 네 개다.
+
+| 시트 | 파일:줄 |
+|---|---|
+| 기구 설정 추가 | `components/workout/ExerciseAdder.tsx:1487` |
+| 루틴에서 가져오기 | `app/(tabs)/workout.tsx:3096` |
+| 운동 기록에서 불러오기 | `app/modal/routine-manage.tsx:1167` |
+| 숫자 패드 | `components/ui/NumberPad.tsx:62` |
+
+| 항목 | DESIGN.md | 현재 |
+|---|---|---|
+| 시트 상단 radius | `radius.sheet` **24** (104줄) | 기구 설정 **28**, 숫자 패드 **28**, 나머지 둘 24 |
+| 그래버 색 | `surface-high` (135줄 "시트 그래버") | 기구 설정 **`textMuted`**, 숫자 패드 `surfaceHigh` |
+| 스크림 | **토큰 없음** | `rgba(0,0,0,0.5)` / `0.3` / `0.55`, 기구 설정 `rgba(30,80,65,0.4)`, CuteAlert `rgba(5,9,14,0.55)` — 전부 하드코딩이라 "색은 하드코딩하지 않는다"(137줄) 위반 |
+| 전개 시간 | `duration.sheet` **260ms** (97줄) | RN `<Modal animationType="slide">`의 고정값이라 **지정할 수 없다.** 지키려면 커스텀 시트로 옮겨야 한다 |
+
+그래버는 네 시트 중 둘(기구 설정·숫자 패드)에만 있고, 넷 다 **드래그되지 않는
+시각 표시**다. 드래그 dismiss는 범위 밖으로 남겼다 — `@gorhom/bottom-sheet`
+5.2.14가 `package.json`에 있으나 **앱 코드에서 import 0건**이라, 사용 이력이
+없는 의존성을 시트 네 개에 한 번에 넣지 않기로 했다.
+
 ### 기구 설정 항목 정렬 순서가 보존되지 않는다
 
 `workout_setting_presets` 에 정렬 컬럼이 없다. `findAll` 이 `createdAt ASC` 로
