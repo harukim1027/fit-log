@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useGoBack } from "../../hooks/useGoBack";
 import { Card, Input, NumberPad } from "../../components/ui";
 import { Button, Header, IconButton } from "../../design-system";
 import { Stepper } from "../../components/ui/Stepper";
@@ -52,6 +53,9 @@ interface CustomFood {
 export default function AddFoodModal() {
   const c = useColors();
   const router = useRouter();
+  // 원래 자리인 diet 탭이 href: null 로 숨겨져 있어 돌아갈 곳이 없다(_layout.tsx:109).
+  // 홈으로 보낸다. 식단 복원은 별개 과제다.
+  const goBack = useGoBack("/");
   const keyboardHeight = useKeyboardHeight();
   const params = useLocalSearchParams<{ mealType: MealType; snackCardId?: string; date?: string }>();
   const mealType = params.mealType ?? "breakfast";
@@ -150,7 +154,7 @@ export default function AddFoodModal() {
       unit: "g",
     };
     addFood(mealType, item, date, snackCardId);
-    router.back();
+    goBack();
   };
 
   const handleAddSearch = () => {
@@ -266,7 +270,7 @@ export default function AddFoodModal() {
       unit: photoResult.unit || 'g',
     };
     addFood(mealType, food, date);
-    router.back();
+    goBack();
   };
 
   const handleAddManual = async () => {
@@ -295,7 +299,7 @@ export default function AddFoodModal() {
       unit: food.unit,
       isPublic: manualIsPublic,
     }).catch(() => {});
-    router.back();
+    goBack();
   };
 
   return (

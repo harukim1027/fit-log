@@ -215,7 +215,7 @@ React, react-native, `../../tokens`만 쓴다.
 |---|---|---|
 | `IconButton` | 뒤로/닫기 버튼 | 뺄 수 있지만 뺄 이유가 없다 (아래) |
 | `components/AppIcons` | chevronLeft·close 글리프 | 아니오 — 자체 구현해도 아이콘은 그려야 한다 |
-| `expo-router` | `onBack`/`onClose` 미전달 시 `router.back()` | 아니오 — 좌측 버튼이 있는 10곳 중 5곳이 이 기본값에 의존한다 |
+| `expo-router` | `onBack`/`onClose` 미전달 시 뒤로 가기 + `canGoBack` 가드 | 아니오 — 좌측 버튼이 있는 9곳 중 **4곳**이 이 기본값에 의존한다 (2026-09-02, `d792b5c` 기준) |
 | `react-native-safe-area-context` | 상단 인셋 | 아니오 — 헤더의 본질이다 |
 
 `IconButton`을 자체 구현으로 대체하는 선택지를 검토했지만 택하지 않았다.
@@ -835,7 +835,7 @@ API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 �
 | radius 사다리 실사용 0건 2개 | 디자인 토큰 | 미해결 |
 | 바텀시트 값이 DESIGN.md와 어긋남 | mobile | 미해결 |
 | `touchTargetMode` 이름/용처 불일치 | design-system | 미해결. Phase 2에서 재검토 |
-| `canGoBack` 가드 부재 | mobile | 미해결. **재조사 필요**(아래) |
+| `canGoBack` 가드 부재 | mobile | ✅ **해소** — `hooks/useGoBack`, 15곳 적용 |
 | 미저장 가드 | mobile | **부분 해소** — 기구 설정 시트 1곳 적용(아래) |
 | 홈 "최근 기록" 전역 표시 불일치 | mobile | **재조사 필요**(아래) |
 
@@ -845,10 +845,12 @@ API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 �
 없어서 여러 세션 전 값이 현재 사실처럼 남아 있었다. 수치를 적을 때는
 `(YYYY-MM-DD, <커밋> 기준)`을 함께 적을 것. 시점 없는 수치는 계획을 어긋나게 한다.
 
-- **`canGoBack` 가드** — 기록은 "6곳"이었으나 **2026-09-02(`b8ca26b`) 기준
-  `router.back()` 호출 17곳 / `canGoBack` 가드 0곳**이다. 딥링크로 바로 진입한
-  화면에서 뒤로 갈 곳이 없을 때의 동작이 정의돼 있지 않다.
-  → 이 17이라는 수도 착수 시점에 다시 셀 것.
+- ~~**`canGoBack` 가드**~~ ✅ **해소.** 기록은 "6곳"이었고 재조사에서 17곳이
+  나왔는데, 그 17도 성격이 갈렸다 — 라우트 이탈 13, `Header` 기본값 2,
+  죽은 파일(`components/ui/Header.tsx`) 2다. 모드 복귀 4곳
+  (`routine-manage` 3, `onboarding` 1)은 `router.back()`을 쓰지 않아 이 수에
+  들어가지 않는다. 앞의 15곳에 가드를 넣었다(`hooks/useGoBack`).
+  자세한 내용은 아래 "`canGoBack` 가드" 절.
 - **미저장 가드** — 기록은 "전무"였으나 **더 이상 사실이 아니다.**
   기구 설정 시트에 `onDirtyChange` 기반 닫기 확인이 들어갔다
   (`SettingSelector` → `ExerciseAdder`, 2026-09-02).
@@ -858,6 +860,66 @@ API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 �
 - **홈 "최근 기록" 전역 표시 불일치** — **무엇이 어떻게 어긋나는지가 기록에
   남아 있지 않다.** 재현 경로부터 다시 적어야 착수할 수 있다. 항목 이름만으로는
   조사도 시작할 수 없으므로, 다음에 이 현상을 보면 그 자리에서 경로를 적을 것.
+
+### ~~`canGoBack` 가드 부재~~ ✅ 해소
+
+**증상은 크래시가 아니라 무반응이었다.** expo-router의 `goBack()`은 스택이 비면
+`GO_BACK` 액션을 조용히 버린다(`expo-router/build/global-state/routing.js`).
+전체 화면 모달이 덮고 있고 탭바도 가려져 있어 **빠져나갈 수단이 하나도 없었다.**
+
+딥링크·푸시로 모달에 직접 진입하면 반드시 이 상황이 된다. 이 앱에는
+`unstable_settings`/`initialRouteName`이 0건이고 `app/modal/_layout.tsx`도 없어
+모달 라우트가 루트 Stack에 평평하게 등록돼 있다 — 콜드 스타트로
+`exp+fitlog://modal/add-food`를 열면 스택 항목이 그 화면 하나뿐이다.
+
+#### 집계 (2026-09-02, `d792b5c` 기준)
+
+`router.back()` grep은 22줄이 걸리지만 주석·문서를 빼면 실호출 **17곳**이고,
+그 17도 성격이 갈린다.
+
+| 성격 | 곳 | 처리 |
+|---|---|---|
+| 라우트 이탈 (직접 호출) | 13 | `useGoBack`으로 교체 |
+| `Header` 기본값 | 2 | 컴포넌트 안에서 가드 |
+| 죽은 파일 `components/ui/Header.tsx` | 2 | 손대지 않음 (참조 0, 삭제 예정) |
+| **모드 복귀** | 4 | **가드 불필요** — `router.back()`을 쓰지 않는다 |
+
+모드 복귀는 `routine-manage`의 `setMode` 3곳과 `onboarding`의 스텝 이동 1곳이다.
+라우트를 벗어나지 않으므로 `router.back()` 집계에도 들어가지 않는다.
+
+`ExerciseAdder:758`의 `onClose`는 부모가 성격을 정한다 — `add-workout`에서는
+라우트 이탈, `routine-manage`에서는 모드 복귀다. **같은 컴포넌트가 둘을 겸하므로
+ExerciseAdder 안에서 가드하면 안 된다.**
+
+#### 폴백 목적지
+
+| 화면 | 폴백 | 근거 |
+|---|---|---|
+| `auth/register` | `/auth/login` | 되돌아갈 곳이 명확 |
+| `add-workout` | `/(tabs)/workout` | 진입점이 운동 탭 |
+| `edit-profile` | `/` | 진입점이 홈·통계 둘이라 특정 불가 |
+| `full-calendar` | `/(tabs)/workout` | 진입점이 운동 탭. 날짜 셀 탭의 목적지(히스토리)도 같다 |
+| `add-food` | `/` | **원래 자리인 diet 탭이 `href: null`이라 갈 곳이 없다** |
+| `barcode-scan` | `/` | 아래 |
+| `routine-manage` (list 닫기) | `/` | 진입점이 홈·운동 둘 |
+
+`barcode-scan`을 `add-food`로 보내지 않은 이유는 셋이다. (1) `mealType`/`date`
+파라미터가 없어 "어느 끼니에 추가할지 모르는" 화면이 된다. (2) 스택에 없어서
+폴백이 도는 것이므로 거기로 보내는 것은 "뒤로"가 아니라 "앞으로"다.
+(3) "추가 완료" 알럿의 확인은 이미 일이 끝난 뒤다.
+
+#### 강제 수단
+
+`useGoBack(fallback)`의 `fallback`은 **필수 인자**다. 옵셔널로 두면 빠뜨린 곳이
+지금과 똑같이 무반응으로 남는다 — IconButton이 `accessibilityLabel`을 타입
+필수로 둔 것과 같은 방식이다.
+
+`Header`의 `fallback` prop은 **옵셔널**이고 기본값이 `"/"`다. 필수로 두면
+`showBack`/`showClose`가 없어 뒤로 가기 자체가 없는 곳까지 값을 요구하게 된다.
+
+> **ESLint로 `router.back()` 직접 호출을 막는 방법은 지금 쓸 수 없다.**
+> `mobile/`에는 eslint 설정도 lint 스크립트도 없다(`api/`에만 있다).
+> lint 인프라를 세우는 것은 별도 작업이다. 그때까지는 위 표와 이 절이 근거다.
 
 ### 홈 목표 지표 문제 — 3건
 

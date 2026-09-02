@@ -29,8 +29,9 @@
  *   AppIcons     chevronLeft·close 글리프. 자체 구현해도 아이콘은 그려야 하고,
  *                경로를 복제하면 앱과 모양이 갈린다.
  *   expo-router  좌측 버튼이 있는 9곳 중 4곳이 핸들러를 넘기지 않아
- *                router.back() 기본값에 의존한다(register, add-food,
- *                barcode-scan, routine-manage:359).
+ *                기본 동작에 의존한다(register, add-food, barcode-scan,
+ *                routine-manage:360). 그 기본 동작은 canGoBack 가드가 붙은
+ *                뒤로 가기이고, 스택이 비면 fallback(기본 "/")으로 간다.
  *                없애려면 두 prop을 필수로 바꿔야 해서 API 재설계다.
  *                (set-target은 제거됐다 — refactor/remove-set-target)
  *
@@ -39,7 +40,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useColors, space } from "../../tokens";
 import { IconButton } from "../IconButton";
 import { Icon } from "../../../components/AppIcons";
@@ -51,10 +52,17 @@ export interface HeaderProps {
   showClose?: boolean;
   /** 우측 슬롯. 스타일을 강제하지 않는다 — 폭도 내용이 정한다. */
   rightElement?: React.ReactNode;
-  /** 없으면 router.back() */
+  /** 없으면 뒤로 간다. 뒤로 갈 곳이 없으면 `fallback`으로. */
   onBack?: () => void;
-  /** 없으면 router.back() */
+  /** 없으면 뒤로 간다. 뒤로 갈 곳이 없으면 `fallback`으로. */
   onClose?: () => void;
+  /**
+   * 스택이 비어 뒤로 갈 수 없을 때 갈 곳. 기본 `"/"`.
+   *
+   * `onBack`/`onClose`를 넘기는 곳에는 영향이 없다 — 그쪽은 화면이 직접
+   * 처리하므로 이 값을 보지 않는다.
+   */
+  fallback?: Href;
   testID?: string;
 }
 
@@ -98,14 +106,35 @@ export function Header({
   rightElement,
   onBack,
   onClose,
+  fallback,
   testID,
 }: HeaderProps) {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const handleBack = onBack ?? (() => router.back());
-  const handleClose = onClose ?? (() => router.back());
+  /**
+   * 회귀 방지: `router.back()`을 그냥 부르지 말 것.
+   *
+   * 스택이 비면 expo-router는 `GO_BACK`을 조용히 버린다. 크래시가 아니라
+   * 무반응이 되고, 헤더가 붙은 화면은 대개 전체 화면 모달이라 사용자가
+   * 빠져나갈 수단이 사라진다. 딥링크·푸시로 직접 진입하면 반드시 그렇게 된다.
+   *
+   * `hooks/useGoBack`과 같은 로직이지만 그것을 import 하지 않는다 —
+   * design-system은 앱 코드를 직접 참조하지 않는다는 규칙이 있고(README),
+   * 이 파일은 이미 `expo-router`에 의존하므로 여기서 세 줄로 끝내는 편이
+   * 의존성을 늘리지 않는다. 정책을 바꿀 때는 두 곳을 함께 볼 것.
+   */
+  const goBackOr = (to: Href) => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace(to);
+  };
+
+  const handleBack = onBack ?? (() => goBackOr(fallback ?? "/"));
+  const handleClose = onClose ?? (() => goBackOr(fallback ?? "/"));
 
   return (
     <View

@@ -1,6 +1,7 @@
 import React from "react";
 import { } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useGoBack } from "../../hooks/useGoBack";
+import { useLocalSearchParams } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useRoutineStore } from "../../store/routineStore";
 import { showCuteAlert } from "../../components/CuteAlert";
@@ -8,7 +9,8 @@ import ExerciseAdder, { ExerciseAddResult } from "../../components/workout/Exerc
 import { Exercise } from "../../types/workout";
 
 export default function AddWorkoutModal() {
-  const router = useRouter();
+  // 진입점은 운동 탭이다. 딥링크로 직접 열리면 스택이 비어 그쪽으로 보낸다.
+  const goBack = useGoBack("/(tabs)/workout");
   const params = useLocalSearchParams<{
     editMode?: string;
     exerciseId?: string;
@@ -60,7 +62,7 @@ export default function AddWorkoutModal() {
       } else {
         await createSessionForDate(targetDate!, [exercise]);
       }
-      router.back();
+      goBack();
     } catch {
       showCuteAlert({ icon: 'alert', tone: 'danger', title: '저장 실패', message: '다시 시도해주세요', buttons: [{ label: '확인', style: 'primary' }] });
     }
@@ -157,7 +159,7 @@ export default function AddWorkoutModal() {
       editMode={isEditMode}
       initialExercise={editExercise ?? undefined}
       onAdd={isEditMode ? handleEditComplete : handleAdd}
-      onClose={() => router.back()}
+      onClose={goBack}
     />
   );
 }

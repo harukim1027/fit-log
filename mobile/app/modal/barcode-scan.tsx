@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { showCuteAlert } from "../../components/CuteAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useGoBack } from "../../hooks/useGoBack";
 import { useState, useEffect } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Icon } from "../../components/AppIcons";
@@ -27,7 +27,10 @@ export default function BarcodeScanModal() {
     borderColor: c.surface,
     borderWidth: 3,
   };
-  const router = useRouter();
+  // 앱 내 진입점은 add-food 뿐이지만, 폴백 상황에는 그 화면도 스택에 없다.
+  // 파라미터(mealType·date) 없이 add-food 를 새로 여는 것은 "뒤로"가 아니라
+  // "앞으로"라 홈으로 보낸다.
+  const goBack = useGoBack("/");
   const params = useLocalSearchParams<{ mealType: MealType }>();
   const mealType = params.mealType ?? "breakfast";
   const { addFood } = useDietStore();
@@ -57,9 +60,9 @@ export default function BarcodeScanModal() {
         unit: "g",
       };
       addFood(mealType, item);
-      showCuteAlert({ icon: 'check', tone: 'ok', title: '추가 완료', message: food.name + '이(가) 추가됐어요!', buttons: [{ label: '확인', style: 'primary', onPress: () => router.back() }] });
+      showCuteAlert({ icon: 'check', tone: 'ok', title: '추가 완료', message: food.name + '이(가) 추가됐어요!', buttons: [{ label: '확인', style: 'primary', onPress: goBack }] });
     } catch {
-      showCuteAlert({ icon: 'wifi', tone: 'muted', title: '찾을 수 없어요', message: '해당 바코드의 식품 정보를 찾지 못했어요', buttons: [{ label: '닫기', style: 'soft', onPress: () => router.back() }, { label: '다시 시도', style: 'primary', onPress: () => setScanned(false) }] });
+      showCuteAlert({ icon: 'wifi', tone: 'muted', title: '찾을 수 없어요', message: '해당 바코드의 식품 정보를 찾지 못했어요', buttons: [{ label: '닫기', style: 'soft', onPress: goBack }, { label: '다시 시도', style: 'primary', onPress: () => setScanned(false) }] });
     } finally {
       setLoading(false);
     }
@@ -105,7 +108,7 @@ export default function BarcodeScanModal() {
               NativeWind rem이 14라 p-2는 7이고 mr-5는 17.5다. */}
           <IconButton
             accessibilityLabel="바코드 스캔 닫기"
-            onPress={() => router.back()}
+            onPress={goBack}
             variant="filled"
             style={{
               alignSelf: "flex-end",
