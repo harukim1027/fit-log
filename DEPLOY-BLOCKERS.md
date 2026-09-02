@@ -9,7 +9,7 @@
 
 | # | 항목 | 영역 | 해소 시점 | 상태 |
 |---|---|---|---|---|
-| 1 | `synchronize: true`가 운영에서 켜져 있다 | api | **Phase 1-B 완료 후, Phase 2 진입 전** | 🟡 코드 완료 · 리허설 통과 · **운영 적용 남음** |
+| 1 | `synchronize: true`가 운영에서 켜져 있다 | api | **Phase 1-B 완료 후, Phase 2 진입 전** | 🟡 베이스라인 운영 기록 완료 · **배포 1회 남음** |
 | 2 | 검증된 운영 백업이 없다 | 운영 | 항목 1 착수 전 | ✅ 해소 — `prod3.dump` 확보, 복원 검증 완료 |
 
 ## 현재 작업 중 지킬 규칙
@@ -18,9 +18,10 @@
 운영에는 아직 `synchronize: true`가 살아 있으므로, 이 규칙을 어기는 것은
 되돌릴 수 없는 사고가 된다.**
 
-> 백업은 확보됐다(항목 2). 하지만 **운영에 배포된 코드는 아직
-> `synchronize: true`**다 — 아래 인프라는 저장소에만 들어와 있고 운영에
-> 적용되지 않았다. 규칙은 그대로 유효하다.
+> 백업은 확보됐고(항목 2) 운영에는 베이스라인이 `--fake`로 기록돼 있다.
+> 하지만 **운영에 배포된 코드는 아직 `synchronize: true`**다 —
+> `synchronize: false`와 `railway.json` 변경은 저장소에만 있고 배포되지 않았다.
+> **그 배포가 나가기 전까지 규칙은 그대로 유효하다.**
 
 1. **`api/src/**/*.entity.ts`를 수정하지 않는다.**
    엔티티 파일을 고쳐 push하면 배포가 걸리고 배포가 곧 스키마 변경이다.
@@ -102,8 +103,9 @@ Phase 1-B(디자인 시스템 호출부 교체)는 `mobile/` 안에서만 움직
 
 ### 진행 상황
 
-**0~5는 끝났고 6(운영 적용)만 남았다.** 리허설은 운영 복원본
-`fitlog_restore_test`로 전 과정을 돌렸다.
+**코드와 운영 기록은 전부 끝났고 배포 1회만 남았다.** 리허설은 운영 복원본
+`fitlog_restore_test`로 전 과정을 돌렸고, 베이스라인은 운영에도 `--fake`로
+기록했다.
 
 - [x] **0. 검증된 백업 확보** — `prod3.dump`를 `fitlog_restore_test`로 복원해
       `users` 5행 확인 (항목 2)
@@ -111,9 +113,10 @@ Phase 1-B(디자인 시스템 호출부 교체)는 `mobile/` 안에서만 움직
       **"No changes in database schema were found"**. 엔티티와 운영 스키마가 일치한다
 - [x] 2. `api/src/data-source.ts` 작성
 - [x] 3. `package.json`에 `migration:generate` / `migration:run` / `migration:revert`
-- [x] 4. 베이스라인 생성 + `--fake` 기록 (**복원본에만**. 운영은 아직)
-- [x] 5. `synchronize: false` 전환 (`app.module.ts` 두 분기 모두)
-- [ ] 6. **운영 적용** — 베이스라인 `--fake` + `railway.json` 수정. 아래 절차
+- [x] 4. 베이스라인 생성 + `--fake` 기록 — 복원본 ✅, **운영 ✅**
+- [x] 5. `synchronize: false` 전환 (`app.module.ts` 두 분기 모두) — 코드 반영
+- [x] 6-a. `railway.json` `startCommand`에 `migration:run` 추가 — 코드 반영
+- [ ] 6-b. **배포** — 위 두 코드 변경을 운영에 올리면 항목 1이 닫힌다
 
 **`synchronize: false`는 베이스라인을 기록한 뒤에 끈다.** 순서를 바꾸면
 그 사이 배포에서 스키마가 아무에게도 관리되지 않는 구간이 생긴다.
@@ -164,32 +167,54 @@ npm run migration:run
 > 설치 권한이 필요하고**, 없으면 경고만 남기고 넘어간다. 새 환경을 만들 때
 > 확인할 것.
 
-### 운영 적용 절차 — 아직 실행하지 않았다
+### 운영 적용 절차
 
 **★ 이 절차 직전에 새 백업을 받는다.** `prod3.dump`는 리허설용으로 받은 것이고,
 운영 적용 시점의 데이터가 아니다. 절차는 항목 2에 있다.
 
-1. **베이스라인을 운영에 `--fake`로 기록**한다. 운영에는 이미 테이블이 다
-   있으므로 실제로 실행하면 안 된다.
+1. **베이스라인을 운영에 `--fake`로 기록** — ✅ **완료**
+
+   운영에는 이미 테이블이 다 있으므로 실제로 실행하면 안 된다.
 
    ```bash
    DATABASE_URL="<운영 URL>" npm run build
    DATABASE_URL="<운영 URL>" npm run migration:run -- --fake
    ```
 
-   확인: `migrations` 테이블에 `Baseline1788323766794` 한 줄, 테이블 개수 변화 없음.
+   기록된 것은 `Baseline1788323766794` 하나다. 실행 로그에서 나간 SQL은 둘뿐이었다.
 
-2. **`railway.json`에 마이그레이션 단계를 붙인다.**
+   | 실행된 SQL | 건수 |
+   |---|---|
+   | `CREATE TABLE "migrations"` | 1 |
+   | `INSERT INTO "migrations"` | 1 |
+   | **스키마 변경 SQL**(`CREATE TABLE` 12건 · `ALTER TABLE` 20건) | **0** |
+
+   `--fake`가 의도대로 동작했다는 뜻이다. 운영 스키마는 그대로이고
+   `migrations` 테이블만 새로 생겨 베이스라인이 "실행됨"으로 기록됐다.
+
+2. **`railway.json`에 마이그레이션 단계를 붙인다** — ✅ 코드 반영 완료, **배포 남음**
 
    ```json
    "deploy": { "startCommand": "npm run migration:run && node dist/main.js" }
    ```
 
-   기동 **전에** 돌아야 한다. 실패하면 `&&`가 기동을 막으므로, 스키마와 코드가
-   어긋난 채로 서비스가 뜨는 일이 없다.
+   **`&&`인 이유:** 마이그레이션이 실패하면 그 자리에서 멈춰 `node dist/main.js`에
+   도달하지 못한다. 즉 **스키마와 코드가 어긋난 채로 서비스가 뜨는 일이 없다.**
+   `;`나 별도 단계로 두면 마이그레이션이 실패해도 앱이 그대로 떠서, 코드가
+   기대하는 컬럼이 없는 상태로 요청을 받게 된다 — 500이 흩어져 나오고 원인이
+   배포 로그 위쪽에 파묻힌다. 실패는 기동 실패로 드러나는 편이 낫다.
 
-   > 순서 주의. 1번보다 2번을 먼저 push하면 첫 배포에서 베이스라인이 **실제로**
-   > 실행돼 이미 있는 테이블을 다시 만들려 든다.
+   `restartPolicyType: "ON_FAILURE"`와 함께 두면 마이그레이션이 일시적 사유
+   (커넥션 끊김 등)로 실패했을 때 재시도된다. 마이그레이션 내용 자체가 잘못됐다면
+   재시도해도 같은 지점에서 실패하므로 배포가 올라가지 않는다. 그게 맞는 동작이다.
+
+   > 순서 주의. 1번보다 2번을 먼저 push했다면 첫 배포에서 베이스라인이 **실제로**
+   > 실행돼 이미 있는 테이블을 다시 만들려 들었을 것이다. 1번을 먼저 끝냈다.
+
+   **이 브랜치를 push하면 그 배포에서 함께 나가는 것:**
+   `railway.json`의 `startCommand`, `synchronize: false`, `data-source.ts`,
+   베이스라인 마이그레이션. 운영에 베이스라인이 이미 기록돼 있으므로
+   기동 시 `migration:run`은 **실행할 것이 없다고 판단하고 통과**한다.
 
 3. **롤백.** 마지막 마이그레이션은 `npm run migration:revert`로 되돌린다
    (`down()`이 도는 것이므로 `down()`을 확인하고 배포할 것).
@@ -228,16 +253,20 @@ npx typeorm migration:generate -d dist/data-source.js --check    # 일치하면 
 `--check`는 **운영에 대고 "지금 synchronize가 무엇을 바꾸려 하는가"를 쓰기 없이
 확인**하는 용도로 쓸 수 있다.
 
-#### 배포 파이프라인 — 현재 기동 지점
+#### 배포 파이프라인 — 기동 지점
 
 기동 지점은 `api/railway.json` 하나뿐이다. `nixpacks.toml`도 `Procfile`도 없고
-`package.json`에 `prestart:prod`도 없다.
+`package.json`에 `prestart:prod`도 없다. 그래서 마이그레이션을 끼워 넣을 자리도
+여기 하나다.
 
 ```json
-"deploy": { "startCommand": "node dist/main.js" }
+"deploy": { "startCommand": "npm run migration:run && node dist/main.js" }
 ```
 
-고칠 형태와 순서는 위 "운영 적용 절차"에 있다.
+`typeorm`은 `dependencies`에 있어(devDependencies가 아니다) 운영 설치본에도
+CLI가 함께 들어간다. `migration:run`이 보는 `dist/data-source.js`는 빌드
+산출물이라 기동 시점에 이미 있다.
+
 **이 변경을 push하는 것 자체가 운영 배포다.**
 
 ### 참고 — 이 위험을 실제로 마주친 기록
