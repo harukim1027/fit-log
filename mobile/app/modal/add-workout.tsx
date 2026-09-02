@@ -2,6 +2,7 @@ import React from "react";
 import { } from "react-native";
 import { useGoBack } from "../../hooks/useGoBack";
 import { useLocalSearchParams } from "expo-router";
+import { useNavigation, usePreventRemove } from "@react-navigation/native";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useRoutineStore } from "../../store/routineStore";
 import { showCuteAlert } from "../../components/CuteAlert";
@@ -11,6 +12,29 @@ import { Exercise } from "../../types/workout";
 export default function AddWorkoutModal() {
   // 진입점은 운동 탭이다. 딥링크로 직접 열리면 스택이 비어 그쪽으로 보낸다.
   const goBack = useGoBack("/(tabs)/workout");
+  const navigation = useNavigation();
+  /**
+   * ExerciseAdder 의 닫기 버튼은 자식이 직접 되묻는다. 여기서 막는 것은
+   * **안드로이드 하드웨어 뒤로가기**다 — 그쪽은 버튼 핸들러를 거치지 않고
+   * 라우트를 바로 pop 한다.
+   */
+  const [adderDirty, setAdderDirty] = React.useState(false);
+  usePreventRemove(adderDirty, ({ data }) => {
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "작성 중인 내용이 있어요",
+      message: "닫으면 입력한 내용이 사라져요.",
+      buttons: [
+        { label: "계속 작성", style: "soft" },
+        {
+          label: "닫기",
+          style: "primary",
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ],
+    });
+  });
   const params = useLocalSearchParams<{
     editMode?: string;
     exerciseId?: string;
@@ -160,6 +184,7 @@ export default function AddWorkoutModal() {
       initialExercise={editExercise ?? undefined}
       onAdd={isEditMode ? handleEditComplete : handleAdd}
       onClose={goBack}
+      onDirtyChange={setAdderDirty}
     />
   );
 }

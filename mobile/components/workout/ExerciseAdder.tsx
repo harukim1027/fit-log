@@ -22,6 +22,7 @@ import { SettingSelector, DEFAULT_SETTING_KEYS } from "./SettingSelector";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "../../constants/colors";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -153,11 +154,20 @@ type ExerciseAdderProps = {
     defaultReps?: number;
     routineSets?: Array<{ setNumber: number; targetWeight: number; targetReps: number; unit: 'kg' | 'lbs' }>;
   };
+  /**
+   * 작성 중인 내용이 있는지 부모에 알린다.
+   *
+   * 이 컴포넌트는 화면을 통째로 대체하는 자리에도 쓰이는데
+   * (`routine-manage`의 `subMode === "addExercise"`), 그때 부모가 안드로이드
+   * 뒤로가기를 막으려면 자식의 dirty를 알아야 한다. 자체 닫기 버튼은
+   * 아래 `useUnsavedGuard`가 직접 처리하므로 이 콜백과 무관하다.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, initialExercise }: ExerciseAdderProps) {
+export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, initialExercise, onDirtyChange }: ExerciseAdderProps) {
   const c = useColors();
   const SHADOW = {
     shadowColor: "#000",
@@ -221,6 +231,137 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   const [tip, setTip] = useState("");
   const [restSeconds, setRestSeconds] = useState("60");
   const [targetReps, setTargetReps] = useState("");
+
+  /**
+   * ── 미저장 이탈 가드 ─────────────────────────────────────────────────────
+   *
+   * "작성 중인가"를 **초기 상태 대비 변경**으로 판정한다. editMode에서는
+   * `initialExercise`가 복원된 상태가 초기값이므로, "값이 있는가"로 보면
+   * 열자마자 dirty가 되어 아무것도 안 고치고 닫아도 확인창이 뜬다.
+   *
+   * 초기 서명을 상태에서 읽지 않고 `initialExercise`에서 **동기적으로** 만든다.
+   * 복원 useEffect(:299)의 setState는 다음 렌더에야 반영돼서, 상태를 스냅샷으로
+   * 잡으려면 "몇 번째 렌더에서 찍을 것인가"를 맞춰야 한다. 아래 makeSignature는
+   * 복원 로직과 같은 규칙을 그대로 쓰므로 그 타이밍 문제가 없다.
+   * **복원 useEffect를 고치면 여기도 같이 고칠 것.**
+   *
+   * unit(kg/lbs)은 일부러 뺐다. editMode가 아닐 때 설정 스토어가 로드되면서
+   * 나중에 바뀌는 값이라(:289) 사용자가 아무것도 안 했는데 dirty가 된다.
+   *
+   * settingsDirty(기구 설정 시트의 입력)도 뺀다. 그쪽은 시트 자체 가드가
+   * 이미 물어본다. 시트에서 "추가하기"로 확정된 결과인 `settings`만 본다.
+   */
+  const makeSignature = (v: {
+    exName: string | null;
+    settings: ExerciseSetting[];
+    tip: string;
+    restSeconds: string;
+    targetReps: string;
+    isSingleArm: boolean;
+    sets: Array<{ weight: string; reps: string; completed: boolean }>;
+    defaultSets: string;
+    defaultWeight: string;
+    defaultReps: string;
+    perSetMode: boolean;
+    routineSets: Array<{ weight: string; reps: string }>;
+    customForm: unknown;
+  }) =>
+    JSON.stringify({
+      exName: v.exName,
+      settings: v.settings,
+      tip: v.tip.trim(),
+      restSeconds: v.restSeconds,
+      targetReps: v.targetReps.trim(),
+      isSingleArm: v.isSingleArm,
+      // 모드별로 실제 저장되는 쪽만 본다.
+      sets: mode === "session" ? v.sets : null,
+      routine:
+        mode === "routine"
+          ? {
+              defaultSets: v.defaultSets,
+              defaultWeight: v.defaultWeight,
+              defaultReps: v.defaultReps,
+              perSetMode: v.perSetMode,
+              routineSets: v.routineSets,
+            }
+          : null,
+      customForm: v.customForm,
+    });
+
+  // 복원 useEffect(:299)와 같은 규칙으로 만든 초기 서명. editMode가 아니면
+  // 각 useState의 초깃값 그대로다.
+  const initialSignature = useRef(
+    (() => {
+      const ex = editMode ? initialExercise : undefined;
+      return makeSignature({
+        exName: ex?.name ?? null,
+        settings: ex?.settings ?? [],
+        tip: ex?.tip ?? "",
+        restSeconds: String(ex?.restSeconds ?? 60),
+        targetReps: ex?.targetReps ?? "",
+        isSingleArm: ex?.isSingleArm ?? false,
+        sets:
+          ex?.sets && ex.sets.length > 0
+            ? ex.sets.map((st) => ({
+                weight: String(st.weight),
+                reps: String(st.reps),
+                completed: st.completed ?? false,
+              }))
+            : [{ weight: "", reps: "", completed: false }],
+        defaultSets: ex?.defaultSets != null ? String(ex.defaultSets) : "3",
+        defaultWeight: ex?.defaultWeight != null ? String(ex.defaultWeight) : "",
+        defaultReps: ex?.defaultReps != null ? String(ex.defaultReps) : "",
+        perSetMode: !!(ex?.routineSets && ex.routineSets.length > 0),
+        routineSets:
+          ex?.routineSets && ex.routineSets.length > 0
+            ? ex.routineSets.map((st) => ({
+                weight: String(st.targetWeight),
+                reps: String(st.targetReps),
+              }))
+            : [],
+        customForm: null,
+      });
+    })(),
+  ).current;
+
+  const currentSignature = makeSignature({
+    exName: selectedExercise?.name ?? null,
+    settings,
+    tip,
+    restSeconds,
+    targetReps,
+    isSingleArm,
+    sets,
+    defaultSets,
+    defaultWeight,
+    defaultReps,
+    perSetMode,
+    routineSets,
+    // 커스텀 종목 폼은 열려 있고 뭔가 적혀 있을 때만 센다. 폼을 여는 것 자체는
+    // 모드 전환이지 작성이 아니다.
+    customForm: showCustomForm
+      ? {
+          name: customName.trim(),
+          cat: customCat,
+          parts: customTargetParts,
+          rest: customRestSeconds,
+          reps: customTargetReps.trim(),
+          note: customNote.trim(),
+        }
+      : null,
+  });
+
+  const isDirty = currentSignature !== initialSignature;
+
+  // 부모가 안드로이드 뒤로가기를 막아야 하는 자리(routine-manage의 addExercise)를
+  // 위해 올린다. 콜백을 ref로 두고 isDirty만 의존해 매 렌더 통지를 막는다.
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  useEffect(() => {
+    onDirtyChangeRef.current?.(isDirty);
+  }, [isDirty]);
+
+  const guardUnsaved = useUnsavedGuard(isDirty);
 
   // Equipment settings sheet
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
@@ -755,7 +896,14 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <Header title={editMode ? "운동 수정" : "운동 추가"} showClose onClose={onClose} />
+      {/* 회귀 방지: onClose 를 그대로 넘기지 말 것. 작성 중이면 한 번 되묻는다.
+          부모가 라우트를 벗어나든(add-workout) 모드만 되돌리든(routine-manage)
+          이 가드는 동일하게 앞단에서 걸린다. */}
+      <Header
+        title={editMode ? "운동 수정" : "운동 추가"}
+        showClose
+        onClose={() => guardUnsaved(onClose)}
+      />
 
       <View style={{ flex: 1 }}>
         <ScrollView

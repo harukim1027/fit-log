@@ -13,6 +13,8 @@ import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation, usePreventRemove } from "@react-navigation/native";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 import { SortableList } from "../../components/ui";
 import { Header, IconButton } from "../../design-system";
 import { Icon } from "../../components/AppIcons";
@@ -153,6 +155,7 @@ export default function RoutineManageModal() {
     setShowHistorySheet(false);
   };
 
+  const navigation = useNavigation();
   const nameRef = useRef<TextInput>(null);
   const listScrollRef = useRef<ScrollView>(null);
   const editScrollRef = useRef<ScrollView>(null);
@@ -183,16 +186,109 @@ export default function RoutineManageModal() {
     }
   }, [mode]);
 
+  /**
+   * ── 미저장 이탈 가드 ─────────────────────────────────────────────────────
+   *
+   * 이 화면은 라우트 하나에 상태머신이 들어 있어 "이탈"이 두 층이다.
+   *   모드 복귀   Header의 onClose가 setMode로 되돌린다. 라우트는 그대로다.
+   *   라우트 이탈 안드로이드 뒤로가기. 모드와 무관하게 화면이 통째로 닫힌다.
+   * 앞은 버튼 가드로, 뒤는 usePreventRemove로 막는다. 둘 다 필요하다 —
+   * 뒤로가기는 버튼 핸들러를 거치지 않는다.
+   *
+   * **모드 복귀가 곧 파기다.** create로 다시 들어오면 :176의 초기화
+   * useEffect가 이름·종목·색을 비운다. 사용자에겐 "닫기"로 보이지만 되돌릴 수
+   * 없다. 그래서 여기 가드가 필요하다.
+   *
+   * 초기화 useEffect(:176)에는 걸 수 없다. 그건 **진입** 시점이라 이탈과
+   * 무관하고, 거기서 막으려 해도 이미 상태가 비워진 뒤다.
+   */
+  const routineSignature = (
+    name: string,
+    color: string,
+    exs: ExerciseDraft[],
+  ) =>
+    // key는 진입할 때마다 Date.now()로 새로 붙는 값이라 비교에서 뺀다.
+    JSON.stringify({
+      name: name.trim(),
+      color,
+      exs: exs.map(({ key, ...rest }) => rest),
+    });
+
+  const combineSignature = (name: string, exs: CombineExercise[]) =>
+    JSON.stringify({
+      name: name.trim(),
+      exs: exs.map(({ key, ...rest }) => rest),
+    });
+
+  /** edit / combine-edit 진입 시점의 서명. 나머지 모드에서는 쓰지 않는다. */
+  const editSnapshot = useRef<string | null>(null);
+  const combineSnapshot = useRef<string | null>(null);
+
+  /**
+   * ExerciseAdder가 화면을 통째로 대체하는 동안(subMode === "addExercise")의
+   * dirty. 그 상태는 자식 안에 있어 부모가 스스로 알 수 없다.
+   * 자식의 닫기 버튼은 자식이 직접 묻고, 이 값은 안드로이드 뒤로가기용이다.
+   */
+  const [adderDirty, setAdderDirty] = useState(false);
+
   const toKey = (ex: RoutineExercise, i: number): ExerciseDraft => ({
     ...ex,
     key: `${ex.name}-${i}-${Date.now()}`,
   });
 
+  /** 모드별 dirty. 지금 모드가 아닌 것은 항상 false다. */
+  const createDirty =
+    mode === "create" && (!!routineName.trim() || exercises.length > 0);
+  const editDirty =
+    mode === "edit" &&
+    editSnapshot.current !== null &&
+    routineSignature(routineName, routineColor, exercises) !==
+      editSnapshot.current;
+  const combineDirty =
+    mode === "combine-edit" &&
+    combineSnapshot.current !== null &&
+    combineSignature(combineName, combineExercises) !== combineSnapshot.current;
+  const selectDirty = mode === "combine-select" && selectedIds.size > 0;
+
+  /** 모드 복귀용. 각 Header의 onClose가 이걸 거친다. */
+  const guardCreateEdit = useUnsavedGuard(createDirty || editDirty);
+  const guardCombineEdit = useUnsavedGuard(combineDirty);
+  const guardCombineSelect = useUnsavedGuard(selectDirty);
+
+  /**
+   * 안드로이드 하드웨어 뒤로가기. 모드를 가리지 않고 라우트를 pop하므로
+   * 모든 모드의 dirty를 OR로 본다. subMode에서 ExerciseAdder가 화면을
+   * 차지하고 있을 때는 그쪽 dirty도 포함한다.
+   */
+  const anyDirty =
+    createDirty || editDirty || combineDirty || selectDirty || adderDirty;
+  usePreventRemove(anyDirty, ({ data }) => {
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "작성 중인 내용이 있어요",
+      message: "닫으면 입력한 내용이 사라져요.",
+      buttons: [
+        { label: "계속 작성", style: "soft" },
+        {
+          label: "닫기",
+          style: "primary",
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ],
+    });
+  });
+
   const openEdit = (r: Routine) => {
     setEditingId(r.id);
     setRoutineName(r.name);
-    setRoutineColor(r.color ?? getNextRoutineColor(routines));
-    setExercises(r.exercises.map((e, i) => toKey(e, i)));
+    const color = r.color ?? getNextRoutineColor(routines);
+    setRoutineColor(color);
+    const drafts = r.exercises.map((e, i) => toKey(e, i));
+    setExercises(drafts);
+    // edit 모드는 기존 루틴이 채워진 채 열린다. "값이 있는가"로 판정하면
+    // 열자마자 dirty가 되므로 진입 시점을 스냅샷으로 잡아 비교한다.
+    editSnapshot.current = routineSignature(r.name, color, drafts);
     setMode("edit");
   };
 
@@ -296,8 +392,11 @@ export default function RoutineManageModal() {
         seen.add(ex.name);
       });
     });
+    const name = selected.map((r) => r.name).join(" + ");
     setCombineExercises(merged);
-    setCombineName(selected.map((r) => r.name).join(" + "));
+    setCombineName(name);
+    // combine-edit도 이름과 종목이 채워진 채 열린다. edit과 같은 이유로 스냅샷.
+    combineSnapshot.current = combineSignature(name, merged);
     setMode("combine-edit");
   };
 
@@ -319,6 +418,7 @@ export default function RoutineManageModal() {
         mode="routine"
         onAdd={handleExerciseAdd}
         onClose={() => setSubMode("main")}
+        onDirtyChange={setAdderDirty}
       />
     );
   }
@@ -346,6 +446,7 @@ export default function RoutineManageModal() {
         }}
         onAdd={handleExerciseEdit}
         onClose={() => { setSubMode("main"); setEditingExerciseIdx(null); }}
+        onDirtyChange={setAdderDirty}
       />
     );
   }
@@ -651,7 +752,11 @@ export default function RoutineManageModal() {
       <SafeAreaView
         style={{ flex: 1, backgroundColor: c.background }}
         edges={["bottom"]}>
-        <Header title="루틴 결합" showClose onClose={() => setMode("list")} />
+        <Header
+          title="루틴 결합"
+          showClose
+          onClose={() => guardCombineSelect(() => setMode("list"))}
+        />
         <Text
           style={{
             fontSize: 14,
@@ -750,7 +855,7 @@ export default function RoutineManageModal() {
           <Header
             title="루틴 결합 편집"
             showClose
-            onClose={() => setMode("combine-select")}
+            onClose={() => guardCombineEdit(() => setMode("combine-select"))}
           />
           <ScrollView
             ref={combineScrollRef}
@@ -934,7 +1039,9 @@ export default function RoutineManageModal() {
         <Header
           title={mode === "create" ? "새 루틴" : "루틴 수정"}
           showClose
-          onClose={() => setMode("list")}
+          // 회귀 방지: 그냥 setMode("list") 하지 말 것. create로 다시 들어오면
+          // 초기화 useEffect가 이름·종목·색을 비워 되돌릴 수 없다.
+          onClose={() => guardCreateEdit(() => setMode("list"))}
         />
         <ScrollView
           ref={editScrollRef}
