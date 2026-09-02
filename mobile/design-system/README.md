@@ -34,9 +34,13 @@ IconButton은 여기서 한 걸음 더 나가 `accessibilityLabel`을 **타입 �
 **~~Phase 1-B 교체 대상 총계: 58곳 / 19개 파일~~ ✅ 완료**
 (~~IconButton 37곳·15파일~~ ✅, ~~Header 13곳·10파일~~ ✅, ~~Button 8곳·6파일~~ ✅ — 파일은 겹친다).
 **IconButton은 실질 대상 35곳(삭제 예정인 `components/ui/Header.tsx` 2건 제외)을
-전부 옮겼다.** 앱 전체를 AST로 재수집한 잔여 아이콘 단독 터치 요소는
-`components/ui/Header.tsx` 2건(삭제 예정)과 아래 "조사에서 빠졌던 곳" 2건뿐이다.
-아래 "Phase 1-B 교체 대상"에 파일별 목록이 있다.
+전부 옮겼고, 원조사에 없던 `CuteAlert` 1건을 더해 호출부가 36곳이다.**
+(`TargetMuscleSelector` 1건은 원조사 이후에 만들어져 처음부터 IconButton이라
+호출부 총계로는 37곳이 된다.)
+
+옮기지 않은 것은 **예외 3곳**뿐이다 — `components/ui/Header.tsx` 2건(삭제 예정),
+`app/(tabs)/index.tsx:477`(이미 46 + 라벨 있음). 아래 "예외" 절에 사유가 있다.
+파일별 목록은 "Phase 1-B 교체 대상"에 있다.
 
 ## 규칙
 
@@ -489,6 +493,16 @@ metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이�
 
 **14단계까지 전부 끝났다.** 커밋은 파일당 하나씩이다.
 
+`diet.tsx` 7건은 교체를 마쳤다. **diet 탭은 탭바에서 숨겨져 있지만
+(`app/(tabs)/_layout.tsx:109`의 `href: null`, 주석 "파일 보존, 탭바에서 숨김")
+`exp+fitlog://diet` 딥링크로는 진입된다** — 실제로 이 경로로 들어가 12단계를
+픽셀 실측했다. 식단을 복원하면 그대로 쓸 수 있는 상태다.
+
+> 작업 중 한때 "도달 불가 화면이라 제외" 쪽으로 기울었으나 **사실이 아니다.**
+> 숨겨진 것은 탭바 진입점이지 라우트가 아니다. 같은 이유로 `WaterTracker`도
+> 그대로 뒀다 — 그쪽은 오히려 참조가 0건이라(정의 외 사용처 없음) diet보다
+> 더 확실히 화면에 안 뜨는데, 10단계에서 이미 옮겨 뒀다.
+
 #### 실물 확인 현황 — 1~8단계
 
 `onLayout` 실측 + 스크린샷으로 확인한 것과 못 한 것. 확인 방법은
@@ -503,7 +517,7 @@ metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이�
 | 5 | `full-calendar.tsx:98` | ✅ | 26 → 44 |
 | 6 | `RestTimer.tsx:411` | ❌ | 운동 세션이 활성일 때만 렌더된다. 가운데 `flex: 1` 시간 표시가 30 좁아지는 것 미확인 |
 | 7 | `stats.tsx:307·313` | ✅ | rightSlot 114 → 139, titleSlot 189 → 164 |
-| 8 | `SettingSelector.tsx:123` | ✅ | sheet 변형. hitSlop 모드로 묶음 폭 61.67 유지 |
+| 8 | `SettingSelector.tsx:123` | ✅ | sheet 변형. hitSlop 모드로 묶음 폭 61.67 유지. **이후 삭제 배지가 "길게 누르기"로 바뀌면서 이 호출부는 사라졌다** — 지금 `SettingSelector`의 IconButton 2건은 둘 다 box다 |
 | 8 | `SettingSelector.tsx:187` | ❌ | **inline 변형 전용이라 운동 세션 필요.** 아래 참조 |
 
 `SettingSelector`는 `sheet` / `inline` 두 갈래로 갈라지고 **두 대상이 서로 다른
@@ -592,28 +606,79 @@ metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이�
 시각적으로 유지된다. `workout`을 4로 둔 것은 이 행에 드래그 핸들과 `시작`
 버튼까지 함께 있어 완전히 붙이면 핸들과 구분이 안 되기 때문이다.
 
-**hitSlop을 쓴 곳의 기준은 "이웃을 침범하지 않는가"다.** 실제로 쓴 곳은
-`diet.tsx:950·1079`(음식 행 삭제), `workout.tsx:2238·4674`(세트 행 삭제),
-`ExerciseAdder` 4곳이며, 전부 (a) 행이 개수만큼 반복돼 box면 누적되고
-(b) 같은 행에서 44 안에 다른 터치 요소가 없다.
+**hitSlop을 쓴 곳의 기준은 "이웃을 침범하지 않는가"다.**
 
-#### 예외
+#### `touchTargetMode="hitSlop"` 실사용 — 36곳 중 11곳
 
-확정된 예외는 `components/ui/Header.tsx`의 2건뿐이다 — 삭제 예정 파일이라
-옮길 이유가 없다. 나머지 35곳은 전부 옮겼다.
+| 파일 | 줄 | 자리 | hitSlop을 고른 이유 |
+|---|---|---|---|
+| `components/workout/ExerciseAdder.tsx` | 845 | 검색어 지우기 | 검색바 높이 34.33 유지 |
+| | 882 | 종목 추가 폼 닫기 | 폼 헤더 20 → 44면 아래 전체가 +24 |
+| | 1165, 1307 | 세트 삭제 ×2 | 세트 수만큼 누적(5세트면 +80) |
+| `app/(tabs)/workout.tsx` | 2253 | 세션 세트 삭제 | 행이 이미 카드 폭을 넘긴다(아래 참조) |
+| | 4713 | 초안 세트 삭제 | 세트 수만큼 누적 |
+| `app/(tabs)/diet.tsx` | 940, 1073 | 음식 행 삭제 ×2 | 음식 수만큼 누적(행 50 → 64, 이름 −29) |
+| `app/modal/add-food.tsx` | 698 | 즐겨찾기 하트 | 행에 여유가 없다 |
+| `components/WaterTracker.tsx` | 54 | 헤더 액션 | `flex: 1` 형제와 같은 행 |
+| `components/CuteAlert.tsx` | 112 | 알럿 닫기 | 절대 배치 — box면 × 가 8pt 안으로 |
+
+**밀집 행 5건(`workout` 3 + `routine-manage` 2)에는 쓰지 않았다.** 그 5건이야말로
+hitSlop의 원래 명분이었는데, 실제로 재 보니 아이콘 중심 간격이 26~28pt뿐이라
+서로 겹쳐서 못 썼다. 남은 11곳은 전부 **혼자 있는 버튼이거나 반복되는 행**이다.
+즉 이 prop이 실제로 하는 일은 "밀집 행 구제"가 아니라 **"반복 행의 높이 누적
+방지"**다. 이름과 최초 명분이 실제 용처와 어긋나 있으니, Phase 2에서 이 prop을
+다시 볼 때 이 기록부터 볼 것.
+
+나머지 25곳은 box다. 기준은 (a) 같은 행 44 안에 다른 터치 요소가 있으면 box
+(겹치면 뒤에 렌더된 쪽이 가져간다), (b) 행이 개수만큼 반복되고 이웃이 멀면
+hitSlop이다.
+
+#### 예외 — 옮기지 않기로 한 3곳
+
+| 위치 | 사유 |
+|---|---|
+| `components/ui/Header.tsx:58·66` | **삭제 예정 파일.** Header 이전이 끝나 배럴에서만 참조된다. 옮길 이유가 없다 |
+| `app/(tabs)/index.tsx:477` | **이미 44 충족(46 박스), `accessibilityLabel` 있음.** 얻을 것이 없다 |
+
+`index.tsx:477`(프로필 편집)은 옮기지 않기로 확정했다. 이미 46×46이고
+`accessibilityRole`·`accessibilityLabel`·`activeOpacity 0.7`이 전부 붙어 있어
+IconButton이 더해 줄 것이 없다. 반대로 옮기면 `width`/`height` 46,
+`borderRadius` 16, `backgroundColor` primary, 그림자를 전부 `style`로 다시
+얹어야 하고 `filled`의 기본값(pill radius, surfaceAlt)까지 덮어야 한다 —
+이득 없이 어긋날 자리만 늘어난다. 자식이 `Icon`이 아니라 `FaceAvatar`라
+원조사 기준 밖이기도 하다.
 
 #### 조사에서 빠졌던 곳
 
 교체를 끝낸 뒤 앱 전체를 다시 훑어 찾은, 원래 37건에 없던 아이콘 단독
-터치 요소다. **둘 다 아직 옮기지 않았다.**
+터치 요소다.
 
-| 위치 | 현재 | 상태 |
-|---|---|---|
-| `components/CuteAlert.tsx:101` | 28 박스 + `hitSlop 10` = 히트 48 | 히트는 충분하나 `accessibilityLabel`이 없다 |
-| `app/(tabs)/index.tsx:477` | 46 박스, `accessibilityLabel` 있음 | 자식이 `Icon`이 아니라 `FaceAvatar`라 원조사 기준 밖 |
+| 위치 | 처리 |
+|---|---|
+| `components/CuteAlert.tsx:101` | ✅ 교체 (`hitSlop` 모드) |
+| `app/(tabs)/index.tsx:477` | 예외 — 위 참조 |
+| `components/workout/TargetMuscleSelector.tsx:266` | 이미 IconButton. 원조사 이후에 만들어진 컴포넌트다 |
 
-`CuteAlert`는 `position: absolute` 배치라 box로 키우면 아이콘이 8pt 안으로
-들어온다. 옮긴다면 `touchTargetMode="hitSlop"`이 맞다.
+`CuteAlert`의 닫기 ×는 히트가 28 + `hitSlop 10` = **48로 이미 충분했다.**
+옮긴 이유는 히트가 아니라 `accessibilityLabel`이다 — `showClose`는
+`workout.tsx:579`("운동 종료" 확인)에서 실제로 쓰이는데, 스크린리더에는
+이름 없는 버튼으로 읽혔다.
+
+`box`가 아니라 `hitSlop`을 쓴 이유는 절대 배치다. 카드 우상단
+`top:12 right:12`의 28 박스라 box로 44까지 키우면 × 글리프가 모서리에서
+**8pt 안으로** 들어온다. `s.card`·`s.scrim` 어디에도 `overflow: hidden`이
+없고 박스가 모서리에서 12pt 떨어져 있어 8pt 슬롭이 잘리지 않는다.
+히트는 48 → 44로 줄지만 둘 다 `target.min`을 넘는다.
+
+**구조 충돌은 없다.** `CuteAlert`는 iOS에서 `FullWindowOverlay`(별도 UIWindow)
+안에 그려지는데, IconButton은 `TouchableOpacity` + `View`뿐이라 포털·제스처
+핸들러·reanimated를 쓰지 않는다. import 방향도 `components → design-system`
+한 방향이고(`SettingSelector`가 이미 같은 방향으로 쓴다), design-system이
+되돌아 참조하는 것은 `components/AppIcons`뿐이라 순환이 생기지 않는다.
+
+실물 확인: 알럿을 띄워 × 글리프의 x 중심을 쟀다. **310.4pt** —
+28 박스 기준 예상값 311.5와 일치하고, box로 키웠을 때의 303.5와는 다르다.
+레이아웃이 그대로라는 뜻이다.
 
 #### 교체와 무관한 기존 결함 — 세트 행이 카드를 넘는다
 
