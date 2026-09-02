@@ -62,6 +62,15 @@ interface Props {
   /** 기본 항목 되돌리기. 없으면 액션을 그리지 않는다(3단 폴백 등). */
   onRestoreDefaults?: () => void;
   variant?: "inline" | "sheet";
+  /**
+   * "작성 중"인지 부모에 알린다. 시트 변형에서 오버레이 탭으로 닫을 때
+   * 확인을 물을지 판단하는 근거다 — 이 컴포넌트의 입력 상태는 전부 내부에
+   * 있어서 부모가 스스로 알 방법이 없다.
+   *
+   * 값 자체를 부모로 끌어올리지 않은 이유: 부모는 "지금 닫아도 되는가"만
+   * 알면 되고, 입력의 소유권은 계속 여기 있어야 inline 변형이 영향을 받지 않는다.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function SettingSelector({
@@ -70,6 +79,7 @@ export function SettingSelector({
   onDeleteExtraKey,
   onRestoreDefaults,
   variant = "inline",
+  onDirtyChange,
 }: Props) {
   const c = useColors();
   const [selectedKey, setSelectedKey] = useState("");
@@ -111,6 +121,25 @@ export function SettingSelector({
   const finalKey = selectedKey;
   /** submit() 이 실제로 무언가 하는 조건 — 항목이 골라져 있고 값이 있을 때. */
   const canSubmit = !!finalKey && !!value.trim();
+
+  /**
+   * 지금 닫으면 잃는 것이 있는가.
+   *
+   * 셋 다 "아직 저장되지 않은 사용자의 작업"이다.
+   *   value        입력한 값. submit() 전에는 어디에도 없다.
+   *   draftKeys    이번에 만든 항목. 값이 붙어 submit() 될 때 서버로 간다.
+   *   editingCustom 이름 입력창이 열려 있음. 치던 글자가 있을 수 있다.
+   * selectedKey 는 넣지 않았다 — 칩을 고르기만 한 것은 잃을 작업이 아니다.
+   */
+  const dirty = !!value.trim() || draftKeys.length > 0 || editingCustom;
+
+  // 콜백을 ref로 두고 dirty만 의존한다. 부모가 인라인 화살표를 넘겨도
+  // 매 렌더마다 통지가 나가지 않는다.
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  useEffect(() => {
+    onDirtyChangeRef.current?.(dirty);
+  }, [dirty]);
 
   const selectKey = (k: string) => {
     setEditingCustom(false);

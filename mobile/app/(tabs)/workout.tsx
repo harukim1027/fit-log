@@ -3361,7 +3361,16 @@ function WorkoutScreen() {
       </Modal>
 
       {/* ── Feature 2: 루틴으로 저장 모달 (운동 종료 시) ── */}
-      <Modal visible={showSaveRoutineModal} transparent animationType="fade">
+      {/* onRequestClose는 안드로이드 뒤로가기다. "나중에"(취소)와 같은 동작으로
+          연결한다 — 저장 같은 되돌릴 수 없는 쪽에 걸지 않는다. */}
+      <Modal
+        visible={showSaveRoutineModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSaveRoutineModal(false);
+          setSaveRoutineExercises([]);
+        }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -4397,7 +4406,12 @@ function HistoryCard({
         </View>
 
         {/* 날짜 변경 모달 */}
-        <Modal visible={showDateModal} transparent animationType="fade">
+        {/* 안드로이드 뒤로가기 = "취소" */}
+        <Modal
+          visible={showDateModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDateModal(false)}>
           <View
             style={{
               flex: 1,
@@ -4476,7 +4490,12 @@ function HistoryCard({
         </Modal>
 
         {/* 루틴으로 저장 모달 */}
-        <Modal visible={showRoutineSaveModal} transparent animationType="fade">
+        {/* 안드로이드 뒤로가기 = "취소" */}
+        <Modal
+          visible={showRoutineSaveModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowRoutineSaveModal(false)}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : "height"}>

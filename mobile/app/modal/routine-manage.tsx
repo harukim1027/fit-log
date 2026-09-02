@@ -1164,7 +1164,12 @@ export default function RoutineManageModal() {
       </SafeAreaView>
 
       {/* 히스토리에서 불러오기 시트 */}
-      <Modal visible={showHistorySheet} transparent animationType="slide">
+      {/* 읽기 전용 목록이라 닫아도 잃을 것이 없다. 뒤로가기는 그냥 닫는다. */}
+      <Modal
+        visible={showHistorySheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowHistorySheet(false)}>
         <View style={{ flex: 1, backgroundColor: SCRIM, justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingBottom: 32 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>

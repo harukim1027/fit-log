@@ -224,6 +224,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   // Equipment settings sheet
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+  /**
+   * 시트에 작성 중인 내용이 있는가. SettingSelector가 onDirtyChange로 알려 준다.
+   *
+   * 시트가 닫히면 Modal이 자식을 통째로 언마운트하므로 이 값은 그대로 남는다.
+   * 열고 닫는 두 함수에서 직접 false로 되돌린다.
+   */
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [customSettingKeys, setCustomSettingKeys] = useState<CustomKey[]>([]);
   /**
    * 서버도 캐시도 못 읽어 하드코딩 목록으로 버티는 중인가.
@@ -515,8 +522,40 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   // ─── Settings sheet handlers ──────────────────────────────────────────────
 
-  const openSettingsSheet = () => setShowSettingsSheet(true);
-  const closeSettingsSheet = () => setShowSettingsSheet(false);
+  const openSettingsSheet = () => {
+    setSettingsDirty(false);
+    setShowSettingsSheet(true);
+  };
+  /** 실제로 닫는다. 저장이 끝난 경로(handleAddSetting)는 이쪽을 그대로 부른다. */
+  const closeSettingsSheet = () => {
+    setSettingsDirty(false);
+    setShowSettingsSheet(false);
+  };
+
+  /**
+   * 사용자가 닫기를 **요청**했을 때의 경로 — 오버레이 탭, 안드로이드 뒤로가기.
+   *
+   * 이 시트는 값 입력이 목적이라, 작성 중에 닫으면 입력값과 이번에 만든
+   * 초안 항목이 함께 사라진다(둘 다 "추가하기" 전에는 어디에도 저장되지 않는다).
+   * 그래서 파괴적 액션과 같은 확인을 거친다 — DESIGN.md의 삭제 확인 형태와 같은
+   * showCuteAlert + danger 톤이다.
+   */
+  const requestCloseSettingsSheet = () => {
+    if (!settingsDirty) {
+      closeSettingsSheet();
+      return;
+    }
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "작성 중인 내용이 있어요",
+      message: "닫으면 입력한 값과\n새로 만든 항목이 사라져요.",
+      buttons: [
+        { label: "계속 작성", style: "soft" },
+        { label: "닫기", style: "primary", onPress: closeSettingsSheet },
+      ],
+    });
+  };
 
   /**
    * SettingSelector에서 항목 추가 시 호출.
@@ -1446,27 +1485,36 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       />
 
       {/* Equipment settings modal */}
-      <Modal visible={showSettingsSheet} transparent animationType="slide" onRequestClose={closeSettingsSheet}>
-        <TouchableOpacity
-          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,80,65,0.4)" }}
-          activeOpacity={1}
-          onPress={closeSettingsSheet}>
-          <View style={{ width: "100%" }}>
-            <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 }}>
-              <View style={{ width: 40, height: 4, backgroundColor: c.textMuted, borderRadius: 999, alignSelf: "center", marginBottom: 20 }} />
-              <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary, marginBottom: 20 }}>기구 설정 추가</Text>
+      <Modal visible={showSettingsSheet} transparent animationType="slide" onRequestClose={requestCloseSettingsSheet}>
+        {/* 회귀 방지: 오버레이는 시트를 **감싸지 않는다**. 형제로 둔다.
+            감싸면 시트 본문의 빈 곳(패딩, 제목, 라벨, 칩 사이, 그래버)을 눌러도
+            터치가 오버레이까지 올라가 닫혀 버린다 — 값을 입력하던 중이면 그대로
+            날아갔다. 안쪽에 빈 onPress 블로커를 덧대는 방식은 쓰지 않는다.
+            빼먹기 쉽고 실제로 여기서 빠져 있었다.
+            같은 구조를 workout.tsx의 루틴 시트와 NumberPad가 이미 쓴다. */}
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,80,65,0.4)" }}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityLabel="기구 설정 닫기"
+            onPress={requestCloseSettingsSheet}
+          />
+          <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 }}>
+            <View style={{ width: 40, height: 4, backgroundColor: c.textMuted, borderRadius: 999, alignSelf: "center", marginBottom: 20 }} />
+            <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary, marginBottom: 20 }}>기구 설정 추가</Text>
 
-              <SettingSelector
-                key={showSettingsSheet ? "open" : "closed"}
-                variant="sheet"
-                extraKeys={customSettingKeys}
-                onDeleteExtraKey={settingsFallback ? undefined : deleteCustomKey}
-                onRestoreDefaults={settingsFallback ? undefined : restoreDefaultKeys}
-                onAdd={handleAddSetting}
-              />
-            </View>
+            <SettingSelector
+              key={showSettingsSheet ? "open" : "closed"}
+              variant="sheet"
+              extraKeys={customSettingKeys}
+              onDeleteExtraKey={settingsFallback ? undefined : deleteCustomKey}
+              onRestoreDefaults={settingsFallback ? undefined : restoreDefaultKeys}
+              onAdd={handleAddSetting}
+              onDirtyChange={setSettingsDirty}
+            />
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );
