@@ -170,6 +170,10 @@ Git Push → GitHub Actions
     → OTA 업데이트 (코드 변경만)
 ```
 
+> ⚠️ 배포 전에 반드시 해소해야 하는 항목은 [`DEPLOY-BLOCKERS.md`](./DEPLOY-BLOCKERS.md)에 있다.
+> 현재 미해소 1건 — 운영에서 TypeORM `synchronize: true`가 켜져 있다
+> (코드와 리허설은 완료, 운영 적용만 남음).
+
 ## 🛡 에러 처리 전략
 - Sentry 에러 모니터링 (프로덕션)
 - 전역 ErrorBoundary (앱 크래시 방지)
