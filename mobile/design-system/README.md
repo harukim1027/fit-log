@@ -31,9 +31,11 @@ Button의 variant 4종·size, IconButton의 size가 전부 이 이유로 빠졌�
 IconButton은 여기서 한 걸음 더 나가 `accessibilityLabel`을 **타입 필수**로 뒀다 —
 "컴파일러로 규칙을 강제한 사례" 참조.
 
-**Phase 1-B 교체 대상 총계: 58곳 / 19개 파일**
-(IconButton 37곳·15파일, ~~Header 13곳·10파일~~ ✅, ~~Button 8곳·6파일~~ ✅ — 파일은 겹친다).
-**IconButton은 37곳 중 2곳(`barcode-scan`, `ThemeToggle`)을 옮겼고 35곳이 남았다.**
+**~~Phase 1-B 교체 대상 총계: 58곳 / 19개 파일~~ ✅ 완료**
+(~~IconButton 37곳·15파일~~ ✅, ~~Header 13곳·10파일~~ ✅, ~~Button 8곳·6파일~~ ✅ — 파일은 겹친다).
+**IconButton은 실질 대상 35곳(삭제 예정인 `components/ui/Header.tsx` 2건 제외)을
+전부 옮겼다.** 앱 전체를 AST로 재수집한 잔여 아이콘 단독 터치 요소는
+`components/ui/Header.tsx` 2건(삭제 예정)과 아래 "조사에서 빠졌던 곳" 2건뿐이다.
 아래 "Phase 1-B 교체 대상"에 파일별 목록이 있다.
 
 ## 규칙
@@ -314,7 +316,7 @@ Phase 1-B가 끝난 뒤 별도로 다룬다.
 
 ## Phase 1-B 교체 대상
 
-### IconButton — 37곳 / 15개 파일 (2곳 완료, 35곳 남음)
+### ~~IconButton — 37곳 / 15개 파일~~ ✅ 완료 (실질 대상 35곳 전부 교체)
 
 `filled/plain`은 현재 배경색 유무로 판정한 값이다. 옮길 때 실물로 확인할 것.
 `히트 44 미달`은 **실제 히트 영역**(박스 + `hitSlop`)이 44에 못 미치는 건수다.
@@ -329,25 +331,25 @@ IconButton으로 옮기면 자동 해소된다. 줄 번호는 AST 재수집분(1
 
 | 파일 | 건수 | filled / plain | label 있음 | 히트 44 미달 | 줄 번호 |
 |---|---|---|---|---|---|
-| `app/(tabs)/diet.tsx` | 7 | 5 / 2 | 0 | 7 | 351, 382, 604, 739, 756, 950, 1079 |
-| `app/(tabs)/workout.tsx` | 6 | 0 / 6 | 0 | **6** | 1016, 1024, 1037, 2238, 4597, 4674 |
-| `app/modal/routine-manage.tsx` | 5 | 0 / 5 | 0 | **5** | 514, 517, 889, 1098, 1166 |
-| `components/workout/ExerciseAdder.tsx` | 4 | 0 / 4 | 0 | 4 | 720, 752, 1024, 1157 |
-| `app/(tabs)/stats.tsx` | 2 | 0 / 2 | 0 | **2** | 307, 313 |
-| `app/modal/add-food.tsx` | 2 | 0 / 2 | 0 | 2 | 437, 681 |
-| `components/ui/Header.tsx` | 2 | 2 / 0 | 0 | 0 | 58, 66 |
-| `components/workout/SettingSelector.tsx` | 2 | 1 / 1 | 0 | **2** | 123, 187 |
+| ~~`app/(tabs)/diet.tsx`~~ ✅ | 7 | 5 / 2 | 0 | 7 | 351, 382, 604, 739, 756, 950, 1079 |
+| ~~`app/(tabs)/workout.tsx`~~ ✅ | 6 | 0 / 6 | 0 | **6** | 1016, 1024, 1037, 2238, 4597, 4674 |
+| ~~`app/modal/routine-manage.tsx`~~ ✅ | 5 | 0 / 5 | 0 | **5** | 514, 517, 889, 1098, 1166 |
+| ~~`components/workout/ExerciseAdder.tsx`~~ ✅ | 4 | 0 / 4 | 0 | 4 | 720, 752, 1024, 1157 |
+| ~~`app/(tabs)/stats.tsx`~~ ✅ | 2 | 0 / 2 | 0 | **2** | 307, 313 |
+| ~~`app/modal/add-food.tsx`~~ ✅ | 2 | 0 / 2 | 0 | 2 | 437, 681 |
+| `components/ui/Header.tsx` | 2 | 2 / 0 | 0 | 0 | 58, 66 — **삭제 예정, 교체 안 함** |
+| ~~`components/workout/SettingSelector.tsx`~~ ✅ | 2 | 1 / 1 | 0 | **2** | 123, 187 |
 | ~~`app/modal/barcode-scan.tsx`~~ ✅ | 1 | 1 / 0 | 0 | 1 | 98 |
-| `app/modal/edit-profile.tsx` | 1 | 1 / 0 | 0 | 0 | 128 |
-| `app/modal/full-calendar.tsx` | 1 | 0 / 1 | 0 | **1** | 98 |
-| `components/RestTimer.tsx` | 1 | 0 / 1 | 0 | **1** | 411 |
-| `components/RoutineColorPicker.tsx` | 1 | 1 / 0 | 0 | 1 | 66 |
-| `components/WaterTracker.tsx` | 1 | 0 / 1 | 0 | **1** | 39 |
+| ~~`app/modal/edit-profile.tsx`~~ ✅ | 1 | 1 / 0 | 0 | 0 | 128 |
+| ~~`app/modal/full-calendar.tsx`~~ ✅ | 1 | 0 / 1 | 0 | **1** | 98 |
+| ~~`components/RestTimer.tsx`~~ ✅ | 1 | 0 / 1 | 0 | **1** | 411 |
+| ~~`components/RoutineColorPicker.tsx`~~ ✅ | 1 | 1 / 0 | 0 | 1 | 66 |
+| ~~`components/WaterTracker.tsx`~~ ✅ | 1 | 0 / 1 | 0 | **1** | 39 |
 | ~~`components/ui/ThemeToggle.tsx`~~ ✅ | 1 | 1 / 0 | **1** | 0 | 10 |
-| **합계** | **37** | **12 / 25** | **1** | **33** | |
+| **합계** | **37** | **12 / 25** | **1** | **33** | 실질 대상 35곳 전부 완료 |
 
-교체를 끝낸 2곳을 빼면 **남은 35곳 중 32곳이 히트 44 미달**이고, `label`이 붙은
-곳은 **0곳**이다(유일하게 있던 `ThemeToggle`을 옮겼다).
+교체 전 기준으로 **35곳 중 32곳이 히트 44 미달**이었고 `label`이 붙은 곳은
+`ThemeToggle` 하나뿐이었다. 지금은 35곳 전부가 44를 보장받고 `label`을 가진다.
 
 주의할 곳:
 - `filled`의 기본 배경은 `surfaceAlt`, 기본 radius는 pill(999)이다.
@@ -468,22 +470,24 @@ metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이�
 |---|---|---|---|---|
 | ~~1~~ ✅ | `app/modal/barcode-scan.tsx` | 1 | 하 | 식품 추가 → 바코드 |
 | ~~2~~ ✅ | `components/ui/ThemeToggle.tsx` | 1 | 하 | 통계 헤더 우측 |
-| 3 | `components/RoutineColorPicker.tsx` | 1 | 중 | 루틴 편집 → 색상 |
-| 4 | `app/modal/edit-profile.tsx` | 1 | 중 | 통계 → 프로필 |
-| 5 | `app/modal/full-calendar.tsx` | 1 | 중 | 홈 → 년월 스트립 |
-| 6 | `components/RestTimer.tsx` | 1 | 중 | 운동 중 휴식 타이머 |
-| 7 | `app/(tabs)/stats.tsx` | 2 | 중 | 통계 탭 |
-| 8 | `components/workout/SettingSelector.tsx` | 2 | 중 | 종목 추가 → 설정 |
-| 9 | `app/modal/add-food.tsx` | 2 | 상 | 식단 → 끼니 `+` |
-| 10 | `components/WaterTracker.tsx` | 1 | 상 | 식단 → 물 카드 |
-| 11 | `components/workout/ExerciseAdder.tsx` | 4 | 상 | 운동 → 종목 추가 |
-| 12 | `app/(tabs)/diet.tsx` | 7 | 상 | 식단 탭 |
-| 13 | `app/modal/routine-manage.tsx` | 5 | 상 | 홈 → 루틴 관리 |
-| 14 | `app/(tabs)/workout.tsx` | 6 | 상 | 운동 탭 |
+| ~~3~~ ✅ | `components/RoutineColorPicker.tsx` | 1 | 중 | 루틴 편집 → 색상 |
+| ~~4~~ ✅ | `app/modal/edit-profile.tsx` | 1 | 중 | 통계 → 프로필 |
+| ~~5~~ ✅ | `app/modal/full-calendar.tsx` | 1 | 중 | 홈 → 년월 스트립 |
+| ~~6~~ ✅ | `components/RestTimer.tsx` | 1 | 중 | 운동 중 휴식 타이머 |
+| ~~7~~ ✅ | `app/(tabs)/stats.tsx` | 2 | 중 | 통계 탭 |
+| ~~8~~ ✅ | `components/workout/SettingSelector.tsx` | 2 | 중 | 종목 추가 → 설정 |
+| ~~9~~ ✅ | `app/modal/add-food.tsx` | 2 | 상 | 식단 → 끼니 `+` |
+| ~~10~~ ✅ | `components/WaterTracker.tsx` | 1 | 상 | 식단 → 물 카드 |
+| ~~11~~ ✅ | `components/workout/ExerciseAdder.tsx` | 4 | 상 | 운동 → 종목 추가 |
+| ~~12~~ ✅ | `app/(tabs)/diet.tsx` | 7 | 상 | 식단 탭 |
+| ~~13~~ ✅ | `app/modal/routine-manage.tsx` | 5 | 상 | 홈 → 루틴 관리 |
+| ~~14~~ ✅ | `app/(tabs)/workout.tsx` | 6 | 상 | 운동 탭 |
 
 1~2로 워크플로우를 확립하고, 3~8에서 중간 위험을 다루고, 9 이후가 본 게임이다.
 `workout.tsx`를 마지막에 둔 이유는 건수(6)와 위험도가 모두 최고이고
 **행 하나가 +82pt** 늘어나는 최악의 사례가 거기 있기 때문이다.
+
+**14단계까지 전부 끝났다.** 커밋은 파일당 하나씩이다.
 
 #### 실물 확인 현황 — 1~8단계
 
@@ -510,6 +514,30 @@ metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이�
 `:187`은 같은 행 `TextInput`이 36이라 버튼만 위아래로 4씩 삐져나온다.
 그 자리만 고치면 안 되는 전역 문제라 "알려진 미해결 항목 → 입력 필드 터치영역
 44 미달"에 등록했다.
+
+#### 실물 확인 현황 — 11~14단계
+
+같은 방식(dev client + 딥링크 + 스크린샷 픽셀 실측, iPhone 13 mini 375pt·배율 2.88).
+데이터가 없어 화면에 안 나오는 곳은 `// TEMP:` 시드로 띄우고 전량 원복했다.
+
+| # | 위치 | 확인 | 실측값 / 사유 |
+|---|---|---|---|
+| 11 | `ExerciseAdder` 4곳 | ✅ | 검색바 34.33pt, hitSlop이라 레이아웃 보존 |
+| 12 | `diet.tsx:351` | ✅ | 38 → 43.75pt(126px), 좌측 여백 20.1pt 불변 |
+| 12 | `diet.tsx:382` | ✅ | 비활성 상태에서 기존 opacity 0.3 유지 |
+| 12 | `diet.tsx:604` | ✅ | 32 → 44.1pt(127×127px), radius 12 유지, 카드 안쪽 16pt 유지 |
+| 12 | `diet.tsx:739·756` | ❌ | 간식 카드가 2개 이상일 때만 `×`가 뜬다. 계산: 묶음 68 → 96pt, 행 여유 318 중 206 |
+| 12 | `diet.tsx:950·1079` | ❌ | 계정에 음식 기록 0건. hitSlop이라 레이아웃 변화는 정의상 없음 |
+| 13 | `routine-manage.tsx:514·517` | ✅ | 연필·삭제 아이콘 중심 간격 43.5pt(박스 44 + gap 0). 9자 이름 잘림 없음 |
+| 13 | `routine-manage.tsx:1098` | ✅ | 44 확보. 이름은 교체 전과 같이 말줄임 |
+| 13 | `routine-manage.tsx:1166` | ✅ | 시트 헤더 닫기 44, 클리핑 없음 |
+| 13 | `routine-manage.tsx:889` | ❌ | 결합 모드 진입이 탭 전용 |
+| 14 | `workout.tsx:2238` | ✅ | **교체 전후 스크린샷 픽셀 차 0** — hitSlop이 레이아웃을 그대로 뒀다 |
+| 14 | `workout.tsx:1016·1024·1037` | ✅ | 네 아이콘 + `시작`이 한 행에 들어가고 클리핑 없음. 이름 9자가 2줄로 접힘 |
+| 14 | `workout.tsx:4597·4674` | ❌ | `HistoryCard` 편집 모드 — 히스토리 세션 + 편집 진입 필요 |
+
+확인 못 한 6곳은 전부 **계정에 데이터가 없거나 탭이 필요한 경로**다.
+시뮬레이터를 프로그램으로 탭할 수 없다는 제약은 그대로다(아래 참조).
 
 ##### 320pt 실측은 불가능하다
 
@@ -541,26 +569,62 @@ metro 로그에서 읽는다. 화면 진입이 안 되는 곳도 이 방법이�
 그만큼 줄어든다. 카드 안쪽 폭을 320 화면 기준 약 248pt로 보면
 **이름 슬롯이 153pt → 70pt**가 된다. 루틴 이름이 대부분 잘린다.
 
-**이 두 곳의 처리 방식은 정하지 않았다. 선택지는 셋이다.**
+**결정: 1번(box + `gap` 축소).** 3번(hitSlop)은 쓸 수 없다.
 
-1. **부모 `gap` 축소로 흡수** — `gap: 10` → `4`. 행이 178 → 160pt.
-   여전히 +65pt라 근본 해결이 아니다.
-2. **아이콘을 키우고 박스를 44로** — 아이콘 16 → 24로 키우면 시각적으로
-   빈 박스가 덜 어색하다. 폭 문제는 그대로.
-3. **이 행만 예외로 두고 `hitSlop`으로 44 확보** — 레이아웃을 건드리지 않고
-   터치 영역만 넓힌다. DESIGN.md가 원래 권하는 방식이기도 하다.
-   대신 IconButton을 쓰지 못하므로 `accessibilityLabel`은 손으로 붙여야 한다.
+여기 적혀 있던 "3번이 유력하다"는 판단은 틀렸다. **hitSlop은 서로 겹친다.**
+아이콘 중심 간격이 `workout` 26~27pt / `routine-manage` 28pt뿐이라 44 hitSlop이
+사방 22씩 뻗으면 이웃과 16~17pt 겹치고, **겹친 구간은 뒤에 렌더된 형제가
+가져간다.** 두 행 모두 마지막 형제가 삭제라 **연필 글리프의 오른쪽 끝을 눌러도
+삭제가 잡힌다.** 파괴적 액션에는 쓸 수 없는 방식이다.
 
-3번이 유력해 보이지만 IconButton의 존재 이유(44를 컴포넌트가 보장)와
-정면으로 부딪히므로 **정하기 전에 논의가 필요하다.**
+(3번의 "IconButton을 쓰지 못한다"도 사실이 아니다 — `touchTargetMode="hitSlop"`가
+있어 44 보장과 `accessibilityLabel` 강제는 그대로 유지된다. 못 쓰는 이유는
+오직 위의 겹침이다.)
 
-#### 예외 후보
+그래서 두 행 다 box로 키우고 `gap`을 줄여 흡수했다.
 
-현재 확정된 예외는 `components/ui/Header.tsx`의 2건뿐이다 — 삭제 예정 파일이라
-옮길 이유가 없다. 나머지 35곳은 전부 IconButton으로 옮길 수 있으나,
-위 `workout.tsx:1003`과 `routine-manage.tsx:508`의 **5건은 방식이 정해지지
-않았다.** 예외로 남기기로 하면 그 5건에는 `accessibilityLabel`을 손으로
-붙여야 한다(현재 5건 모두 없음).
+| 행 | gap | 묶음 폭 | 결과 |
+|---|---|---|---|
+| `workout.tsx` 루틴 카드 | 10 → 4 | 96 → 160pt | 이름 슬롯이 좁아져 9자 이름이 2줄로 접힌다 |
+| `routine-manage.tsx` 루틴 행 | 10 → 0 | 46 → 88pt | 이름이 `numberOfLines={1}`이라 말줄임 |
+
+박스가 각각 13pt씩 여백을 가지므로 `gap`을 0까지 줄여도 아이콘 사이 간격은
+시각적으로 유지된다. `workout`을 4로 둔 것은 이 행에 드래그 핸들과 `시작`
+버튼까지 함께 있어 완전히 붙이면 핸들과 구분이 안 되기 때문이다.
+
+**hitSlop을 쓴 곳의 기준은 "이웃을 침범하지 않는가"다.** 실제로 쓴 곳은
+`diet.tsx:950·1079`(음식 행 삭제), `workout.tsx:2238·4674`(세트 행 삭제),
+`ExerciseAdder` 4곳이며, 전부 (a) 행이 개수만큼 반복돼 box면 누적되고
+(b) 같은 행에서 44 안에 다른 터치 요소가 없다.
+
+#### 예외
+
+확정된 예외는 `components/ui/Header.tsx`의 2건뿐이다 — 삭제 예정 파일이라
+옮길 이유가 없다. 나머지 35곳은 전부 옮겼다.
+
+#### 조사에서 빠졌던 곳
+
+교체를 끝낸 뒤 앱 전체를 다시 훑어 찾은, 원래 37건에 없던 아이콘 단독
+터치 요소다. **둘 다 아직 옮기지 않았다.**
+
+| 위치 | 현재 | 상태 |
+|---|---|---|
+| `components/CuteAlert.tsx:101` | 28 박스 + `hitSlop 10` = 히트 48 | 히트는 충분하나 `accessibilityLabel`이 없다 |
+| `app/(tabs)/index.tsx:477` | 46 박스, `accessibilityLabel` 있음 | 자식이 `Icon`이 아니라 `FaceAvatar`라 원조사 기준 밖 |
+
+`CuteAlert`는 `position: absolute` 배치라 box로 키우면 아이콘이 8pt 안으로
+들어온다. 옮긴다면 `touchTargetMode="hitSlop"`이 맞다.
+
+#### 교체와 무관한 기존 결함 — 세트 행이 카드를 넘는다
+
+`workout.tsx`의 진행 중 세션 세트 행
+(`[N세트][−5][무게][+5]│[−1][횟수][+1][삭제]`)은 **교체 전부터 카드 폭을 넘겨
+삭제 아이콘이 카드 바깥 배경 위에 렌더된다.** 무게 값이 길수록(60 → 62.5) 더
+밀린다. iPhone 13 mini 실측에서 카드 오른쪽 끝은 351pt인데 2세트 행의 삭제
+아이콘은 361~370pt에 있었다.
+
+`2238`을 hitSlop으로 둔 것이 이 때문이다. box로 20pt를 더 키우면 밀림만 커진다.
+**행 자체를 고치는 것은 이 작업의 범위 밖이라 남겨 둔다.**
 
 ### ~~Header — 13곳 / 10개 파일~~ ✅ 완료
 
