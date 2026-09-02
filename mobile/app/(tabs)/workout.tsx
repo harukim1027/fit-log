@@ -36,7 +36,7 @@ import {
   NumberPad,
   SetIndicator,
 } from "../../components/ui";
-import { Header } from "../../design-system";
+import { Header, IconButton } from "../../design-system";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { useRoutineStore } from "../../store/routineStore";
@@ -1004,7 +1004,13 @@ function WorkoutScreen() {
                               style={{
                                 flexDirection: "row",
                                 alignItems: "center",
-                                gap: 10,
+                                // 16·17·17 세 개가 44 세 개가 되면서 묶음이 96 → 160pt가 된다.
+                                // gap 10 → 4로 증가분을 82에서 64로 줄인다. 박스가 각각
+                                // 13pt씩 여백을 가져 아이콘 사이 간격은 시각적으로 유지된다.
+                                // hitSlop은 쓰지 않는다 — 아이콘 중심 간격이 26~27pt뿐이라
+                                // 44 hitSlop이 서로 17pt 겹치고, 겹친 구간은 뒤에 렌더된
+                                // 삭제가 가져간다(연필 글리프 오른쪽 끝을 눌러도 삭제).
+                                gap: 4,
                               }}>
                               <View style={{ opacity: isActive ? 1.0 : 0.3 }}>
                                 <Icon
@@ -1013,15 +1019,17 @@ function WorkoutScreen() {
                                   color={c.textSecondary}
                                 />
                               </View>
-                              <TouchableOpacity activeOpacity={0.7}
+                              <IconButton
+                                accessibilityLabel={`${routine.name} ${routine.isPublic ? "공유 중지" : "공유 시작"}`}
                                 onPress={() => handleShareToggle(routine)}>
                                 <Icon
                                   name={routine.isPublic ? "unlock" : "lock"}
                                   size={16}
                                   color={c.textSecondary}
                                 />
-                              </TouchableOpacity>
-                              <TouchableOpacity activeOpacity={0.7}
+                              </IconButton>
+                              <IconButton
+                                accessibilityLabel={`${routine.name} 편집`}
                                 onPress={() =>
                                   router.push({
                                     pathname: "/modal/routine-manage",
@@ -1033,8 +1041,9 @@ function WorkoutScreen() {
                                   size={17}
                                   color={c.textSecondary}
                                 />
-                              </TouchableOpacity>
-                              <TouchableOpacity activeOpacity={0.7}
+                              </IconButton>
+                              <IconButton
+                                accessibilityLabel={`${routine.name} 삭제`}
                                 onPress={() =>
                                   showCuteAlert({
                                     icon: "trash",
@@ -1057,7 +1066,7 @@ function WorkoutScreen() {
                                   size={17}
                                   color={c.textMuted}
                                 />
-                              </TouchableOpacity>
+                              </IconButton>
                               <TouchableOpacity
                                 style={{
                                   backgroundColor: c.warning,
@@ -2235,7 +2244,13 @@ function WorkoutScreen() {
                                             </Text>
                                           </TouchableOpacity>
                                         </View>
-                                        <TouchableOpacity activeOpacity={0.7}
+                                        <IconButton
+                                          accessibilityLabel={`${idx + 1}세트 삭제`}
+                                          // 이 세트 행은 이미 카드 폭을 넘겨 삭제 아이콘이
+                                          // 카드 밖으로 밀려 있다(실측). box로 20pt 더 키우면
+                                          // 밀림이 커지기만 한다. 레이아웃을 건드리지 않는
+                                          // hitSlop으로 44를 채운다.
+                                          touchTargetMode="hitSlop"
                                           style={{ paddingLeft: 8 }}
                                           onPress={() => {
                                             if (ex.sets.length <= 1) {
@@ -2278,7 +2293,7 @@ function WorkoutScreen() {
                                             size={16}
                                             color={c.danger}
                                           />
-                                        </TouchableOpacity>
+                                        </IconButton>
                                       </View>
                                     ))}
                                     <TouchableOpacity activeOpacity={0.7}
@@ -3346,7 +3361,16 @@ function WorkoutScreen() {
       </Modal>
 
       {/* ── Feature 2: 루틴으로 저장 모달 (운동 종료 시) ── */}
-      <Modal visible={showSaveRoutineModal} transparent animationType="fade">
+      {/* onRequestClose는 안드로이드 뒤로가기다. "나중에"(취소)와 같은 동작으로
+          연결한다 — 저장 같은 되돌릴 수 없는 쪽에 걸지 않는다. */}
+      <Modal
+        visible={showSaveRoutineModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSaveRoutineModal(false);
+          setSaveRoutineExercises([]);
+        }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -4382,7 +4406,12 @@ function HistoryCard({
         </View>
 
         {/* 날짜 변경 모달 */}
-        <Modal visible={showDateModal} transparent animationType="fade">
+        {/* 안드로이드 뒤로가기 = "취소" */}
+        <Modal
+          visible={showDateModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDateModal(false)}>
           <View
             style={{
               flex: 1,
@@ -4461,7 +4490,12 @@ function HistoryCard({
         </Modal>
 
         {/* 루틴으로 저장 모달 */}
-        <Modal visible={showRoutineSaveModal} transparent animationType="fade">
+        {/* 안드로이드 뒤로가기 = "취소" */}
+        <Modal
+          visible={showRoutineSaveModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowRoutineSaveModal(false)}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : "height"}>
@@ -4594,11 +4628,11 @@ function HistoryCard({
                       placeholder="종목명"
                       placeholderTextColor={c.textMuted}
                     />
-                    <TouchableOpacity activeOpacity={0.7}
-                      onPress={() => removeDraftExercise(exIdx)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <IconButton
+                      accessibilityLabel={`${ex.name || "이름 없는 종목"} 삭제`}
+                      onPress={() => removeDraftExercise(exIdx)}>
                       <Icon name="trash" size={16} color={c.danger} />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
                   {ex.sets.map((ds, setIdx) => (
                     <View
@@ -4671,10 +4705,15 @@ function HistoryCard({
                             세트 {setIdx + 1}
                           </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity activeOpacity={0.7}
+                        <IconButton
+                          accessibilityLabel={`세트 ${setIdx + 1} 삭제`}
+                          // 세트 개수만큼 반복되는 행이다. box로 키우면 행마다
+                          // 24 → 44라 세트 수만큼 누적된다. 같은 행 왼쪽 요소와는
+                          // 폭이 넉넉히 떨어져 있어 hitSlop이 겹치지 않는다.
+                          touchTargetMode="hitSlop"
                           onPress={() => removeDraftSet(exIdx, setIdx)}>
                           <Icon name="trash" size={14} color={c.textMuted} />
-                        </TouchableOpacity>
+                        </IconButton>
                       </View>
                       <SetInputRow
                         weight={ds.weight}

@@ -16,6 +16,7 @@ import { FullWindowOverlay } from "react-native-screens";
 import Svg, { Path, Rect, Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useColors } from "../constants/colors";
+import { IconButton } from "../design-system";
 
 type IconKey = "lock" | "mail" | "pencil" | "wifi" | "check" | "alert" | "trash";
 type Tone = "danger" | "warn" | "info" | "muted" | "ok";
@@ -98,11 +99,22 @@ export function CuteAlertHost() {
       <Animated.View style={[s.scrim, { opacity }]}>
         <Animated.View style={[s.card, { backgroundColor: c.surface, borderColor: c.border, transform: [{ scale }, { translateX: shakeX }] }]}>
           {opts.showClose && (
-            <Pressable onPress={() => close()} hitSlop={10} style={s.closeBtn}>
+            /* 원조사 37건에 없던 아이콘 단독 버튼이다. 히트는 28 + hitSlop 10 = 48로
+               이미 충분했지만 accessibilityLabel이 없었다 — "운동 종료" 확인처럼
+               실제로 뜨는 곳이 있어 스크린리더에서 정체가 사라진다.
+               box가 아니라 hitSlop인 이유: 이 버튼은 카드 우상단 절대 배치라
+               박스를 44로 키우면 ×가 모서리에서 8pt 안으로 들어온다. 박스가
+               모서리에서 12pt 떨어져 있고 s.card·s.scrim 어디에도 overflow: hidden이
+               없어 8pt 슬롭이 잘리지 않는다. 히트는 48 → 44로 줄지만 둘 다 44 이상이다. */
+            <IconButton
+              accessibilityLabel="닫기"
+              onPress={() => close()}
+              touchTargetMode="hitSlop"
+              style={s.closeBtn}>
               <Svg width={20} height={20} viewBox="0 0 24 24">
                 <Path d="M6 6 L18 18 M18 6 L6 18" stroke={c.textMuted} strokeWidth={2.2} strokeLinecap="round" />
               </Svg>
-            </Pressable>
+            </IconButton>
           )}
           <View style={[s.iconring, { backgroundColor: col + "22" }]}>
             <Icon name={opts.icon} color={col} size={opts.icon === "check" ? 28 : 26} />

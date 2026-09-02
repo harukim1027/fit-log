@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NumberPad } from "../ui";
-import { Header } from "../../design-system";
+import { Header, IconButton } from "../../design-system";
 import { Icon, FlameIcon } from "../AppIcons";
 import { SetInputRow } from "./SetInputRow";
 import apiClient from "../../lib/apiClient";
@@ -224,6 +224,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   // Equipment settings sheet
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+  /**
+   * 시트에 작성 중인 내용이 있는가. SettingSelector가 onDirtyChange로 알려 준다.
+   *
+   * 시트가 닫히면 Modal이 자식을 통째로 언마운트하므로 이 값은 그대로 남는다.
+   * 열고 닫는 두 함수에서 직접 false로 되돌린다.
+   */
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [customSettingKeys, setCustomSettingKeys] = useState<CustomKey[]>([]);
   /**
    * 서버도 캐시도 못 읽어 하드코딩 목록으로 버티는 중인가.
@@ -515,8 +522,40 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   // ─── Settings sheet handlers ──────────────────────────────────────────────
 
-  const openSettingsSheet = () => setShowSettingsSheet(true);
-  const closeSettingsSheet = () => setShowSettingsSheet(false);
+  const openSettingsSheet = () => {
+    setSettingsDirty(false);
+    setShowSettingsSheet(true);
+  };
+  /** 실제로 닫는다. 저장이 끝난 경로(handleAddSetting)는 이쪽을 그대로 부른다. */
+  const closeSettingsSheet = () => {
+    setSettingsDirty(false);
+    setShowSettingsSheet(false);
+  };
+
+  /**
+   * 사용자가 닫기를 **요청**했을 때의 경로 — 오버레이 탭, 안드로이드 뒤로가기.
+   *
+   * 이 시트는 값 입력이 목적이라, 작성 중에 닫으면 입력값과 이번에 만든
+   * 초안 항목이 함께 사라진다(둘 다 "추가하기" 전에는 어디에도 저장되지 않는다).
+   * 그래서 파괴적 액션과 같은 확인을 거친다 — DESIGN.md의 삭제 확인 형태와 같은
+   * showCuteAlert + danger 톤이다.
+   */
+  const requestCloseSettingsSheet = () => {
+    if (!settingsDirty) {
+      closeSettingsSheet();
+      return;
+    }
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "작성 중인 내용이 있어요",
+      message: "닫으면 입력한 값과\n새로 만든 항목이 사라져요.",
+      buttons: [
+        { label: "계속 작성", style: "soft" },
+        { label: "닫기", style: "primary", onPress: closeSettingsSheet },
+      ],
+    });
+  };
 
   /**
    * SettingSelector에서 항목 추가 시 호출.
@@ -797,9 +836,15 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   autoCorrect={false}
                 />
                 {searchQuery ? (
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => setSearchQuery("")}>
+                  // 검색바 한 행이 [돋보기 16][입력 flex:1][지우기 16]이다.
+                  // box로 키우면 행 높이가 40 → 64로 늘고 입력 폭도 28 줄어든다.
+                  // 이 파일에는 overflow 지정이 0건이라 hitSlop이 잘리지 않는다.
+                  <IconButton
+                    accessibilityLabel="검색어 지우기"
+                    onPress={() => setSearchQuery("")}
+                    touchTargetMode="hitSlop">
                     <Icon name="close" size={16} color={c.textMuted} />
-                  </TouchableOpacity>
+                  </IconButton>
                 ) : null}
               </View>
 
@@ -829,9 +874,14 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                   onLayout={e => { customFormY.current = e.nativeEvent.layout.y; }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <Text style={{ fontSize: 15, fontWeight: "700", color: c.textPrimary }}>종목 추가</Text>
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}>
+                    {/* [제목][닫기] 헤더 행. box면 행 높이가 20 → 44로 늘어
+                        아래 폼 전체가 24pt 밀린다. */}
+                    <IconButton
+                      accessibilityLabel="종목 추가 폼 닫기"
+                      onPress={() => { setShowCustomForm(false); setCustomName(""); setCustomCat(""); }}
+                      touchTargetMode="hitSlop">
                       <Icon name="close" size={16} color={c.textMuted} />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
 
                   <TextInput
@@ -1101,10 +1151,21 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                               }
                               <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>세트 {i + 1}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity activeOpacity={0.8} style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: sets.length > 1 ? 0.7 : 0.2 }}
-                              onPress={() => { if (sets.length > 1) setSets(prev => prev.filter((_, idx) => idx !== i)); }}>
+                            {/* 세트마다 반복되는 행이라 box(28 → 44)는 세트 수만큼
+                                누적된다(5세트면 +80pt). 그래서 hitSlop.
+                                onPress 안에 있던 sets.length 가드를 disabled로 옮겼다 —
+                                시각만 흐리고 눌리던 상태가 실제 비활성이 되고
+                                accessibilityState.disabled도 함께 붙는다.
+                                기존 시각(활성 0.7 / 비활성 0.2)은 style로 유지한다.
+                                IconButton의 style이 마지막이라 disabled의 0.5를 덮는다. */}
+                            <IconButton
+                              accessibilityLabel={`${i + 1}세트 삭제`}
+                              disabled={sets.length <= 1}
+                              onPress={() => setSets(prev => prev.filter((_, idx) => idx !== i))}
+                              touchTargetMode="hitSlop"
+                              style={{ width: 28, height: 28, borderRadius: 8, opacity: sets.length > 1 ? 0.7 : 0.2 }}>
                               <Icon name="trash" size={13} color={c.textMuted} />
-                            </TouchableOpacity>
+                            </IconButton>
                           </View>
                           <SetInputRow
                             weight={st.weight}
@@ -1234,17 +1295,19 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                         <View key={i} style={{ backgroundColor: c.surfaceAlt, borderRadius: 12, padding: 10, marginBottom: 6 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                             <Text style={{ fontSize: 11, fontWeight: '700', color: c.textSecondary }}>{i + 1}세트</Text>
-                            <TouchableOpacity activeOpacity={0.8}
-                              style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', opacity: routineSets.length > 1 ? 0.7 : 0.2 }}
+                            {/* 세션 모드의 세트 삭제와 같은 판단 — 반복 행이라 hitSlop. */}
+                            <IconButton
+                              accessibilityLabel={`${i + 1}세트 삭제`}
+                              disabled={routineSets.length <= 1}
                               onPress={() => {
-                                if (routineSets.length > 1) {
-                                  const next = routineSets.filter((_, idx) => idx !== i);
-                                  setRoutineSets(next);
-                                  setDefaultSets(String(next.length));
-                                }
-                              }}>
+                                const next = routineSets.filter((_, idx) => idx !== i);
+                                setRoutineSets(next);
+                                setDefaultSets(String(next.length));
+                              }}
+                              touchTargetMode="hitSlop"
+                              style={{ width: 28, height: 28, borderRadius: 8, opacity: routineSets.length > 1 ? 0.7 : 0.2 }}>
                               <Icon name="trash" size={13} color={c.textMuted} />
-                            </TouchableOpacity>
+                            </IconButton>
                           </View>
                           <SetInputRow
                             weight={rs.weight}
@@ -1343,7 +1406,13 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
                       onPress={() => removeSetting(i)}
                       activeOpacity={0.7}>
                       <Text style={{ fontSize: 12, fontWeight: "600", color: c.primary }}>{s.key}: {s.value}</Text>
-                      <Icon name="close" size={11} color={c.primary} />
+                      {/* ×는 값이 아니라 "누르면 지워진다"는 표시다. 라벨과 같은
+                          primary면 둘이 같은 무게로 읽혀 값의 일부처럼 보인다.
+                          textMuted는 이 칩 배경(primary+"18") 위에서 라이트 2.19:1 /
+                          다크 2.59:1로 아이콘 기준 3:1에 못 미쳐 쓰지 않는다.
+                          textSecondary는 5.18 / 4.70으로 현재 primary(3.70 / 3.55)보다
+                          오히려 높다. */}
+                      <Icon name="close" size={11} color={c.textSecondary} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -1416,27 +1485,36 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
       />
 
       {/* Equipment settings modal */}
-      <Modal visible={showSettingsSheet} transparent animationType="slide" onRequestClose={closeSettingsSheet}>
-        <TouchableOpacity
-          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,80,65,0.4)" }}
-          activeOpacity={1}
-          onPress={closeSettingsSheet}>
-          <View style={{ width: "100%" }}>
-            <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 }}>
-              <View style={{ width: 40, height: 4, backgroundColor: c.textMuted, borderRadius: 999, alignSelf: "center", marginBottom: 20 }} />
-              <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary, marginBottom: 20 }}>기구 설정 추가</Text>
+      <Modal visible={showSettingsSheet} transparent animationType="slide" onRequestClose={requestCloseSettingsSheet}>
+        {/* 회귀 방지: 오버레이는 시트를 **감싸지 않는다**. 형제로 둔다.
+            감싸면 시트 본문의 빈 곳(패딩, 제목, 라벨, 칩 사이, 그래버)을 눌러도
+            터치가 오버레이까지 올라가 닫혀 버린다 — 값을 입력하던 중이면 그대로
+            날아갔다. 안쪽에 빈 onPress 블로커를 덧대는 방식은 쓰지 않는다.
+            빼먹기 쉽고 실제로 여기서 빠져 있었다.
+            같은 구조를 workout.tsx의 루틴 시트와 NumberPad가 이미 쓴다. */}
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,80,65,0.4)" }}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityLabel="기구 설정 닫기"
+            onPress={requestCloseSettingsSheet}
+          />
+          <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 }}>
+            <View style={{ width: 40, height: 4, backgroundColor: c.textMuted, borderRadius: 999, alignSelf: "center", marginBottom: 20 }} />
+            <Text style={{ fontSize: 18, fontWeight: "800", color: c.textPrimary, marginBottom: 20 }}>기구 설정 추가</Text>
 
-              <SettingSelector
-                key={showSettingsSheet ? "open" : "closed"}
-                variant="sheet"
-                extraKeys={customSettingKeys}
-                onDeleteExtraKey={settingsFallback ? undefined : deleteCustomKey}
-                onRestoreDefaults={settingsFallback ? undefined : restoreDefaultKeys}
-                onAdd={handleAddSetting}
-              />
-            </View>
+            <SettingSelector
+              key={showSettingsSheet ? "open" : "closed"}
+              variant="sheet"
+              extraKeys={customSettingKeys}
+              onDeleteExtraKey={settingsFallback ? undefined : deleteCustomKey}
+              onRestoreDefaults={settingsFallback ? undefined : restoreDefaultKeys}
+              onAdd={handleAddSetting}
+              onDirtyChange={setSettingsDirty}
+            />
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );

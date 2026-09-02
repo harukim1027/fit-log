@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SortableList } from "../../components/ui";
-import { Header } from "../../design-system";
+import { Header, IconButton } from "../../design-system";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Calendar } from "react-native-calendars";
 import { useDietStore } from "../../store/dietStore";
@@ -348,21 +348,15 @@ function DietScreen() {
                 justifyContent: "space-between",
                 marginBottom: 14,
               }}>
-              <TouchableOpacity activeOpacity={0.8}
-                style={[
-                  {
-                    width: 38,
-                    height: 38,
-                    borderRadius: 999,
-                    backgroundColor: c.surface,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  },
-                  SHADOW_SM,
-                ]}
-                onPress={goBack}>
+              <IconButton
+                variant="filled"
+                accessibilityLabel="이전 날짜"
+                onPress={goBack}
+                // filled의 기본 배경은 surfaceAlt다. 이 두 버튼만 surface + 그림자로
+                // 카드처럼 떠 있어 배경을 덮는다.
+                style={[{ backgroundColor: c.surface }, SHADOW_SM]}>
                 <Icon name="chevronLeft" size={20} color={c.textSecondary} />
-              </TouchableOpacity>
+              </IconButton>
               <View style={{ alignItems: "center", gap: 4 }}>
                 <Text
                   style={{ fontSize: 16, fontWeight: "900", color: c.textPrimary }}>
@@ -379,26 +373,27 @@ function DietScreen() {
                   />
                 )}
               </View>
-              <TouchableOpacity activeOpacity={0.8}
+              <IconButton
+                variant="filled"
+                accessibilityLabel="다음 날짜"
+                onPress={goForward}
+                // navigate()가 오늘이면 아무것도 하지 않는다. disabled로 옮겨
+                // 스크린리더에도 같은 사실이 전달되게 한다.
+                disabled={isToday(currentDate)}
+                // disabled의 opacity 0.5보다 style이 뒤에 병합되므로 기존 0.3이 유지된다.
                 style={[
                   {
-                    width: 38,
-                    height: 38,
-                    borderRadius: 999,
                     backgroundColor: c.surface,
-                    alignItems: "center",
-                    justifyContent: "center",
                     opacity: isToday(currentDate) ? 0.3 : 1,
                   },
                   SHADOW_SM,
-                ]}
-                onPress={goForward}>
+                ]}>
                 <Icon
                   name="chevronRight"
                   size={20}
                   color={isToday(currentDate) ? c.textMuted : c.textSecondary}
                 />
-              </TouchableOpacity>
+              </IconButton>
             </View>
 
             {/* 칼로리 요약 */}
@@ -601,23 +596,19 @@ function DietScreen() {
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity activeOpacity={0.8}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 12,
-                          backgroundColor: c.surfaceAlt,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/modal/add-food",
-                            params: { mealType: type, date: dateStr(currentDate) },
-                          })
-                        }>
-                        <Icon name="plus" size={18} color={c.success} />
-                      </TouchableOpacity>
+                    <IconButton
+                      variant="filled"
+                      accessibilityLabel={`${MEAL_LABELS[type]} 음식 추가`}
+                      // filled 기본 radius는 pill(999)이다. 이 버튼은 둥근사각이라 덮는다.
+                      style={{ borderRadius: 12 }}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/modal/add-food",
+                          params: { mealType: type, date: dateStr(currentDate) },
+                        })
+                      }>
+                      <Icon name="plus" size={18} color={c.success} />
+                    </IconButton>
                   </View>
                   {!meal || meal.foods.length === 0 ? (
                     <View
@@ -736,14 +727,13 @@ function DietScreen() {
                           gap: 8,
                         }}>
                         {cardIdx > 0 && (
-                          <TouchableOpacity activeOpacity={0.8}
+                          <IconButton
+                            variant="filled"
+                            accessibilityLabel="간식 카드 삭제"
+                            // 둥근사각 + danger 틴트. 둘 다 filled 기본값(pill / surfaceAlt)에서 벗어난다.
                             style={{
-                              width: 28,
-                              height: 28,
                               borderRadius: 10,
                               backgroundColor: c.danger + '18',
-                              alignItems: "center",
-                              justifyContent: "center",
                             }}
                             onPress={() => {
                               if (card.foods.length > 0) {
@@ -751,29 +741,24 @@ function DietScreen() {
                               }
                             }}>
                             <Icon name="close" size={13} color={c.danger} />
-                          </TouchableOpacity>
+                          </IconButton>
                         )}
-                        <TouchableOpacity activeOpacity={0.8}
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 12,
-                              backgroundColor: c.surfaceAlt,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                            onPress={() =>
-                              router.push({
-                                pathname: "/modal/add-food",
-                                params: {
-                                  mealType: "snack",
-                                  snackCardId: card.id,
-                                  date: dateStr(currentDate),
-                                },
-                              })
-                            }>
-                            <Icon name="plus" size={18} color={c.success} />
-                          </TouchableOpacity>
+                        <IconButton
+                          variant="filled"
+                          accessibilityLabel="간식 카드에 음식 추가"
+                          style={{ borderRadius: 12 }}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/modal/add-food",
+                              params: {
+                                mealType: "snack",
+                                snackCardId: card.id,
+                                date: dateStr(currentDate),
+                              },
+                            })
+                          }>
+                          <Icon name="plus" size={18} color={c.success} />
+                        </IconButton>
                       </View>
                     </View>
                     {card.foods.length === 0 ? (
@@ -947,9 +932,15 @@ function DraggableFoodItem({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ fontSize: 12, fontWeight: '900', color: c.success }}>{food.calories}kcal</Text>
           {isToday && (
-            <TouchableOpacity activeOpacity={0.8} onPress={() => onRemove(mealType, food.id, date)}>
+            <IconButton
+              accessibilityLabel={`${food.name} 삭제`}
+              // 음식 행은 개수만큼 반복된다. box로 키우면 행마다 높이 50 → 64,
+              // 이름 슬롯 −29라 음식 수만큼 누적된다. 이 파일의 overflow: hidden은
+              // 전부 화면·진행바 컨테이너라 이 위치에서 잘리지 않는다.
+              touchTargetMode="hitSlop"
+              onPress={() => onRemove(mealType, food.id, date)}>
               <Icon name="trash" size={15} color={c.textMuted} />
-            </TouchableOpacity>
+            </IconButton>
           )}
         </View>
       </View>
@@ -1076,9 +1067,13 @@ function FoodRow({
           {food.calories}kcal
         </Text>
         {isToday && (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => onRemove(mealType, food.id, date)}>
+          <IconButton
+            accessibilityLabel={`${food.name} 삭제`}
+            // 위 DraggableFoodItem과 같은 행 구성이라 같은 이유로 hitSlop이다.
+            touchTargetMode="hitSlop"
+            onPress={() => onRemove(mealType, food.id, date)}>
             <Icon name="trash" size={15} color={c.textMuted} />
-          </TouchableOpacity>
+          </IconButton>
         )}
       </View>
     </View>
