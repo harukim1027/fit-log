@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { showCuteAlert } from "../../components/CuteAlert";
 import {
   View,
@@ -10,6 +10,8 @@ import {
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useGoBack } from "../../hooks/useGoBack";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
+import { useNavigation, usePreventRemove } from "@react-navigation/native";
 import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
@@ -74,6 +76,71 @@ export default function EditProfileModal() {
     user?.weeklyGoal ? String(user.weeklyGoal) : ""
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * ── 미저장 이탈 가드 ─────────────────────────────────────────────────────
+   *
+   * 이 화면은 7필드가 전부 `user` 에서 채워진 채 열린다. "값이 있는가"로
+   * 판정하면 열자마자 dirty 가 되어 아무것도 안 고치고 닫아도 확인창이 뜬다.
+   * 그래서 **초기값 대비 변경**으로 본다.
+   *
+   * 초기 서명은 각 useState 의 초깃값과 같은 식으로 동기적으로 만든다.
+   * 상태를 스냅샷으로 잡으면 "몇 번째 렌더에서 찍을 것인가"를 맞춰야 한다.
+   * **위 useState 초깃값을 고치면 여기도 같이 고칠 것.**
+   *
+   * 설정 토글 셋(단위·부위선택기·휴식알림)은 뺀다. `useSettingsStore` 의
+   * 세터를 직접 불러 **즉시 반영**되고 저장 페이로드에도 없다. 미저장 상태가
+   * 아니므로 닫아도 잃을 것이 없다.
+   */
+  const profileSignature = (v: {
+    name: string;
+    weight: string;
+    height: string;
+    age: string;
+    gender: string;
+    goal: string;
+    weeklyGoal: string;
+  }) => JSON.stringify({ ...v, name: v.name.trim() });
+
+  const initialProfile = useRef(
+    profileSignature({
+      name: user?.name ?? "",
+      weight: String(user?.weight ?? ""),
+      height: String(user?.height ?? ""),
+      age: String(user?.age ?? ""),
+      gender: user?.gender ?? "",
+      goal: user?.goal ?? "",
+      weeklyGoal: user?.weeklyGoal ? String(user.weeklyGoal) : "",
+    }),
+  ).current;
+
+  const isDirty =
+    profileSignature({ name, weight, height, age, gender, goal, weeklyGoal }) !==
+    initialProfile;
+
+  const guardUnsaved = useUnsavedGuard(isDirty);
+
+  const navigation = useNavigation();
+  /**
+   * 닫기 버튼은 위 guardUnsaved 가 직접 되묻는다. 여기서 막는 것은 **안드로이드
+   * 하드웨어 뒤로가기와 iOS 스와이프**다 — 둘 다 버튼 핸들러를 거치지 않는다.
+   */
+  usePreventRemove(isDirty, ({ data }) => {
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "작성 중인 내용이 있어요",
+      message: "닫으면 입력한 내용이 사라져요.",
+      buttons: [
+        { label: "계속 작성", style: "soft" },
+        {
+          label: "닫기",
+          style: "primary",
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ],
+    });
+  });
 
   type PadConfig = {
     value: string;
@@ -188,11 +255,14 @@ export default function EditProfileModal() {
         {/* filled의 기본값이 그대로 맞는다 — 배경 surfaceAlt, radius pill(999).
             박스는 36 → 44. hitSlop 10은 뺐다: 히트가 56 → 44로 줄지만
             보이는 원 전체가 눌리게 되고 44는 IconButton이 보장한다. */}
+        {/* 스택으로 바뀌어 "닫기"가 아니라 "뒤로"다. 글리프와 라벨을 함께
+            바꾼다 — 아이콘만 바꾸면 스크린리더에는 여전히 "닫기"로 읽힌다.
+            공용 Header 의 뒤로 가기와 같은 chevronLeft 를 쓴다. */}
         <IconButton
-          accessibilityLabel="프로필 편집 닫기"
-          onPress={goBack}
+          accessibilityLabel="뒤로 가기"
+          onPress={() => guardUnsaved(goBack)}
           variant="filled">
-          <Icon name="close" size={18} color={c.textPrimary} />
+          <Icon name="chevronLeft" size={18} color={c.textPrimary} />
         </IconButton>
         <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>
           프로필 편집

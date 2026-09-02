@@ -262,6 +262,23 @@ export default function RoutineManageModal() {
    */
   const anyDirty =
     createDirty || editDirty || combineDirty || selectDirty || adderDirty;
+  /**
+   * ── subMode 동안 스와이프 비활성 ─────────────────────────────────────────
+   *
+   * 이 상태에서 스와이프하면 "종목 추가 취소"가 아니라 **"루틴 관리 전체
+   * 닫기"**가 된다. 가드가 물어봐도 사용자는 종목 추가만 취소하는 것으로
+   * 이해한다 — 확인창의 "닫기"를 눌러 작성 중인 루틴까지 잃는다.
+   *
+   * ExerciseAdder 가 화면을 통째로 대체하지만 라우트는 여전히
+   * routine-manage 하나다. 라우트 분할 전까지 이 상태만 비활성으로 둔다.
+   * (안드로이드는 native-stack 이 gestureEnabled 를 항상 false 로 넘기므로
+   *  이 설정은 iOS 에만 영향이 있다.)
+   */
+  const inSubMode = subMode === "addExercise" || subMode === "editExercise";
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !inSubMode });
+  }, [navigation, inSubMode]);
+
   usePreventRemove(anyDirty, ({ data }) => {
     showCuteAlert({
       icon: "alert",
@@ -458,7 +475,10 @@ export default function RoutineManageModal() {
         <SafeAreaView
           style={{ flex: 1, backgroundColor: c.background }}
           edges={["bottom"]}>
-          <Header title="루틴 관리" showClose />
+          {/* 스택으로 바뀌어 "닫기"가 아니라 "뒤로"다. 모드 복귀 3곳
+              (:755·:855·:1039)과 ExerciseAdder 는 라우트를 벗어나지 않으므로
+              showClose 를 그대로 둔다. */}
+          <Header title="루틴 관리" showBack />
           <ScrollView
             ref={listScrollRef}
             onScroll={(e) => { listScrollOffset.current = e.nativeEvent.contentOffset.y; }}

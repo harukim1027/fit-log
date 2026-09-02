@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useGoBack } from "../../hooks/useGoBack";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
+import { useNavigation, usePreventRemove } from "@react-navigation/native";
 import { Card, Input, NumberPad } from "../../components/ui";
 import { Button, Header, IconButton } from "../../design-system";
 import { Stepper } from "../../components/ui/Stepper";
@@ -84,6 +86,51 @@ export default function AddFoodModal() {
   const [manualFat, setManualFat] = useState("");
   const [manualAmount, setManualAmount] = useState("100");
   const [manualIsPublic, setManualIsPublic] = useState(false);
+
+  /**
+   * ── 미저장 이탈 가드 ─────────────────────────────────────────────────────
+   *
+   * **직접입력 탭만 대상이다.** 검색·사진 탭의 내용(검색어, 촬영 결과)은
+   * 서버에서 다시 받는 값이라 "작성"이 아니다. 닫아도 잃을 것이 없다.
+   *
+   * 이 탭은 빈 상태로 열리므로 "값이 있는가"로 충분하다. `manualAmount` 만
+   * 초깃값이 "100" 이라 그것과 다른지를 본다.
+   * `manualIsPublic` 은 토글이라 값 자체가 작성물은 아니지만, 켠 뒤 닫으면
+   * 그 선택도 사라지므로 포함한다.
+   */
+  const isManualDirty =
+    tab === "manual" &&
+    (!!manualName.trim() ||
+      !!manualCalories ||
+      !!manualProtein ||
+      !!manualCarbs ||
+      !!manualFat ||
+      manualAmount !== "100" ||
+      manualIsPublic);
+
+  const guardUnsaved = useUnsavedGuard(isManualDirty);
+
+  const navigation = useNavigation();
+  /**
+   * Header 의 닫기는 아래 `onClose` 로 가드를 거친다. 여기서 막는 것은
+   * **안드로이드 하드웨어 뒤로가기와 iOS 스와이프**다.
+   */
+  usePreventRemove(isManualDirty, ({ data }) => {
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "작성 중인 내용이 있어요",
+      message: "닫으면 입력한 내용이 사라져요.",
+      buttons: [
+        { label: "계속 작성", style: "soft" },
+        {
+          label: "닫기",
+          style: "primary",
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ],
+    });
+  });
 
   const [myCustomFoods, setMyCustomFoods] = useState<CustomFood[]>([]);
   const [customFoodsLoading, setCustomFoodsLoading] = useState(false);
@@ -308,6 +355,8 @@ export default function AddFoodModal() {
         title="식품 추가"
         subtitle={date ? `${date} · ${MEAL_LABELS[mealType]}` : MEAL_LABELS[mealType] + "에 추가"}
         showClose
+        // 기본값(goBack)에 가드를 씌운다. 직접입력 탭에 내용이 있으면 되묻는다.
+        onClose={() => guardUnsaved(goBack)}
         rightElement={
           <TouchableOpacity activeOpacity={0.8}
             className="flex-row items-center gap-1 bg-primary/20 px-3 py-[7px] rounded-[20px]"

@@ -836,7 +836,7 @@ API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 �
 | 바텀시트 값이 DESIGN.md와 어긋남 | mobile | 미해결 |
 | `touchTargetMode` 이름/용처 불일치 | design-system | 미해결. Phase 2에서 재검토 |
 | `canGoBack` 가드 부재 | mobile | ✅ **해소** — `hooks/useGoBack`, 15곳 적용 |
-| 미저장 가드 | mobile | **부분 해소** — 기구 설정 시트 1곳 적용(아래) |
+| 미저장 가드 | mobile | ✅ **해소** — 7곳 적용, 스와이프까지 검증(아래) |
 | 홈 "최근 기록" 전역 표시 불일치 | mobile | **재조사 필요**(아래) |
 
 ### 재조사가 필요한 항목
@@ -851,12 +851,9 @@ API를 늘릴 근거가 부족하다. **두 번째 사례가 나오면 그때 �
   (`routine-manage` 3, `onboarding` 1)은 `router.back()`을 쓰지 않아 이 수에
   들어가지 않는다. 앞의 15곳에 가드를 넣었다(`hooks/useGoBack`).
   자세한 내용은 아래 "`canGoBack` 가드" 절.
-- **미저장 가드** — 기록은 "전무"였으나 **더 이상 사실이 아니다.**
-  기구 설정 시트에 `onDirtyChange` 기반 닫기 확인이 들어갔다
-  (`SettingSelector` → `ExerciseAdder`, 2026-09-02).
-  남은 문제는 **나머지 입력 화면에 같은 것이 없다**는 것이다. 대상 화면을
-  다시 세고, 시트에 쓴 방식(자식이 dirty를 올리고 부모가 닫기 경로를 가름)을
-  그대로 옮길지 판단할 것.
+- ~~**미저장 가드**~~ ✅ **해소.** 기록은 "전무"였으나 사실이 아니었고,
+  이후 두 차수에 걸쳐 7곳에 넣었다(`hooks/useUnsavedGuard`).
+  자세한 내용은 아래 "미저장 이탈 가드" 절.
 - **홈 "최근 기록" 전역 표시 불일치** — **무엇이 어떻게 어긋나는지가 기록에
   남아 있지 않다.** 재현 경로부터 다시 적어야 착수할 수 있다. 항목 이름만으로는
   조사도 시작할 수 없으므로, 다음에 이 현상을 보면 그 자리에서 경로를 적을 것.
@@ -920,6 +917,84 @@ ExerciseAdder 안에서 가드하면 안 된다.**
 > **ESLint로 `router.back()` 직접 호출을 막는 방법은 지금 쓸 수 없다.**
 > `mobile/`에는 eslint 설정도 lint 스크립트도 없다(`api/`에만 있다).
 > lint 인프라를 세우는 것은 별도 작업이다. 그때까지는 위 표와 이 절이 근거다.
+
+### ~~미저장 이탈 가드~~ ✅ 해소 — 스와이프까지 검증 완료
+
+작성 중인 내용이 있을 때 화면을 벗어나면 한 번 되묻는다.
+`hooks/useUnsavedGuard` + `usePreventRemove` 조합이고 **7곳**에 걸려 있다.
+
+| 화면 | 판정 | 걸린 경로 |
+|---|---|---|
+| 기구 설정 시트 | 값·초안 항목·이름 입력 | 오버레이 탭 / `onRequestClose` |
+| `routine-manage` create | 이름·종목 유무 | Header `onClose` + `usePreventRemove` |
+| `routine-manage` edit | 진입 시점 스냅샷 비교 | 동일 |
+| `routine-manage` combine-edit / combine-select | 스냅샷 비교 / 선택 수 | 동일 |
+| `ExerciseAdder` | `initialExercise` 대비 서명 비교 | 자체 Header + 부모 `onDirtyChange` |
+| `workout` 히스토리 편집 | 진입 시점 초안 비교 | "취소" 버튼 |
+| `edit-profile` | 7필드 초기값 비교 | 닫기 버튼 + `usePreventRemove` |
+| `add-food` 직접입력 | 값 유무 | Header `onClose` + `usePreventRemove` |
+
+**기존 값이 채워진 채 열리는 화면은 "값이 있는가"가 아니라 "초기값에서
+바뀌었는가"로 판정한다.** 전자로 하면 열자마자 dirty가 되어 아무것도 안 고치고
+닫아도 확인창이 뜬다. 그 판정 기준이 맞는지가 검증의 첫 항목이다.
+
+#### 스와이프 dismiss도 `usePreventRemove`를 거친다 — 소스 + 실물 확인
+
+모달을 스택(`card`)으로 바꾸면서 iOS 스와이프 dismiss가 열렸다.
+버튼 핸들러를 거치지 않는 경로라 별도 확인이 필요했다. **거친다.**
+
+체인은 다섯 단계다.
+
+1. `usePreventRemove(dirty, cb)` → `preventedRoutes[route.key].preventRemove`
+2. `@react-navigation/native-stack`이 이를 **`preventNativeDismiss`**로
+   네이티브에 전달 (`NativeStackView.native.js:180,286`)
+3. `react-native-screens`가 네이티브 전환을 **취소**한다 —
+   카드 pop 제스처는 `RNSScreenStack.mm:1111`의
+   `shouldCancelDismissFromView:toView:`, 모달 스와이프-다운은
+   `RNSScreen.mm:751`의 `presentationControllerShouldDismiss` → `NO`
+4. JS 스택을 복원하고 **`onNativeDismissCancelled`** 발화
+5. native-stack이 이를 받아
+   **`navigation.dispatch(StackActions.pop(dismissCount))`**로 되돌린다
+   (`NativeStackView.native.js:448`)
+
+그 dispatch가 정상 제거 경로를 타고 `usePreventRemove`에 걸려 확인창이 뜬다.
+
+**실물 확인 (2026-09-02, `5b0d8cd` 기준)** — 프로필 편집에서 필드를 바꾼 뒤
+왼쪽 가장자리에서 스와이프하면 확인창이 정상 표시된다.
+체인의 종착점(dispatch된 pop을 가드가 가로챈다)은 그 전에 안드로이드
+하드웨어 뒤로가기로 확인해 뒀다.
+
+> **안드로이드에는 이 경로가 없다.** native-stack이 `gestureEnabled`를 항상
+> `false`로 넘긴다(`NativeStackView.native.js:246`) — 시스템 백 제스처를 JS에서
+> 처리하기 때문이다. 안드로이드에서 막아야 할 것은 하드웨어 뒤로가기이고,
+> 그쪽은 `nativeBackButtonDismissalEnabled: false`로 JS에 넘어와 같은
+> `usePreventRemove`에 걸린다.
+
+#### 강제할 수 없다
+
+`useUnsavedGuard`는 `proceed`를 인자로 받는다 — 이탈이 `goBack()`(라우트),
+`setMode()`(모드 복귀), `setEditMode(false)`(편집 종료)로 제각각이라
+훅이 이탈까지 수행할 수 없다. 그래서 `useGoBack`처럼 타입으로 강제되지
+않는다. **새 입력 화면을 추가할 때는 수동으로 붙여야 하고, 라우트 화면이면
+`usePreventRemove`도 함께 걸어야 한다.**
+
+### `add-food` 만 모달로 남았다
+
+모달 6개 중 셋(`add-workout`·`routine-manage`·`edit-profile`)을 스택(`card`)으로
+바꾸고, 둘(`barcode-scan`·`full-calendar`)은 모달로 유지했다.
+**`add-food` 하나만 판단을 미뤘다.**
+
+이유는 **진입점이 없어서**다. 앱 내 유일한 진입점이 `(tabs)/diet.tsx`인데
+diet 탭이 `href: null`로 숨겨져 있어(`app/(tabs)/_layout.tsx:109`) 정상 경로로는
+도달하지 못한다. 지금은 딥링크로만 열린다.
+
+- 식단을 복원하면 "식단 탭 → 끼니 `+` → 식품 추가"라는 **이어지는 흐름**이라
+  스택이 맞다.
+- 복원하지 않으면 이 화면 자체가 죽은 경로다.
+
+어느 쪽이든 **식단 복원 결정에 딸린 문제**라 그때 함께 정한다.
+미저장 가드(직접입력 탭)는 이미 넣어 뒀으므로, 나중에 `card`로 바꿔도
+스와이프가 열리는 것에 대한 대비는 돼 있다.
 
 ### 홈 목표 지표 문제 — 3건
 

@@ -83,6 +83,11 @@ export default function FullCalendarScreen() {
     // presentation="fullScreenModal"에서는 edges="top"이 적용되지 않아 타이틀이 상태바와 겹쳤다.
     // 공용 Header 컴포넌트(paddingTop: insets.top + 6)와 같은 방식이며, 이 화면은
     // Header를 쓰지 않고 자체 헤더를 그리기 때문에 직접 계산해야 한다.
+    //
+    // 이 화면은 모달 전환에서 제외돼 fullScreenModal 그대로다(_layout.tsx 참조).
+    // 날짜 하나 고르고 사라지는 성격이라 "잠깐 덮었다 사라지는" 모달이 맞다.
+    // 위 전제가 유지되므로 이 방식도 그대로 둔다. presentation을 card로 바꾸게
+    // 되면 edges="top"이 동작하므로 이 계산을 다시 볼 것.
     <SafeAreaView style={{ flex: 1, backgroundColor: c.background }} edges={["bottom"]}>
       {/* 헤더 */}
       <View
