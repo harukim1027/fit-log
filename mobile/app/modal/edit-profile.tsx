@@ -255,11 +255,14 @@ export default function EditProfileModal() {
         {/* filled의 기본값이 그대로 맞는다 — 배경 surfaceAlt, radius pill(999).
             박스는 36 → 44. hitSlop 10은 뺐다: 히트가 56 → 44로 줄지만
             보이는 원 전체가 눌리게 되고 44는 IconButton이 보장한다. */}
+        {/* 스택으로 바뀌어 "닫기"가 아니라 "뒤로"다. 글리프와 라벨을 함께
+            바꾼다 — 아이콘만 바꾸면 스크린리더에는 여전히 "닫기"로 읽힌다.
+            공용 Header 의 뒤로 가기와 같은 chevronLeft 를 쓴다. */}
         <IconButton
-          accessibilityLabel="프로필 편집 닫기"
+          accessibilityLabel="뒤로 가기"
           onPress={() => guardUnsaved(goBack)}
           variant="filled">
-          <Icon name="close" size={18} color={c.textPrimary} />
+          <Icon name="chevronLeft" size={18} color={c.textPrimary} />
         </IconButton>
         <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary }}>
           프로필 편집

@@ -251,6 +251,23 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: colors.background },
               animation: "slide_from_right",
             }}>
+            {/* ── presentation 을 주지 않는 라우트는 기본값 "card" 다 ────────────────
+                add-workout / edit-profile / routine-manage 는 "이어지는 단계"라
+                오른쪽에서 들어오고 스와이프로 되돌아간다. iOS 는 card 에서
+                스와이프가 기본 활성이고(gestureDirection: horizontal),
+                안드로이드는 native-stack 이 gestureEnabled 를 강제로 false 로
+                넘겨 시스템 백 제스처를 JS 에서 처리한다.
+
+                **스와이프도 usePreventRemove 를 거친다.** react-native-screens 가
+                preventNativeDismiss 로 네이티브 전환을 취소하고
+                onNativeDismissCancelled → navigation.dispatch(StackActions.pop)
+                으로 JS 에 되돌려주기 때문이다. 그래서 세 화면 모두 미저장
+                가드가 스와이프에도 걸린다.
+
+                barcode-scan / full-calendar 는 fullScreenModal 을 유지한다.
+                잠깐 덮었다가 사라지는 성격이고 취소 의미가 강하다.
+                add-food 는 이번 전환에서 제외했다 — 진입점인 diet 탭이
+                href: null 이라 판단 근거가 없다. 식단 복원 시 함께 정한다. */}
             <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: "none" }} />
             <Stack.Screen name="auth/login" options={{ headerShown: false, animation: "fade" }} />
             <Stack.Screen name="auth/register" options={{ headerShown: false, animation: "slide_from_right" }} />
@@ -261,7 +278,7 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="modal/add-workout"
-              options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
+              options={{ headerShown: false, animation: "slide_from_right" }}
             />
             <Stack.Screen
               name="modal/barcode-scan"
@@ -269,11 +286,11 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="modal/edit-profile"
-              options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
+              options={{ headerShown: false, animation: "slide_from_right" }}
             />
             <Stack.Screen
               name="modal/routine-manage"
-              options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
+              options={{ headerShown: false, animation: "slide_from_right" }}
             />
             <Stack.Screen
               name="modal/full-calendar"
