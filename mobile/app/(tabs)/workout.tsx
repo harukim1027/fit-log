@@ -37,6 +37,7 @@ import {
   SetIndicator,
 } from "../../components/ui";
 import { Header, IconButton } from "../../design-system";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Icon, PlayIcon, FlameIcon } from "../../components/AppIcons";
 import { useRoutineStore } from "../../store/routineStore";
@@ -3972,22 +3973,37 @@ function HistoryCard({
     ex.sets.some((s) => s.completed)
   );
 
+  /**
+   * 편집 진입 시의 초안을 그대로 스냅샷으로 잡는다.
+   *
+   * 이 화면은 기존 세션 값이 채워진 채 열리므로 "값이 있는가"로 판정하면
+   * 열자마자 dirty가 된다. 진입 시점의 초안과 지금 초안을 비교한다.
+   */
+  const editSnapshot = useRef<string | null>(null);
+
   const enterHistoryEdit = () => {
-    setDraftExercises(
-      session.exercises.map((ex) => ({
-        ...ex,
-        sets: ex.sets.map((s) => ({
-          id: s.id,
-          weight: String(s.weight),
-          reps: String(s.reps),
-          completed: s.completed,
-          unit: s.unit ?? 'kg',
-        })),
-      }))
-    );
+    const draft = session.exercises.map((ex) => ({
+      ...ex,
+      sets: ex.sets.map((s) => ({
+        id: s.id,
+        weight: String(s.weight),
+        reps: String(s.reps),
+        completed: s.completed,
+        unit: s.unit ?? 'kg',
+      })),
+    }));
+    editSnapshot.current = JSON.stringify(draft);
+    setDraftExercises(draft);
     setEditMode(true);
     setExpanded(true);
   };
+
+  // 편집 모드가 아닐 때는 비교 대상이 없다.
+  const historyEditDirty =
+    editMode &&
+    editSnapshot.current !== null &&
+    JSON.stringify(draftExercises) !== editSnapshot.current;
+  const guardHistoryEdit = useUnsavedGuard(historyEditDirty);
 
   const updateDraftSet = (
     exIdx: number,
@@ -4356,7 +4372,9 @@ function HistoryCard({
           <TouchableOpacity activeOpacity={0.7}
             onPress={() => {
               if (editMode) {
-                setEditMode(false);
+                // 회귀 방지: 여기서 바로 setEditMode(false) 하지 말 것.
+                // 세션 전체의 종목·세트 초안이 확인 없이 사라진다.
+                guardHistoryEdit(() => setEditMode(false));
               } else {
                 enterHistoryEdit();
                 setExpanded(true);
