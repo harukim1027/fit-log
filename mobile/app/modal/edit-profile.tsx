@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { showCuteAlert } from "../../components/CuteAlert";
 import {
   View,
@@ -13,7 +13,6 @@ import { useGoBack } from "../../hooks/useGoBack";
 import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 import { useNavigation, usePreventRemove } from "@react-navigation/native";
 import { useAuthStore } from "../../store/authStore";
-import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { GoalIcon, Icon } from "../../components/AppIcons";
@@ -37,13 +36,6 @@ const LIGHT_CARD_SHADOW = {
   shadowRadius: 10,
   elevation: 3,
 };
-const LIGHT_KNOB_SHADOW = {
-  shadowColor: "#000",
-  shadowOpacity: 0.15,
-  shadowRadius: 3,
-  elevation: 2,
-};
-
 export default function EditProfileModal() {
   const c = useColors();
   const isDark = useThemeStore((st) => st.mode) === "dark";
@@ -51,20 +43,7 @@ export default function EditProfileModal() {
   const goBack = useGoBack("/");
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuthStore();
-  const {
-    weightUnit,
-    showBodypartSelector,
-    notifyBeforeRestEnd,
-    loadSettings,
-    setWeightUnit,
-    setShowBodypartSelector,
-    setNotifyBeforeRestEnd,
-  } = useSettingsStore();
   const keyboardHeight = useKeyboardHeight();
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
 
   const [name, setName] = useState(user?.name ?? "");
   const [weight, setWeight] = useState(String(user?.weight ?? ""));
@@ -521,189 +500,6 @@ export default function EditProfileModal() {
           </Text>
         </View>
 
-        {/* 앱 설정 */}
-        <Text
-          style={{
-            fontSize: 14,
-            fontWeight: "600",
-            color: c.textSecondary,
-            marginBottom: 10,
-            marginTop: 20,
-          }}>
-          앱 설정
-        </Text>
-
-        {/* 무게 단위 */}
-        <View
-          style={[
-            inputStyle,
-            {
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: 16,
-              marginBottom: 10,
-            },
-          ]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Icon name="dumbbell" size={16} color={c.textSecondary} />
-            <Text
-              style={{ fontSize: 14, fontWeight: "600", color: c.textPrimary }}>
-              무게 단위
-            </Text>
-          </View>
-          <View style={{ flexDirection: "row", gap: 6 }}>
-            {(["kg", "lbs"] as const).map((u) => (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                key={u}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 999,
-                  backgroundColor: weightUnit === u ? c.primary : c.surfaceAlt,
-                }}
-                onPress={() => setWeightUnit(u)}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "600",
-                    color: weightUnit === u ? c.surface : c.textSecondary,
-                  }}>
-                  {u}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* 운동 부위 선택 표시 */}
-        <View
-          style={[
-            inputStyle,
-            {
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: 16,
-              marginBottom: 10,
-            },
-          ]}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              flex: 1,
-              marginRight: 12,
-            }}>
-            <Icon name="target" size={16} color={c.textSecondary} />
-            <Text
-              style={{ fontSize: 14, fontWeight: "600", color: c.textPrimary }}>
-              운동 추가 시 부위 선택 표시
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={{
-              width: 46,
-              height: 26,
-              borderRadius: 13,
-              backgroundColor: showBodypartSelector ? c.primary : c.surfaceAlt,
-              justifyContent: "center",
-              paddingHorizontal: 2,
-            }}
-            onPress={() => setShowBodypartSelector(!showBodypartSelector)}
-            activeOpacity={0.7}>
-            {/* 노브는 off일 때 트랙(surfaceAlt)과 명도 차가 1.12뿐이라 그림자가 유일한
-                  경계였다. 다크에서는 그 그림자가 안 보이므로 보더로 대체한다.
-                  on일 때는 트랙이 primary라 배경 대비만으로 충분하다. */}
-            <View
-              style={[
-                {
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: c.surface,
-                  transform: [{ translateX: showBodypartSelector ? 20 : 0 }],
-                },
-                isDark
-                  ? !showBodypartSelector && {
-                      borderWidth: 1,
-                      borderColor: c.border,
-                    }
-                  : LIGHT_KNOB_SHADOW,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* 휴식 30초 전 알림 */}
-        <View
-          style={[
-            inputStyle,
-            {
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: 16,
-            },
-          ]}>
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Icon name="timer" size={16} color={c.textSecondary} />
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: "600",
-                  color: c.textPrimary,
-                }}>
-                휴식 30초 전 알림
-              </Text>
-            </View>
-            <Text
-              style={{
-                fontSize: 12,
-                color: c.textSecondary,
-                marginTop: 2,
-                marginLeft: 24,
-              }}>
-              휴식 종료 30초 전에 미리 알려드려요
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={{
-              width: 46,
-              height: 26,
-              borderRadius: 13,
-              backgroundColor: notifyBeforeRestEnd ? c.primary : c.surfaceAlt,
-              justifyContent: "center",
-              paddingHorizontal: 2,
-            }}
-            onPress={() => setNotifyBeforeRestEnd(!notifyBeforeRestEnd)}
-            activeOpacity={0.7}>
-            {/* 노브는 off일 때 트랙(surfaceAlt)과 명도 차가 1.12뿐이라 그림자가 유일한
-                  경계였다. 다크에서는 그 그림자가 안 보이므로 보더로 대체한다.
-                  on일 때는 트랙이 primary라 배경 대비만으로 충분하다. */}
-            <View
-              style={[
-                {
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: c.surface,
-                  transform: [{ translateX: notifyBeforeRestEnd ? 20 : 0 }],
-                },
-                isDark
-                  ? !notifyBeforeRestEnd && {
-                      borderWidth: 1,
-                      borderColor: c.border,
-                    }
-                  : LIGHT_KNOB_SHADOW,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
       </ScrollView>
 
       <View
