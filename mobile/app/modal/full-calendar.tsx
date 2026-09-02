@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useGoBack } from "../../hooks/useGoBack";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useColors } from "../../constants/colors";
@@ -24,7 +24,8 @@ const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 export default function FullCalendarScreen() {
-  const router = useRouter();
+  // 진입점이 운동 탭이고, 날짜 셀 탭의 목적지(히스토리)도 같은 탭이다.
+  const goBack = useGoBack("/(tabs)/workout");
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { sessions, fetchSessions, setHistoryJumpDate } = useWorkoutStore(
@@ -100,7 +101,7 @@ export default function FullCalendarScreen() {
             행은 [제목][닫기] 둘뿐이라 폭을 다투지 않는다. */}
         <IconButton
           accessibilityLabel="기록 캘린더 닫기"
-          onPress={() => router.back()}>
+          onPress={goBack}>
           <Icon name="close" size={26} color={c.textPrimary} />
         </IconButton>
       </View>
@@ -187,7 +188,7 @@ export default function FullCalendarScreen() {
                   activeOpacity: 0.7,
                   onPress: () => {
                     setHistoryJumpDate(day.dateStr);
-                    router.back();
+                    goBack();
                   },
                 }
               : {};

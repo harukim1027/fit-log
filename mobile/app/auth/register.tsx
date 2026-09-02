@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useRouter } from "expo-router";
+import { useGoBack } from "../../hooks/useGoBack";
 import { useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { showCuteAlert } from "../../components/CuteAlert";
@@ -12,6 +13,8 @@ import { LogoMark } from "../../components/AppIcons";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  // 로그인에서 온 화면이지만 딥링크로 직접 열리면 스택이 비어 있다.
+  const goBack = useGoBack("/auth/login");
   const { register, isLoading } = useAuthStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -36,7 +39,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
-      <Header title="회원가입" showBack />
+      <Header title="회원가입" showBack fallback="/auth/login" />
       <KeyboardAwareScrollView
         enableOnAndroid
         enableAutomaticScroll
@@ -74,7 +77,7 @@ export default function RegisterScreen() {
             style={{ marginTop: 8 }}>
             회원가입
           </Button>
-          <TouchableOpacity activeOpacity={0.8} className="items-center mt-4" onPress={() => router.back()}>
+          <TouchableOpacity activeOpacity={0.8} className="items-center mt-4" onPress={goBack}>
             <Text className="text-sm text-text-secondary">
               이미 계정이 있으신가요? <Text className="text-primary font-bold">로그인</Text>
             </Text>

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useGoBack } from "../../hooks/useGoBack";
 import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useColors } from "../../constants/colors";
@@ -45,7 +45,8 @@ const LIGHT_KNOB_SHADOW = {
 export default function EditProfileModal() {
   const c = useColors();
   const isDark = useThemeStore((st) => st.mode) === "dark";
-  const router = useRouter();
+  // 진입점이 홈·통계 둘이라 한쪽으로 특정할 수 없다. 홈으로 보낸다.
+  const goBack = useGoBack("/");
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuthStore();
   const {
@@ -146,7 +147,7 @@ export default function EditProfileModal() {
             ? undefined
             : weeklyGoalNum,
       });
-      router.back();
+      goBack();
     } catch (e: any) {
       showCuteAlert({
         icon: "alert",
@@ -189,7 +190,7 @@ export default function EditProfileModal() {
             보이는 원 전체가 눌리게 되고 44는 IconButton이 보장한다. */}
         <IconButton
           accessibilityLabel="프로필 편집 닫기"
-          onPress={() => router.back()}
+          onPress={goBack}
           variant="filled">
           <Icon name="close" size={18} color={c.textPrimary} />
         </IconButton>
