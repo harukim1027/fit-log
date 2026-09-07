@@ -19,7 +19,9 @@ import {
 } from "../../utils/workout";
 import { WorkoutSession } from "../../types/workout";
 
-const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
+// 일요일 시작. 홈 주간 스트립·통계 주간 차트와 같은 기준이다.
+// 규칙의 근거는 utils/date.ts 의 getWeekRange 주석에 있다.
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -74,8 +76,10 @@ export default function FullCalendarScreen() {
     return result;
   }, [target, sessions]);
 
-  // 1일의 요일 (월=0 ~ 일=6) → 앞쪽 빈칸 개수
-  const firstDayOfWeek = (target.getDay() + 6) % 7;
+  // 1일의 요일 (일=0 ~ 토=6) → 앞쪽 빈칸 개수.
+  // 전에는 (getDay()+6)%7 로 월요일을 0으로 밀었다. 홈 스트립이 일~토인데
+  // 달력만 월~일이라 홈에서 달력을 열면 요일 배치가 바뀌었다.
+  const firstDayOfWeek = target.getDay();
   const emptySlots = Array(firstDayOfWeek).fill(null);
 
   return (
