@@ -20,36 +20,12 @@ import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { localDateStr, getWeekRange } from "../../utils/date";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
-import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
+import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
+import { eunNeun } from "../../utils/korean";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { IconButton } from "../../design-system";
-
-const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
-
-/**
- * 히어로 칩과 힌트가 함께 쓰는 라벨. **한 곳에서만 정의한다.**
- *
- * MuscleMap 의 MUSCLE_LABELS 를 그대로 쓰지 않는 이유: 그쪽은 해부학 명칭이라
- * "등 상부·삼각근·대퇴사두"로 길다. 칩 6개를 343pt 한 줄에 넣으려면 짧아야
- * 하고, 칩이 "등"인데 힌트가 "등 상부는 아직이에요"라고 말하면 같은 것을
- * 두 이름으로 부르는 셈이 된다. 칩과 힌트가 같은 맵을 보게 해서 그 어긋남을
- * 구조적으로 막는다.
- */
-const MAJOR_MUSCLE_LABELS: Record<string, string> = {
-  chest: '가슴',
-  'upper-back': '등',
-  deltoids: '어깨',
-  abs: '복근',
-  quadriceps: '하체',
-  gluteal: '둔근',
-};
-
-function eunNeun(s: string) {
-  const code = s.charCodeAt(s.length - 1) - 0xAC00;
-  return code >= 0 && code % 28 !== 0 ? '은' : '는';
-}
 
 // toYMD·getWeekRange 는 utils/date.ts 로 옮겼다. 통계에도 같은 이름의 함수가
 // 따로 있었고 주 시작 요일이 서로 달랐다(홈 일요일 / 통계 월요일).

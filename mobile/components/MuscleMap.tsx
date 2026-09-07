@@ -5,6 +5,32 @@ import { useColors } from '../constants/colors';
 import { useThemeStore } from '../store/themeStore';
 
 // ── Labels (Korean) ─────────────────────────────────────────
+/**
+ * 홈 히어로와 통계 근육맵이 "골고루 했는가"를 셀 때 쓰는 주요 부위 6개.
+ *
+ * MUSCLE_LABELS 는 15개를 정의하지만 그중 여섯만 센다. 큰 근육군을 한 번씩
+ * 돌았는지 보려는 지표라, 세부 부위까지 넣으면 분모가 커져 늘 미달로 보인다.
+ * (선정 기준이 어디에도 없던 것을 이 주석으로 남긴다.)
+ */
+export const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
+
+/**
+ * 위 6개의 **짧은** 라벨. 칩과 힌트가 함께 쓴다.
+ *
+ * MUSCLE_LABELS 를 그대로 쓰지 않는 이유: 그쪽은 해부학 명칭이라
+ * "등 상부·삼각근·대퇴사두"로 길다. 칩 6개를 한 줄에 넣으려면 짧아야 하고,
+ * 칩이 "등"인데 힌트가 "등 상부는 아직이에요"라고 말하면 같은 것을 두 이름으로
+ * 부르게 된다. 두 화면이 같은 맵을 보게 해서 그 어긋남을 구조적으로 막는다.
+ */
+export const MAJOR_MUSCLE_LABELS: Record<string, string> = {
+  chest: '가슴',
+  'upper-back': '등',
+  deltoids: '어깨',
+  abs: '복근',
+  quadriceps: '하체',
+  gluteal: '둔근',
+};
+
 export const MUSCLE_LABELS: Partial<Record<Slug, string>> = {
   chest: '가슴',
   biceps: '이두',

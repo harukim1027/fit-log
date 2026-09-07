@@ -29,6 +29,8 @@ import {
 import { Dimensions } from "react-native";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { localDateStr, getWeekRangeByOffset, weekDates } from "../../utils/date";
+import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
+import { eunNeun } from "../../utils/korean";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
@@ -126,7 +128,41 @@ function StatsScreen() {
   }, []);
 
   // 선택된 주(일~토)의 날짜별 볼륨/소모
-  const { start: weekStart } = getWeekRangeByOffset(weekOffset);
+  const { start: weekStart, end: weekEnd } = getWeekRangeByOffset(weekOffset);
+
+  /**
+   * 선택한 주에 자극한 부위. 홈에 있던 "이번 주 자극 부위" 섹션을 옮겨온 것이다.
+   *
+   * ★ 주 범위는 **통계의 weekOffset** 을 따른다. 홈은 selectedDate 로 주를
+   *   정하고 이 화면은 weekOffset 으로 정한다 — 두 상태는 별개이고 그대로 둔다.
+   *   탭 간 주 상태를 공유하지 않는다는 기존 결정을 유지한다. 홈에서 지난 주를
+   *   보다 통계로 와도 통계는 자기 ◀▶ 가 가리키는 주를 보여준다.
+   */
+  const weekMuscleData = React.useMemo(() => {
+    const weekSessions = sessions.filter((s) => {
+      const d = new Date(s.date + "T00:00:00");
+      return d >= weekStart && d <= weekEnd;
+    });
+    const set = new Set<string>();
+    for (const sess of weekSessions) {
+      for (const ex of sess.exercises) {
+        const slugs = MUSCLE_MAP[ex.name] ?? CATEGORY_TO_SLUGS[ex.category ?? ""] ?? [];
+        for (const sl of slugs) set.add(sl);
+      }
+    }
+    const chips = MAJOR_MUSCLES.map((m) => ({
+      slug: m,
+      label: MAJOR_MUSCLE_LABELS[m] ?? m,
+      on: set.has(m),
+    }));
+    return {
+      muscles: Array.from(set),
+      hit: chips.filter((ch) => ch.on).length,
+      // 힌트는 칩과 같은 배열에서 파생시킨다 — 둘이 어긋날 수 없게.
+      missing: chips.find((ch) => !ch.on) ?? null,
+      total: chips.length,
+    };
+  }, [sessions, weekOffset]);
   const weekDays = weekDates(weekStart).map((d) => ({
     dateStr: localDateStr(d),
     label: d.toLocaleDateString("ko-KR", { weekday: "short" }),
@@ -437,6 +473,44 @@ function StatsScreen() {
               </Text>
             </View>
           )}
+        </Card>
+
+        {/* 자극 부위 — 홈에서 옮겨왔다.
+
+            배치: **주간 네비게이션이 지배하는 블록의 끝**이다. ◀▶(weekOffset)가
+            바꾸는 것은 위의 볼륨·칼로리와 이 섹션뿐이고, 아래 성장 그래프·PR
+            기록은 전체 기간이라 weekOffset 을 쓰지 않는다. 같은 컨트롤이
+            지배하는 것들을 붙여 두지 않으면 ◀▶ 를 눌렀을 때 화면 저 아래
+            무언가가 같이 바뀌는 것을 사용자가 연결하지 못한다. */}
+        <Card style={{ gap: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text className="text-[17px] font-extrabold text-text-secondary" style={{ flex: 1 }}>
+              자극 부위
+            </Text>
+            {/* numeric — 홈 히어로의 "N/6"과 같은 지표다 */}
+            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+              {weekMuscleData.hit}
+              <Text style={{ color: c.textSecondary }}>/{weekMuscleData.total}</Text>
+            </Text>
+          </View>
+          <MuscleMap muscles={weekMuscleData.muscles} scale={0.55} />
+          {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다. */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border }}>
+            <Icon
+              name={weekMuscleData.muscles.length === 0 ? "dumbbell" : weekMuscleData.missing ? "target" : "check"}
+              size={13}
+              color={weekMuscleData.muscles.length === 0 ? c.textMuted : weekMuscleData.missing ? c.warning : c.success}
+            />
+            {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
+                라이트에서 warning/success 는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
+            <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
+              {weekMuscleData.muscles.length === 0
+                ? "이 주엔 기록이 없어요"
+                : weekMuscleData.missing
+                  ? `${weekMuscleData.missing.label}${eunNeun(weekMuscleData.missing.label)} 빠졌어요`
+                  : "전신 골고루 자극했어요!"}
+            </Text>
+          </View>
         </Card>
 
         {/* 종목별 성장 그래프 */}
