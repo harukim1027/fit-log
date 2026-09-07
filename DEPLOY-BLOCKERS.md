@@ -416,8 +416,20 @@ eas env:list production
 ```
 
 `EXPO_PUBLIC_*`는 **클라이언트 번들에 그대로 박히므로 시크릿이 아니다.**
-visibility는 기본(plaintext)으로 둔다. `SENTRY_AUTH_TOKEN`처럼 번들에 안 들어가는
-진짜 시크릿과 구분할 것 — 그건 `--visibility secret`이다.
+visibility는 기본(plaintext)으로 둔다. 앱을 뜯으면 어차피 보이는 값이라 서버에서
+숨겨도 의미가 없고, `secret`으로 두면 나중에 값을 다시 읽을 수 없어 불편하다.
+
+**번들에 안 들어가는 값은 반대다.** 빌드 과정에서만 쓰이고 앱에는 남지 않는
+자격증명은 `--visibility secret`으로 넣는다. 현재 해당하는 것은
+`SENTRY_AUTH_TOKEN` 하나다 — 소스맵 업로드에만 쓰인다.
+
+```bash
+eas env:create --environment production --name SENTRY_AUTH_TOKEN \
+  --value <값> --visibility secret
+```
+
+이름이 `EXPO_PUBLIC_`으로 시작하는지가 판단 기준이다. 시작하면 plaintext,
+아니면 secret.
 
 로컬 개발용 값은 `mobile/.env`에 따로 넣는다(gitignore). 이 파일은 EAS로
 올라가지 않으므로 **빌드에는 영향이 없다.**
@@ -438,12 +450,59 @@ visibility는 기본(plaintext)으로 둔다. `SENTRY_AUTH_TOKEN`처럼 번들�
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | `mobile/.env`, GitHub Secrets |
 | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | `mobile/.env`, GitHub Secrets |
 | `EXPO_PUBLIC_SENTRY_DSN` | `mobile/.env.production` |
+| `SENTRY_AUTH_TOKEN` ★secret | `mobile/.env.production` |
 
 ### 남은 것
 
-- **Sentry가 프로덕션에서 꺼져 있을 가능성이 높다.** `app.json`의 Sentry 플러그인
-  `organization`이 `"your-sentry-org-slug"` 플레이스홀더 그대로다. DSN도 위 표대로
-  아직 EAS 서버에 없다. 쓸 거면 둘 다 채우고, 안 쓸 거면 플러그인을 빼는 게 낫다.
-- `.env.production`에 `SENTRY_AUTH_TOKEN` 평문이 있다. gitignore라 커밋되진
-  않았지만, EAS로도 안 올라가므로 **소스맵 업로드는 어차피 안 되고 있다.**
 - 채널은 아직 없다. OTA를 실제로 쓰려면 위 조치 완료 후 별도로 붙인다.
+
+---
+
+## 4. Sentry가 실질적으로 꺼져 있었다 — ✅ 해소
+
+### 무엇이 문제였나
+
+코드는 처음부터 다 있었다. `lib/sentry.ts`가 `_layout.tsx:26`에서 초기화되고,
+`apiClient`가 5xx를 `captureException`으로 보내고, `logger.ts`가 브레드크럼을
+남긴다. **그런데 그 이벤트가 갈 곳이 없었다.**
+
+세 가지가 동시에 어긋나 있었다 (2026-09-07 확인).
+
+| 항목 | 상태 |
+|---|---|
+| `app.json` 플러그인 `organization` | `"your-sentry-org-slug"` — 플레이스홀더 그대로 |
+| `app.json` 플러그인 `project` | `"fitlog"` — **실제 슬러그는 `harulog-mobile`** |
+| `EXPO_PUBLIC_SENTRY_DSN` | `.env.production`(gitignore)에만 → 빌드에 안 들어감 |
+| `SENTRY_AUTH_TOKEN` | 같음 → 소스맵 업로드가 된 적 없음 |
+
+`organization`만 고쳤다면 `project`가 여전히 틀려서 업로드는 계속 실패했을
+것이다. 슬러그 둘은 Sentry API로 조회해 확인했다 — 조직 `harulog`,
+프로젝트 `harulog-mobile`(platform: react-native). `.env.production`의 DSN은
+그 프로젝트의 활성 키와 org/projectId가 일치한다. **값 자체는 처음부터
+맞았고, 빌드에 안 들어간 것이 문제였다.**
+
+DSN이 없으면 `Sentry.init({ dsn: undefined })`가 되고, SDK는 조용히 아무것도
+보내지 않는다. 에러도 경고도 없다. 그래서 오래 눈치채지 못했다.
+
+### 어떻게 고쳤나
+
+- `app.json`의 두 슬러그를 실제 값으로 바꿨다.
+- `EXPO_PUBLIC_SENTRY_DSN`을 EAS 서버 환경변수(production, plaintext)로 등록한다.
+- `SENTRY_AUTH_TOKEN`은 EAS 서버 환경변수(production, **secret**)로 등록한다.
+  번들에 안 들어가고 소스맵 업로드에만 쓰이므로 `EXPO_PUBLIC_*`와 구분한다.
+
+### 개발 중에는 꺼진다 — 확인함
+
+`lib/sentry.ts`가 `enabled: process.env.NODE_ENV === 'production'`을 쓴다.
+`babel-preset-expo`(54.0.10)의 define-plugin이 `process.env.NODE_ENV`를 번들
+시점에 리터럴로 치환하므로, 개발 번들에서는 `enabled: false`가 박힌다.
+**개발 중 에러가 Sentry로 새어 노이즈가 쌓일 일은 없다.**
+
+`__DEV__`가 더 RN다운 관용구지만 같은 플러그인이 같은 방식으로 치환하므로
+동작은 동일하다. 맞게 동작하고 있어 바꾸지 않았다.
+
+### 확인 방법
+
+빌드 없이 확인할 수 있는 건 여기까지다. 실제로 이벤트가 도착하는지는
+다음 프로덕션 빌드 이후 Sentry 대시보드에서 봐야 한다. 소스맵이 올라갔는지는
+빌드 로그의 `Uploading sourcemaps` 구간에서 확인한다.

@@ -79,8 +79,8 @@
       [
         "@sentry/react-native/expo",
         {
-          "organization": "your-sentry-org-slug",
-          "project": "fitlog"
+          "organization": "harulog",
+          "project": "harulog-mobile"
         }
       ],
       [
