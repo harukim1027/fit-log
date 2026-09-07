@@ -25,6 +25,7 @@ export class RestDay {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => User)
+  // onDelete: 'CASCADE' — 계정 탈퇴 시 함께 삭제.
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   user: User;
 }
