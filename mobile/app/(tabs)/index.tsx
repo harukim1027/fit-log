@@ -20,20 +20,13 @@ import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { localDateStr, getWeekRange } from "../../utils/date";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
-import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
-import type { Slug } from "react-native-body-highlighter";
+import { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
+import { eunNeun } from "../../utils/korean";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
-
-const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
-// 필터 칩에 노출할 카테고리 (전체 + 주요 부위)
-const FILTER_CATEGORIES = ['가슴', '등', '하체', '어깨', '팔'];
-
-function eunNeun(s: string) {
-  const code = s.charCodeAt(s.length - 1) - 0xAC00;
-  return code >= 0 && code % 28 !== 0 ? '은' : '는';
-}
+import { showCuteAlert } from "../../components/CuteAlert";
+import { IconButton } from "../../design-system";
 
 // toYMD·getWeekRange 는 utils/date.ts 로 옮겼다. 통계에도 같은 이름의 함수가
 // 따로 있었고 주 시작 요일이 서로 달랐다(홈 일요일 / 통계 월요일).
@@ -53,6 +46,66 @@ function sessionTitle(sess: WorkoutSession): string {
 }
 
 // 볼륨 포맷: 1000kg 이상은 t(톤) 축약
+/** 히어로 완료도 링. 96×96, strokeWidth 9 (시안 기준). */
+const HERO_RING = 96;
+const HERO_STROKE = 9;
+const HERO_R = (HERO_RING - HERO_STROKE) / 2;
+const HERO_CIRC = 2 * Math.PI * HERO_R;
+
+/**
+ * 목표 스테퍼의 [−] / [+] 한 칸.
+ *
+ * **가로는 box(44), 세로는 32 + hitSlop 6** 이다.
+ *   가로를 box 로 잡은 이유: hitSlop 으로 44를 만들면 두 버튼의 슬롭이
+ *   겹칠 수 있고, 겹친 구간은 나중에 렌더된 쪽이 가져간다(IconButton 밀집
+ *   행에서 겪은 문제와 같다). 44 박스면 구조적으로 겹칠 수가 없다.
+ *   세로까지 44로 키우면 KPI 스택이 102가 되어 링 96을 넘겨 카드가 커진다.
+ *   위아래에 다른 터치 요소가 없으므로 세로는 슬롭으로 충분하다.
+ *
+ * 박스 전체가 아니라 이 버튼만 터치에 반응한다 — 점선 박스가 통째로
+ * 반응하면 스크롤하려고 손을 얹은 것도 탭이 된다.
+ */
+function GoalStep({
+  dir, disabled, onPress, c,
+}: {
+  dir: 1 | -1;
+  disabled: boolean;
+  onPress: () => void;
+  c: ReturnType<typeof useColors>;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      disabled={disabled}
+      onPress={onPress}
+      hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      accessibilityLabel={dir > 0 ? "목표 늘리기" : "목표 줄이기"}
+      style={{
+        width: 44, height: 32, alignItems: "center", justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
+      }}>
+      {/* 조작 가능하다는 신호는 **보더**가 진다. 글리프에 primary 를 쓰면
+          17px/800 이 WCAG large-text(18.66 bold)에 못 미쳐 4.5:1 이 필요한데
+          primary on surface 는 라이트 4.18 / 다크 3.99 로 미달이다.
+          DESIGN.md 대로 의미색을 비텍스트(보더)에 싣고 글자는 text-primary
+          (라이트 16.46 / 다크 11.96)로 둔다. 시안의 아웃라인 형태도 유지된다.
+          비활성은 opacity.disabled 0.5 + disabled prop 을 함께 준다. */}
+      <View
+        style={{
+          width: 26, height: 24, borderRadius: 8, borderWidth: 1,
+          borderColor: disabled ? c.border : c.primary,
+          alignItems: "center", justifyContent: "center",
+        }}>
+        <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, lineHeight: 18 }}>
+          {dir > 0 ? "+" : "−"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 function fmtVol(kg: number): string {
   return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
 }
@@ -118,18 +171,18 @@ const SCRIM = "rgba(0,0,0,0.5)";
 function HomeScreen() {
   const router = useRouter();
   const c = useColors();
-  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore(
+  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume, setHistoryJumpDate } = useWorkoutStore(
     useShallow((s) => ({
       sessions: s.sessions,
       activeSession: s.activeSession,
       startSession: s.startSession,
       fetchSessions: s.fetchSessions,
+      setHistoryJumpDate: s.setHistoryJumpDate,
       getTotalVolume: s.getTotalVolume,
     }))
   );
-  const { user } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const isDark = useThemeStore((s) => s.mode) === 'dark';
-  const [filter, setFilter] = useState<string>('전체');
   // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateStr(new Date()));
   const [showCalendar, setShowCalendar] = useState(false);
@@ -140,8 +193,10 @@ function HomeScreen() {
   // 스와이프로 온 이동은 목록이 이미 그 자리에 있으므로 동기화를 건너뛴다.
   const skipSyncRef = useRef(false);
 
-  const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
-  const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
+  // 스태거 애니메이션 슬롯: 히어로 카드 / 기록 섹션 두 개다.
+  // (자극 부위 섹션이 통계 탭으로 옮겨가면서 셋에서 둘로 줄었다.)
+  const fadeAnims = useRef([0, 1].map(() => new Animated.Value(0))).current;
+  const slideAnims = useRef([0, 1].map(() => new Animated.Value(24))).current;
 
   useEffect(() => {
     fetchSessions();
@@ -329,7 +384,52 @@ function HomeScreen() {
   // 채우지 않으므로 이미 있는 사용자는 NULL로 남는다(백필하지 않기로 했다).
   // 폴백을 빼면 그 사용자들에게 분모가 사라져 "0/"으로 보인다.
   // 구버전 앱 호환도 같은 이유로 여기에 걸려 있다.
-  const weekGoal = user?.weeklyGoal ?? 4;
+  const serverWeekGoal = user?.weeklyGoal ?? 4;
+
+  /**
+   * 목표 스테퍼의 낙관적 값. null 이면 서버 값을 그대로 쓴다.
+   *
+   * updateProfile 은 PATCH 가 끝난 뒤에 스토어를 갱신한다. 그대로 쓰면
+   * [+]를 눌러도 왕복이 끝날 때까지 링 분모가 안 바뀌어 "안 눌렸나?" 싶다.
+   * 그래서 화면은 여기서 즉시 바꾸고 서버는 뒤따라간다.
+   */
+  const [goalDraft, setGoalDraft] = useState<number | null>(null);
+  const goalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weekGoal = goalDraft ?? serverWeekGoal;
+
+  useEffect(() => () => { if (goalTimer.current) clearTimeout(goalTimer.current); }, []);
+
+  /**
+   * 주간 목표 조정. 1~7.
+   *
+   * PATCH 를 400ms 지연시키는 이유: [+]를 세 번 누르면 요청도 세 번 나간다.
+   * 마지막 값 하나만 보내면 된다.
+   *
+   * 실패하면 **되돌리고 알린다.** 조용히 되돌리면 사용자는 자기가 누른 게
+   * 안 먹은 건지 원래대로 돌아온 건지 구분할 수 없다. 되돌아가는 숫자를
+   * 설명 없이 보여주는 쪽이 더 혼란스럽다. 연타해도 알림은 마지막 한 번만
+   * 뜬다 — 요청 자체가 하나로 합쳐지기 때문이다.
+   */
+  const adjustWeekGoal = (delta: number) => {
+    const next = Math.max(1, Math.min(7, weekGoal + delta));
+    if (next === weekGoal) return;
+    setGoalDraft(next);
+    if (goalTimer.current) clearTimeout(goalTimer.current);
+    goalTimer.current = setTimeout(() => {
+      updateProfile({ weeklyGoal: next })
+        .then(() => setGoalDraft(null)) // 서버 값이 따라잡았으므로 draft 를 놓는다
+        .catch(() => {
+          setGoalDraft(null); // 서버 값으로 되돌아간다
+          showCuteAlert({
+            icon: "alert",
+            tone: "danger",
+            title: "목표를 저장하지 못했어요",
+            message: "잠시 후 다시 시도해 주세요.",
+            buttons: [{ label: "확인", style: "primary" }],
+          });
+        });
+    }, 400);
+  };
 
   const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
     const { start, end } = getWeekRange(selectedDate);
@@ -379,29 +479,73 @@ function HomeScreen() {
   }, [sessions, selectedDate]);
 
   // ── 최근 기록 (완료 세션, 필터 적용) ──
+  /**
+   * 선택한 주의 기록. **홈의 나머지 전부와 같은 주를 가리킨다.**
+   *
+   * 전에는 이것만 `sessions` 전체를 정렬해 6개를 잘랐다. 헤더·주간 스트립·
+   * 요약은 `selectedDate`의 주를 따르는데 이 섹션만 전역이라, 지난 주로
+   * 넘겨도 목록이 그대로였다 — 같은 화면이 두 개의 주를 동시에 말했다.
+   *
+   * slice(0, 6)은 유지한다. 한 주에 7개를 넘기는 경우가 드물어 사실상
+   * 전부 보이지만, 하루에 여러 번 기록하는 사용자에게 상한은 남겨 둔다.
+   */
   const recentSessions = useMemo(() => {
-    const completed = sessions
+    const { start, end } = getWeekRange(selectedDate);
+    return sessions
       .filter((s) => !activeSession || s.id !== activeSession.id)
-      .sort((a, b) => b.date.localeCompare(a.date));
-    const filtered = filter === '전체'
-      ? completed
-      : completed.filter((s) => s.exercises.some((e) => e.category === filter));
-    return filtered.slice(0, 6);
-  }, [sessions, activeSession, filter]);
-  const recentTotal = useMemo(
-    () => sessions.filter((s) => !activeSession || s.id !== activeSession.id).length,
-    [sessions, activeSession]
-  );
+      .filter((s) => {
+        const d = new Date(s.date + "T00:00:00");
+        return d >= start && d <= end;
+      })
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 6);
+  }, [sessions, activeSession, selectedDate]);
+
+  /**
+   * 운동 탭의 히스토리로 보낸다. 기록 캘린더(full-calendar)가 쓰는 것과
+   * 같은 방식이다 — `historyJumpDate`를 세우면 workout.tsx의 effect가
+   * 히스토리 세그먼트로 전환하고 그 날짜를 선택한다.
+   *
+   * 날짜가 없으면(섹션 헤더의 "기록 전체") 그 주의 가장 최근 기록으로
+   * 보낸다. 기록이 없으면 선택한 날짜로 — 히스토리가 그 주를 보여준다.
+   */
+  const goToHistory = (date?: string) => {
+    setHistoryJumpDate(date ?? recentSessions[0]?.date ?? selectedDate);
+    router.push("/(tabs)/workout");
+  };
 
   const weekMuscleSet = new Set(weekMuscles);
-  const majorHit = MAJOR_MUSCLES.filter((m) => weekMuscleSet.has(m)).length;
-  const missingMajor = MAJOR_MUSCLES.find(m => !weekMuscleSet.has(m));
+
+  /**
+   * 히어로 칩의 원본 데이터. **칩·카운트·힌트가 전부 이 배열 하나에서 나온다.**
+   * 셋을 따로 계산하면 "칩은 켜져 있는데 힌트는 그 부위가 빠졌다고 말하는"
+   * 모순이 생긴다.
+   */
+  const majorChips = MAJOR_MUSCLES.map((m) => ({
+    slug: m,
+    label: MAJOR_MUSCLE_LABELS[m] ?? m,
+    on: weekMuscleSet.has(m),
+  }));
+  const majorHit = majorChips.filter((ch) => ch.on).length;
+  const firstMissing = majorChips.find((ch) => !ch.on);
+
+  /** 선택 주의 총 볼륨. 카드의 fmtVol(getTotalVolume) 과 같은 단위다. */
+  const weekVolume = useMemo(() => {
+    const { start, end } = getWeekRange(selectedDate);
+    return sessions
+      .filter((s) => {
+        const d = new Date(s.date + "T00:00:00");
+        return d >= start && d <= end;
+      })
+      .reduce((sum, s) => sum + getTotalVolume(s), 0);
+  }, [sessions, selectedDate, getTotalVolume]);
+  // 힌트는 majorChips 에서 파생한다 — 칩과 같은 라벨, 같은 on/off 를 본다.
   const muscleHint = weekMuscles.length === 0
     ? (isCurrentWeek ? "이번 주 첫 운동을 기록해보세요" : "기록이 없어요")
-    : missingMajor
+    : firstMissing
       ? (isCurrentWeek
-          ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
-          : `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 빠졌어요`)
+          ? `${firstMissing.label}${eunNeun(firstMissing.label)} 이번 주 아직이에요!`
+          : `${firstMissing.label}${eunNeun(firstMissing.label)} 빠졌어요`)
       : "전신 골고루 자극했어요!";
 
   // 주 단위 뷰이므로 라벨도 주 단위로 말한다. "8월 3째주".
@@ -433,6 +577,9 @@ function HomeScreen() {
     const n = Math.floor((sun.getDate() - firstSundayDate) / 7) + 1;
     return `${m + 1}월 ${n}째주`;
   })();
+
+  /** "이번 주 기록" / "8월 4째주 기록" — 헤더가 이미 주를 말하므로 접두어를 중복하지 않는다. */
+  const recordSectionTitle = `${isCurrentWeek ? "이번 주" : weekRangeTitle} 기록`;
 
   const startWorkout = () => {
     if (!activeSession) startSession();
@@ -478,7 +625,21 @@ function HomeScreen() {
             조명에 따라 하루에도 여러 번 쓰는 기능이라 설정 탭까지 두 단계를
             거치게 하지 않는다. 설정 탭에도 같은 항목이 있지만 themeStore
             하나를 보므로 상태가 어긋나지 않는다. */}
-        <ThemeToggle size={38} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
+              routine-manage.tsx로 가는 유일한 홈 화면 진입점이다.
+              (알약에서 헤더 아이콘으로 옮겼다 — 요구는 "홈에 진입점을 남길 것"이고
+               자리는 본문이 아니어도 된다. 본문 알약 52pt를 회수했다.)
+              activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을
+              편집할 수 있어야 한다. (운동 시작 FAB만 activeSession일 때 숨는다) */}
+          <IconButton
+            accessibilityLabel="루틴 관리 열기"
+            onPress={() => router.push("/modal/routine-manage" as any)}
+            style={{ width: 38, height: 38 }}>
+            <Icon name="list" size={20} color={c.textSecondary} />
+          </IconButton>
+          <ThemeToggle size={38} />
+        </View>
       </View>
 
       {/* ── 주간 스트립 (일~토, 완료도 링). 좌우 스와이프로 주 이동 ── */}
@@ -587,65 +748,158 @@ function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
-        {/* ── 요약 알약 + 필터 칩 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], gap: 12 }}>
-          <TouchableOpacity
-            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
-            onPress={() => router.push("/(tabs)/stats")}
-            accessibilityRole="button"
-            accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 목표 ${weekGoal}일. 통계 보기`}
-            activeOpacity={0.7}>
-            <FlameIcon size={18} />
-            {/* body-strong 14/800 */}
-            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>{weekPrefix}운동</Text>
-            {/* numeric 15/800 */}
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.primary, fontVariant: ["tabular-nums"] }}>{doneDays}/{weekGoal}</Text>
-            <Icon name="chevronRight" size={16} color={c.textMuted} />
-          </TouchableOpacity>
+        {/* ── 주간 히어로: 완료도 링 + KPI + 자극 부위 ──
+            0/4(일수·사용자 목표)와 0/6(부위수·고정 상수)이 같은 "N/M" 형식이라
+            같은 종류로 읽히던 것을 한 카드로 합치고 단위 라벨로 구분한다.
+            링은 "일 운동", 아래 블록은 "자극한 부위"다.
 
-          {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
-              routine-manage.tsx로 가는 유일한 홈 화면 진입점.
-              activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을 편집할 수 있어야 한다.
-              (운동 시작 FAB만 activeSession일 때 숨는다) */}
-          <TouchableOpacity
-            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
-            onPress={() => router.push("/modal/routine-manage" as any)}
-            accessibilityRole="button"
-            accessibilityLabel="루틴 관리 열기"
-            activeOpacity={0.7}>
-            <Icon name="list" size={18} color={c.textSecondary} />
-            {/* body-strong 14/800 — 위 요약 카드와 같은 폼팩터 */}
-            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>루틴 관리</Text>
-            <Icon name="chevronRight" size={16} color={c.textMuted} />
-          </TouchableOpacity>
+            히어로는 현황판이라 단일 탭 목적지를 두지 않는다. 기존 요약 알약은
+            /(tabs)/stats로 갔으나 그 화면에 "목표" 개념이 없어 목적지가
+            어긋나 있었다. 카드가 링·KPI·칩 세 종류를 담고 있어 "누르면 어디로
+            가는가"가 하나로 정해지지도 않는다. 조작은 목표 조정 하나로 모은다. */}
+        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 16 }, CARD_EDGE, SHADOW_SM]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              {/* 완료도 링 */}
+              <View
+                style={{ width: HERO_RING, height: HERO_RING, flexShrink: 0 }}
+                accessibilityRole="image"
+                accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 주간 목표 ${weekGoal}일`}>
+                <Svg width={HERO_RING} height={HERO_RING} style={{ position: "absolute" }}>
+                  <Circle
+                    cx={HERO_RING / 2} cy={HERO_RING / 2} r={HERO_R}
+                    fill="none" stroke={c.surfaceHigh} strokeWidth={HERO_STROKE}
+                  />
+                  <Circle
+                    cx={HERO_RING / 2} cy={HERO_RING / 2} r={HERO_R}
+                    fill="none" stroke={c.primary} strokeWidth={HERO_STROKE}
+                    strokeLinecap="round"
+                    strokeDasharray={HERO_CIRC}
+                    strokeDashoffset={HERO_CIRC * (1 - Math.min(1, weekGoal > 0 ? doneDays / weekGoal : 0))}
+                    transform={`rotate(-90 ${HERO_RING / 2} ${HERO_RING / 2})`}
+                  />
+                </Svg>
+                <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                    {/* 색을 반드시 명시한다 — 빠뜨리면 상속색으로 떨어져 라이트에서 거의 안 보인다. */}
+                    <Text style={{ fontSize: 26, fontWeight: "900", color: c.primary, letterSpacing: -1, fontVariant: ["tabular-nums"] }}>
+                      {doneDays}
+                    </Text>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>
+                      /{weekGoal}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 10.5, fontWeight: "700", color: c.textSecondary, marginTop: 3 }}>일 운동</Text>
+                </View>
+              </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
-            {['전체', ...FILTER_CATEGORIES].map((cat) => {
-              const on = filter === cat;
-              const label = cat === '전체' ? `전체 ${recentTotal}` : cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  onPress={() => setFilter(cat)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${cat} 필터`}
+              {/* KPI 2줄 */}
+              <View style={{ flex: 1, gap: 9 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Icon name="dumbbell" size={15} color={c.primary} />
+                  <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>주간 볼륨</Text>
+                  {/* numeric 15/800 */}
+                  <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                    {fmtVol(weekVolume)}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Icon name="trophy" size={15} color={c.tagSun} />
+                  <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>주간 PR</Text>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                      {prEntry ? 1 : 0}
+                    </Text>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary }}>개</Text>
+                  </View>
+                </View>
+
+                {/* 주간 목표 스테퍼 — 링 분모를 바로 옆에서 조정한다.
+                    항상 보인다. 롱프레스로 숨기면 발견 가능성 힌트 한 줄이
+                    필요한데 그 높이가 스테퍼 자체와 별 차이가 없다. 게다가
+                    KPI 스택(20+9+20+9+32=90)이 링 96 보다 작아 **카드 높이가
+                    늘지 않는다** — 지금까지 링 옆 47pt 가 비어 있었다.
+
+                    이 자리 말고 목표를 바꾸는 길은 설정 탭 → 프로필 →
+                    주간 목표 3홉뿐이라, 사실상 유일한 실용 경로다. */}
+                <View
                   style={{
-                    minHeight: 44,
-                    justifyContent: "center",
-                    paddingHorizontal: 16,
-                    borderRadius: 999,
-                    backgroundColor: on ? c.textPrimary : c.surface,
-                    borderWidth: 1,
-                    borderColor: on ? c.textPrimary : c.border,
+                    flexDirection: "row", alignItems: "center", gap: 7,
+                    borderWidth: 1, borderStyle: "dashed", borderColor: c.border,
+                    borderRadius: 11, paddingHorizontal: 8, height: 32,
                   }}>
-                  {/* caption 12/600 */}
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: on ? c.background : c.textSecondary, letterSpacing: -0.2 }}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                  <Text style={{ flex: 1, fontSize: 11.5, fontWeight: "700", color: c.textSecondary }}>주간 목표</Text>
+                  <GoalStep
+                    dir={-1}
+                    disabled={weekGoal <= 1}
+                    onPress={() => adjustWeekGoal(-1)}
+                    c={c}
+                  />
+                  <View style={{ flexDirection: "row", alignItems: "baseline", minWidth: 26, justifyContent: "center" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{weekGoal}</Text>
+                    <Text style={{ fontSize: 10.5, fontWeight: "600", color: c.textSecondary }}>일</Text>
+                  </View>
+                  <GoalStep
+                    dir={1}
+                    disabled={weekGoal >= 7}
+                    onPress={() => adjustWeekGoal(1)}
+                    c={c}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* 자극 부위 블록 */}
+            <View style={{ marginTop: 14, paddingTop: 13, borderTopWidth: 1, borderTopColor: c.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: "700", color: c.textSecondary }}>자극한 부위</Text>
+                {/* numeric — 링의 "N/M"과 형식은 같지만 라벨이 단위를 갈라 준다 */}
+                <Text style={{ fontSize: 12.5, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                  {majorHit}
+                  <Text style={{ color: c.textSecondary }}>/{majorChips.length}</Text>
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {majorChips.map((ch) => (
+                  <View
+                    key={ch.slug}
+                    accessibilityLabel={`${ch.label} ${ch.on ? "자극함" : "아직"}`}
+                    style={{
+                      flexDirection: "row", alignItems: "center", gap: 4,
+                      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+                      // 자극됨 배경은 primary 를 카드 위에 12%로 얹는다. 하드코딩 대신
+                      // 토큰에서 파생시켜 두 테마가 자동으로 갈린다.
+                      backgroundColor: ch.on ? c.primary + "1F" : c.surfaceAlt,
+                    }}>
+                    {ch.on && <Icon name="check" size={11} color={c.primary} />}
+                    {/* micro 11.5/700.
+                        회귀 방지: 자극됨 칩의 **글자색으로 c.primary 를 쓰지 말 것.**
+                        11.5px는 WCAG large-text(18.66 bold)가 아니라 4.5:1이 필요한데
+                        primary on 이 배경은 라이트 3.56 / 다크 3.51로 미달이다.
+                        DESIGN.md의 "의미색은 아이콘·배경 같은 비텍스트에 싣는다"를
+                        그대로 따른다 — 색은 배경과 check 아이콘이 지고 글자는
+                        text-primary(라이트 14.03 / 다크 10.53)로 둔다.
+                        미자극 칩에 c.textMuted 도 금지다(라이트 2.17). */}
+                    <Text style={{ fontSize: 11.5, fontWeight: "700", color: ch.on ? c.textPrimary : c.textSecondary }}>
+                      {ch.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              {/* 힌트 — majorChips 에서 파생되므로 칩과 어긋날 수 없다.
+                  색만으로 전달 금지: 상태를 아이콘 + 텍스트로 함께 표시한다. */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+                <Icon
+                  name={weekMuscles.length === 0 ? "dumbbell" : firstMissing ? "target" : "check"}
+                  size={13}
+                  color={weekMuscles.length === 0 ? c.textMuted : firstMissing ? c.warning : c.success}
+                />
+                {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
+                    라이트에서 warning/success는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>{muscleHint}</Text>
+              </View>
+            </View>
+          </View>
         </Animated.View>
 
         {/* ── 최근 기록 (상단 색 워시 카드 그리드) ── */}
@@ -654,18 +908,21 @@ function HomeScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="trophy" size={17} color={c.tagSun} />
             {/* title 17/800 */}
-            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>최근 기록</Text>
+            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>{recordSectionTitle}</Text>
             {/* numeric 15/800 */}
             <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{recentSessions.length}</Text>
             <View style={{ flex: 1 }} />
+            {/* 목적지 정정: 통계 탭이 아니라 **운동 탭 히스토리**다.
+                통계에는 개별 기록 목록이 없다 — 차트와 합계뿐이라 "기록을 더
+                보려던" 사용자가 도착할 곳이 아니었다. */}
             <TouchableOpacity
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="운동 기록 전체 보기"
               style={{ flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 }}
-              onPress={() => router.push("/(tabs)/stats")}>
+              onPress={() => goToHistory()}>
               {/* micro 11/700 */}
-              <Text style={{ fontSize: 11, fontWeight: "700", color: c.primary }}>전체 보기</Text>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: c.primary }}>기록 전체</Text>
               <Icon name="chevronRight" size={12} color={c.primary} />
             </TouchableOpacity>
           </View>
@@ -682,7 +939,16 @@ function HomeScreen() {
                 const isPR = !!prSessionDate && s.date === prSessionDate;
                 const badge = isPR ? "PR" : `${s.exercises.length}종목`;
                 return (
-                  <View key={s.id} style={[{ width: "48%", backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, CARD_EDGE, SHADOW_SM]}>
+                  /* 카드를 탭하면 그 날짜의 히스토리로 간다. 전에는 탭이
+                     안 먹어서, 기록을 눌러 자세히 보려는 시도가 아무 반응이
+                     없었다. 기록 캘린더와 같은 진입 방식을 쓴다. */
+                  <TouchableOpacity
+                    key={s.id}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${formatDate(s.date)} 기록 보기, ${s.exercises.length}종목`}
+                    onPress={() => goToHistory(s.date)}
+                    style={[{ width: "48%", backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, CARD_EDGE, SHADOW_SM]}>
                     {/* 상단 색 워시 밴드 — 카테고리 식별용 색 면.
                         본문 텍스트는 올리지 않는다: 워시는 채도가 제각각이라 흰색·먹색 어느 쪽으로도
                         4.5:1을 보장할 수 없다(등/라이트 #1E7AEA가 최대 4.42). 텍스트는 전부 아래 L2 블록으로 내렸다. */}
@@ -714,7 +980,7 @@ function HomeScreen() {
                         </View>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -723,37 +989,10 @@ function HomeScreen() {
               <Icon name="dumbbell" size={32} color={c.textMuted} />
               {/* caption 12/600 */}
               <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary, marginTop: 12 }}>
-                {filter === '전체' ? "아직 운동 기록이 없어요" : `${filter} 운동 기록이 없어요`}
+                {isCurrentWeek ? "이번 주 기록이 없어요" : `${weekRangeTitle} 기록이 없어요`}
               </Text>
             </View>
           )}
-        </Animated.View>
-
-        {/* ── 이번 주 자극 부위 (MuscleMap 재사용) ── */}
-        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
-            <Icon name="dumbbell" size={17} color={c.primary} />
-            {/* title 17/800 */}
-            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>{weekPrefix}자극 부위</Text>
-            {/* numeric 15/800 */}
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{majorHit}/{MAJOR_MUSCLES.length}</Text>
-          </View>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 16, overflow: 'visible' }, CARD_EDGE, SHADOW_SM]}>
-            <MuscleMap muscles={weekMuscles} scale={0.55} />
-            {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다 */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border }}>
-              <Icon
-                name={weekMuscles.length === 0 ? "dumbbell" : missingMajor ? "target" : "check"}
-                size={13}
-                color={weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success}
-              />
-              {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
-                  라이트 테마에서 warning/success는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSecondary }}>
-                {muscleHint}
-              </Text>
-            </View>
-          </View>
         </Animated.View>
 
       </ScrollView>
