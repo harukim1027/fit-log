@@ -20,7 +20,7 @@ import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { localDateStr, getWeekRange } from "../../utils/date";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
-import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
+import { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
 import { eunNeun } from "../../utils/korean";
@@ -138,8 +138,10 @@ function HomeScreen() {
   // 스와이프로 온 이동은 목록이 이미 그 자리에 있으므로 동기화를 건너뛴다.
   const skipSyncRef = useRef(false);
 
-  const fadeAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
-  const slideAnims = useRef([0, 1, 2].map(() => new Animated.Value(24))).current;
+  // 스태거 애니메이션 슬롯: 히어로 카드 / 기록 섹션 두 개다.
+  // (자극 부위 섹션이 통계 탭으로 옮겨가면서 셋에서 둘로 줄었다.)
+  const fadeAnims = useRef([0, 1].map(() => new Animated.Value(0))).current;
+  const slideAnims = useRef([0, 1].map(() => new Animated.Value(24))).current;
 
   useEffect(() => {
     fetchSessions();
@@ -426,7 +428,6 @@ function HomeScreen() {
   }));
   const majorHit = majorChips.filter((ch) => ch.on).length;
   const firstMissing = majorChips.find((ch) => !ch.on);
-  const missingMajor = firstMissing?.slug;
 
   /** 선택 주의 총 볼륨. 카드의 fmtVol(getTotalVolume) 과 같은 단위다. */
   const weekVolume = useMemo(() => {
@@ -859,33 +860,6 @@ function HomeScreen() {
               </Text>
             </View>
           )}
-        </Animated.View>
-
-        {/* ── 이번 주 자극 부위 (MuscleMap 재사용) ── */}
-        <Animated.View style={{ opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }], overflow: 'visible' }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
-            <Icon name="dumbbell" size={17} color={c.primary} />
-            {/* title 17/800 */}
-            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>{weekPrefix}자극 부위</Text>
-            {/* numeric 15/800 */}
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{majorHit}/{MAJOR_MUSCLES.length}</Text>
-          </View>
-          <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 16, overflow: 'visible' }, CARD_EDGE, SHADOW_SM]}>
-            <MuscleMap muscles={weekMuscles} scale={0.55} />
-            {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다 */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border }}>
-              <Icon
-                name={weekMuscles.length === 0 ? "dumbbell" : missingMajor ? "target" : "check"}
-                size={13}
-                color={weekMuscles.length === 0 ? c.textMuted : missingMajor ? c.warning : c.success}
-              />
-              {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
-                  라이트 테마에서 warning/success는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
-              <Text style={{ fontSize: 12, fontWeight: '600', color: c.textSecondary }}>
-                {muscleHint}
-              </Text>
-            </View>
-          </View>
         </Animated.View>
 
       </ScrollView>
