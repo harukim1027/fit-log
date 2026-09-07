@@ -30,6 +30,21 @@ export class UsersService {
     return this.usersRepo.findOne({ where: { email } });
   }
 
+  /**
+   * 이메일 로그인 전용. **password 해시를 함께 가져오는 유일한 경로다.**
+   *
+   * User.password 는 `select: false` 라 일반 조회에 안 딸려온다. 여기서만
+   * `addSelect` 로 되살린다. 반환값을 그대로 응답에 실으면 해시가 다시
+   * 새어 나가므로, auth.service 처럼 필요한 필드만 골라 담아 내보낼 것.
+   */
+  async findByEmailForAuth(email: string): Promise<User | null> {
+    return this.usersRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.email = :email', { email })
+      .getOne();
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.usersRepo.findOne({ where: { id } });
   }
