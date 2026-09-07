@@ -28,33 +28,19 @@ import {
 } from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { localDateStr, getWeekRangeByOffset, weekDates } from "../../utils/date";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
 
-/** 로컬 기준 YYYY-MM-DD (세션 date 형식과 일치, UTC 변환으로 인한 날짜 밀림 방지) */
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
-
-/** offset주 전/후의 월~일 범위 (0=이번주, -1=지난주). 월요일 시작. */
-function getWeekRange(offset: number) {
-  const now = new Date();
-  const day = now.getDay(); // 0=일 ~ 6=토
-  const diffToMonday = day === 0 ? -6 : 1 - day; // 일요일이면 직전 월요일(-6)
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday + offset * 7);
-  monday.setHours(0, 0, 0, 0);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  return { start: monday, end: sunday };
-}
+// ymd·getWeekRange 는 utils/date.ts 로 옮겼다. 홈에도 같은 이름의 함수가 따로
+// 있었고 **주 시작 요일이 서로 달랐다**(홈 일요일 / 통계 월요일). 같은
+// "이번 주"인데 두 화면이 모든 날 다른 7일을 봤고, 일요일에는 겹치는 날이
+// 하루뿐이었다. 일요일 시작으로 통일했다 — 근거는 utils/date.ts 주석에 있다.
 
 /** 기간 라벨: "이번주 · 6/9 ~ 6/15" 형태 */
 function formatWeekRange(offset: number) {
-  const { start, end } = getWeekRange(offset);
+  const { start, end } = getWeekRangeByOffset(offset);
   const r = `${start.getMonth() + 1}/${start.getDate()} ~ ${
     end.getMonth() + 1
   }/${end.getDate()}`;
@@ -139,13 +125,12 @@ function StatsScreen() {
     if (routines.length === 0) loadRoutines();
   }, []);
 
-  // 선택된 주(월~일)의 날짜별 볼륨/소모
-  const { start: weekStart } = getWeekRange(weekOffset);
-  const weekDays = [...Array(7)].map((_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    return { dateStr: ymd(d), label: d.toLocaleDateString("ko-KR", { weekday: "short" }) };
-  });
+  // 선택된 주(일~토)의 날짜별 볼륨/소모
+  const { start: weekStart } = getWeekRangeByOffset(weekOffset);
+  const weekDays = weekDates(weekStart).map((d) => ({
+    dateStr: localDateStr(d),
+    label: d.toLocaleDateString("ko-KR", { weekday: "short" }),
+  }));
 
   const weekVolumes = weekDays.map((w) =>
     sessions
