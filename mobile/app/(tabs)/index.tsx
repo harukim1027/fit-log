@@ -117,12 +117,13 @@ const SCRIM = "rgba(0,0,0,0.5)";
 function HomeScreen() {
   const router = useRouter();
   const c = useColors();
-  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume } = useWorkoutStore(
+  const { sessions, activeSession, startSession, fetchSessions, getTotalVolume, setHistoryJumpDate } = useWorkoutStore(
     useShallow((s) => ({
       sessions: s.sessions,
       activeSession: s.activeSession,
       startSession: s.startSession,
       fetchSessions: s.fetchSessions,
+      setHistoryJumpDate: s.setHistoryJumpDate,
       getTotalVolume: s.getTotalVolume,
     }))
   );
@@ -377,12 +378,40 @@ function HomeScreen() {
   }, [sessions, selectedDate]);
 
   // ── 최근 기록 (완료 세션, 필터 적용) ──
+  /**
+   * 선택한 주의 기록. **홈의 나머지 전부와 같은 주를 가리킨다.**
+   *
+   * 전에는 이것만 `sessions` 전체를 정렬해 6개를 잘랐다. 헤더·주간 스트립·
+   * 요약은 `selectedDate`의 주를 따르는데 이 섹션만 전역이라, 지난 주로
+   * 넘겨도 목록이 그대로였다 — 같은 화면이 두 개의 주를 동시에 말했다.
+   *
+   * slice(0, 6)은 유지한다. 한 주에 7개를 넘기는 경우가 드물어 사실상
+   * 전부 보이지만, 하루에 여러 번 기록하는 사용자에게 상한은 남겨 둔다.
+   */
   const recentSessions = useMemo(() => {
+    const { start, end } = getWeekRange(selectedDate);
     return sessions
       .filter((s) => !activeSession || s.id !== activeSession.id)
+      .filter((s) => {
+        const d = new Date(s.date + "T00:00:00");
+        return d >= start && d <= end;
+      })
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 6);
-  }, [sessions, activeSession]);
+  }, [sessions, activeSession, selectedDate]);
+
+  /**
+   * 운동 탭의 히스토리로 보낸다. 기록 캘린더(full-calendar)가 쓰는 것과
+   * 같은 방식이다 — `historyJumpDate`를 세우면 workout.tsx의 effect가
+   * 히스토리 세그먼트로 전환하고 그 날짜를 선택한다.
+   *
+   * 날짜가 없으면(섹션 헤더의 "기록 전체") 그 주의 가장 최근 기록으로
+   * 보낸다. 기록이 없으면 선택한 날짜로 — 히스토리가 그 주를 보여준다.
+   */
+  const goToHistory = (date?: string) => {
+    setHistoryJumpDate(date ?? recentSessions[0]?.date ?? selectedDate);
+    router.push("/(tabs)/workout");
+  };
 
   const weekMuscleSet = new Set(weekMuscles);
   const majorHit = MAJOR_MUSCLES.filter((m) => weekMuscleSet.has(m)).length;
@@ -424,6 +453,9 @@ function HomeScreen() {
     const n = Math.floor((sun.getDate() - firstSundayDate) / 7) + 1;
     return `${m + 1}월 ${n}째주`;
   })();
+
+  /** "이번 주 기록" / "8월 4째주 기록" — 헤더가 이미 주를 말하므로 접두어를 중복하지 않는다. */
+  const recordSectionTitle = `${isCurrentWeek ? "이번 주" : weekRangeTitle} 기록`;
 
   const startWorkout = () => {
     if (!activeSession) startSession();
@@ -616,18 +648,21 @@ function HomeScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="trophy" size={17} color={c.tagSun} />
             {/* title 17/800 */}
-            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>최근 기록</Text>
+            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>{recordSectionTitle}</Text>
             {/* numeric 15/800 */}
             <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{recentSessions.length}</Text>
             <View style={{ flex: 1 }} />
+            {/* 목적지 정정: 통계 탭이 아니라 **운동 탭 히스토리**다.
+                통계에는 개별 기록 목록이 없다 — 차트와 합계뿐이라 "기록을 더
+                보려던" 사용자가 도착할 곳이 아니었다. */}
             <TouchableOpacity
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="운동 기록 전체 보기"
               style={{ flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 }}
-              onPress={() => router.push("/(tabs)/stats")}>
+              onPress={() => goToHistory()}>
               {/* micro 11/700 */}
-              <Text style={{ fontSize: 11, fontWeight: "700", color: c.primary }}>전체 보기</Text>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: c.primary }}>기록 전체</Text>
               <Icon name="chevronRight" size={12} color={c.primary} />
             </TouchableOpacity>
           </View>
@@ -644,7 +679,16 @@ function HomeScreen() {
                 const isPR = !!prSessionDate && s.date === prSessionDate;
                 const badge = isPR ? "PR" : `${s.exercises.length}종목`;
                 return (
-                  <View key={s.id} style={[{ width: "48%", backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, CARD_EDGE, SHADOW_SM]}>
+                  /* 카드를 탭하면 그 날짜의 히스토리로 간다. 전에는 탭이
+                     안 먹어서, 기록을 눌러 자세히 보려는 시도가 아무 반응이
+                     없었다. 기록 캘린더와 같은 진입 방식을 쓴다. */
+                  <TouchableOpacity
+                    key={s.id}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${formatDate(s.date)} 기록 보기, ${s.exercises.length}종목`}
+                    onPress={() => goToHistory(s.date)}
+                    style={[{ width: "48%", backgroundColor: c.surface, borderRadius: 16, overflow: "hidden" }, CARD_EDGE, SHADOW_SM]}>
                     {/* 상단 색 워시 밴드 — 카테고리 식별용 색 면.
                         본문 텍스트는 올리지 않는다: 워시는 채도가 제각각이라 흰색·먹색 어느 쪽으로도
                         4.5:1을 보장할 수 없다(등/라이트 #1E7AEA가 최대 4.42). 텍스트는 전부 아래 L2 블록으로 내렸다. */}
@@ -676,7 +720,7 @@ function HomeScreen() {
                         </View>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -685,7 +729,7 @@ function HomeScreen() {
               <Icon name="dumbbell" size={32} color={c.textMuted} />
               {/* caption 12/600 */}
               <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary, marginTop: 12 }}>
-                아직 운동 기록이 없어요
+                {isCurrentWeek ? "이번 주 기록이 없어요" : `${weekRangeTitle} 기록이 없어요`}
               </Text>
             </View>
           )}
