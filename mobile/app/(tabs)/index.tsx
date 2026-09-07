@@ -397,9 +397,11 @@ function HomeScreen() {
   const majorHit = MAJOR_MUSCLES.filter((m) => weekMuscleSet.has(m)).length;
   const missingMajor = MAJOR_MUSCLES.find(m => !weekMuscleSet.has(m));
   const muscleHint = weekMuscles.length === 0
-    ? "이번 주 첫 운동을 기록해보세요"
+    ? (isCurrentWeek ? "이번 주 첫 운동을 기록해보세요" : "기록이 없어요")
     : missingMajor
-      ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
+      ? (isCurrentWeek
+          ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
+          : `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 빠졌어요`)
       : "전신 골고루 자극했어요!";
 
   // 주 단위 뷰이므로 라벨도 주 단위로 말한다. "8월 3째주".
@@ -411,6 +413,18 @@ function HomeScreen() {
   //
   // (대안이던 "1일이 속한 주 = 1째주"는 2026년 8월처럼 1일이 토요일이면
   //  7/26~8/1을 8월 1째주로 잡아 한 주씩 밀린다.)
+  /**
+   * 주간 지표 라벨의 접두어.
+   *
+   * 지난주를 보고 있는데 "이번 주 운동"이라고 쓰면 틀린 말이 된다. 그렇다고
+   * "8월 5째주 운동"으로 바꾸면 **바로 위 헤더가 이미 "8월 5째주"를 크게
+   * 띄우고 있어** 같은 말을 두 번 하게 된다.
+   *
+   * 그래서 이번 주일 때만 "이번 주"를 붙이고, 다른 주에서는 뗀다. 헤더가
+   * 문맥을 주므로 접두어 없는 "운동"·"자극 부위"가 그 주의 것으로 읽힌다.
+   */
+  const weekPrefix = isCurrentWeek ? "이번 주 " : "";
+
   const weekRangeTitle = (() => {
     const sun = getWeekRange(selectedDate).start;
     const y = sun.getFullYear(), m = sun.getMonth();
@@ -579,11 +593,11 @@ function HomeScreen() {
             style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
             onPress={() => router.push("/(tabs)/stats")}
             accessibilityRole="button"
-            accessibilityLabel={`이번 주 운동 ${doneDays}일, 목표 ${weekGoal}일. 통계 보기`}
+            accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 목표 ${weekGoal}일. 통계 보기`}
             activeOpacity={0.7}>
             <FlameIcon size={18} />
             {/* body-strong 14/800 */}
-            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>이번 주 운동</Text>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>{weekPrefix}운동</Text>
             {/* numeric 15/800 */}
             <Text style={{ fontSize: 15, fontWeight: "800", color: c.primary, fontVariant: ["tabular-nums"] }}>{doneDays}/{weekGoal}</Text>
             <Icon name="chevronRight" size={16} color={c.textMuted} />
@@ -720,7 +734,7 @@ function HomeScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 12 }}>
             <Icon name="dumbbell" size={17} color={c.primary} />
             {/* title 17/800 */}
-            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>이번 주 자극 부위</Text>
+            <Text style={{ fontSize: 17, fontWeight: "800", color: c.textPrimary, letterSpacing: -0.4 }}>{weekPrefix}자극 부위</Text>
             {/* numeric 15/800 */}
             <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>{majorHit}/{MAJOR_MUSCLES.length}</Text>
           </View>
