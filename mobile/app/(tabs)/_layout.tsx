@@ -6,12 +6,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "../../components/AppIcons";
 import { ActiveWorkoutBar } from "../../components/workout/ActiveWorkoutBar";
 
-type TabIconName = "home" | "dumbbell" | "chart";
+type TabIconName = "home" | "dumbbell" | "chart" | "settings";
 
+// 설정은 마지막이다. 앱 관례이기도 하고, 사용 빈도도 앞의 셋보다 낮다.
+// 375pt 기준 탭 폭이 125 → 93.75로 줄지만 아이콘 22 + 라벨 2글자(약 22pt)라
+// 여유가 있다. 선택 표시(색상 + 굵기 + scale)는 개수와 무관하게 그대로다.
 const TABS: { name: string; title: string; icon: TabIconName }[] = [
-  { name: "index",   title: "홈",  icon: "home" },
-  { name: "workout", title: "운동", icon: "dumbbell" },
-  { name: "stats",   title: "통계", icon: "chart" },
+  { name: "index",    title: "홈",  icon: "home" },
+  { name: "workout",  title: "운동", icon: "dumbbell" },
+  { name: "stats",    title: "통계", icon: "chart" },
+  { name: "settings", title: "설정", icon: "settings" },
 ];
 
 function AnimatedTabIcon({ icon, focused }: { icon: TabIconName; focused: boolean }) {

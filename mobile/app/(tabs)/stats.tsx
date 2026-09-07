@@ -6,9 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { Card, ThemeToggle } from "../../components/ui";
-import { Header, IconButton } from "../../design-system";
+import { Card } from "../../components/ui";
+import { Header } from "../../design-system";
 import {
   Icon,
   SaladIcon,
@@ -28,7 +27,6 @@ import {
   BarDatum,
 } from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
-import { showCuteAlert } from "../../components/CuteAlert";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
@@ -112,7 +110,6 @@ function makeChartConfig(c: ThemeColors) {
  * @returns The statistics screen UI.
  */
 function StatsScreen() {
-  const router = useRouter();
   const c = useColors();
   const isDark = useThemeStore((s) => s.mode) === "dark";
   const { sessions, fetchSessions } = useWorkoutStore(
@@ -124,41 +121,9 @@ function StatsScreen() {
   const { routines, loadRoutines } = useRoutineStore(
     useShallow((s) => ({ routines: s.routines, loadRoutines: s.loadRoutines }))
   );
-  const { user, logout } = useAuthStore(
-    useShallow((s) => ({ user: s.user, logout: s.logout }))
+  const { user } = useAuthStore(
+    useShallow((s) => ({ user: s.user }))
   );
-
-  // 로그아웃: 확인 다이얼로그 → 토큰/state 정리 → 로그인 화면으로 replace.
-  // (AuthGate 타이밍에만 의존하지 않고 명시적으로 이동 + 실패 시 에러 노출)
-  const handleLogout = () => {
-    showCuteAlert({
-      icon: "alert",
-      tone: "danger",
-      title: "로그아웃",
-      message: "정말 로그아웃 하시겠어요?",
-      buttons: [
-        { label: "취소", style: "soft" },
-        {
-          label: "로그아웃",
-          style: "primary",
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace("/auth/login" as any);
-            } catch {
-              showCuteAlert({
-                icon: "alert",
-                tone: "danger",
-                title: "오류",
-                message: "로그아웃에 실패했어요. 다시 시도해 주세요.",
-                buttons: [{ label: "확인", style: "primary" }],
-              });
-            }
-          },
-        },
-      ],
-    });
-  };
 
   const [selectedExercise, setSelectedExercise] = React.useState<string | null>(
     null
@@ -298,28 +263,11 @@ function StatsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header
-        title="통계"
-        subtitle={user?.name ?? undefined}
-        rightElement={
-          <View className="flex-row items-center gap-1">
-            <ThemeToggle size={36} />
-            {/* 박스 31.33 → 44. w-9은 36이 아니라 31.5다(NativeWind rem 14).
-                hitSlop 4를 더해도 39.33이라 애초에 44에 못 미쳤다.
-                rounded-xl은 뺀다 — plain은 배경이 없어 radius가 보이지 않는다. */}
-            <IconButton
-              accessibilityLabel="프로필 편집"
-              onPress={() => router.push("/modal/edit-profile" as any)}>
-              <Icon name="person" size={22} color={c.success} />
-            </IconButton>
-            <IconButton
-              accessibilityLabel="로그아웃"
-              onPress={handleLogout}>
-              <Icon name="logout" size={22} color={c.danger} />
-            </IconButton>
-          </View>
-        }
-      />
+      {/* rightElement 를 두지 않는다. 테마·프로필·로그아웃 셋은 설정 탭으로
+          옮겼다. 통계는 보는 화면인데 헤더에 설정 진입점 세 개가 있었다.
+          Header 가 좌우 슬롯 폭을 고정하므로 제거해도 레이아웃은 깨지지 않고
+          제목 슬롯만 넓어진다. */}
+      <Header title="통계" subtitle={user?.name ?? undefined} />
       <ScrollView
         /* 좌우 여백은 여기 한 번만(space.16). 카드 사이는 부모 gap(space.12)이 만든다 */
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, gap: 12 }}

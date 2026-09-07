@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { useWorkoutStore } from "../../store/workoutStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
-import { Icon, FaceAvatar, FlameIcon } from "../../components/AppIcons";
+import { Icon, FlameIcon } from "../../components/AppIcons";
 import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
@@ -477,16 +477,11 @@ function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <ThemeToggle size={38} />
-          <TouchableOpacity activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="프로필 편집"
-            style={[{ width: 46, height: 46, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" }, SHADOW_SM]}
-            onPress={() => router.push("/modal/edit-profile" as any)}>
-            <FaceAvatar size={28} color={c.onAccent} />
-          </TouchableOpacity>
-        </View>
+        {/* 프로필 아바타는 설정 탭으로 옮겼다. 테마 토글만 남긴다 —
+            조명에 따라 하루에도 여러 번 쓰는 기능이라 설정 탭까지 두 단계를
+            거치게 하지 않는다. 설정 탭에도 같은 항목이 있지만 themeStore
+            하나를 보므로 상태가 어긋나지 않는다. */}
+        <ThemeToggle size={38} />
       </View>
 
       {/* ── 주간 스트립 (일~토, 완료도 링). 좌우 스와이프로 주 이동 ── */}
