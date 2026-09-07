@@ -26,7 +26,10 @@ export class WorkoutSession {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => User, user => user.workoutSessions)
+  // onDelete: 'CASCADE' — 계정 탈퇴 시 세션이 함께 지워진다.
+  // 없으면 users 행 삭제가 FK 위반으로 실패한다.
+  // workout_exercises·workout_sets 는 이미 CASCADE 라 여기서부터 연쇄된다.
+  @ManyToOne(() => User, user => user.workoutSessions, { onDelete: 'CASCADE' })
   user: User;
 
   @OneToMany(() => WorkoutExercise, exercise => exercise.session, { cascade: true })
