@@ -150,6 +150,8 @@ export const buildSetsFromRoutineExercise = (
 
 interface WorkoutStore {
   sessions: WorkoutSession[];
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   activeSession: WorkoutSession | null;
   sessionStartTime: number | null;
   isLoading: boolean;
@@ -714,4 +716,11 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
       return null;
     }
   },
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({
+    sessions: [], activeSession: null, sessionStartTime: null,
+    isLoading: false, loadError: null, historyJumpDate: null,
+    exerciseHistoryCache: new Map(), workoutElapsed: 0, workoutPaused: false,
+  }),
 }));

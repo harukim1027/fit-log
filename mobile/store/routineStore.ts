@@ -78,6 +78,8 @@ export const getNextRoutineColor = (existing: Routine[]): string => {
 
 interface RoutineStore {
   routines: Routine[];
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   publicRoutines: Routine[];
   /** 최초 로드 완료 여부 — 중복 로드 방지에 사용 */
   loaded: boolean;
@@ -301,4 +303,7 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
       await persist(next);
     }
   },
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({ routines: [], publicRoutines: [], loaded: false }),
 }));

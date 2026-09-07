@@ -19,6 +19,14 @@ import { API_URL } from '../constants/api';
 import apiClient from '../lib/apiClient';
 import { secureStorage } from '../lib/secureStorage';
 import { useDietStore } from './dietStore';
+import { clearAccountCache } from '../lib/accountCache';
+import { useWorkoutStore } from './workoutStore';
+import { useRoutineStore } from './routineStore';
+import { useRestDayStore } from './restDayStore';
+import { useFavoriteStore } from './favoriteStore';
+import { useWaterStore } from './waterStore';
+import { useExerciseStore } from './exerciseStore';
+import { useHealthStore } from './healthStore';
 
 export interface User {
   id: string;
@@ -54,6 +62,33 @@ interface AuthStore {
 /** AsyncStorage에 유저 정보 캐시 — 다음 앱 실행 시 즉시 사용 */
 const saveUser = async (user: User) => {
   await AsyncStorage.setItem('user', JSON.stringify(user));
+};
+
+/**
+ * 계정을 떠날 때 하는 정리. **로그아웃과 탈퇴가 같은 경로를 쓴다.**
+ *
+ * 두 가지를 같이 해야 한다.
+ *   1) AsyncStorage 캐시 — 안 지우면 다른 계정으로 로그인한 뒤 서버 요청이
+ *      실패했을 때 오프라인 폴백이 이전 사용자의 데이터를 읽는다.
+ *   2) zustand 메모리 — 안 지우면 로그아웃 직후 화면에 이전 데이터가 그대로
+ *      남는다. 캐시만 지우고 메모리를 두면 눈에 보이는 쪽이 안 고쳐진다.
+ *
+ * 기기 설정(테마·무게 단위·부위 선택기·휴식 알림)은 건드리지 않는다.
+ * 사람이 아니라 이 기기에 속한 값이다.
+ *
+ * 새 계정 스토어가 생기면 여기 reset()을 추가하고, 새 캐시 키가 생기면
+ * lib/accountCache.ts 의 목록에 등록할 것.
+ */
+const clearAccountState = async () => {
+  await clearAccountCache();
+  useWorkoutStore.getState().reset();
+  useRoutineStore.getState().reset();
+  useDietStore.getState().reset();
+  useRestDayStore.getState().reset();
+  useFavoriteStore.getState().reset();
+  useWaterStore.getState().reset();
+  useExerciseStore.getState().reset();
+  useHealthStore.getState().reset();
 };
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -95,7 +130,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           // 401: 토큰 만료 → 강제 로그아웃
           // 그 외 (네트워크 오류 등): 캐시 유지, 오프라인 모드로 계속
           if (e.response?.status === 401) {
-            await Promise.all([secureStorage.removeToken(), AsyncStorage.removeItem('user')]);
+            await secureStorage.removeToken();
+            await clearAccountState();
             set({ token: null, user: null });
           }
         }
@@ -168,7 +204,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   logout: async () => {
     await secureStorage.removeToken();
-    await AsyncStorage.removeItem('user');
+    // 'user' 도 clearAccountCache 가 지운다 — 목록이 한 곳에 있어야 빠지지 않는다.
+    await clearAccountState();
     set({ token: null, user: null });
   },
 

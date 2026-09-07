@@ -20,6 +20,8 @@ import apiClient from '../lib/apiClient';
 interface RestDayStore {
   /** 쉬는날 날짜 목록 (YYYY-MM-DD), 오름차순 정렬 유지 */
   restDays: string[];
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   /** 최초 로드 완료 여부 */
   loaded: boolean;
   fetchRestDays: () => Promise<void>;
@@ -83,4 +85,7 @@ export const useRestDayStore = create<RestDayStore>((set, get) => ({
   },
 
   isRestDay: (date) => get().restDays.includes(date),
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({ restDays: [], loaded: false }),
 }));

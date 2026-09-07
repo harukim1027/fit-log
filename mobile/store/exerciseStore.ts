@@ -23,6 +23,8 @@ export interface ExerciseResult {
 
 interface ExerciseStore {
   results: ExerciseResult[];
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   isSearching: boolean;
   error: string | null;
   cache: Map<string, ExerciseResult[]>;
@@ -111,4 +113,7 @@ export const useExerciseStore = create<ExerciseStore>((set, get) => ({
       return null;
     }
   },
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({ results: [], isSearching: false, error: null, cache: new Map() }),
 }));
