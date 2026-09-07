@@ -32,6 +32,11 @@ jobs:
           eas-cache: false
           expo-cache: false
 
+      # --environment production 이 반드시 있어야 한다.
+      # eas update 는 **러너에서** JS 를 번들하고, 그때 EXPO_PUBLIC_* 를 코드에
+      # 박아 넣는다. 러너에는 .env 가 없으므로(gitignore) 이 플래그가 없으면
+      # EXPO_PUBLIC_API_URL 이 undefined 인 채로 번들되어 localhost 를 가리키는
+      # 업데이트가 나간다. 이 플래그가 EAS 서버 환경변수를 끌어온다.
       - name: Publish OTA update
         working-directory: mobile
-        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --non-interactive
+        run: eas update --branch production --environment production --message "${{ github.event.head_commit.message }}" --non-interactive

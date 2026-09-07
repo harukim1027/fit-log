@@ -26,45 +26,34 @@ jobs:
           eas-cache: false
           expo-cache: false
 
-      - name: Create eas.json
+      - name: Inject submit credentials into eas.json
+        # eas.json 은 레포에 있다. **덮어쓰지 않는다.**
+        # 전에는 이 자리에서 파일을 통째로 새로 만들었고, 그 바람에 build 프로필의
+        # 환경변수 설정이 매 빌드마다 사라졌다. jq 로 submit 블록 한 곳만 갱신하면
+        # build 쪽을 건드릴 수가 없다.
+        #
+        # 이 세 값만 레포 밖에 두는 이유: appleId 는 계정 이메일이고 나머지도
+        # 공개할 이유가 없다. 나머지 설정은 전부 eas.json 에 있다.
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          EXPO_PUBLIC_API_URL: https://harulog.up.railway.app/api
-          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
         run: |
-          cat > mobile/eas.json << EOF
-          {
-            "cli": { "version": ">= 10.0.0", "appVersionSource": "remote" },
-            "build": {
-              "development": {
-                "developmentClient": true,
-                "distribution": "internal"
-              },
-              "production": {
-                "autoIncrement": true,
-                "ios": { "buildConfiguration": "Release" }
-              }
-            },
-            "submit": {
-              "production": {
-                "ios": {
-                  "appleId": "${APPLE_ID}",
-                  "ascAppId": "${ASC_APP_ID}",
-                  "appleTeamId": "${APPLE_TEAM_ID}"
-                }
-              }
-            }
-          }
-          EOF
+          cd mobile
+          jq --arg appleId "$APPLE_ID" \
+             --arg ascAppId "$ASC_APP_ID" \
+             --arg appleTeamId "$APPLE_TEAM_ID" \
+             '.submit.production.ios = {appleId: $appleId, ascAppId: $ascAppId, appleTeamId: $appleTeamId}' \
+             eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+          echo "--- build 프로필이 보존됐는지 확인 ---"
+          jq '.build' eas.json
 
+      # EXPO_PUBLIC_* 를 여기 env 로 걸지 않는다. EAS 원격 빌드는 러너의 셸
+      # 환경변수를 물려받지 않아서 있으나 마나이고, 있으면 "설정돼 있다"는
+      # 착각만 만든다. 실제 주입은 eas.json 의 "environment": "production" 이
+      # 가리키는 **EAS 서버 환경변수**가 한다.
       - name: Build iOS
         working-directory: mobile
-        env:
-          EXPO_PUBLIC_API_URL: ${{ secrets.RAILWAY_API_URL }}
         run: eas build --platform ios --profile production --non-interactive
 
       - name: Submit to TestFlight
