@@ -31,6 +31,7 @@ import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { localDateStr, getWeekRangeByOffset, weekDates } from "../../utils/date";
 import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
 import { eunNeun } from "../../utils/korean";
+import { type, layout, segment, weekNavLabel } from "../../constants/typography";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
@@ -117,7 +118,31 @@ function StatsScreen() {
     null
   );
   // 주간 차트 기간 오프셋 (0=이번주, -1=지난주, ...). 미래(>0)로는 이동 불가.
+  /**
+   * 조회 범위. **이 화면의 모든 수치가 이것을 따른다.**
+   *
+   * 전에는 전체 기간 카드 4개가 주간 네비게이션 **위**에 있어서, 아래 ◀▶ 로
+   * 주를 옮겨도 안 바뀌는 그 숫자들이 "그 주 수치"로 오해됐다. 범위를
+   * 최상단 스위처 하나로 올려 아래 전부가 같은 범위를 말하게 한다.
+   */
+  const [range, setRange] = React.useState<"week" | "all">("week");
+  /** 주 범위. range 가 "all" 이어도 값은 유지한다 — "주간"으로 돌아오면 보던 주로 복귀. */
   const [weekOffset, setWeekOffset] = React.useState(0);
+  const scrollRef = React.useRef<ScrollView>(null);
+
+  /**
+   * 범위를 바꾸면 맨 위로 올린다.
+   *
+   * 섹션 구성이 달라진다 — "전체"에서는 비교문과 ◀▶ 네비가 사라진다.
+   * 스크롤 위치를 그대로 두면 같은 y 좌표에 다른 섹션이 와서, 사용자는
+   * 자기가 보던 것이 무엇으로 바뀌었는지 알 수 없다. 위로 올리면 스위처가
+   * 시야에 들어와 "무엇이 바뀌었는지"가 먼저 읽힌다.
+   */
+  const changeRange = (next: "week" | "all") => {
+    if (next === range) return;
+    setRange(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
 
   const chartConfig = React.useMemo(() => makeChartConfig(c), [c]);
 
@@ -279,6 +304,92 @@ function StatsScreen() {
   const avgVolume = workoutDayAvg(volumeBarsAll);
   const avgBurn = workoutDayAvg(burnBarsAll);
 
+  /**
+   * "전체" 범위의 막대 — **최근 8주 주별 볼륨**.
+   *
+   * 요일 7칸과 칸 수가 비슷해 범위를 바꿔도 차트 폭이 흔들리지 않는다.
+   *
+   * ★ 기록이 8주보다 적으면 있는 만큼만 그린다. 빈 칸을 8개까지 채우면
+   *   "기록이 없다"가 아니라 "차트가 깨졌다"로 보인다.
+   */
+  const allWeekBars: BarDatum[] = React.useMemo(() => {
+    if (sessions.length === 0) return [];
+    const oldest = sessions.reduce((m, s) => (s.date < m ? s.date : m), sessions[0].date);
+    const bars: BarDatum[] = [];
+    for (let off = -7; off <= 0; off++) {
+      const { start, end } = getWeekRangeByOffset(off);
+      // 가장 오래된 기록보다 앞선 주는 만들지 않는다.
+      if (localDateStr(end) < oldest) continue;
+      const vol = sessions
+        .filter((s) => {
+          const d = new Date(s.date + "T00:00:00");
+          return d >= start && d <= end;
+        })
+        .reduce((sum, s) => sum + calcSessionVolume(s), 0);
+      bars.push({
+        label: `${start.getMonth() + 1}/${start.getDate()}`,
+        value: Math.round(vol),
+        type: vol > 0 ? "workout" : "empty",
+      });
+    }
+    return bars;
+  }, [sessions]);
+
+  /** 선택한 주에 세운 신기록 수 — 그 주 최고가 그 이전 전체 최고를 넘은 종목. */
+  const weekPRCount = React.useMemo(() => {
+    const inWeek = sessions.filter((s) => weekDateSet.has(s.date));
+    const before = sessions.filter((s) => !weekDateSet.has(s.date) && s.date < (weekDays[0]?.dateStr ?? ""));
+    const prevMax: Record<string, number> = {};
+    for (const sess of before)
+      for (const ex of sess.exercises)
+        for (const st of ex.sets) {
+          if (st.weight <= 0 || st.reps <= 0) continue;
+          const w = toKg(st.weight, st.unit);
+          if (w > (prevMax[ex.name] ?? 0)) prevMax[ex.name] = w;
+        }
+    const hit = new Set<string>();
+    for (const sess of inWeek)
+      for (const ex of sess.exercises)
+        for (const st of ex.sets) {
+          if (st.weight <= 0 || st.reps <= 0) continue;
+          if (toKg(st.weight, st.unit) > (prevMax[ex.name] ?? 0)) hit.add(ex.name);
+        }
+    return hit.size;
+  }, [sessions, weekDateSet, weekDays]);
+
+  /** 화면 전체가 보는 값들. range 하나로 갈린다. */
+  const isWeek = range === "week";
+  const rangeVolume = isWeek
+    ? volumeBarsAll.reduce((sum, b) => sum + b.value, 0)
+    : totalVolume;
+  const rangeBurn = isWeek
+    ? burnBarsAll.reduce((sum, b) => sum + b.value, 0)
+    : sessions.reduce((sum, s) => sum + (s.caloriesBurned ?? 0), 0);
+  const rangeWorkoutDays = isWeek
+    ? volumeBarsAll.filter((b) => b.type === "workout").length
+    : new Set(sessions.map((s) => s.date)).size;
+  const rangePR = isWeek ? weekPRCount : prs.length;
+  const rangeVolumeBars = isWeek ? volumeBars : allWeekBars.filter((b) => b.type !== "empty");
+  const rangeBurnBars = isWeek ? burnBars : [];
+
+  /**
+   * 지난 주 대비. "주간"에서만 쓴다 — "전체"는 비교할 이전 범위가 없다.
+   * 지난 주 볼륨이 0이면 비율이 무한대가 되므로 문구를 내지 않는다.
+   */
+  const prevWeekVolume = React.useMemo(() => {
+    const { start, end } = getWeekRangeByOffset(weekOffset - 1);
+    return sessions
+      .filter((s) => {
+        const d = new Date(s.date + "T00:00:00");
+        return d >= start && d <= end;
+      })
+      .reduce((sum, s) => sum + calcSessionVolume(s), 0);
+  }, [sessions, weekOffset]);
+  const volumeDeltaPct =
+    isWeek && prevWeekVolume > 0
+      ? Math.round(((rangeVolume - prevWeekVolume) / prevWeekVolume) * 100)
+      : null;
+
   // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서는 surface 명도 차 + 보더로 계층을 만든다.
   const SHADOW = isDark ? null : LIGHT_SHADOW_SM;
 
@@ -290,190 +401,175 @@ function StatsScreen() {
           제목 슬롯만 넓어진다. */}
       <Header title="통계" subtitle={user?.name ?? undefined} />
       <ScrollView
-        /* 좌우 여백은 여기 한 번만(space.16). 카드 사이는 부모 gap(space.12)이 만든다 */
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, gap: 12 }}
+        ref={scrollRef}
+        /* 카드가 사라져 좌우 여백은 각 섹션이 자기 paddingHorizontal 로 갖는다.
+           섹션 사이도 gap 이 아니라 각 섹션의 paddingTop + 1px 룰이 만든다 —
+           gap 과 겹치면 이중 여백이 된다. 그래서 둘 다 뺐다. */
+        contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
-        {/* 요약 2×2 */}
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <StatCard
-            label="운동일 평균 볼륨"
-            value={String(avgVolume)}
-            unit="kg"
-            color={c.success}
-            bg={c.success + "18"}
-          />
-          <StatCard
-            label="운동일 평균 소모"
-            value={String(avgBurn)}
-            unit="kcal"
-            color={c.danger}
-            bg={c.danger + "18"}
-          />
-        </View>
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <StatCard
-            label="총 운동"
-            value={String(sessions.length)}
-            unit="회"
-            color={c.primary}
-            bg={c.primary + "18"}
-          />
-          <StatCard
-            label="총 볼륨"
-            value={String(Math.round(totalVolume / 100) / 10)}
-            unit="ton"
-            color={c.warning}
-            bg={c.warning + "18"}
-          />
+
+        {/* ── 범위 스위처 — 아래 전부가 이것을 따른다 ── */}
+        <View style={{ paddingHorizontal: layout.sectionPaddingH, paddingTop: 12 }}>
+          <View style={{ flexDirection: "row", gap: segment.gap, padding: segment.padding, borderRadius: segment.radius, backgroundColor: c.surfaceAlt }}>
+            {(["week", "all"] as const).map((r) => {
+              const on = range === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  activeOpacity={0.7}
+                  onPress={() => changeRange(r)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={r === "week" ? "주간 범위" : "전체 기간 범위"}
+                  style={{
+                    flex: 1, height: segment.buttonHeight, borderRadius: segment.buttonRadius,
+                    alignItems: "center", justifyContent: "center",
+                    backgroundColor: on ? c.surface : "transparent",
+                  }}>
+                  <Text style={{ ...segment.label, color: on ? c.primary : c.textSecondary }}>
+                    {r === "week" ? "주간" : "전체"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
-        {/* 주간 기간 네비게이션 (볼륨·칼로리 차트 공통) */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            backgroundColor: c.surface,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: c.border,
-            paddingHorizontal: 8,
-            paddingVertical: 6,
-          }}>
-          <TouchableOpacity activeOpacity={0.7}
-            onPress={() => setWeekOffset((o) => o - 1)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary }}>◀</Text>
-          </TouchableOpacity>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
-            {formatWeekRange(weekOffset)}
-          </Text>
-          <TouchableOpacity activeOpacity={0.7}
-            onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
-            disabled={weekOffset >= 0}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{
-              width: 40,
-              height: 32,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: weekOffset >= 0 ? 0.3 : 1,
-            }}>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: c.textSecondary }}>▶</Text>
-          </TouchableOpacity>
-        </View>
+        {/* ── 주 네비게이션 — "전체"에서는 숨긴다 ──
+            전체 기간엔 이동할 주가 없다. 비활성으로 남기면 "왜 안 눌리지"가
+            된다. weekOffset 값은 유지하므로 "주간"으로 돌아오면 보던 주로
+            복귀한다. */}
+        {isWeek && (
+          <View style={{ paddingTop: 14, paddingHorizontal: layout.sectionPaddingH, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setWeekOffset((o) => o - 1)}
+              accessibilityRole="button"
+              accessibilityLabel="이전 주"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
+              <Icon name="chevronLeft" size={18} color={c.textSecondary} />
+            </TouchableOpacity>
+            <Text style={{ ...weekNavLabel, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+              {formatWeekRange(weekOffset)}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
+              disabled={weekOffset >= 0}
+              accessibilityRole="button"
+              accessibilityLabel="다음 주"
+              accessibilityState={{ disabled: weekOffset >= 0 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center", opacity: weekOffset >= 0 ? 0.3 : 1 }}>
+              <Icon name="chevronRight" size={18} color={c.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* 주간 운동 볼륨 */}
-        <Card style={{ gap: 8 }}>
-          <Text className="text-[17px] font-extrabold text-text-secondary">
-            주간 운동 볼륨
+        {/* ── ① 볼륨 ──────────────────────────────────────────────────────
+            StatCard 4장(무지개 틴트 배경)을 여기 KPI 줄로 흡수했다. 요약
+            숫자가 카드로 떠 있으면 아래 차트와 같은 무게가 되어 무엇이
+            주인공인지 안 읽힌다. */}
+        <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+          <Text style={{ ...type.kicker, color: c.textSecondary }}>
+            {isWeek ? "이번 주 볼륨" : "전체 볼륨"}
           </Text>
-          {volumeBars.length > 0 ? (
-            <View style={{ gap: 10 }}>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
-                운동일 평균 {avgVolume.toLocaleString()}kg
-              </Text>
+          <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.bigMarginTop }}>
+            <Text style={{ ...type.big, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+              {rangeVolume >= 1000 ? (rangeVolume / 1000).toFixed(1) : Math.round(rangeVolume)}
+            </Text>
+            <Text style={{ ...type.bigUnit, color: c.textSecondary, marginLeft: layout.bigUnitMarginLeft }}>
+              {rangeVolume >= 1000 ? "t" : "kg"}
+            </Text>
+          </View>
+          {/* 비교문은 "주간"에서만. 색만으로 전달하지 않으려고 ▲/▼ 기호를 함께 쓴다. */}
+          {volumeDeltaPct !== null && (
+            <Text
+              style={{
+                ...type.body,
+                marginTop: layout.bodyMarginTop,
+                color: volumeDeltaPct >= 0 ? c.success : c.textSecondary,
+              }}>
+              {volumeDeltaPct >= 0 ? "▲" : "▼"} 지난주보다 {Math.abs(volumeDeltaPct)}%{" "}
+              {volumeDeltaPct >= 0 ? "늘었어요" : "줄었어요"}
+            </Text>
+          )}
+
+          <View style={{ flexDirection: "row", gap: layout.kpiRowGap, marginTop: layout.kpiRowMarginTop }}>
+            <View>
+              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>운동일</Text>
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
+                <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangeWorkoutDays}</Text>
+                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>일</Text>
+              </View>
+            </View>
+            <View>
+              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>소모</Text>
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
+                <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangeBurn.toLocaleString()}</Text>
+                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>kcal</Text>
+              </View>
+            </View>
+            <View>
+              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>신규 PR</Text>
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
+                <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangePR}</Text>
+                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>개</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 막대 색 통일: 볼륨 primary. 전에는 c.danger(빨강)로 그리면서 카드
+              보더는 success(초록)라 두 색이 같은 것을 가리키지 않았다. */}
+          {rangeVolumeBars.length > 0 ? (
+            <View style={{ marginTop: layout.chartMarginTop }}>
               <RestBarChart
-                data={volumeBars}
-                color={c.danger}
+                data={rangeVolumeBars}
+                color={c.primary}
                 width={W}
                 suffix="kg"
                 c={c}
-                patternId="restVolume"
               />
-              {/* 루틴별 색상 범례 */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 12,
-                  marginTop: 12,
-                  justifyContent: "center",
-                }}>
-                {usedRoutines.map((r) => (
-                  <View
-                    key={r.id}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <View
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: r.color ?? c.textMuted,
-                      }}
-                    />
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>{r.name}</Text>
-                  </View>
-                ))}
-                {hasNonRoutine && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <View
-                      style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: c.textMuted }}
-                    />
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>개별 운동</Text>
-                  </View>
-                )}
-                {/* 쉬는날(체크무늬)이 있으면 함께 안내 */}
-                {volumeBars.some((b) => b.type === "rest") && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <View
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: 3,
-                        borderWidth: 1,
-                        borderColor: c.border,
-                        backgroundColor: c.surfaceAlt,
-                      }}
-                    />
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>쉬는날</Text>
-                  </View>
-                )}
-              </View>
             </View>
           ) : (
-            <View className="items-center py-5 gap-1">
-              <Icon name="dumbbell" size={40} color={c.textMuted} />
-              <Text className="text-sm text-text-muted text-center">
-                운동 기록이 없어요
-              </Text>
-            </View>
+            <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.chartMarginTop }}>
+              {isWeek ? "이 주엔 기록이 없어요" : "아직 기록이 없어요"}
+            </Text>
           )}
-        </Card>
+        </View>
 
-        {/* 주간 칼로리 소모 */}
-        <Card style={{ gap: 8 }}>
-          <Text className="text-[17px] font-extrabold text-text-secondary">
-            주간 운동 칼로리 소모
-          </Text>
-          {burnBars.length > 0 ? (
-            <View style={{ gap: 10 }}>
-              <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
+        {/* ── ② 칼로리 — "주간"에서만. 전체 범위에서는 위 KPI 의 "소모" 하나로 충분하다. ── */}
+        {isWeek && rangeBurnBars.length > 0 && (
+          <>
+            <SectionRule c={c} />
+            <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+              <Text style={{ ...type.kicker, color: c.textSecondary }}>칼로리 소모</Text>
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.bigMarginTop }}>
+                <Text style={{ ...type.big, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                  {rangeBurn.toLocaleString()}
+                </Text>
+                <Text style={{ ...type.bigUnit, color: c.textSecondary, marginLeft: layout.bigUnitMarginLeft }}>kcal</Text>
+              </View>
+              <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.bodyMarginTop }}>
                 운동일 평균 {avgBurn.toLocaleString()}kcal
               </Text>
-              <RestBarChart
-                data={burnBars}
-                color={c.warning}
-                width={W}
-                suffix="kcal"
-                c={c}
-                patternId="restBurn"
-              />
-              <View style={{ alignItems: "center", marginTop: 6 }}>
-                <RestBarLegend color={c.warning} c={c} />
+              {/* 칼로리는 coral(=danger) 로 통일한다 — 요약 아이콘 색과 1:1. */}
+              <View style={{ marginTop: layout.chartMarginTop }}>
+                <RestBarChart
+                  data={rangeBurnBars}
+                  color={c.danger}
+                  width={W}
+                  suffix="kcal"
+                  c={c}
+                />
               </View>
             </View>
-          ) : (
-            <View className="items-center py-5 gap-1">
-              <FlameIcon size={40} />
-              <Text className="text-sm text-text-muted text-center">
-                운동 기록이 없어요
-              </Text>
-            </View>
-          )}
-        </Card>
+          </>
+        )}
+
+        <SectionRule c={c} />
 
         {/* 자극 부위 — 홈에서 옮겨왔다.
 
@@ -688,42 +784,24 @@ export default function StatsScreenRoute() {
  * @param color - The value and unit text color.
  * @param bg - The card background color.
  */
-function StatCard({
-  label,
-  value,
-  unit,
-  color,
-  bg,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  color: string;
-  bg: string;
-}) {
-  const c = useColors();
+/**
+ * 섹션 사이 1px 룰. 카드 보더를 대신해 덩어리를 나눈다.
+ *
+ * 색은 `c.border` 다. 화면 배경 위 대비가 라이트 1.16 / 다크 1.64 로 낮지만
+ * 기존 카드 보더(surface 위 1.26 / 1.43)보다 나쁘지 않고 다크에서는 오히려
+ * 높다. 더 진한 값을 쓰면 구분선이 아니라 보더로 읽혀 카드를 없앤 목적과
+ * 반대가 된다. 근거는 design-system/README.md 에 있다.
+ */
+function SectionRule({ c }: { c: ReturnType<typeof useColors> }) {
   return (
     <View
       style={{
-        flex: 1,
-        borderRadius: 16,
-        padding: 16,
-        alignItems: "center",
-        gap: 4,
-        backgroundColor: bg,
-        // DESIGN.md: 의미색은 텍스트가 아니라 비텍스트 요소에 싣는다.
-        // 값은 text-primary로 읽고, 카테고리 식별은 틴트 배경 + 이 보더가 담당한다.
-        // (다크에서는 그림자를 쓰지 않으므로 이 보더가 카드 경계 역할도 겸한다)
-        borderWidth: 1,
-        borderColor: color,
-      }}>
-      <Text className="text-[11px] font-bold text-text-secondary">
-        {label}
-      </Text>
-      <Text style={{ fontSize: 22, fontWeight: "900", color: c.textPrimary, fontVariant: ['tabular-nums'] }}>{value}</Text>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: c.textSecondary }}>
-        {unit}
-      </Text>
-    </View>
+        height: layout.ruleHeight,
+        marginTop: layout.ruleMarginTop,
+        marginHorizontal: layout.ruleMarginH,
+        backgroundColor: c.border,
+      }}
+    />
   );
 }
+
