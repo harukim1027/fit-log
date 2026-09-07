@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
-import { Card } from "../../components/ui";
 import { Header } from "../../design-system";
 import {
   Icon,
@@ -19,22 +18,22 @@ import { useRoutineStore } from "../../store/routineStore";
 import { useAuthStore } from "../../store/authStore";
 import { useShallow } from "zustand/react/shallow";
 import { useColors, ThemeColors } from "../../constants/colors";
-import { useThemeStore } from "../../store/themeStore";
 import { LineChart } from "react-native-chart-kit";
 import {
   RestBarChart,
-  RestBarLegend,
   BarDatum,
 } from "../../components/stats/RestBarChart";
 import { Dimensions } from "react-native";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { useRouter } from "expo-router";
 import { localDateStr, getWeekRangeByOffset, weekDates } from "../../utils/date";
 import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
 import { eunNeun } from "../../utils/korean";
 import { type, layout, leaderRow, segment, weekNavLabel } from "../../constants/typography";
 
-// ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
-const W = Dimensions.get("window").width - 72;
+// 섹션 좌우 여백(18×2)만 뺀다. 카드가 사라져 안쪽 패딩이 없다.
+// 전에는 ScrollView 20×2 + Card 16×2 = 72 를 뺐다.
+const W = Dimensions.get("window").width - layout.sectionPaddingH * 2;
 
 // ymd·getWeekRange 는 utils/date.ts 로 옮겼다. 홈에도 같은 이름의 함수가 따로
 // 있었고 **주 시작 요일이 서로 달랐다**(홈 일요일 / 통계 월요일). 같은
@@ -64,16 +63,6 @@ function rgbaFrom(hex: string, opacity: number): string {
   return `rgba(${r},${g},${b},${opacity})`;
 }
 
-// DESIGN.md Governance에 shadow.light가 unresolved로 기록돼 있어 확정 토큰이 없다.
-// 값이 정해지면 이 상수를 토큰 참조로 교체할 것. (index.tsx / workout.tsx와 동일)
-const LIGHT_SHADOW_SM = {
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.08,
-  shadowRadius: 8,
-  elevation: 2,
-};
-
 /**
  * Creates chart configuration values from the current theme colors.
  *
@@ -100,7 +89,6 @@ function makeChartConfig(c: ThemeColors) {
  */
 function StatsScreen() {
   const c = useColors();
-  const isDark = useThemeStore((s) => s.mode) === "dark";
   const { sessions, fetchSessions } = useWorkoutStore(
     useShallow((s) => ({ sessions: s.sessions, fetchSessions: s.fetchSessions }))
   );
@@ -128,6 +116,7 @@ function StatsScreen() {
   const [range, setRange] = React.useState<"week" | "all">("week");
   /** 주 범위. range 가 "all" 이어도 값은 유지한다 — "주간"으로 돌아오면 보던 주로 복귀. */
   const [weekOffset, setWeekOffset] = React.useState(0);
+  const router = useRouter();
   const scrollRef = React.useRef<ScrollView>(null);
   /** 인체 맵 펼침. 기본은 접힘 — 상시로 두면 292pt 를 먹는다. */
   const [mapOpen, setMapOpen] = React.useState(false);
@@ -459,8 +448,6 @@ function StatsScreen() {
       ? Math.round(((rangeVolume - prevWeekVolume) / prevWeekVolume) * 100)
       : null;
 
-  // DESIGN.md: 그림자는 라이트 모드에서만. 다크에서는 surface 명도 차 + 보더로 계층을 만든다.
-  const SHADOW = isDark ? null : LIGHT_SHADOW_SM;
 
   return (
     <View className="flex-1 bg-background">
@@ -478,380 +465,412 @@ function StatsScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
-        {/* ── 범위 스위처 — 아래 전부가 이것을 따른다 ── */}
-        <View style={{ paddingHorizontal: layout.sectionPaddingH, paddingTop: 12 }}>
-          <View style={{ flexDirection: "row", gap: segment.gap, padding: segment.padding, borderRadius: segment.radius, backgroundColor: c.surfaceAlt }}>
-            {(["week", "all"] as const).map((r) => {
-              const on = range === r;
-              return (
-                <TouchableOpacity
-                  key={r}
-                  activeOpacity={0.7}
-                  onPress={() => changeRange(r)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={r === "week" ? "주간 범위" : "전체 기간 범위"}
-                  style={{
-                    flex: 1, height: segment.buttonHeight, borderRadius: segment.buttonRadius,
-                    alignItems: "center", justifyContent: "center",
-                    backgroundColor: on ? c.surface : "transparent",
-                  }}>
-                  <Text style={{ ...segment.label, color: on ? c.primary : c.textSecondary }}>
-                    {r === "week" ? "주간" : "전체"}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* ── 주 네비게이션 — "전체"에서는 숨긴다 ──
-            전체 기간엔 이동할 주가 없다. 비활성으로 남기면 "왜 안 눌리지"가
-            된다. weekOffset 값은 유지하므로 "주간"으로 돌아오면 보던 주로
-            복귀한다. */}
-        {isWeek && (
-          <View style={{ paddingTop: 14, paddingHorizontal: layout.sectionPaddingH, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setWeekOffset((o) => o - 1)}
-              accessibilityRole="button"
-              accessibilityLabel="이전 주"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
-              <Icon name="chevronLeft" size={18} color={c.textSecondary} />
-            </TouchableOpacity>
-            <Text style={{ ...weekNavLabel, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
-              {formatWeekRange(weekOffset)}
+        {/* ── 기록이 아예 없을 때 ──────────────────────────────────────
+            섹션마다 "운동 기록이 없어요"를 반복하지 않는다. 전에는 볼륨·
+            칼로리·성장 세 곳이 각자 같은 말을 했다. 보여 줄 것이 없으면
+            화면 하나가 한 번만 말하고 다음 행동을 준다. */}
+        {sessions.length === 0 ? (
+          <View style={{ paddingTop: 48, paddingHorizontal: layout.sectionPaddingH, alignItems: "center" }}>
+            <Icon name="chart" size={40} color={c.textMuted} />
+            <Text style={{ ...type.kpiValue, color: c.textPrimary, marginTop: 14 }}>첫 운동을 기록해보세요</Text>
+            <Text style={{ ...type.body, color: c.textSecondary, marginTop: 6, textAlign: "center" }}>
+              운동을 저장하면 여기에 그래프가 쌓여요
             </Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
-              disabled={weekOffset >= 0}
+              onPress={() => router.push("/(tabs)/workout")}
               accessibilityRole="button"
-              accessibilityLabel="다음 주"
-              accessibilityState={{ disabled: weekOffset >= 0 }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center", opacity: weekOffset >= 0 ? 0.3 : 1 }}>
-              <Icon name="chevronRight" size={18} color={c.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── ① 볼륨 ──────────────────────────────────────────────────────
-            StatCard 4장(무지개 틴트 배경)을 여기 KPI 줄로 흡수했다. 요약
-            숫자가 카드로 떠 있으면 아래 차트와 같은 무게가 되어 무엇이
-            주인공인지 안 읽힌다. */}
-        <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
-          <Text style={{ ...type.kicker, color: c.textSecondary }}>
-            {isWeek ? "이번 주 볼륨" : "전체 볼륨"}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.bigMarginTop }}>
-            <Text style={{ ...type.big, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
-              {rangeVolume >= 1000 ? (rangeVolume / 1000).toFixed(1) : Math.round(rangeVolume)}
-            </Text>
-            <Text style={{ ...type.bigUnit, color: c.textSecondary, marginLeft: layout.bigUnitMarginLeft }}>
-              {rangeVolume >= 1000 ? "t" : "kg"}
-            </Text>
-          </View>
-          {/* 비교문은 "주간"에서만. 색만으로 전달하지 않으려고 ▲/▼ 기호를 함께 쓴다. */}
-          {volumeDeltaPct !== null && (
-            <Text
+              accessibilityLabel="운동 시작"
               style={{
-                ...type.body,
-                marginTop: layout.bodyMarginTop,
-                color: volumeDeltaPct >= 0 ? c.success : c.textSecondary,
+                flexDirection: "row", alignItems: "center", gap: 8,
+                marginTop: 20, minHeight: 44, paddingHorizontal: 20,
+                borderRadius: 999, backgroundColor: c.primary,
               }}>
-              {volumeDeltaPct >= 0 ? "▲" : "▼"} 지난주보다 {Math.abs(volumeDeltaPct)}%{" "}
-              {volumeDeltaPct >= 0 ? "늘었어요" : "줄었어요"}
-            </Text>
-          )}
-
-          <View style={{ flexDirection: "row", gap: layout.kpiRowGap, marginTop: layout.kpiRowMarginTop }}>
-            <View>
-              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>운동일</Text>
-              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
-                <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangeWorkoutDays}</Text>
-                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>일</Text>
-              </View>
-            </View>
-            <View>
-              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>소모</Text>
-              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
-                <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangeBurn.toLocaleString()}</Text>
-                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>kcal</Text>
-              </View>
-            </View>
-            <View>
-              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>{isWeek ? "신규 PR" : "PR 종목"}</Text>
-              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
-                <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangePR}</Text>
-                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>개</Text>
-              </View>
-            </View>
+              <Icon name="play" size={16} color={c.onAccent} />
+              <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>운동 시작</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* 막대 색 통일: 볼륨 primary. 전에는 c.danger(빨강)로 그리면서 카드
-              보더는 success(초록)라 두 색이 같은 것을 가리키지 않았다. */}
-          {rangeVolumeBars.length > 0 ? (
-            <View style={{ marginTop: layout.chartMarginTop }}>
-              <RestBarChart
-                data={rangeVolumeBars}
-                color={c.primary}
-                width={W}
-                suffix="kg"
-                c={c}
-              />
-            </View>
-          ) : (
-            <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.chartMarginTop }}>
-              {isWeek ? "이 주엔 기록이 없어요" : "아직 기록이 없어요"}
-            </Text>
-          )}
-        </View>
-
-        {/* ── ② 칼로리 — "주간"에서만. 전체 범위에서는 위 KPI 의 "소모" 하나로 충분하다. ── */}
-        {isWeek && rangeBurnBars.length > 0 && (
+        ) : (
           <>
-            <SectionRule c={c} />
-            <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
-              <Text style={{ ...type.kicker, color: c.textSecondary }}>칼로리 소모</Text>
-              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.bigMarginTop }}>
-                <Text style={{ ...type.big, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
-                  {rangeBurn.toLocaleString()}
-                </Text>
-                <Text style={{ ...type.bigUnit, color: c.textSecondary, marginLeft: layout.bigUnitMarginLeft }}>kcal</Text>
-              </View>
-              <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.bodyMarginTop }}>
-                운동일 평균 {avgBurn.toLocaleString()}kcal
-              </Text>
-              {/* 칼로리는 coral(=danger) 로 통일한다 — 요약 아이콘 색과 1:1. */}
-              <View style={{ marginTop: layout.chartMarginTop }}>
-                <RestBarChart
-                  data={rangeBurnBars}
-                  color={c.danger}
-                  width={W}
-                  suffix="kcal"
-                  c={c}
-                />
-              </View>
-            </View>
-          </>
-        )}
-
-        <SectionRule c={c} />
-
-        {/* ── ③ 자극 부위 ────────────────────────────────────────────────
-            홈과 같은 인라인 + 취소선이지만 **빈도 숫자가 붙는 것**이 다르다.
-            홈은 "뭘 빠뜨렸나"(행동), 통계는 "얼마나 했나"(분석)를 답한다.
-            숫자가 없으면 두 화면이 같은 말을 두 번 하게 된다.
-
-            인체 맵은 접어 둔다. 상시로 두면 292pt(뷰포트의 27%)를 먹는데,
-            그림은 매번 보는 것이 아니라 궁금할 때 보는 것이다. */}
-        <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
-          <Text style={{ ...type.kicker, color: c.textSecondary }}>
-            자극 부위 · {muscleData.hit}/{muscleData.total}
-          </Text>
-
-          <View
-            style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: layout.muscleInlineGap, marginTop: layout.muscleInlineMarginTop }}
-            accessibilityLabel={`자극 부위 ${muscleData.hit}/${muscleData.total}. ${muscleData.parts.map((pt) => (pt.on ? `${pt.label} ${pt.count}회` : `${pt.label} 아직`)).join(", ")}`}>
-            {muscleData.parts.map((pt, idx) => (
-              <React.Fragment key={pt.slug}>
-                {idx > 0 && <Text style={{ fontSize: 11, color: c.textMuted }}>·</Text>}
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
-                  {/* 미자극은 취소선이 주 신호다. 시안은 색을 textMuted 로 뒀지만
-                      화면 배경 위 대비가 라이트 2.28 / 다크 3.34 로 미달이라
-                      textSecondary(5.39 / 6.06)로 올렸다. 바로 아래 힌트가 이
-                      이름들을 그대로 말하는데 목록에서 안 읽히면 모순이다.
-                      자극됨(textPrimary)과 색 차가 줄어도 구분은 취소선이 진다. */}
-                  <Text
-                    style={{
-                      ...type.body,
-                      color: pt.on ? c.textPrimary : c.textSecondary,
-                      textDecorationLine: pt.on ? "none" : "line-through",
-                    }}>
-                    {pt.label}
-                  </Text>
-                  {/* 빈도. 부위명(12/700)과 같은 크기면 "가슴3"이 한 덩어리로
-                      읽힌다. 반 단계 작은 kpiLabel(11/700)을 재사용해 이름에
-                      종속돼 보이게 하고, 새 크기를 늘리지 않는다. */}
-                  {pt.on && (
-                    <Text style={{ ...type.kpiLabel, color: c.textSecondary, fontVariant: ["tabular-nums"] }}>
-                      {pt.count}
-                    </Text>
-                  )}
-                </View>
-              </React.Fragment>
-            ))}
-          </View>
-
-          {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다. */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: layout.muscleHintMarginTop }}>
-            <Icon
-              name={muscleData.muscles.length === 0 ? "dumbbell" : muscleData.missing.length > 0 ? "target" : "check"}
-              size={13}
-              color={muscleData.muscles.length === 0 ? c.textMuted : muscleData.missing.length > 0 ? c.warning : c.success}
-            />
-            {/* 의미색은 아이콘이 지고 본문은 text-secondary —
-                라이트에서 warning/success 는 배경 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
-            <Text style={{ ...type.body, flex: 1, color: c.textSecondary }}>{muscleHint}</Text>
-          </View>
-
-          {/* 인체 맵 펼침 */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setMapOpen((v) => !v)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: mapOpen }}
-            accessibilityLabel={mapOpen ? "인체 맵 접기" : "인체 맵 보기"}
-            style={{ flexDirection: "row", alignItems: "center", gap: 2, marginTop: 10, minHeight: 44 }}>
-            <Text style={{ ...type.kpiLabel, color: c.primary }}>
-              {mapOpen ? "인체 맵 접기" : "인체 맵 보기"}
-            </Text>
-            <Icon name={mapOpen ? "chevronUp" : "chevronRight"} size={12} color={c.primary} />
-          </TouchableOpacity>
-          {mapOpen && (
-            <View style={{ marginTop: 4 }}>
-              <MuscleMap muscles={muscleData.muscles} scale={0.55} />
-            </View>
-          )}
-        </View>
-
-        <SectionRule c={c} />
-
-        {/* ── ④ 최고 기록 — 점선 리더 행 ────────────────────────────────
-            종목명과 값 사이를 점선으로 이으면 눈이 행을 따라간다. 전에는 각
-            행이 surfaceAlt 블록이라 목록 전체가 또 하나의 카드 덩어리였다.
-            순위 배지도 없앴다 — 정렬 순서가 이미 순위를 말한다. */}
-        {rangePrs.length > 0 && (
-          <>
-            <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
-              <Text style={{ ...type.kicker, color: c.textSecondary }}>최고 기록</Text>
-              <View style={{ marginTop: 6 }}>
-                {(prExpanded ? rangePrs : rangePrs.slice(0, 3)).map(([name, maxW], idx) => (
-                  <View
-                    key={name}
-                    style={{ flexDirection: "row", alignItems: "baseline", gap: leaderRow.gap, paddingVertical: leaderRow.paddingVertical }}
-                    accessibilityLabel={`${idx + 1}위 ${name} ${Math.round(maxW * 10) / 10}킬로그램`}>
-                    {/* 순위 색을 sun → primary → textMuted 로 내림차순으로 둔다.
-                        전에는 1등 stats / 2등 textMuted / 3등 warning 이라
-                        2·3등이 역전돼 있었다 — 3등이 2등보다 진했다. */}
-                    <Text
-                      style={{
-                        ...type.kpiLabel,
-                        color: idx === 0 ? c.tagSun : idx === 1 ? c.primary : c.textMuted,
-                        fontVariant: ["tabular-nums"],
-                      }}>
-                      {idx + 1}
-                    </Text>
-                    <Text numberOfLines={1} style={{ ...leaderRow.name, color: c.textPrimary }}>{name}</Text>
-                    {/* 점선 리더. 시안 .pd = border-bottom 1 dotted. */}
-                    <View
-                      style={{
-                        flex: 1,
-                        borderBottomWidth: 1,
-                        borderStyle: "dotted",
-                        borderColor: c.border,
-                        marginHorizontal: leaderRow.dotsMarginH,
-                        marginBottom: leaderRow.dotsMarginBottom,
-                      }}
-                    />
-                    <Text style={{ ...leaderRow.value, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
-                      {Math.round(maxW * 10) / 10}
-                      <Text style={{ ...leaderRow.valueUnit, color: c.textSecondary }}>kg</Text>
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              {rangePrs.length > 3 && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setPrExpanded((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: prExpanded }}
-                  accessibilityLabel={prExpanded ? "최고 기록 접기" : `최고 기록 ${rangePrs.length - 3}개 더 보기`}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 }}>
-                  <Text style={{ ...type.kpiLabel, color: c.primary }}>
-                    {prExpanded ? "접기" : `${rangePrs.length - 3}개 더 보기`}
-                  </Text>
-                  <Icon name={prExpanded ? "chevronUp" : "chevronRight"} size={12} color={c.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-            <SectionRule c={c} />
-          </>
-        )}
-
-        {/* ── ⑤ 종목별 성장 ─────────────────────────────────────────────
-            범위 스위처를 따르지 않는다 — 성장은 기간을 가로질러 보는 것이라
-            한 주로 자르면 점이 한둘이라 선이 안 그려진다. 키커에 종목명을
-            넣어 무엇의 성장인지 제목에서 읽히게 했다. */}
-        {exerciseNames.length > 0 && (
-          <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH, paddingBottom: layout.sectionPaddingBottom }}>
-            <Text style={{ ...type.kicker, color: c.textSecondary }}>
-              종목별 성장{activeExercise ? ` · ${activeExercise}` : ""}
-            </Text>
-
-            {/* 요약문 — 차트를 읽지 않아도 결론이 한 줄로 온다. */}
-            {growthSummary && (
-              <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.bodyMarginTop + 3 }}>
-                {growthSummary}
-              </Text>
-            )}
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -layout.sectionPaddingH, marginTop: 12 }}
-              contentContainerStyle={{ paddingHorizontal: layout.sectionPaddingH, gap: 8, flexDirection: "row" }}>
-              {exerciseNames.map((name) => {
-                const isActive = activeExercise === name;
+        {/* ── 범위 스위처 — 아래 전부가 이것을 따른다 ── */}
+          <View style={{ paddingHorizontal: layout.sectionPaddingH, paddingTop: 12 }}>
+            <View style={{ flexDirection: "row", gap: segment.gap, padding: segment.padding, borderRadius: segment.radius, backgroundColor: c.surfaceAlt }}>
+              {(["week", "all"] as const).map((r) => {
+                const on = range === r;
                 return (
                   <TouchableOpacity
-                    key={name}
-                    style={{
-                      minHeight: 44, justifyContent: "center", paddingHorizontal: 14,
-                      borderRadius: 999,
-                      backgroundColor: isActive ? c.primary : c.surfaceAlt,
-                    }}
-                    onPress={() => setSelectedExercise(name)}
+                    key={r}
+                    activeOpacity={0.7}
+                    onPress={() => changeRange(r)}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: isActive }}
-                    accessibilityLabel={`${name} 성장 그래프 보기`}
-                    activeOpacity={0.7}>
-                    <Text style={{ ...type.body, color: isActive ? c.onAccent : c.textSecondary }}>{name}</Text>
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={r === "week" ? "주간 범위" : "전체 기간 범위"}
+                    style={{
+                      flex: 1, height: segment.buttonHeight, borderRadius: segment.buttonRadius,
+                      alignItems: "center", justifyContent: "center",
+                      backgroundColor: on ? c.surface : "transparent",
+                    }}>
+                    <Text style={{ ...segment.label, color: on ? c.primary : c.textSecondary }}>
+                      {r === "week" ? "주간" : "전체"}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
+            </View>
+          </View>
 
-            {exerciseGrowthData ? (
-              <View style={{ overflow: "hidden", marginTop: layout.chartMarginTop }}>
-                <LineChart
-                  data={{
-                    labels: exerciseGrowthData.map((d) => d.date.slice(5)),
-                    datasets: [{ data: exerciseGrowthData.map((d) => d.maxWeight) }],
-                  }}
+          {/* ── 주 네비게이션 — "전체"에서는 숨긴다 ──
+              전체 기간엔 이동할 주가 없다. 비활성으로 남기면 "왜 안 눌리지"가
+              된다. weekOffset 값은 유지하므로 "주간"으로 돌아오면 보던 주로
+              복귀한다. */}
+          {isWeek && (
+            <View style={{ paddingTop: 14, paddingHorizontal: layout.sectionPaddingH, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setWeekOffset((o) => o - 1)}
+                accessibilityRole="button"
+                accessibilityLabel="이전 주"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center" }}>
+                <Icon name="chevronLeft" size={18} color={c.textSecondary} />
+              </TouchableOpacity>
+              <Text style={{ ...weekNavLabel, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                {formatWeekRange(weekOffset)}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setWeekOffset((o) => Math.min(0, o + 1))}
+                disabled={weekOffset >= 0}
+                accessibilityRole="button"
+                accessibilityLabel="다음 주"
+                accessibilityState={{ disabled: weekOffset >= 0 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ width: 40, height: 32, alignItems: "center", justifyContent: "center", opacity: weekOffset >= 0 ? 0.3 : 1 }}>
+                <Icon name="chevronRight" size={18} color={c.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── ① 볼륨 ──────────────────────────────────────────────────────
+              StatCard 4장(무지개 틴트 배경)을 여기 KPI 줄로 흡수했다. 요약
+              숫자가 카드로 떠 있으면 아래 차트와 같은 무게가 되어 무엇이
+              주인공인지 안 읽힌다. */}
+          <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+            <Text style={{ ...type.kicker, color: c.textSecondary }}>
+              {isWeek ? "이번 주 볼륨" : "전체 볼륨"}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.bigMarginTop }}>
+              <Text style={{ ...type.big, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                {rangeVolume >= 1000 ? (rangeVolume / 1000).toFixed(1) : Math.round(rangeVolume)}
+              </Text>
+              <Text style={{ ...type.bigUnit, color: c.textSecondary, marginLeft: layout.bigUnitMarginLeft }}>
+                {rangeVolume >= 1000 ? "t" : "kg"}
+              </Text>
+            </View>
+            {/* 비교문은 "주간"에서만. 색만으로 전달하지 않으려고 ▲/▼ 기호를 함께 쓴다. */}
+            {volumeDeltaPct !== null && (
+              <Text
+                style={{
+                  ...type.body,
+                  marginTop: layout.bodyMarginTop,
+                  color: volumeDeltaPct >= 0 ? c.success : c.textSecondary,
+                }}>
+                {volumeDeltaPct >= 0 ? "▲" : "▼"} 지난주보다 {Math.abs(volumeDeltaPct)}%{" "}
+                {volumeDeltaPct >= 0 ? "늘었어요" : "줄었어요"}
+              </Text>
+            )}
+
+            <View style={{ flexDirection: "row", gap: layout.kpiRowGap, marginTop: layout.kpiRowMarginTop }}>
+              <View>
+                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>운동일</Text>
+                <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
+                  <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangeWorkoutDays}</Text>
+                  <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>일</Text>
+                </View>
+              </View>
+              <View>
+                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>소모</Text>
+                <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
+                  <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangeBurn.toLocaleString()}</Text>
+                  <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>kcal</Text>
+                </View>
+              </View>
+              <View>
+                <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>{isWeek ? "신규 PR" : "PR 종목"}</Text>
+                <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
+                  <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangePR}</Text>
+                  <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>개</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 막대 색 통일: 볼륨 primary. 전에는 c.danger(빨강)로 그리면서 카드
+                보더는 success(초록)라 두 색이 같은 것을 가리키지 않았다. */}
+            {rangeVolumeBars.length > 0 ? (
+              <View style={{ marginTop: layout.chartMarginTop }}>
+                <RestBarChart
+                  data={rangeVolumeBars}
+                  color={c.primary}
                   width={W}
-                  height={160}
-                  chartConfig={{
-                    ...chartConfig,
-                    decimalPlaces: 1,
-                    color: (opacity = 1) => rgbaFrom(c.primary, opacity),
-                    propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
-                  }}
-                  bezier
-                  style={{ marginLeft: -10 }}
-                  withInnerLines={false}
-                  yAxisSuffix="kg"
+                  suffix="kg"
+                  c={c}
                 />
               </View>
             ) : (
               <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.chartMarginTop }}>
-                {activeExercise ? "2회 이상 기록이 있어야 그래프가 표시돼요" : "아직 기록이 없어요"}
+                {isWeek ? "이 주엔 기록이 없어요" : "최근 8주 기록이 없어요"}
               </Text>
             )}
           </View>
+
+          {/* ── ② 칼로리 — "주간"에서만. 전체 범위에서는 위 KPI 의 "소모" 하나로 충분하다. ── */}
+          {isWeek && rangeBurnBars.length > 0 && (
+            <>
+              <SectionRule c={c} />
+              <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+                <Text style={{ ...type.kicker, color: c.textSecondary }}>칼로리 소모</Text>
+                <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.bigMarginTop }}>
+                  <Text style={{ ...type.big, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                    {rangeBurn.toLocaleString()}
+                  </Text>
+                  <Text style={{ ...type.bigUnit, color: c.textSecondary, marginLeft: layout.bigUnitMarginLeft }}>kcal</Text>
+                </View>
+                <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.bodyMarginTop }}>
+                  운동일 평균 {avgBurn.toLocaleString()}kcal
+                </Text>
+                {/* 칼로리는 coral(=danger) 로 통일한다 — 요약 아이콘 색과 1:1. */}
+                <View style={{ marginTop: layout.chartMarginTop }}>
+                  <RestBarChart
+                    data={rangeBurnBars}
+                    color={c.danger}
+                    width={W}
+                    suffix="kcal"
+                    c={c}
+                  />
+                </View>
+              </View>
+            </>
+          )}
+
+          <SectionRule c={c} />
+
+          {/* ── ③ 자극 부위 ────────────────────────────────────────────────
+              홈과 같은 인라인 + 취소선이지만 **빈도 숫자가 붙는 것**이 다르다.
+              홈은 "뭘 빠뜨렸나"(행동), 통계는 "얼마나 했나"(분석)를 답한다.
+              숫자가 없으면 두 화면이 같은 말을 두 번 하게 된다.
+
+              인체 맵은 접어 둔다. 상시로 두면 292pt(뷰포트의 27%)를 먹는데,
+              그림은 매번 보는 것이 아니라 궁금할 때 보는 것이다. */}
+          <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+            <Text style={{ ...type.kicker, color: c.textSecondary }}>
+              자극 부위 · {muscleData.hit}/{muscleData.total}
+            </Text>
+
+            <View
+              style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: layout.muscleInlineGap, marginTop: layout.muscleInlineMarginTop }}
+              accessibilityLabel={`자극 부위 ${muscleData.hit}/${muscleData.total}. ${muscleData.parts.map((pt) => (pt.on ? `${pt.label} ${pt.count}회` : `${pt.label} 아직`)).join(", ")}`}>
+              {muscleData.parts.map((pt, idx) => (
+                <React.Fragment key={pt.slug}>
+                  {idx > 0 && <Text style={{ fontSize: 11, color: c.textMuted }}>·</Text>}
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
+                    {/* 미자극은 취소선이 주 신호다. 시안은 색을 textMuted 로 뒀지만
+                        화면 배경 위 대비가 라이트 2.28 / 다크 3.34 로 미달이라
+                        textSecondary(5.39 / 6.06)로 올렸다. 바로 아래 힌트가 이
+                        이름들을 그대로 말하는데 목록에서 안 읽히면 모순이다.
+                        자극됨(textPrimary)과 색 차가 줄어도 구분은 취소선이 진다. */}
+                    <Text
+                      style={{
+                        ...type.body,
+                        color: pt.on ? c.textPrimary : c.textSecondary,
+                        textDecorationLine: pt.on ? "none" : "line-through",
+                      }}>
+                      {pt.label}
+                    </Text>
+                    {/* 빈도. 부위명(12/700)과 같은 크기면 "가슴3"이 한 덩어리로
+                        읽힌다. 반 단계 작은 kpiLabel(11/700)을 재사용해 이름에
+                        종속돼 보이게 하고, 새 크기를 늘리지 않는다. */}
+                    {pt.on && (
+                      <Text style={{ ...type.kpiLabel, color: c.textSecondary, fontVariant: ["tabular-nums"] }}>
+                        {pt.count}
+                      </Text>
+                    )}
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+
+            {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다. */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: layout.muscleHintMarginTop }}>
+              <Icon
+                name={muscleData.muscles.length === 0 ? "dumbbell" : muscleData.missing.length > 0 ? "target" : "check"}
+                size={13}
+                color={muscleData.muscles.length === 0 ? c.textMuted : muscleData.missing.length > 0 ? c.warning : c.success}
+              />
+              {/* 의미색은 아이콘이 지고 본문은 text-secondary —
+                  라이트에서 warning/success 는 배경 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
+              <Text style={{ ...type.body, flex: 1, color: c.textSecondary }}>{muscleHint}</Text>
+            </View>
+
+            {/* 인체 맵 펼침 */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setMapOpen((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: mapOpen }}
+              accessibilityLabel={mapOpen ? "인체 맵 접기" : "인체 맵 보기"}
+              style={{ flexDirection: "row", alignItems: "center", gap: 2, marginTop: 10, minHeight: 44 }}>
+              <Text style={{ ...type.kpiLabel, color: c.primary }}>
+                {mapOpen ? "인체 맵 접기" : "인체 맵 보기"}
+              </Text>
+              <Icon name={mapOpen ? "chevronUp" : "chevronRight"} size={12} color={c.primary} />
+            </TouchableOpacity>
+            {mapOpen && (
+              <View style={{ marginTop: 4 }}>
+                <MuscleMap muscles={muscleData.muscles} scale={0.55} />
+              </View>
+            )}
+          </View>
+
+          <SectionRule c={c} />
+
+          {/* ── ④ 최고 기록 — 점선 리더 행 ────────────────────────────────
+              종목명과 값 사이를 점선으로 이으면 눈이 행을 따라간다. 전에는 각
+              행이 surfaceAlt 블록이라 목록 전체가 또 하나의 카드 덩어리였다.
+              순위 배지도 없앴다 — 정렬 순서가 이미 순위를 말한다. */}
+          {rangePrs.length > 0 && (
+            <>
+              <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+                <Text style={{ ...type.kicker, color: c.textSecondary }}>최고 기록</Text>
+                <View style={{ marginTop: 6 }}>
+                  {(prExpanded ? rangePrs : rangePrs.slice(0, 3)).map(([name, maxW], idx) => (
+                    <View
+                      key={name}
+                      style={{ flexDirection: "row", alignItems: "baseline", gap: leaderRow.gap, paddingVertical: leaderRow.paddingVertical }}
+                      accessibilityLabel={`${idx + 1}위 ${name} ${Math.round(maxW * 10) / 10}킬로그램`}>
+                      {/* 순위 색을 sun → primary → textMuted 로 내림차순으로 둔다.
+                          전에는 1등 stats / 2등 textMuted / 3등 warning 이라
+                          2·3등이 역전돼 있었다 — 3등이 2등보다 진했다. */}
+                      <Text
+                        style={{
+                          ...type.kpiLabel,
+                          color: idx === 0 ? c.tagSun : idx === 1 ? c.primary : c.textMuted,
+                          fontVariant: ["tabular-nums"],
+                        }}>
+                        {idx + 1}
+                      </Text>
+                      <Text numberOfLines={1} style={{ ...leaderRow.name, color: c.textPrimary }}>{name}</Text>
+                      {/* 점선 리더. 시안 .pd = border-bottom 1 dotted. */}
+                      <View
+                        style={{
+                          flex: 1,
+                          borderBottomWidth: 1,
+                          borderStyle: "dotted",
+                          borderColor: c.border,
+                          marginHorizontal: leaderRow.dotsMarginH,
+                          marginBottom: leaderRow.dotsMarginBottom,
+                        }}
+                      />
+                      <Text style={{ ...leaderRow.value, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                        {Math.round(maxW * 10) / 10}
+                        <Text style={{ ...leaderRow.valueUnit, color: c.textSecondary }}>kg</Text>
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                {rangePrs.length > 3 && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setPrExpanded((v) => !v)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: prExpanded }}
+                    accessibilityLabel={prExpanded ? "최고 기록 접기" : `최고 기록 ${rangePrs.length - 3}개 더 보기`}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 }}>
+                    <Text style={{ ...type.kpiLabel, color: c.primary }}>
+                      {prExpanded ? "접기" : `${rangePrs.length - 3}개 더 보기`}
+                    </Text>
+                    <Icon name={prExpanded ? "chevronUp" : "chevronRight"} size={12} color={c.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <SectionRule c={c} />
+            </>
+          )}
+
+          {/* ── ⑤ 종목별 성장 ─────────────────────────────────────────────
+              범위 스위처를 따르지 않는다 — 성장은 기간을 가로질러 보는 것이라
+              한 주로 자르면 점이 한둘이라 선이 안 그려진다. 키커에 종목명을
+              넣어 무엇의 성장인지 제목에서 읽히게 했다. */}
+          {exerciseNames.length > 0 && (
+            <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH, paddingBottom: layout.sectionPaddingBottom }}>
+              <Text style={{ ...type.kicker, color: c.textSecondary }}>
+                종목별 성장{activeExercise ? ` · ${activeExercise}` : ""}
+              </Text>
+
+              {/* 요약문 — 차트를 읽지 않아도 결론이 한 줄로 온다. */}
+              {growthSummary && (
+                <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.bodyMarginTop + 3 }}>
+                  {growthSummary}
+                </Text>
+              )}
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginHorizontal: -layout.sectionPaddingH, marginTop: 12 }}
+                contentContainerStyle={{ paddingHorizontal: layout.sectionPaddingH, gap: 8, flexDirection: "row" }}>
+                {exerciseNames.map((name) => {
+                  const isActive = activeExercise === name;
+                  return (
+                    <TouchableOpacity
+                      key={name}
+                      style={{
+                        minHeight: 44, justifyContent: "center", paddingHorizontal: 14,
+                        borderRadius: 999,
+                        backgroundColor: isActive ? c.primary : c.surfaceAlt,
+                      }}
+                      onPress={() => setSelectedExercise(name)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isActive }}
+                      accessibilityLabel={`${name} 성장 그래프 보기`}
+                      activeOpacity={0.7}>
+                      <Text style={{ ...type.body, color: isActive ? c.onAccent : c.textSecondary }}>{name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {exerciseGrowthData ? (
+                <View style={{ overflow: "hidden", marginTop: layout.chartMarginTop }}>
+                  <LineChart
+                    data={{
+                      labels: exerciseGrowthData.map((d) => d.date.slice(5)),
+                      datasets: [{ data: exerciseGrowthData.map((d) => d.maxWeight) }],
+                    }}
+                    width={W}
+                    height={160}
+                    chartConfig={{
+                      ...chartConfig,
+                      decimalPlaces: 1,
+                      color: (opacity = 1) => rgbaFrom(c.primary, opacity),
+                      propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
+                    }}
+                    bezier
+                    style={{ marginLeft: -10 }}
+                    withInnerLines={false}
+                    yAxisSuffix="kg"
+                  />
+                </View>
+              ) : (
+                /* 기록이 0인 경우는 위 온보딩 블록이 가져간다. 여기 오는 것은
+                   "종목은 있는데 그 종목 기록이 1회뿐"인 경우뿐이다. */
+                <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.chartMarginTop }}>
+                  2회 이상 기록이 있어야 그래프가 표시돼요
+                </Text>
+              )}
+            </View>
+          )}
+
+          </>
         )}
 
       </ScrollView>
