@@ -10,6 +10,8 @@ export interface HealthData {
 
 interface HealthStore {
   data: HealthData;
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   isAvailable: boolean;
   isLoading: boolean;
   error: string | null;
@@ -22,4 +24,7 @@ export const useHealthStore = create<HealthStore>((set) => ({
   isLoading: false,
   error: null,
   setData: (partial) => set((s) => ({ data: { ...s.data, ...partial } })),
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({ data: { weightHistory: [] }, isLoading: false, error: null }),
 }));

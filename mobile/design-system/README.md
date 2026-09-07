@@ -1294,6 +1294,75 @@ warning 2.48, primary 4.18로 모두 4.5:1에 못 미친다").
 
 다크 모드는 `#021526` on `#2E82F0` = 4.89:1로 통과한다.
 
+### 계정 캐시는 로그아웃·탈퇴 때 지운다
+
+AsyncStorage 키가 계정별로 나뉘어 있지 않다. 로그아웃이 토큰과 `user`만 지우던
+동안 `routines:v2` 같은 키는 그대로 남았고, **다른 계정으로 로그인한 뒤 서버
+요청이 실패하면 오프라인 폴백이 이전 사용자의 루틴을 읽어 왔다**
+(2026-09-07, `d2bdc59` 기준). 온라인에서는 새로 받아 덮어써서 드러나지 않는,
+오프라인에서만 보이는 문제였다.
+
+#### 구분 기준
+
+**"다른 계정이 보면 안 되는 것인가."** 로그아웃했다고 다크모드가 풀리면
+어색하다. 기기 설정은 사람이 아니라 이 기기에 속한다.
+
+| 키 | 쓰는 곳 | 분류 |
+|---|---|---|
+| `auth_token` (SecureStore) | `lib/secureStorage.ts` | 계정 |
+| `user` | `store/authStore.ts` | 계정 |
+| `routines:v2` | `store/routineStore.ts` | 계정 |
+| `restDays:v1` | `store/restDayStore.ts` | 계정 |
+| `workout_draft` | `store/workoutStore.ts` | 계정 |
+| `workoutSettingKeys:v1` | `components/workout/ExerciseAdder.tsx` | 계정 |
+| `restTimer2:{운동명}` | `components/RestTimer.tsx` | 계정 (아래 참조) |
+| `setting:weightUnit` | `store/settingsStore.ts` | 기기 |
+| `setting:showBodypartSelector` | `store/settingsStore.ts` | 기기 |
+| `setting:notifyBeforeRestEnd` | `store/settingsStore.ts` | 기기 |
+| `fitlog-theme` | `store/themeStore.ts` | 기기 |
+
+`isOnboardingDone`은 별도 키가 아니라 서버 `user` 객체 안에 있어 `user` 캐시와
+함께 지워진다.
+
+#### `restTimer2:*`를 계정 데이터로 본 이유
+
+값은 초 단위 숫자 하나지만 **키에 커스텀 종목명이 들어간다.** 다른 계정이 같은
+이름 종목을 만들면 이전 사용자가 정한 값이 프리필되어 "그 종목을 만들었고 그
+시간을 썼다"는 사실이 샌다. 게다가 이 키는 종목마다 무한히 쌓이는데 지금까지
+지워지는 시점이 없었다. 재로그인 시 손실은 종목당 몇 초의 재설정 비용이다.
+
+커스텀 종목만 골라 지우는 선택지는 **택하지 않았다.** 어떤 이름이 커스텀인지
+알려면 종목 목록을 조회해야 하고, 그러면 로그아웃이 네트워크에 의존한다.
+오프라인 로그아웃에서 캐시가 안 지워지면 이번에 고치려는 문제가 그대로 남는다.
+
+#### 지우는 곳은 한 곳이다
+
+`lib/accountCache.ts`의 `ACCOUNT_CACHE_KEYS`(고정 키)와
+`ACCOUNT_CACHE_KEY_PREFIXES`(접두어 키). 고정 목록과 `getAllKeys()` 접두어 매칭
+결과를 **합쳐서 한 번의 `multiRemove`로** 지운다 — 두 경로로 나누면 하나가
+빠져도 티가 안 난다.
+
+실패해도 던지지 않는다. 여기서 던지면 로그아웃 자체가 막혀 사용자가 계정을
+빠져나올 수 없다. 캐시가 남는 것보다 그쪽이 나쁘다.
+
+#### 메모리 상태도 같이 비운다
+
+AsyncStorage만 지우고 zustand를 두면 **로그아웃 직후 화면에 이전 데이터가 그대로
+보인다.** 캐시는 다음 실행에서만 드러나지만 메모리는 지금 보이는 쪽이다.
+`authStore`의 `clearAccountState()`가 둘을 같이 처리하고, 계정 데이터를 들고 있는
+스토어 8개에 `reset()`을 뒀다 — workout, routine, diet, restDay, favorite, water,
+exercise, health.
+
+#### 새 캐시를 추가할 때
+
+- 계정에 딸린 값이면 `lib/accountCache.ts`의 목록에 **반드시 등록한다.**
+  등록하지 않으면 로그아웃해도 남고, 그 사실은 오프라인에서만 드러나 발견이 늦다.
+- 계정 데이터를 들고 있는 스토어를 새로 만들면 `reset()`을 두고
+  `clearAccountState()`에 추가한다.
+- 기기 설정이면 아무것도 하지 않는다.
+
+검증은 `__tests__/lib/accountCache.test.ts`에 있다.
+
 ### apiClient는 스토어를 import하지 않는다
 
 `lib/apiClient.ts`가 스토어를 직접 import하면 순환이 된다. 스토어가 apiClient로

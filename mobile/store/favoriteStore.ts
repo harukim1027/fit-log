@@ -14,6 +14,8 @@ interface FavoriteFood {
 
 interface FavoriteStore {
   favorites: FavoriteFood[];
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   fetchFavorites: () => Promise<void>;
   addFavorite: (food: Omit<FavoriteFood, 'id'>) => Promise<void>;
   removeFavorite: (id: string) => Promise<void>;
@@ -53,4 +55,7 @@ export const useFavoriteStore = create<FavoriteStore>((set, get) => ({
   isFavorite: (foodName) => {
     return get().favorites.some(f => f.foodName === foodName);
   },
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({ favorites: [] }),
 }));

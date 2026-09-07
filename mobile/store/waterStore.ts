@@ -4,6 +4,8 @@ import { localDateStr } from '../utils/date';
 
 interface WaterStore {
   total: number;
+  /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
+  reset: () => void;
   target: number;
   fetchTotal: (date?: string) => Promise<void>;
   addWater: (amount: number, date?: string) => Promise<void>;
@@ -45,4 +47,7 @@ export const useWaterStore = create<WaterStore>((set) => ({
       console.error('물 섭취 초기화 실패', e);
     }
   },
+
+  /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  reset: () => set({ total: 0 }),
 }));
