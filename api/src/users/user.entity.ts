@@ -9,7 +9,21 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: true })
+  /**
+   * bcrypt 해시. **`select: false` 라 기본 조회에 포함되지 않는다.**
+   *
+   * 전에는 `GET /users/me` 와 `PATCH /users/me` 가 User 엔티티를 그대로
+   * 반환하면서 해시를 응답 본문에 실어 보냈다(실측 확인). 클라이언트가 알
+   * 필요가 없는 값이고, 유출되면 오프라인 대입 공격의 표면이 된다.
+   *
+   * 응답 직전에 지우는 대신 조회 자체에서 빼는 이유: 새 반환 경로가 생겨도
+   * 자동으로 안전하다. 지우는 방식은 경로마다 기억해야 한다.
+   *
+   * **이 값이 필요한 곳은 이메일 로그인 한 곳뿐이다.** `findByEmailForAuth`
+   * 가 `addSelect` 로 명시적으로 가져온다. 다른 조회 경로에서 이 값을 쓰려
+   * 하면 `undefined` 다 — 인증 로직을 새로 만들 때 주의할 것.
+   */
+  @Column({ nullable: true, select: false })
   password: string;
 
   @Column({ default: 'local' })

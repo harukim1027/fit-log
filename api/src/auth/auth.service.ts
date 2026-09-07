@@ -36,7 +36,8 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.usersService.findByEmail(email);
+    // findByEmailForAuth: password 는 select:false 라 이 경로에서만 딸려온다.
+    const user = await this.usersService.findByEmailForAuth(email);
     if (!user) throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않아요');
     // 소셜 로그인으로 가입한 계정은 password가 null — 이메일 로그인 불가
     if (!user.password) throw new UnauthorizedException('소셜 로그인으로 가입된 계정이에요');
