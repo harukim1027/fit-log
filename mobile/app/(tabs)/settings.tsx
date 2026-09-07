@@ -19,6 +19,8 @@ import { Header, Section, Card } from "../../design-system";
 import { Icon } from "../../components/AppIcons";
 import { useColors } from "../../constants/colors";
 import { useAuthStore } from "../../store/authStore";
+import { useWorkoutStore } from "../../store/workoutStore";
+import { useRoutineStore } from "../../store/routineStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useThemeStore } from "../../store/themeStore";
 import { showCuteAlert } from "../../components/CuteAlert";
@@ -39,7 +41,7 @@ function SettingsScreen() {
   const router = useRouter();
   const isDark = useThemeStore((s) => s.mode) === "dark";
   const { mode, toggle } = useThemeStore();
-  const { user, logout } = useAuthStore();
+  const { user, logout, deleteAccount } = useAuthStore();
   const {
     weightUnit,
     showBodypartSelector,
@@ -49,6 +51,30 @@ function SettingsScreen() {
     setShowBodypartSelector,
     setNotifyBeforeRestEnd,
   } = useSettingsStore();
+
+  /**
+   * 탈퇴 1단계에서 "무엇이 사라지는지"를 실제 개수로 보여주기 위해 읽는다.
+   *
+   * 여기서 직접 불러오는 이유: **홈은 fetchSessions()만 부르고 loadRoutines()는
+   * 부르지 않는다**(index.tsx). 운동·통계 탭을 한 번도 안 들르고 설정으로 오면
+   * routines 가 빈 배열이라 "루틴 0개"로 보인다. 되돌릴 수 없는 동작의
+   * 확인창에서 사라질 데이터를 실제보다 적게 말하는 것이라 그냥 두면 안 된다.
+   */
+  const sessions = useWorkoutStore((s) => s.sessions);
+  const routines = useRoutineStore((s) => s.routines);
+  const fetchSessions = useWorkoutStore((s) => s.fetchSessions);
+  const loadRoutines = useRoutineStore((s) => s.loadRoutines);
+  const routinesLoaded = useRoutineStore((s) => s.loaded);
+  // "아직 안 불러왔음"과 "정말 0개"를 구분한다. 둘 다 0으로 보이면 안 된다.
+  const [countsReady, setCountsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    // 이미 있는 것은 다시 부르지 않는다. stats.tsx 의 가드와 같은 방식이다.
+    const jobs: Promise<unknown>[] = [];
+    if (sessions.length === 0) jobs.push(fetchSessions());
+    if (!routinesLoaded) jobs.push(loadRoutines());
+    Promise.all(jobs).finally(() => setCountsReady(true));
+  }, []);
 
   React.useEffect(() => {
     loadSettings();
@@ -84,6 +110,74 @@ function SettingsScreen() {
             }
           },
         },
+      ],
+    });
+  };
+
+  /**
+   * 1단계 본문. 무엇이 사라지는지 실제 개수로 말한다.
+   *
+   * 0을 그대로 쓰지 않는 이유가 두 가지다.
+   * 1) 아직 안 불러온 0과 정말 0을 구분해야 한다(countsReady).
+   * 2) 둘 다 0일 때 "운동 기록 0개, 루틴 0개가 사라져요"는 잃을 게 없다는
+   *    말로 읽힌다. 기록이 없어도 계정 자체는 사라진다.
+   */
+  const buildLossMessage = () => {
+    if (!countsReady) return "운동 기록과 루틴이 모두 사라져요.";
+    const parts: string[] = [];
+    if (sessions.length > 0) parts.push(`운동 기록 ${sessions.length}개`);
+    if (routines.length > 0) parts.push(`루틴 ${routines.length}개`);
+    if (parts.length === 0) return "계정과 저장된 모든 데이터가 사라져요.";
+    return `${parts.join(", ")}가 모두 사라져요.`;
+  };
+
+  /**
+   * 회원 탈퇴. 확인을 두 번 받는다.
+   *
+   * 성공 경로는 handleLogout 과 같다 — logout() → replace("/auth/login").
+   * 실패하면 **화면에 머문다.** 계정이 서버에 남았는데 로그아웃까지 하면
+   * 다시 로그인해서 재시도해야 한다.
+   */
+  const handleDeleteAccount = () => {
+    const confirmFinal = () => {
+      showCuteAlert({
+        icon: "trash",
+        tone: "danger",
+        title: "마지막 확인이에요",
+        message: "지금 탈퇴하면 복구할 수 없어요.",
+        buttons: [
+          { label: "취소", style: "soft" },
+          {
+            label: "탈퇴하기",
+            style: "primary",
+            onPress: async () => {
+              try {
+                await deleteAccount();
+                await logout();
+                router.replace("/auth/login" as any);
+              } catch {
+                showCuteAlert({
+                  icon: "alert",
+                  tone: "danger",
+                  title: "오류",
+                  message: "탈퇴에 실패했어요. 잠시 후 다시 시도해 주세요.",
+                  buttons: [{ label: "확인", style: "primary" }],
+                });
+              }
+            },
+          },
+        ],
+      });
+    };
+
+    showCuteAlert({
+      icon: "trash",
+      tone: "danger",
+      title: "정말 탈퇴하시겠어요?",
+      message: buildLossMessage(),
+      buttons: [
+        { label: "취소", style: "soft" },
+        { label: "계속", style: "primary", onPress: confirmFinal },
       ],
     });
   };
@@ -342,6 +436,25 @@ function SettingsScreen() {
                 <Text
                   style={{ fontSize: 14, fontWeight: "600", color: c.danger }}>
                   로그아웃
+                </Text>
+              </TouchableOpacity>
+              {/* 앱스토어 심사 지침 5.1.1(v): 계정 생성이 가능한 앱은 삭제 수단을
+                  제공해야 한다. 로그아웃보다 파괴적이라 아래에 둔다. */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="회원 탈퇴"
+                onPress={handleDeleteAccount}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  minHeight: 44,
+                }}>
+                <Icon name="trash" size={16} color={c.danger} />
+                <Text
+                  style={{ fontSize: 14, fontWeight: "600", color: c.danger }}>
+                  회원 탈퇴
                 </Text>
               </TouchableOpacity>
             </Card>
