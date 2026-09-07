@@ -25,10 +25,9 @@ import type { Slug } from "react-native-body-highlighter";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { IconButton } from "../../design-system";
 
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
-// 필터 칩에 노출할 카테고리 (전체 + 주요 부위)
-const FILTER_CATEGORIES = ['가슴', '등', '하체', '어깨', '팔'];
 
 function eunNeun(s: string) {
   const code = s.charCodeAt(s.length - 1) - 0xAC00;
@@ -129,7 +128,6 @@ function HomeScreen() {
   );
   const { user } = useAuthStore();
   const isDark = useThemeStore((s) => s.mode) === 'dark';
-  const [filter, setFilter] = useState<string>('전체');
   // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateStr(new Date()));
   const [showCalendar, setShowCalendar] = useState(false);
@@ -380,18 +378,11 @@ function HomeScreen() {
 
   // ── 최근 기록 (완료 세션, 필터 적용) ──
   const recentSessions = useMemo(() => {
-    const completed = sessions
+    return sessions
       .filter((s) => !activeSession || s.id !== activeSession.id)
-      .sort((a, b) => b.date.localeCompare(a.date));
-    const filtered = filter === '전체'
-      ? completed
-      : completed.filter((s) => s.exercises.some((e) => e.category === filter));
-    return filtered.slice(0, 6);
-  }, [sessions, activeSession, filter]);
-  const recentTotal = useMemo(
-    () => sessions.filter((s) => !activeSession || s.id !== activeSession.id).length,
-    [sessions, activeSession]
-  );
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 6);
+  }, [sessions, activeSession]);
 
   const weekMuscleSet = new Set(weekMuscles);
   const majorHit = MAJOR_MUSCLES.filter((m) => weekMuscleSet.has(m)).length;
@@ -478,7 +469,21 @@ function HomeScreen() {
             조명에 따라 하루에도 여러 번 쓰는 기능이라 설정 탭까지 두 단계를
             거치게 하지 않는다. 설정 탭에도 같은 항목이 있지만 themeStore
             하나를 보므로 상태가 어긋나지 않는다. */}
-        <ThemeToggle size={38} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
+              routine-manage.tsx로 가는 유일한 홈 화면 진입점이다.
+              (알약에서 헤더 아이콘으로 옮겼다 — 요구는 "홈에 진입점을 남길 것"이고
+               자리는 본문이 아니어도 된다. 본문 알약 52pt를 회수했다.)
+              activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을
+              편집할 수 있어야 한다. (운동 시작 FAB만 activeSession일 때 숨는다) */}
+          <IconButton
+            accessibilityLabel="루틴 관리 열기"
+            onPress={() => router.push("/modal/routine-manage" as any)}
+            style={{ width: 38, height: 38 }}>
+            <Icon name="list" size={20} color={c.textSecondary} />
+          </IconButton>
+          <ThemeToggle size={38} />
+        </View>
       </View>
 
       {/* ── 주간 스트립 (일~토, 완료도 링). 좌우 스와이프로 주 이동 ── */}
@@ -603,49 +608,6 @@ function HomeScreen() {
             <Icon name="chevronRight" size={16} color={c.textMuted} />
           </TouchableOpacity>
 
-          {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
-              routine-manage.tsx로 가는 유일한 홈 화면 진입점.
-              activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을 편집할 수 있어야 한다.
-              (운동 시작 FAB만 activeSession일 때 숨는다) */}
-          <TouchableOpacity
-            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
-            onPress={() => router.push("/modal/routine-manage" as any)}
-            accessibilityRole="button"
-            accessibilityLabel="루틴 관리 열기"
-            activeOpacity={0.7}>
-            <Icon name="list" size={18} color={c.textSecondary} />
-            {/* body-strong 14/800 — 위 요약 카드와 같은 폼팩터 */}
-            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>루틴 관리</Text>
-            <Icon name="chevronRight" size={16} color={c.textMuted} />
-          </TouchableOpacity>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
-            {['전체', ...FILTER_CATEGORIES].map((cat) => {
-              const on = filter === cat;
-              const label = cat === '전체' ? `전체 ${recentTotal}` : cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  onPress={() => setFilter(cat)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${cat} 필터`}
-                  style={{
-                    minHeight: 44,
-                    justifyContent: "center",
-                    paddingHorizontal: 16,
-                    borderRadius: 999,
-                    backgroundColor: on ? c.textPrimary : c.surface,
-                    borderWidth: 1,
-                    borderColor: on ? c.textPrimary : c.border,
-                  }}>
-                  {/* caption 12/600 */}
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: on ? c.background : c.textSecondary, letterSpacing: -0.2 }}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
         </Animated.View>
 
         {/* ── 최근 기록 (상단 색 워시 카드 그리드) ── */}
@@ -723,7 +685,7 @@ function HomeScreen() {
               <Icon name="dumbbell" size={32} color={c.textMuted} />
               {/* caption 12/600 */}
               <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary, marginTop: 12 }}>
-                {filter === '전체' ? "아직 운동 기록이 없어요" : `${filter} 운동 기록이 없어요`}
+                아직 운동 기록이 없어요
               </Text>
             </View>
           )}
