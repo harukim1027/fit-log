@@ -25,6 +25,7 @@ import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
 import { eunNeun } from "../../utils/korean";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
+import { showCuteAlert } from "../../components/CuteAlert";
 import { IconButton } from "../../design-system";
 
 // toYMD·getWeekRange 는 utils/date.ts 로 옮겼다. 통계에도 같은 이름의 함수가
@@ -50,6 +51,60 @@ const HERO_RING = 96;
 const HERO_STROKE = 9;
 const HERO_R = (HERO_RING - HERO_STROKE) / 2;
 const HERO_CIRC = 2 * Math.PI * HERO_R;
+
+/**
+ * 목표 스테퍼의 [−] / [+] 한 칸.
+ *
+ * **가로는 box(44), 세로는 32 + hitSlop 6** 이다.
+ *   가로를 box 로 잡은 이유: hitSlop 으로 44를 만들면 두 버튼의 슬롭이
+ *   겹칠 수 있고, 겹친 구간은 나중에 렌더된 쪽이 가져간다(IconButton 밀집
+ *   행에서 겪은 문제와 같다). 44 박스면 구조적으로 겹칠 수가 없다.
+ *   세로까지 44로 키우면 KPI 스택이 102가 되어 링 96을 넘겨 카드가 커진다.
+ *   위아래에 다른 터치 요소가 없으므로 세로는 슬롭으로 충분하다.
+ *
+ * 박스 전체가 아니라 이 버튼만 터치에 반응한다 — 점선 박스가 통째로
+ * 반응하면 스크롤하려고 손을 얹은 것도 탭이 된다.
+ */
+function GoalStep({
+  dir, disabled, onPress, c,
+}: {
+  dir: 1 | -1;
+  disabled: boolean;
+  onPress: () => void;
+  c: ReturnType<typeof useColors>;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      disabled={disabled}
+      onPress={onPress}
+      hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      accessibilityLabel={dir > 0 ? "목표 늘리기" : "목표 줄이기"}
+      style={{
+        width: 44, height: 32, alignItems: "center", justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
+      }}>
+      {/* 조작 가능하다는 신호는 **보더**가 진다. 글리프에 primary 를 쓰면
+          17px/800 이 WCAG large-text(18.66 bold)에 못 미쳐 4.5:1 이 필요한데
+          primary on surface 는 라이트 4.18 / 다크 3.99 로 미달이다.
+          DESIGN.md 대로 의미색을 비텍스트(보더)에 싣고 글자는 text-primary
+          (라이트 16.46 / 다크 11.96)로 둔다. 시안의 아웃라인 형태도 유지된다.
+          비활성은 opacity.disabled 0.5 + disabled prop 을 함께 준다. */}
+      <View
+        style={{
+          width: 26, height: 24, borderRadius: 8, borderWidth: 1,
+          borderColor: disabled ? c.border : c.primary,
+          alignItems: "center", justifyContent: "center",
+        }}>
+        <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, lineHeight: 18 }}>
+          {dir > 0 ? "+" : "−"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 function fmtVol(kg: number): string {
   return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
@@ -126,7 +181,7 @@ function HomeScreen() {
       getTotalVolume: s.getTotalVolume,
     }))
   );
-  const { user } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const isDark = useThemeStore((s) => s.mode) === 'dark';
   // 홈에서 조회 중인 날짜 (기본 오늘). 헤더 ▼ 또는 주간 스트립 탭으로 변경.
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateStr(new Date()));
@@ -329,7 +384,52 @@ function HomeScreen() {
   // 채우지 않으므로 이미 있는 사용자는 NULL로 남는다(백필하지 않기로 했다).
   // 폴백을 빼면 그 사용자들에게 분모가 사라져 "0/"으로 보인다.
   // 구버전 앱 호환도 같은 이유로 여기에 걸려 있다.
-  const weekGoal = user?.weeklyGoal ?? 4;
+  const serverWeekGoal = user?.weeklyGoal ?? 4;
+
+  /**
+   * 목표 스테퍼의 낙관적 값. null 이면 서버 값을 그대로 쓴다.
+   *
+   * updateProfile 은 PATCH 가 끝난 뒤에 스토어를 갱신한다. 그대로 쓰면
+   * [+]를 눌러도 왕복이 끝날 때까지 링 분모가 안 바뀌어 "안 눌렸나?" 싶다.
+   * 그래서 화면은 여기서 즉시 바꾸고 서버는 뒤따라간다.
+   */
+  const [goalDraft, setGoalDraft] = useState<number | null>(null);
+  const goalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weekGoal = goalDraft ?? serverWeekGoal;
+
+  useEffect(() => () => { if (goalTimer.current) clearTimeout(goalTimer.current); }, []);
+
+  /**
+   * 주간 목표 조정. 1~7.
+   *
+   * PATCH 를 400ms 지연시키는 이유: [+]를 세 번 누르면 요청도 세 번 나간다.
+   * 마지막 값 하나만 보내면 된다.
+   *
+   * 실패하면 **되돌리고 알린다.** 조용히 되돌리면 사용자는 자기가 누른 게
+   * 안 먹은 건지 원래대로 돌아온 건지 구분할 수 없다. 되돌아가는 숫자를
+   * 설명 없이 보여주는 쪽이 더 혼란스럽다. 연타해도 알림은 마지막 한 번만
+   * 뜬다 — 요청 자체가 하나로 합쳐지기 때문이다.
+   */
+  const adjustWeekGoal = (delta: number) => {
+    const next = Math.max(1, Math.min(7, weekGoal + delta));
+    if (next === weekGoal) return;
+    setGoalDraft(next);
+    if (goalTimer.current) clearTimeout(goalTimer.current);
+    goalTimer.current = setTimeout(() => {
+      updateProfile({ weeklyGoal: next })
+        .then(() => setGoalDraft(null)) // 서버 값이 따라잡았으므로 draft 를 놓는다
+        .catch(() => {
+          setGoalDraft(null); // 서버 값으로 되돌아간다
+          showCuteAlert({
+            icon: "alert",
+            tone: "danger",
+            title: "목표를 저장하지 못했어요",
+            message: "잠시 후 다시 시도해 주세요.",
+            buttons: [{ label: "확인", style: "primary" }],
+          });
+        });
+    }, 400);
+  };
 
   const { prEntry, prSessionDate, weekMuscles } = useMemo(() => {
     const { start, end } = getWeekRange(selectedDate);
@@ -664,7 +764,7 @@ function HomeScreen() {
               <View
                 style={{ width: HERO_RING, height: HERO_RING, flexShrink: 0 }}
                 accessibilityRole="image"
-                accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 목표 ${weekGoal}일`}>
+                accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 주간 목표 ${weekGoal}일`}>
                 <Svg width={HERO_RING} height={HERO_RING} style={{ position: "absolute" }}>
                   <Circle
                     cx={HERO_RING / 2} cy={HERO_RING / 2} r={HERO_R}
@@ -712,6 +812,39 @@ function HomeScreen() {
                     </Text>
                     <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary }}>개</Text>
                   </View>
+                </View>
+
+                {/* 주간 목표 스테퍼 — 링 분모를 바로 옆에서 조정한다.
+                    항상 보인다. 롱프레스로 숨기면 발견 가능성 힌트 한 줄이
+                    필요한데 그 높이가 스테퍼 자체와 별 차이가 없다. 게다가
+                    KPI 스택(20+9+20+9+32=90)이 링 96 보다 작아 **카드 높이가
+                    늘지 않는다** — 지금까지 링 옆 47pt 가 비어 있었다.
+
+                    이 자리 말고 목표를 바꾸는 길은 설정 탭 → 프로필 →
+                    주간 목표 3홉뿐이라, 사실상 유일한 실용 경로다. */}
+                <View
+                  style={{
+                    flexDirection: "row", alignItems: "center", gap: 7,
+                    borderWidth: 1, borderStyle: "dashed", borderColor: c.border,
+                    borderRadius: 11, paddingHorizontal: 8, height: 32,
+                  }}>
+                  <Text style={{ flex: 1, fontSize: 11.5, fontWeight: "700", color: c.textSecondary }}>주간 목표</Text>
+                  <GoalStep
+                    dir={-1}
+                    disabled={weekGoal <= 1}
+                    onPress={() => adjustWeekGoal(-1)}
+                    c={c}
+                  />
+                  <View style={{ flexDirection: "row", alignItems: "baseline", minWidth: 26, justifyContent: "center" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{weekGoal}</Text>
+                    <Text style={{ fontSize: 10.5, fontWeight: "600", color: c.textSecondary }}>일</Text>
+                  </View>
+                  <GoalStep
+                    dir={1}
+                    disabled={weekGoal >= 7}
+                    onPress={() => adjustWeekGoal(1)}
+                    c={c}
+                  />
                 </View>
               </View>
             </View>
