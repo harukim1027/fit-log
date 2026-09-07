@@ -17,8 +17,6 @@ import axios from 'axios';
 import * as Sentry from '@sentry/react-native';
 import { API_URL } from '../constants/api';
 import { secureStorage } from './secureStorage';
-import { useWorkoutStore } from '../store/workoutStore';
-import { useAuthStore } from '../store/authStore';
 
 /** API 에러를 타입 안전하게 처리하기 위한 커스텀 에러 클래스 */
 export class ApiError extends Error {
@@ -42,12 +40,58 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-/** 외부에서 401 핸들러를 주입받는 이유: 순환 참조 방지
- *  (_layout.tsx → authStore → apiClient → authStore 의존 순환을 끊음) */
+/**
+ * ── 이 파일은 스토어를 import 하지 않는다 ─────────────────────────────────
+ *
+ * 스토어가 apiClient 를 쓰고 apiClient 가 다시 스토어를 쓰면 순환이 된다.
+ * 전에는 `_onUnauthorized` 만 이 방식으로 끊어 두고 나머지 둘은 직접
+ * import 해서, Require cycle 경고가 3건 남아 있었다.
+ *
+ *   store/workoutStore.ts → lib/apiClient.ts → store/workoutStore.ts
+ *   lib/apiClient.ts → store/authStore.ts → lib/apiClient.ts
+ *   lib/apiClient.ts → store/authStore.ts → store/dietStore.ts → lib/apiClient.ts
+ *
+ * 지금은 스토어 상태가 필요하면 **호출자가 콜백을 등록한다.** 등록은
+ * `app/_layout.tsx` 한 곳에서 하고, 여기서는 등록 안 된 경우를 항상 안전하게
+ * 처리한다. 새 의존이 생기면 import 를 추가하지 말고 이 패턴을 따를 것.
+ *
+ * 모두 `app/_layout.tsx`의 AuthGate 첫 effect 에서 등록된다. 그 effect 는
+ * 마운트 이후에 돌므로 **등록 전에 인터셉터가 도는 경우가 원리상 가능하다.**
+ * 실제로는 첫 API 호출이 같은 effect 안의 `loadToken()`이고 등록이 그보다
+ * 앞서지만, 그 순서에 기대지 않고 각 콜백마다 안전한 기본값을 둔다.
+ */
+
+/** 401 이 끝내 해결되지 않았을 때 = 로그아웃. 미등록이면 아무것도 하지 않는다. */
 let _onUnauthorized: (() => void) | null = null;
 
 export const setUnauthorizedHandler = (handler: () => void) => {
   _onUnauthorized = handler;
+};
+
+/**
+ * 지금 401 갱신을 미뤄야 하는가(= 운동 세션이 진행 중인가).
+ *
+ * 미등록 기본값은 **false(미루지 않음)** 다. 이 콜백이 지키려는 건 진행 중인
+ * 운동 세션의 데이터인데, 등록 전 시점에는 화면이 아직 없어 그런 세션이
+ * 존재할 수 없다. 반대로 true 로 두면 갱신이 통째로 막혀 로그인 직후가 깨진다.
+ */
+let _shouldDeferAuthRefresh: (() => boolean) | null = null;
+
+export const setDeferAuthRefreshCheck = (check: () => boolean) => {
+  _shouldDeferAuthRefresh = check;
+};
+
+/**
+ * 토큰 갱신 성공을 알린다 — 스토어의 메모리 상태를 맞추기 위한 것이다.
+ *
+ * 미등록이면 건너뛰어도 된다. 새 토큰은 이 알림 직전에 이미 secureStorage 에
+ * 저장되고, 요청 인터셉터는 매번 secureStorage 에서 읽는다. 스토어 쪽 값은
+ * `loadToken()`이 채운다.
+ */
+let _onTokenRefreshed: ((token: string) => void) | null = null;
+
+export const setTokenRefreshedHandler = (handler: (token: string) => void) => {
+  _onTokenRefreshed = handler;
 };
 
 // 동시에 여러 요청이 401을 받았을 때 refresh를 한 번만 시도하기 위한 플래그와 대기 큐
@@ -89,8 +133,7 @@ apiClient.interceptors.response.use(
 
     // 운동 세션 중 401은 무시하는 이유:
     // 갱신/로그아웃 시 세션 데이터가 유실될 수 있으므로 세션 완료 전까지 현 상태 유지
-    const activeSession = useWorkoutStore.getState().activeSession;
-    if (activeSession) return Promise.reject(new ApiError(status, msg, url));
+    if (_shouldDeferAuthRefresh?.()) return Promise.reject(new ApiError(status, msg, url));
 
     // refresh 엔드포인트 자체가 401이면 토큰이 완전히 만료된 것 → 강제 로그아웃
     if (url.includes('/auth/refresh')) {
@@ -124,7 +167,7 @@ apiClient.interceptors.response.use(
       const res = await apiClient.post<{ access_token: string }>('/auth/refresh');
       const newToken = res.data.access_token;
       await secureStorage.setToken(newToken);
-      useAuthStore.getState().setToken(newToken);
+      _onTokenRefreshed?.(newToken);
       processRefreshQueue(newToken);
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return apiClient(originalRequest);
