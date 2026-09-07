@@ -329,3 +329,180 @@ ls -la ~/harulog-backup/ # ★ 크기가 0이 아닌지 반드시 확인
 
 0바이트 파일 4건이 `~/harulog-backup/`에 그대로 있다. 다음에 백업을 찾을 때
 헷갈리므로 지우는 편이 낫다. 지울지 여부는 하루님 판단.
+
+---
+
+## 3. CI가 `eas.json`을 덮어써 빌드 환경변수가 날아간다 — ✅ 해소
+
+### 무엇이 문제였나
+
+`.github/workflows/eas-build-prod.yml`의 `Create eas.json` 스텝이 매 빌드마다
+`mobile/eas.json`을 **통째로 새로 만들었다.** 그 생성된 파일에는 `env` 블록이
+아예 없었다.
+
+그 스텝은 `env:`에 `EXPO_PUBLIC_API_URL`과 구글 클라이언트 ID 3개를 선언해
+두지만, heredoc이 실제로 치환하는 건 `${APPLE_ID}`·`${ASC_APP_ID}`·
+`${APPLE_TEAM_ID}` 셋뿐이다. **`EXPO_PUBLIC_*`는 파일에 한 글자도 안 들어갔다.**
+
+이어지는 `Build iOS` 스텝은 `EXPO_PUBLIC_API_URL`을 러너 환경변수로 걸었다.
+**EAS 원격 빌드는 러너의 셸 환경변수를 물려받지 않는다.** 빌드 환경변수는
+`eas.json`의 `env`, 또는 `environment`가 가리키는 EAS 서버 환경변수에서만 온다.
+그래서 있으나 마나였고, 오히려 "설정돼 있다"는 착각을 만들었다.
+
+`eas.json`이 `.gitignore`에 있어 레포에 없었다는 점이 이걸 오래 숨겼다.
+로컬 파일에는 `EXPO_PUBLIC_API_URL`이 있어서 하루님 컴퓨터에서는 정상으로
+보였고, CI가 만드는 파일에는 없었다. 두 파일이 서로 다른 줄 몰랐다.
+
+### 왜 터지지 않았나 — 운이 좋았다
+
+`eas-update.yml`은 `main`에 머지될 때마다 **자동으로** OTA 업데이트를 낸다
+(`mobile/app/**`·`components/**`·`store/**`·`constants/**` 변경 시). `eas update`는
+**러너에서** JS를 번들하고 그때 `EXPO_PUBLIC_*`를 코드에 박는다. 러너에는
+`.env`가 없으니(gitignore) 지금까지 나간 모든 OTA 번들은
+`EXPO_PUBLIC_API_URL`이 `undefined`인 채 `localhost`를 가리켰다.
+
+그런데도 앱이 멀쩡한 이유는 **그 업데이트가 배달된 적이 없기 때문**이다.
+`eas channel:list`가 비어 있다 — 채널이 하나도 없다. 빌드에 채널이 안 박혀
+있으면 `production` 브랜치의 업데이트와 이어지지 않는다. 발행은 되는데
+아무도 받지 않았다 (2026-09-07 기준, `eas branch:list`에 업데이트는 쌓여 있다).
+
+> **★ 채널을 먼저 만들지 말 것.** "OTA가 왜 안 되지?" 하고 `eas.json`에
+> `"channel": "production"`을 넣는 순간, 설치된 앱 전부가 localhost를 보는
+> 번들을 받는다. 채널을 붙이려면 **이 항목의 조치가 먼저 끝나야 한다.**
+
+### 어떻게 고쳤나
+
+**환경변수의 단일 출처를 EAS 서버로 옮겼다.** 파일이 아니라 서버에 있으면
+누가 파일을 덮어써도 살아남고, 빌드와 OTA가 같은 값을 본다.
+
+1. `eas.json`을 **추적 대상으로** 바꿨다(`.gitignore`에서 제외). 빌드 프로필이
+   레포 밖에 있으면 CI가 매번 새로 만들어야 하고, 그게 이 사고의 원인이었다.
+
+2. 각 빌드 프로필에 `"environment"`를 넣었다. 이게 EAS 서버의 어느 환경에서
+   변수를 끌어올지 정한다.
+
+   ```json
+   "production":  { "environment": "production",  ... }
+   "development": { "environment": "development", ... }
+   ```
+
+3. CI는 이제 파일을 만들지 않고 **`submit` 블록 한 곳만 `jq`로 갱신한다.**
+   Apple 자격정보(`appleId`는 계정 이메일이다)만 레포 밖에 남긴다.
+   `jq`가 `.submit.production.ios`만 건드리므로 `build` 쪽을 날릴 수가 없다.
+
+4. `eas update`에 **`--environment production`을 붙였다.** 이게 없으면 OTA
+   번들에 환경변수가 안 들어간다.
+
+5. `Build iOS` 스텝의 `EXPO_PUBLIC_API_URL` env를 지웠다. 효과가 없으면서
+   설정돼 있다는 착각만 만든다.
+
+6. `constants/api.ts`의 localhost 폴백을 **프로덕션에서 throw**로 바꿨다.
+   조용히 localhost로 나가면 앱 안에서 원인을 알 방법이 없다.
+
+7. `eas-build-dev.yml`은 `development-simulator` 프로필을 쓰도록 바꾸고
+   자격정보 주입 스텝을 지웠다. simulator 빌드라 Apple 자격증명이 필요 없고
+   submit 스텝도 없다. (이 워크플로는 지금껏 전부 실패했다 — 2026-06-01이
+   마지막 실행이다.)
+
+### 새 `EXPO_PUBLIC_*` 변수를 추가할 때 — 등록해야 할 곳
+
+**EAS 서버 한 곳이다.** 다른 데 넣지 말 것.
+
+```bash
+cd mobile
+eas env:create --environment production --name EXPO_PUBLIC_<이름> --value <값>
+# 확인
+eas env:list production
+```
+
+`EXPO_PUBLIC_*`는 **클라이언트 번들에 그대로 박히므로 시크릿이 아니다.**
+visibility는 기본(plaintext)으로 둔다. 앱을 뜯으면 어차피 보이는 값이라 서버에서
+숨겨도 의미가 없고, `secret`으로 두면 나중에 값을 다시 읽을 수 없어 불편하다.
+
+**번들에 안 들어가는 값은 반대다.** 빌드 과정에서만 쓰이고 앱에는 남지 않는
+자격증명은 `--visibility secret`으로 넣는다. 현재 해당하는 것은
+`SENTRY_AUTH_TOKEN` 하나다 — 소스맵 업로드에만 쓰인다.
+
+```bash
+eas env:create --environment production --name SENTRY_AUTH_TOKEN \
+  --value <값> --visibility secret
+```
+
+이름이 `EXPO_PUBLIC_`으로 시작하는지가 판단 기준이다. 시작하면 plaintext,
+아니면 secret.
+
+로컬 개발용 값은 `mobile/.env`에 따로 넣는다(gitignore). 이 파일은 EAS로
+올라가지 않으므로 **빌드에는 영향이 없다.**
+
+체크리스트:
+
+- [ ] `eas env:create --environment production` 으로 등록
+- [ ] `eas env:list production` 으로 확인
+- [ ] 로컬 개발이 필요하면 `mobile/.env`에도 추가
+- [ ] `.env.production`에는 넣지 않는다 — gitignore라 EAS로 안 간다. 혼란의 원인이다.
+
+### 등록이 필요한 변수 (2026-09-07 기준)
+
+| 변수 | 현재 값 위치 |
+|---|---|
+| `EXPO_PUBLIC_API_URL` | `mobile/.env.production`, GitHub Secrets `RAILWAY_API_URL` |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `mobile/.env`, GitHub Secrets |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | `mobile/.env`, GitHub Secrets |
+| `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | `mobile/.env`, GitHub Secrets |
+| `EXPO_PUBLIC_SENTRY_DSN` | `mobile/.env.production` |
+| `SENTRY_AUTH_TOKEN` ★secret | `mobile/.env.production` |
+
+### 남은 것
+
+- 채널은 아직 없다. OTA를 실제로 쓰려면 위 조치 완료 후 별도로 붙인다.
+
+---
+
+## 4. Sentry가 실질적으로 꺼져 있었다 — ✅ 해소
+
+### 무엇이 문제였나
+
+코드는 처음부터 다 있었다. `lib/sentry.ts`가 `_layout.tsx:26`에서 초기화되고,
+`apiClient`가 5xx를 `captureException`으로 보내고, `logger.ts`가 브레드크럼을
+남긴다. **그런데 그 이벤트가 갈 곳이 없었다.**
+
+세 가지가 동시에 어긋나 있었다 (2026-09-07 확인).
+
+| 항목 | 상태 |
+|---|---|
+| `app.json` 플러그인 `organization` | `"your-sentry-org-slug"` — 플레이스홀더 그대로 |
+| `app.json` 플러그인 `project` | `"fitlog"` — **실제 슬러그는 `harulog-mobile`** |
+| `EXPO_PUBLIC_SENTRY_DSN` | `.env.production`(gitignore)에만 → 빌드에 안 들어감 |
+| `SENTRY_AUTH_TOKEN` | 같음 → 소스맵 업로드가 된 적 없음 |
+
+`organization`만 고쳤다면 `project`가 여전히 틀려서 업로드는 계속 실패했을
+것이다. 슬러그 둘은 Sentry API로 조회해 확인했다 — 조직 `harulog`,
+프로젝트 `harulog-mobile`(platform: react-native). `.env.production`의 DSN은
+그 프로젝트의 활성 키와 org/projectId가 일치한다. **값 자체는 처음부터
+맞았고, 빌드에 안 들어간 것이 문제였다.**
+
+DSN이 없으면 `Sentry.init({ dsn: undefined })`가 되고, SDK는 조용히 아무것도
+보내지 않는다. 에러도 경고도 없다. 그래서 오래 눈치채지 못했다.
+
+### 어떻게 고쳤나
+
+- `app.json`의 두 슬러그를 실제 값으로 바꿨다.
+- `EXPO_PUBLIC_SENTRY_DSN`을 EAS 서버 환경변수(production, plaintext)로 등록한다.
+- `SENTRY_AUTH_TOKEN`은 EAS 서버 환경변수(production, **secret**)로 등록한다.
+  번들에 안 들어가고 소스맵 업로드에만 쓰이므로 `EXPO_PUBLIC_*`와 구분한다.
+
+### 개발 중에는 꺼진다 — 확인함
+
+`lib/sentry.ts`가 `enabled: process.env.NODE_ENV === 'production'`을 쓴다.
+`babel-preset-expo`(54.0.10)의 define-plugin이 `process.env.NODE_ENV`를 번들
+시점에 리터럴로 치환하므로, 개발 번들에서는 `enabled: false`가 박힌다.
+**개발 중 에러가 Sentry로 새어 노이즈가 쌓일 일은 없다.**
+
+`__DEV__`가 더 RN다운 관용구지만 같은 플러그인이 같은 방식으로 치환하므로
+동작은 동일하다. 맞게 동작하고 있어 바꾸지 않았다.
+
+### 확인 방법
+
+빌드 없이 확인할 수 있는 건 여기까지다. 실제로 이벤트가 도착하는지는
+다음 프로덕션 빌드 이후 Sentry 대시보드에서 봐야 한다. 소스맵이 올라갔는지는
+빌드 로그의 `Uploading sourcemaps` 구간에서 확인한다.

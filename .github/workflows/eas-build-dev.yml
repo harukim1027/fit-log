@@ -26,38 +26,8 @@ jobs:
           eas-cache: false
           expo-cache: false
 
-      - name: Create eas.json
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          cat > mobile/eas.json << EOF
-          {
-            "cli": { "version": ">= 10.0.0", "appVersionSource": "remote" },
-            "build": {
-              "development": {
-                "developmentClient": true,
-                "distribution": "internal",
-                "simulator": true
-              },
-              "production": {
-                "autoIncrement": true,
-                "ios": { "buildConfiguration": "Release" }
-              }
-            },
-            "submit": {
-              "production": {
-                "ios": {
-                  "appleId": "${APPLE_ID}",
-                  "ascAppId": "${ASC_APP_ID}",
-                  "appleTeamId": "${APPLE_TEAM_ID}"
-                }
-              }
-            }
-          }
-          EOF
-
       - name: Build iOS
         working-directory: mobile
-        run: eas build --platform ios --profile development --non-interactive
+        # development-simulator 프로필: simulator 빌드라 Apple 자격증명이 필요 없다.
+        # 이 워크플로에 submit 스텝이 없으므로 자격정보를 주입할 이유도 없다.
+        run: eas build --platform ios --profile development-simulator --non-interactive
