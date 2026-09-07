@@ -8,7 +8,11 @@ import { useRouter, useSegments } from "expo-router";
 import { useAuthStore } from "../store/authStore";
 import { useThemeStore } from "../store/themeStore";
 import { useColors, lightColors, darkColors, type ThemeColors } from "../constants/colors";
-import apiClient, { setUnauthorizedHandler } from "../lib/apiClient";
+import apiClient, {
+  setUnauthorizedHandler,
+  setDeferAuthRefreshCheck,
+  setTokenRefreshedHandler,
+} from "../lib/apiClient";
 import { secureStorage } from "../lib/secureStorage";
 import { requestNotificationPermission, setupNotificationChannel } from "../lib/workoutNotification";
 import { useWorkoutStore } from "../store/workoutStore";
@@ -187,8 +191,23 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
 
   useEffect(() => {
+    /**
+     * apiClient 가 필요로 하는 스토어 접근을 여기서 등록한다.
+     * apiClient 는 스토어를 import 하지 않는다 — 그러면 순환이 된다.
+     * 등록은 **이 한 곳에서만** 한다. 새 콜백이 생겨도 여기에 붙일 것.
+     *
+     * loadToken() 보다 먼저 등록하는 이유: 앱의 첫 API 호출이 그 안의
+     * /users/me 다. 등록이 늦으면 그 호출만 콜백 없이 돈다.
+     */
     setUnauthorizedHandler(() => {
       logout().then(() => router.replace("/auth/login" as any));
+    });
+    // 운동 세션이 진행 중이면 401 갱신을 미룬다(세션 데이터 유실 방지).
+    // getState()로 읽는다 — 구독이 아니라 인터셉터가 부를 때의 현재 값이 필요하다.
+    setDeferAuthRefreshCheck(() => !!useWorkoutStore.getState().activeSession);
+    // 갱신된 토큰을 스토어 메모리 상태에 반영한다(저장 자체는 apiClient가 이미 했다).
+    setTokenRefreshedHandler((newToken) => {
+      useAuthStore.getState().setToken(newToken);
     });
     loadToken();
   }, []);

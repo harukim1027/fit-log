@@ -1294,6 +1294,68 @@ warning 2.48, primary 4.18로 모두 4.5:1에 못 미친다").
 
 다크 모드는 `#021526` on `#2E82F0` = 4.89:1로 통과한다.
 
+### apiClient는 스토어를 import하지 않는다
+
+`lib/apiClient.ts`가 스토어를 직접 import하면 순환이 된다. 스토어가 apiClient로
+요청을 보내고, apiClient가 다시 스토어 상태를 읽기 때문이다. 전에는
+`setUnauthorizedHandler` 하나만 콜백으로 끊어 두고("순환 참조 방지"라는 주석까지
+달려 있었다) 나머지 둘은 직접 import해서 **Require cycle 경고가 3건** 남아 있었다
+(2026-09-07, `6f137ea` 기준).
+
+```
+store/workoutStore.ts → lib/apiClient.ts → store/workoutStore.ts
+lib/apiClient.ts → store/authStore.ts → lib/apiClient.ts
+lib/apiClient.ts → store/authStore.ts → store/dietStore.ts → lib/apiClient.ts
+```
+
+**규칙: apiClient에서 스토어 상태가 필요하면 콜백을 등록한다.**
+
+```ts
+// lib/apiClient.ts — 받는 쪽
+let _shouldDeferAuthRefresh: (() => boolean) | null = null;
+export const setDeferAuthRefreshCheck = (check: () => boolean) => {
+  _shouldDeferAuthRefresh = check;
+};
+```
+
+```ts
+// app/_layout.tsx — 등록하는 쪽. 등록은 여기 한 곳에서만 한다.
+setDeferAuthRefreshCheck(() => !!useWorkoutStore.getState().activeSession);
+```
+
+현재 콜백은 셋이다.
+
+| 콜백 | 무엇을 위해 | 미등록 시 |
+|---|---|---|
+| `setUnauthorizedHandler` | 401이 끝내 안 풀렸을 때 로그아웃 | 아무것도 안 함 |
+| `setDeferAuthRefreshCheck` | 운동 중이면 401 갱신을 미룸 | **미루지 않음**(false) |
+| `setTokenRefreshedHandler` | 갱신된 토큰을 스토어 메모리에 반영 | 건너뜀 |
+
+#### 미등록 기본값을 콜백마다 정하는 이유
+
+셋 다 `app/_layout.tsx`의 AuthGate 첫 effect에서 등록되는데, effect는 마운트
+이후에 돈다. **등록 전에 인터셉터가 도는 경우가 원리상 가능하다.** 실제로는 첫
+API 호출이 같은 effect 안의 `loadToken()`이고 등록이 그보다 앞서지만, 그 순서에
+기대지 않는다.
+
+기본값은 "안전한 쪽"이 콜백마다 다르다. `setDeferAuthRefreshCheck`는 **false**가
+안전하다 — 이 콜백이 지키려는 건 진행 중인 운동 세션의 데이터인데 등록 전에는
+화면이 없어 그런 세션이 존재할 수 없고, 반대로 true면 갱신이 통째로 막혀 로그인
+직후가 깨진다. `setTokenRefreshedHandler`는 건너뛰어도 된다 — 새 토큰은 이 알림
+직전에 이미 `secureStorage`에 저장되고 요청 인터셉터는 매번 거기서 읽는다.
+
+#### `require()`로 지연 호출하지 않는다
+
+콜백 안에서 `require('../store/authStore')`를 부르면 경고는 사라지지만 의존은
+그대로다. 정적 분석에서 안 보일 뿐이라 나중에 더 찾기 어렵다.
+
+#### 검증
+
+`__tests__/lib/apiClient.cycles.test.ts`가 두 동작을 인터셉터의 rejected 핸들러를
+직접 불러 확인한다 — 운동 중 401에서 refresh를 부르지 않는 것과, 갱신 성공 시 새
+토큰이 콜백으로 전달되는 것. 운동 중 401은 시뮬레이터에서 만들기 어려워 이렇게
+고정해 뒀다.
+
 ## DESIGN.md와의 불일치
 
 ### radius 사다리 5단계 중 2개가 실사용 0건
