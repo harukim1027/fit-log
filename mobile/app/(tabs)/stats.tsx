@@ -129,6 +129,8 @@ function StatsScreen() {
   /** 주 범위. range 가 "all" 이어도 값은 유지한다 — "주간"으로 돌아오면 보던 주로 복귀. */
   const [weekOffset, setWeekOffset] = React.useState(0);
   const scrollRef = React.useRef<ScrollView>(null);
+  /** 인체 맵 펼침. 기본은 접힘 — 상시로 두면 292pt 를 먹는다. */
+  const [mapOpen, setMapOpen] = React.useState(false);
 
   /**
    * 범위를 바꾸면 맨 위로 올린다.
@@ -163,31 +165,57 @@ function StatsScreen() {
    *   탭 간 주 상태를 공유하지 않는다는 기존 결정을 유지한다. 홈에서 지난 주를
    *   보다 통계로 와도 통계는 자기 ◀▶ 가 가리키는 주를 보여준다.
    */
-  const weekMuscleData = React.useMemo(() => {
-    const weekSessions = sessions.filter((s) => {
-      const d = new Date(s.date + "T00:00:00");
-      return d >= weekStart && d <= weekEnd;
-    });
-    const set = new Set<string>();
-    for (const sess of weekSessions) {
+  const muscleData = React.useMemo(() => {
+    const inRange = range === "all"
+      ? sessions
+      : sessions.filter((s) => {
+          const d = new Date(s.date + "T00:00:00");
+          return d >= weekStart && d <= weekEnd;
+        });
+
+    // 부위별 **세션 수**. 같은 세션에서 한 부위를 여러 종목으로 쳐도 1로 센다 —
+    // "몇 번 다뤘나"를 묻는 지표라 종목 수가 아니라 세션 수가 맞다.
+    const count: Record<string, number> = {};
+    const all = new Set<string>();
+    for (const sess of inRange) {
+      const perSession = new Set<string>();
       for (const ex of sess.exercises) {
         const slugs = MUSCLE_MAP[ex.name] ?? CATEGORY_TO_SLUGS[ex.category ?? ""] ?? [];
-        for (const sl of slugs) set.add(sl);
+        for (const sl of slugs) { perSession.add(sl); all.add(sl); }
       }
+      for (const sl of perSession) count[sl] = (count[sl] ?? 0) + 1;
     }
-    const chips = MAJOR_MUSCLES.map((m) => ({
+
+    const parts = MAJOR_MUSCLES.map((m) => ({
       slug: m,
       label: MAJOR_MUSCLE_LABELS[m] ?? m,
-      on: set.has(m),
+      on: all.has(m),
+      count: count[m] ?? 0,
     }));
+    const missing = parts.filter((pt) => !pt.on);
     return {
-      muscles: Array.from(set),
-      hit: chips.filter((ch) => ch.on).length,
-      // 힌트는 칩과 같은 배열에서 파생시킨다 — 둘이 어긋날 수 없게.
-      missing: chips.find((ch) => !ch.on) ?? null,
-      total: chips.length,
+      muscles: Array.from(all),
+      parts,
+      hit: parts.length - missing.length,
+      // 힌트는 parts 에서 파생시킨다 — 목록과 어긋날 수 없게.
+      missing,
+      total: parts.length,
     };
-  }, [sessions, weekOffset]);
+  }, [sessions, range, weekStart, weekEnd]);
+
+  /**
+   * 미자극 부위 안내. **전부 나열한다** — 하나만 말하면 목록에 취소선이 둘인데
+   * 문구는 하나만 짚어 어긋나 보인다. 조사는 마지막 부위 기준으로 고른다.
+   */
+  const muscleHint = (() => {
+    if (muscleData.muscles.length === 0) return "아직 기록이 없어요";
+    if (muscleData.missing.length === 0) return "전신 골고루 자극했어요!";
+    const names = muscleData.missing.map((m) => m.label);
+    // 시점 표현은 이번 주일 때만 붙인다. 다른 주나 전체 범위에서는 바로 위
+    // 주 네비게이션 라벨과 범위 스위처가 이미 어느 구간인지 말한다.
+    const when = range === "week" && weekOffset === 0 ? "이번 주 " : "";
+    return `${names.join("·")}${eunNeun(names[names.length - 1])} ${when}아직이에요`;
+  })();
   const weekDays = weekDates(weekStart).map((d) => ({
     dateStr: localDateStr(d),
     label: d.toLocaleDateString("ko-KR", { weekday: "short" }),
@@ -571,43 +599,84 @@ function StatsScreen() {
 
         <SectionRule c={c} />
 
-        {/* 자극 부위 — 홈에서 옮겨왔다.
+        {/* ── ③ 자극 부위 ────────────────────────────────────────────────
+            홈과 같은 인라인 + 취소선이지만 **빈도 숫자가 붙는 것**이 다르다.
+            홈은 "뭘 빠뜨렸나"(행동), 통계는 "얼마나 했나"(분석)를 답한다.
+            숫자가 없으면 두 화면이 같은 말을 두 번 하게 된다.
 
-            배치: **주간 네비게이션이 지배하는 블록의 끝**이다. ◀▶(weekOffset)가
-            바꾸는 것은 위의 볼륨·칼로리와 이 섹션뿐이고, 아래 성장 그래프·PR
-            기록은 전체 기간이라 weekOffset 을 쓰지 않는다. 같은 컨트롤이
-            지배하는 것들을 붙여 두지 않으면 ◀▶ 를 눌렀을 때 화면 저 아래
-            무언가가 같이 바뀌는 것을 사용자가 연결하지 못한다. */}
-        <Card style={{ gap: 8 }}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text className="text-[17px] font-extrabold text-text-secondary" style={{ flex: 1 }}>
-              자극 부위
-            </Text>
-            {/* numeric — 홈 히어로의 "N/6"과 같은 지표다 */}
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
-              {weekMuscleData.hit}
-              <Text style={{ color: c.textSecondary }}>/{weekMuscleData.total}</Text>
-            </Text>
+            인체 맵은 접어 둔다. 상시로 두면 292pt(뷰포트의 27%)를 먹는데,
+            그림은 매번 보는 것이 아니라 궁금할 때 보는 것이다. */}
+        <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+          <Text style={{ ...type.kicker, color: c.textSecondary }}>
+            자극 부위 · {muscleData.hit}/{muscleData.total}
+          </Text>
+
+          <View
+            style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: layout.muscleInlineGap, marginTop: layout.muscleInlineMarginTop }}
+            accessibilityLabel={`자극 부위 ${muscleData.hit}/${muscleData.total}. ${muscleData.parts.map((pt) => (pt.on ? `${pt.label} ${pt.count}회` : `${pt.label} 아직`)).join(", ")}`}>
+            {muscleData.parts.map((pt, idx) => (
+              <React.Fragment key={pt.slug}>
+                {idx > 0 && <Text style={{ fontSize: 11, color: c.textMuted }}>·</Text>}
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
+                  {/* 미자극은 취소선이 주 신호다. 시안은 색을 textMuted 로 뒀지만
+                      화면 배경 위 대비가 라이트 2.28 / 다크 3.34 로 미달이라
+                      textSecondary(5.39 / 6.06)로 올렸다. 바로 아래 힌트가 이
+                      이름들을 그대로 말하는데 목록에서 안 읽히면 모순이다.
+                      자극됨(textPrimary)과 색 차가 줄어도 구분은 취소선이 진다. */}
+                  <Text
+                    style={{
+                      ...type.body,
+                      color: pt.on ? c.textPrimary : c.textSecondary,
+                      textDecorationLine: pt.on ? "none" : "line-through",
+                    }}>
+                    {pt.label}
+                  </Text>
+                  {/* 빈도. 부위명(12/700)과 같은 크기면 "가슴3"이 한 덩어리로
+                      읽힌다. 반 단계 작은 kpiLabel(11/700)을 재사용해 이름에
+                      종속돼 보이게 하고, 새 크기를 늘리지 않는다. */}
+                  {pt.on && (
+                    <Text style={{ ...type.kpiLabel, color: c.textSecondary, fontVariant: ["tabular-nums"] }}>
+                      {pt.count}
+                    </Text>
+                  )}
+                </View>
+              </React.Fragment>
+            ))}
           </View>
-          <MuscleMap muscles={weekMuscleData.muscles} scale={0.55} />
+
           {/* 색만으로 전달 금지 — 상태를 아이콘 + 텍스트로 함께 표시한다. */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: layout.muscleHintMarginTop }}>
             <Icon
-              name={weekMuscleData.muscles.length === 0 ? "dumbbell" : weekMuscleData.missing ? "target" : "check"}
+              name={muscleData.muscles.length === 0 ? "dumbbell" : muscleData.missing.length > 0 ? "target" : "check"}
               size={13}
-              color={weekMuscleData.muscles.length === 0 ? c.textMuted : weekMuscleData.missing ? c.warning : c.success}
+              color={muscleData.muscles.length === 0 ? c.textMuted : muscleData.missing.length > 0 ? c.warning : c.success}
             />
-            {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
-                라이트에서 warning/success 는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
-            <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>
-              {weekMuscleData.muscles.length === 0
-                ? "이 주엔 기록이 없어요"
-                : weekMuscleData.missing
-                  ? `${weekMuscleData.missing.label}${eunNeun(weekMuscleData.missing.label)} 빠졌어요`
-                  : "전신 골고루 자극했어요!"}
-            </Text>
+            {/* 의미색은 아이콘이 지고 본문은 text-secondary —
+                라이트에서 warning/success 는 배경 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
+            <Text style={{ ...type.body, flex: 1, color: c.textSecondary }}>{muscleHint}</Text>
           </View>
-        </Card>
+
+          {/* 인체 맵 펼침 */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setMapOpen((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: mapOpen }}
+            accessibilityLabel={mapOpen ? "인체 맵 접기" : "인체 맵 보기"}
+            style={{ flexDirection: "row", alignItems: "center", gap: 2, marginTop: 10, minHeight: 44 }}>
+            <Text style={{ ...type.kpiLabel, color: c.primary }}>
+              {mapOpen ? "인체 맵 접기" : "인체 맵 보기"}
+            </Text>
+            <Icon name={mapOpen ? "chevronUp" : "chevronRight"} size={12} color={c.primary} />
+          </TouchableOpacity>
+          {mapOpen && (
+            <View style={{ marginTop: 4 }}>
+              <MuscleMap muscles={muscleData.muscles} scale={0.55} />
+            </View>
+          )}
+        </View>
+
+        <SectionRule c={c} />
 
         {/* 종목별 성장 그래프 */}
         {exerciseNames.length > 0 && (
