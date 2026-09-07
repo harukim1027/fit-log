@@ -31,7 +31,7 @@ import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { localDateStr, getWeekRangeByOffset, weekDates } from "../../utils/date";
 import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS, MAJOR_MUSCLES, MAJOR_MUSCLE_LABELS } from "../../components/MuscleMap";
 import { eunNeun } from "../../utils/korean";
-import { type, layout, segment, weekNavLabel } from "../../constants/typography";
+import { type, layout, leaderRow, segment, weekNavLabel } from "../../constants/typography";
 
 // ScrollView padding 20*2=40 + Card p-4 16*2=32 = 72
 const W = Dimensions.get("window").width - 72;
@@ -131,6 +131,8 @@ function StatsScreen() {
   const scrollRef = React.useRef<ScrollView>(null);
   /** 인체 맵 펼침. 기본은 접힘 — 상시로 두면 292pt 를 먹는다. */
   const [mapOpen, setMapOpen] = React.useState(false);
+  /** 최고 기록 더 보기. 기본 3개만 — 목록이 길면 아래 성장 그래프가 밀린다. */
+  const [prExpanded, setPrExpanded] = React.useState(false);
 
   /**
    * 범위를 바꾸면 맨 위로 올린다.
@@ -236,20 +238,28 @@ function StatsScreen() {
   // 총 볼륨/총 운동 등 요약은 전체 기간 기준(기간 이동과 무관)
   const totalVolume = sessions.reduce((sum, s) => sum + calcSessionVolume(s), 0);
 
-  const prMap: Record<string, number> = {};
-  sessions.forEach((s) => {
-    s.exercises.forEach((ex) => {
-      ex.sets
-        .filter((st) => st.completed && st.weight > 0 && st.reps > 0)
-        .forEach((st) => {
-          const wKg = toKg(st.weight, st.unit);
-          if (!prMap[ex.name] || prMap[ex.name] < wKg) prMap[ex.name] = wKg;
+  /**
+   * 종목별 최고 중량. **범위 스위처를 따른다** — "주간"이면 그 주에 든 최고,
+   * "전체"면 전체 기간 최고다. 상위 몇 개만 자르지 않고 전부 만든 뒤 화면에서
+   * 3개까지 보이고 나머지는 "N개 더 보기"로 편다.
+   */
+  const rangePrs = React.useMemo(() => {
+    const inRange = range === "all"
+      ? sessions
+      : sessions.filter((s) => {
+          const d = new Date(s.date + "T00:00:00");
+          return d >= weekStart && d <= weekEnd;
         });
-    });
-  });
-  const prs = Object.entries(prMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+    const map: Record<string, number> = {};
+    for (const sess of inRange)
+      for (const ex of sess.exercises)
+        for (const st of ex.sets) {
+          if (st.weight <= 0 || st.reps <= 0) continue;
+          const w = toKg(st.weight, st.unit);
+          if (w > (map[ex.name] ?? 0)) map[ex.name] = w;
+        }
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [sessions, range, weekStart, weekEnd]);
 
   const exerciseNames = React.useMemo(() => {
     const freq: Record<string, number> = {};
@@ -266,12 +276,35 @@ function StatsScreen() {
 
   const activeExercise = selectedExercise ?? exerciseNames[0] ?? null;
 
+
+
   // 성장 그래프 데이터는 utils/workout의 buildExerciseGrowthData 하나만 사용한다.
   // (0kg·미완료 세트 제외 규칙이 여기서 재구현/롤백되지 않도록 유일 소스로 유지)
   const exerciseGrowthData = React.useMemo(
     () => buildExerciseGrowthData(sessions, activeExercise),
     [sessions, activeExercise],
   );
+
+  /**
+   * 성장 요약문. "6주간 100kg → 140kg" — 차트를 읽지 않아도 결론이 온다.
+   * 점이 둘 미만이면 비교할 게 없어 문구를 내지 않는다.
+   */
+  const growthSummary = React.useMemo(() => {
+    const d = exerciseGrowthData;
+    if (!d || d.length < 2) return null;
+    const first = d[0], last = d[d.length - 1];
+    const weeks = Math.max(
+      1,
+      Math.round(
+        (new Date(last.date + "T00:00:00").getTime() - new Date(first.date + "T00:00:00").getTime()) /
+          (7 * 24 * 60 * 60 * 1000),
+      ),
+    );
+    const a = Math.round(first.maxWeight * 10) / 10;
+    const b = Math.round(last.maxWeight * 10) / 10;
+    if (a === b) return `${weeks}주간 ${a}kg 유지 중이에요`;
+    return `${weeks}주간 ${a}kg → ${b}kg`;
+  }, [exerciseGrowthData]);
 
   // 날짜별 막대 종류 결정: 운동함 → 실제 값 / 쉬는날 지정 → 체크무늬 / 그 외 → 빈 막대
   const barType = (dateStr: string, value: number): BarDatum["type"] =>
@@ -396,7 +429,15 @@ function StatsScreen() {
   const rangeWorkoutDays = isWeek
     ? volumeBarsAll.filter((b) => b.type === "workout").length
     : new Set(sessions.map((s) => s.date)).size;
-  const rangePR = isWeek ? weekPRCount : prs.length;
+  /**
+   * "주간"은 그 주에 세운 **신규** PR 수, "전체"는 기록이 있는 종목 수다.
+   * 전체 기간에는 비교할 이전 구간이 없어 "신규"가 성립하지 않는다 —
+   * 라벨도 그에 맞춰 갈린다.
+   *
+   * 전에는 prs.length 를 썼는데 그 배열이 slice(0, 5) 라 6종목 이상이어도
+   * 항상 5로 보였다.
+   */
+  const rangePR = isWeek ? weekPRCount : rangePrs.length;
   const rangeVolumeBars = isWeek ? volumeBars : allWeekBars.filter((b) => b.type !== "empty");
   const rangeBurnBars = isWeek ? burnBars : [];
 
@@ -541,7 +582,7 @@ function StatsScreen() {
               </View>
             </View>
             <View>
-              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>신규 PR</Text>
+              <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>{isWeek ? "신규 PR" : "PR 종목"}</Text>
               <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: layout.kpiValueMarginTop }}>
                 <Text style={{ ...type.kpiValue, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>{rangePR}</Text>
                 <Text style={{ ...type.kpiLabel, color: c.textSecondary }}>개</Text>
@@ -678,55 +719,118 @@ function StatsScreen() {
 
         <SectionRule c={c} />
 
-        {/* 종목별 성장 그래프 */}
+        {/* ── ④ 최고 기록 — 점선 리더 행 ────────────────────────────────
+            종목명과 값 사이를 점선으로 이으면 눈이 행을 따라간다. 전에는 각
+            행이 surfaceAlt 블록이라 목록 전체가 또 하나의 카드 덩어리였다.
+            순위 배지도 없앴다 — 정렬 순서가 이미 순위를 말한다. */}
+        {rangePrs.length > 0 && (
+          <>
+            <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH }}>
+              <Text style={{ ...type.kicker, color: c.textSecondary }}>최고 기록</Text>
+              <View style={{ marginTop: 6 }}>
+                {(prExpanded ? rangePrs : rangePrs.slice(0, 3)).map(([name, maxW], idx) => (
+                  <View
+                    key={name}
+                    style={{ flexDirection: "row", alignItems: "baseline", gap: leaderRow.gap, paddingVertical: leaderRow.paddingVertical }}
+                    accessibilityLabel={`${idx + 1}위 ${name} ${Math.round(maxW * 10) / 10}킬로그램`}>
+                    {/* 순위 색을 sun → primary → textMuted 로 내림차순으로 둔다.
+                        전에는 1등 stats / 2등 textMuted / 3등 warning 이라
+                        2·3등이 역전돼 있었다 — 3등이 2등보다 진했다. */}
+                    <Text
+                      style={{
+                        ...type.kpiLabel,
+                        color: idx === 0 ? c.tagSun : idx === 1 ? c.primary : c.textMuted,
+                        fontVariant: ["tabular-nums"],
+                      }}>
+                      {idx + 1}
+                    </Text>
+                    <Text numberOfLines={1} style={{ ...leaderRow.name, color: c.textPrimary }}>{name}</Text>
+                    {/* 점선 리더. 시안 .pd = border-bottom 1 dotted. */}
+                    <View
+                      style={{
+                        flex: 1,
+                        borderBottomWidth: 1,
+                        borderStyle: "dotted",
+                        borderColor: c.border,
+                        marginHorizontal: leaderRow.dotsMarginH,
+                        marginBottom: leaderRow.dotsMarginBottom,
+                      }}
+                    />
+                    <Text style={{ ...leaderRow.value, color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                      {Math.round(maxW * 10) / 10}
+                      <Text style={{ ...leaderRow.valueUnit, color: c.textSecondary }}>kg</Text>
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              {rangePrs.length > 3 && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setPrExpanded((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: prExpanded }}
+                  accessibilityLabel={prExpanded ? "최고 기록 접기" : `최고 기록 ${rangePrs.length - 3}개 더 보기`}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 }}>
+                  <Text style={{ ...type.kpiLabel, color: c.primary }}>
+                    {prExpanded ? "접기" : `${rangePrs.length - 3}개 더 보기`}
+                  </Text>
+                  <Icon name={prExpanded ? "chevronUp" : "chevronRight"} size={12} color={c.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <SectionRule c={c} />
+          </>
+        )}
+
+        {/* ── ⑤ 종목별 성장 ─────────────────────────────────────────────
+            범위 스위처를 따르지 않는다 — 성장은 기간을 가로질러 보는 것이라
+            한 주로 자르면 점이 한둘이라 선이 안 그려진다. 키커에 종목명을
+            넣어 무엇의 성장인지 제목에서 읽히게 했다. */}
         {exerciseNames.length > 0 && (
-          <Card style={{ gap: 8 }}>
-            <Text className="text-[17px] font-extrabold text-text-secondary">
-              종목별 성장 그래프
+          <View style={{ paddingTop: layout.sectionPaddingTop, paddingHorizontal: layout.sectionPaddingH, paddingBottom: layout.sectionPaddingBottom }}>
+            <Text style={{ ...type.kicker, color: c.textSecondary }}>
+              종목별 성장{activeExercise ? ` · ${activeExercise}` : ""}
             </Text>
+
+            {/* 요약문 — 차트를 읽지 않아도 결론이 한 줄로 온다. */}
+            {growthSummary && (
+              <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.bodyMarginTop + 3 }}>
+                {growthSummary}
+              </Text>
+            )}
+
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -4 }}
-              contentContainerStyle={{
-                paddingHorizontal: 4,
-                gap: 8,
-                flexDirection: "row",
-              }}>
+              style={{ marginHorizontal: -layout.sectionPaddingH, marginTop: 12 }}
+              contentContainerStyle={{ paddingHorizontal: layout.sectionPaddingH, gap: 8, flexDirection: "row" }}>
               {exerciseNames.map((name) => {
                 const isActive = activeExercise === name;
                 return (
                   <TouchableOpacity
                     key={name}
-                    className={[
-                      "rounded-full px-4 justify-center",
-                      isActive ? "bg-primary" : "bg-surface-alt",
-                    ].join(" ")}
-                    style={{ minHeight: 44 }}
+                    style={{
+                      minHeight: 44, justifyContent: "center", paddingHorizontal: 14,
+                      borderRadius: 999,
+                      backgroundColor: isActive ? c.primary : c.surfaceAlt,
+                    }}
                     onPress={() => setSelectedExercise(name)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: isActive }}
                     accessibilityLabel={`${name} 성장 그래프 보기`}
                     activeOpacity={0.7}>
-                    <Text
-                      className={[
-                        "text-[12px] font-semibold",
-                        isActive ? "text-on-accent" : "text-text-secondary",
-                      ].join(" ")}>
-                      {name}
-                    </Text>
+                    <Text style={{ ...type.body, color: isActive ? c.onAccent : c.textSecondary }}>{name}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
+
             {exerciseGrowthData ? (
-              <View style={{ overflow: 'hidden', borderRadius: 16 }}>
+              <View style={{ overflow: "hidden", marginTop: layout.chartMarginTop }}>
                 <LineChart
                   data={{
                     labels: exerciseGrowthData.map((d) => d.date.slice(5)),
-                    datasets: [
-                      { data: exerciseGrowthData.map((d) => d.maxWeight) },
-                    ],
+                    datasets: [{ data: exerciseGrowthData.map((d) => d.maxWeight) }],
                   }}
                   width={W}
                   height={160}
@@ -737,95 +841,19 @@ function StatsScreen() {
                     propsForDots: { r: "5", strokeWidth: "2", stroke: c.primary },
                   }}
                   bezier
-                  style={{ borderRadius: 16, marginLeft: -10 }}
+                  style={{ marginLeft: -10 }}
                   withInnerLines={false}
                   yAxisSuffix="kg"
                 />
               </View>
             ) : (
-              <View className="items-center py-5 gap-1">
-                <Icon name="chart" size={40} color={c.textMuted} />
-                <Text className="text-sm text-text-muted text-center">
-                  {activeExercise
-                    ? "2회 이상 기록이 있어야 그래프가 표시돼요"
-                    : "운동 기록이 없어요"}
-                </Text>
-              </View>
+              <Text style={{ ...type.body, color: c.textSecondary, marginTop: layout.chartMarginTop }}>
+                {activeExercise ? "2회 이상 기록이 있어야 그래프가 표시돼요" : "아직 기록이 없어요"}
+              </Text>
             )}
-          </Card>
-        )}
-
-        {/* PR 기록 */}
-        {prs.length > 0 && (
-          <View
-            className="bg-surface rounded-[16px] border border-border p-4"
-            style={[{ gap: 8 }, SHADOW]}>
-            <Text
-              style={{
-                fontSize: 17,
-                fontWeight: "800",
-                color: c.textSecondary,
-              }}>
-              종목별 최고 기록 PR
-            </Text>
-            {prs.map(([name, maxW], idx) => (
-              <View
-                key={name}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: c.surfaceAlt,
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 11,
-                  }}>
-                  <View
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 999,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor:
-                        idx === 0
-                          ? c.stats
-                          : idx === 1
-                          ? c.textMuted
-                          : c.warning,
-                    }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "900",
-                        color: c.onAccent,
-                      }}>
-                      {idx + 1}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: "800",
-                      color: c.textPrimary,
-                    }}>
-                    {name}
-                  </Text>
-                </View>
-                <Text
-                  style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ['tabular-nums'] }}>
-                  {Math.round(maxW * 10) / 10}kg
-                </Text>
-              </View>
-            ))}
           </View>
         )}
+
       </ScrollView>
     </View>
   );
