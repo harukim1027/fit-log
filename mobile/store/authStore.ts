@@ -56,6 +56,8 @@ interface AuthStore {
   setToken: (token: string) => void;
   fetchMe: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  /** 계정 탈퇴. 서버 삭제만 한다 — 로그아웃은 호출부가 logout()으로 따로 한다. */
+  deleteAccount: () => Promise<void>;
   updateWeight: (weight: number) => Promise<void>;
 }
 
@@ -127,11 +129,33 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             useDietStore.getState().setMacroRatios(targetCarbsRatio, targetProteinRatio, targetFatRatio);
           }
         } catch (e: any) {
-          // 401: 토큰 만료 → 강제 로그아웃
-          // 그 외 (네트워크 오류 등): 캐시 유지, 오프라인 모드로 계속
-          if (e.response?.status === 401) {
+          // 401: 토큰 만료 → apiClient 인터셉터가 처리한다. 여기서 다루지 않는다.
+          //      (아래 "왜 401을 안 보는가" 참조)
+          // 404: 계정이 서버에서 사라짐(탈퇴) → 캐시 폐기 + 로그인 화면
+          // 그 외 (네트워크 오류·5xx 등): 캐시 유지, 오프라인 모드로 계속
+          //
+          // e.status 를 본다. e.response 가 아니다 — 인터셉터가 raw axios 에러가
+          // 아니라 ApiError 로 reject 하고 그쪽엔 response 가 없다.
+          //
+          // ── 왜 401을 안 보는가 ────────────────────────────────────────────
+          // 전에는 `e.response?.status === 401` 이었고, ApiError 에 response 가
+          // 없어 **한 번도 참이 된 적이 없다.** 죽은 조건이었다.
+          //
+          // e.status 로 고쳐 되살리면 오히려 회귀다. 인터셉터는 운동 세션이
+          // 진행 중이면 401을 일부러 무시한다(apiClient.ts) — 갱신·로그아웃 중
+          // 세션 데이터가 유실될 수 있어서다. 그 401도 여기까지 올라오므로
+          // 되살리면 그 보호가 무력해진다. 나머지 경우는 이미 인터셉터의
+          // _onUnauthorized 가 로그아웃까지 처리한다. 그래서 지운다.
+          //
+          // ── 404는 왜 세션 보호를 따지지 않는가 ────────────────────────────
+          // 계정이 없다는 뜻이다. 지킬 서버 데이터가 남아 있지 않다.
+          if (e.status === 404) {
+            // logout() 과 같은 정리를 쓴다. 여기서만 토큰·user 를 손으로 지우면
+            // 계정 캐시(routines:v2 등)가 남아 다음 계정에서 새어 나온다.
             await secureStorage.removeToken();
             await clearAccountState();
+            // 라우팅은 하지 않는다. token 이 null 이 되면 _layout 의 AuthGate가
+            // 로그인 화면으로 보낸다(그 effect의 deps에 token이 있다).
             set({ token: null, user: null });
           }
         }
@@ -238,5 +262,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   updateWeight: async (weight: number) => {
     return get().updateProfile({ weight });
+  },
+
+  /**
+   * 계정 탈퇴. **되돌릴 수 없다.**
+   *
+   * 여기서는 서버 삭제만 한다. 토큰·캐시 정리는 호출부가 logout() 으로 따로
+   * 한다 — 실패했을 때 아무것도 지워지지 않은 상태로 남아야 하기 때문이다.
+   * 계정은 서버에 남았는데 로그아웃까지 되면 사용자는 다시 로그인해서
+   * 재시도해야 한다.
+   */
+  deleteAccount: async () => {
+    await apiClient.delete('/users/me');
   },
 }));
