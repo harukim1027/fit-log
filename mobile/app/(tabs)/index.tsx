@@ -674,7 +674,12 @@ function HomeScreen() {
         {/* ── 주간 히어로: 완료도 링 + KPI + 자극 부위 ──
             0/4(일수·사용자 목표)와 0/6(부위수·고정 상수)이 같은 "N/M" 형식이라
             같은 종류로 읽히던 것을 한 카드로 합치고 단위 라벨로 구분한다.
-            링은 "일 운동", 아래 블록은 "자극한 부위"다. */}
+            링은 "일 운동", 아래 블록은 "자극한 부위"다.
+
+            히어로는 현황판이라 단일 탭 목적지를 두지 않는다. 기존 요약 알약은
+            /(tabs)/stats로 갔으나 그 화면에 "목표" 개념이 없어 목적지가
+            어긋나 있었다. 카드가 링·KPI·칩 세 종류를 담고 있어 "누르면 어디로
+            가는가"가 하나로 정해지지도 않는다. 조작은 목표 조정 하나로 모은다. */}
         <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
           <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 16 }, CARD_EDGE, SHADOW_SM]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
