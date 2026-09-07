@@ -20,14 +20,31 @@ import { useColors, lightColors, darkColors } from "../../constants/colors";
 import { localDateStr, getWeekRange } from "../../utils/date";
 import { useThemeStore } from "../../store/themeStore";
 import { ThemeToggle } from "../../components/ui";
-import MuscleMap, { MUSCLE_MAP, MUSCLE_LABELS, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
-import type { Slug } from "react-native-body-highlighter";
+import MuscleMap, { MUSCLE_MAP, CATEGORY_TO_SLUGS } from "../../components/MuscleMap";
 import type { WorkoutSession } from "../../types/workout";
 import { toKg } from "../../utils/workout";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { IconButton } from "../../design-system";
 
 const MAJOR_MUSCLES = ['chest', 'upper-back', 'deltoids', 'abs', 'quadriceps', 'gluteal'];
+
+/**
+ * 히어로 칩과 힌트가 함께 쓰는 라벨. **한 곳에서만 정의한다.**
+ *
+ * MuscleMap 의 MUSCLE_LABELS 를 그대로 쓰지 않는 이유: 그쪽은 해부학 명칭이라
+ * "등 상부·삼각근·대퇴사두"로 길다. 칩 6개를 343pt 한 줄에 넣으려면 짧아야
+ * 하고, 칩이 "등"인데 힌트가 "등 상부는 아직이에요"라고 말하면 같은 것을
+ * 두 이름으로 부르는 셈이 된다. 칩과 힌트가 같은 맵을 보게 해서 그 어긋남을
+ * 구조적으로 막는다.
+ */
+const MAJOR_MUSCLE_LABELS: Record<string, string> = {
+  chest: '가슴',
+  'upper-back': '등',
+  deltoids: '어깨',
+  abs: '복근',
+  quadriceps: '하체',
+  gluteal: '둔근',
+};
 
 function eunNeun(s: string) {
   const code = s.charCodeAt(s.length - 1) - 0xAC00;
@@ -52,6 +69,12 @@ function sessionTitle(sess: WorkoutSession): string {
 }
 
 // 볼륨 포맷: 1000kg 이상은 t(톤) 축약
+/** 히어로 완료도 링. 96×96, strokeWidth 9 (시안 기준). */
+const HERO_RING = 96;
+const HERO_STROKE = 9;
+const HERO_R = (HERO_RING - HERO_STROKE) / 2;
+const HERO_CIRC = 2 * Math.PI * HERO_R;
+
 function fmtVol(kg: number): string {
   return kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg`;
 }
@@ -414,14 +437,38 @@ function HomeScreen() {
   };
 
   const weekMuscleSet = new Set(weekMuscles);
-  const majorHit = MAJOR_MUSCLES.filter((m) => weekMuscleSet.has(m)).length;
-  const missingMajor = MAJOR_MUSCLES.find(m => !weekMuscleSet.has(m));
+
+  /**
+   * 히어로 칩의 원본 데이터. **칩·카운트·힌트가 전부 이 배열 하나에서 나온다.**
+   * 셋을 따로 계산하면 "칩은 켜져 있는데 힌트는 그 부위가 빠졌다고 말하는"
+   * 모순이 생긴다.
+   */
+  const majorChips = MAJOR_MUSCLES.map((m) => ({
+    slug: m,
+    label: MAJOR_MUSCLE_LABELS[m] ?? m,
+    on: weekMuscleSet.has(m),
+  }));
+  const majorHit = majorChips.filter((ch) => ch.on).length;
+  const firstMissing = majorChips.find((ch) => !ch.on);
+  const missingMajor = firstMissing?.slug;
+
+  /** 선택 주의 총 볼륨. 카드의 fmtVol(getTotalVolume) 과 같은 단위다. */
+  const weekVolume = useMemo(() => {
+    const { start, end } = getWeekRange(selectedDate);
+    return sessions
+      .filter((s) => {
+        const d = new Date(s.date + "T00:00:00");
+        return d >= start && d <= end;
+      })
+      .reduce((sum, s) => sum + getTotalVolume(s), 0);
+  }, [sessions, selectedDate, getTotalVolume]);
+  // 힌트는 majorChips 에서 파생한다 — 칩과 같은 라벨, 같은 on/off 를 본다.
   const muscleHint = weekMuscles.length === 0
     ? (isCurrentWeek ? "이번 주 첫 운동을 기록해보세요" : "기록이 없어요")
-    : missingMajor
+    : firstMissing
       ? (isCurrentWeek
-          ? `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 이번 주 아직이에요!`
-          : `${MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor}${eunNeun(MUSCLE_LABELS[missingMajor as Slug] ?? missingMajor)} 빠졌어요`)
+          ? `${firstMissing.label}${eunNeun(firstMissing.label)} 이번 주 아직이에요!`
+          : `${firstMissing.label}${eunNeun(firstMissing.label)} 빠졌어요`)
       : "전신 골고루 자극했어요!";
 
   // 주 단위 뷰이므로 라벨도 주 단위로 말한다. "8월 3째주".
@@ -624,22 +671,120 @@ function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
 
-        {/* ── 요약 알약 + 필터 칩 ── */}
-        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }], gap: 12 }}>
-          <TouchableOpacity
-            style={[{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 }, CARD_EDGE, SHADOW_SM]}
-            onPress={() => router.push("/(tabs)/stats")}
-            accessibilityRole="button"
-            accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 목표 ${weekGoal}일. 통계 보기`}
-            activeOpacity={0.7}>
-            <FlameIcon size={18} />
-            {/* body-strong 14/800 */}
-            <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary, flex: 1, letterSpacing: -0.3 }}>{weekPrefix}운동</Text>
-            {/* numeric 15/800 */}
-            <Text style={{ fontSize: 15, fontWeight: "800", color: c.primary, fontVariant: ["tabular-nums"] }}>{doneDays}/{weekGoal}</Text>
-            <Icon name="chevronRight" size={16} color={c.textMuted} />
-          </TouchableOpacity>
+        {/* ── 주간 히어로: 완료도 링 + KPI + 자극 부위 ──
+            0/4(일수·사용자 목표)와 0/6(부위수·고정 상수)이 같은 "N/M" 형식이라
+            같은 종류로 읽히던 것을 한 카드로 합치고 단위 라벨로 구분한다.
+            링은 "일 운동", 아래 블록은 "자극한 부위"다. */}
+        <Animated.View style={{ opacity: fadeAnims[0], transform: [{ translateY: slideAnims[0] }] }}>
+          <View style={[{ backgroundColor: c.surface, borderRadius: 16, padding: 16 }, CARD_EDGE, SHADOW_SM]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              {/* 완료도 링 */}
+              <View
+                style={{ width: HERO_RING, height: HERO_RING, flexShrink: 0 }}
+                accessibilityRole="image"
+                accessibilityLabel={`${weekPrefix}운동 ${doneDays}일, 목표 ${weekGoal}일`}>
+                <Svg width={HERO_RING} height={HERO_RING} style={{ position: "absolute" }}>
+                  <Circle
+                    cx={HERO_RING / 2} cy={HERO_RING / 2} r={HERO_R}
+                    fill="none" stroke={c.surfaceHigh} strokeWidth={HERO_STROKE}
+                  />
+                  <Circle
+                    cx={HERO_RING / 2} cy={HERO_RING / 2} r={HERO_R}
+                    fill="none" stroke={c.primary} strokeWidth={HERO_STROKE}
+                    strokeLinecap="round"
+                    strokeDasharray={HERO_CIRC}
+                    strokeDashoffset={HERO_CIRC * (1 - Math.min(1, weekGoal > 0 ? doneDays / weekGoal : 0))}
+                    transform={`rotate(-90 ${HERO_RING / 2} ${HERO_RING / 2})`}
+                  />
+                </Svg>
+                <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                    {/* 색을 반드시 명시한다 — 빠뜨리면 상속색으로 떨어져 라이트에서 거의 안 보인다. */}
+                    <Text style={{ fontSize: 26, fontWeight: "900", color: c.primary, letterSpacing: -1, fontVariant: ["tabular-nums"] }}>
+                      {doneDays}
+                    </Text>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textSecondary, fontVariant: ["tabular-nums"] }}>
+                      /{weekGoal}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 10.5, fontWeight: "700", color: c.textSecondary, marginTop: 3 }}>일 운동</Text>
+                </View>
+              </View>
 
+              {/* KPI 2줄 */}
+              <View style={{ flex: 1, gap: 9 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Icon name="dumbbell" size={15} color={c.primary} />
+                  <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>주간 볼륨</Text>
+                  {/* numeric 15/800 */}
+                  <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                    {fmtVol(weekVolume)}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Icon name="trophy" size={15} color={c.tagSun} />
+                  <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>주간 PR</Text>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                      {prEntry ? 1 : 0}
+                    </Text>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: c.textSecondary }}>개</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* 자극 부위 블록 */}
+            <View style={{ marginTop: 14, paddingTop: 13, borderTopWidth: 1, borderTopColor: c.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: "700", color: c.textSecondary }}>자극한 부위</Text>
+                {/* numeric — 링의 "N/M"과 형식은 같지만 라벨이 단위를 갈라 준다 */}
+                <Text style={{ fontSize: 12.5, fontWeight: "800", color: c.textPrimary, fontVariant: ["tabular-nums"] }}>
+                  {majorHit}
+                  <Text style={{ color: c.textSecondary }}>/{majorChips.length}</Text>
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {majorChips.map((ch) => (
+                  <View
+                    key={ch.slug}
+                    accessibilityLabel={`${ch.label} ${ch.on ? "자극함" : "아직"}`}
+                    style={{
+                      flexDirection: "row", alignItems: "center", gap: 4,
+                      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+                      // 자극됨 배경은 primary 를 카드 위에 12%로 얹는다. 하드코딩 대신
+                      // 토큰에서 파생시켜 두 테마가 자동으로 갈린다.
+                      backgroundColor: ch.on ? c.primary + "1F" : c.surfaceAlt,
+                    }}>
+                    {ch.on && <Icon name="check" size={11} color={c.primary} />}
+                    {/* micro 11.5/700.
+                        회귀 방지: 자극됨 칩의 **글자색으로 c.primary 를 쓰지 말 것.**
+                        11.5px는 WCAG large-text(18.66 bold)가 아니라 4.5:1이 필요한데
+                        primary on 이 배경은 라이트 3.56 / 다크 3.51로 미달이다.
+                        DESIGN.md의 "의미색은 아이콘·배경 같은 비텍스트에 싣는다"를
+                        그대로 따른다 — 색은 배경과 check 아이콘이 지고 글자는
+                        text-primary(라이트 14.03 / 다크 10.53)로 둔다.
+                        미자극 칩에 c.textMuted 도 금지다(라이트 2.17). */}
+                    <Text style={{ fontSize: 11.5, fontWeight: "700", color: ch.on ? c.textPrimary : c.textSecondary }}>
+                      {ch.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              {/* 힌트 — majorChips 에서 파생되므로 칩과 어긋날 수 없다.
+                  색만으로 전달 금지: 상태를 아이콘 + 텍스트로 함께 표시한다. */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+                <Icon
+                  name={weekMuscles.length === 0 ? "dumbbell" : firstMissing ? "target" : "check"}
+                  size={13}
+                  color={weekMuscles.length === 0 ? c.textMuted : firstMissing ? c.warning : c.success}
+                />
+                {/* caption 12/600. 의미색은 아이콘이 지고 본문은 text-secondary —
+                    라이트에서 warning/success는 카드 위 3.5:1 미만이라 본문 색으로 쓰지 않는다. */}
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: "600", color: c.textSecondary }}>{muscleHint}</Text>
+              </View>
+            </View>
+          </View>
         </Animated.View>
 
         {/* ── 최근 기록 (상단 색 워시 카드 그리드) ── */}
