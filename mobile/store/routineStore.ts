@@ -99,6 +99,43 @@ interface RoutineStore {
 }
 
 // v2: 이전 버전과 스키마 충돌 방지를 위해 키 버전 관리
+/**
+ * 서버에서 온 루틴의 종목을 앱이 기대하는 형태로 맞춘다.
+ *
+ * ── 왜 필요한가 ────────────────────────────────────────────────────────────
+ * `routines.exercises` 는 서버에서 **jsonb** 다(routine.entity.ts). 컬럼 타입이
+ * 구조를 강제하지 않아 클라이언트가 보낸 것이 그대로 들어간다. 필드가 빠지거나
+ * 타입이 어긋난 행이 실제로 존재할 수 있고, 그런 행이 화면까지 내려오면
+ * `defaultSets` 가 undefined 인 채로 계산에 들어가 **NaN 이 그대로 렌더된다**
+ * (`0종목 · 예상 NaN분`). JSX 는 undefined 를 아무것도 그리지 않으므로 칩도
+ * "벤치프레스 s" 처럼 단위만 남는다.
+ *
+ * 표시하는 쪽마다 `?? 3` 을 흩뿌리는 대신 **데이터가 앱에 들어오는 이 한 곳**
+ * 에서 맞춘다. 소비자가 늘어도 같은 보장을 받는다.
+ *
+ * 폴백 3은 `buildSetsFromRoutineExercise`(workoutStore)가 쓰는 값과 같다 —
+ * 화면이 "3세트"라고 말하면 실제로 시작했을 때도 3세트가 나와야 한다.
+ */
+const normalizeExercise = (ex: RoutineExercise): RoutineExercise => {
+  // sets 는 객체 배열이어야 한다. 숫자 같은 다른 타입이 들어와 있으면 버린다 —
+  // 남겨 두면 `sets.length` 가 undefined 라 소비하는 쪽이 조용히 빗나간다.
+  const sets = Array.isArray(ex.sets) ? ex.sets : undefined;
+  const declared = Number(ex.defaultSets);
+  const defaultSets =
+    Number.isFinite(declared) && declared > 0
+      ? declared
+      : sets && sets.length > 0
+        ? sets.length
+        : 3;
+  return { ...ex, sets, defaultSets };
+};
+
+const normalizeRoutines = (list: Routine[]): Routine[] =>
+  (Array.isArray(list) ? list : []).map((r) => ({
+    ...r,
+    exercises: (Array.isArray(r.exercises) ? r.exercises : []).map(normalizeExercise),
+  }));
+
 const STORAGE_KEY = 'routines:v2';
 
 /** 변경된 루틴 목록을 AsyncStorage에 저장 (서버 실패 시 폴백 데이터 역할) */
@@ -118,14 +155,16 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
   loadRoutines: async () => {
     try {
       const res = await apiClient.get('/routine');
-      const routines: Routine[] = res.data;
+      const routines = normalizeRoutines(res.data);
       set({ routines, loaded: true });
       // 서버 데이터를 캐시에도 저장 — 다음 오프라인 폴백용
       await persist(routines);
     } catch {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) set({ routines: JSON.parse(raw), loaded: true });
+        // 캐시도 같은 정규화를 거친다 — 어긋난 데이터가 저장된 뒤 폴백으로
+        // 되살아나는 경로를 막는다.
+        if (raw) set({ routines: normalizeRoutines(JSON.parse(raw)), loaded: true });
         else set({ loaded: true });
       } catch {
         set({ loaded: true });
