@@ -627,14 +627,14 @@ function HomeScreen() {
             하나를 보므로 상태가 어긋나지 않는다. */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {/* 회귀 방지: 홈 화면에 진입 경로 필수. 재작업 시 이 버튼 삭제 금지.
-              routine-manage.tsx로 가는 유일한 홈 화면 진입점이다.
+              app/routine 로 가는 유일한 홈 화면 진입점이다.
               (알약에서 헤더 아이콘으로 옮겼다 — 요구는 "홈에 진입점을 남길 것"이고
                자리는 본문이 아니어도 된다. 본문 알약 52pt를 회수했다.)
               activeSession 여부와 무관하게 항상 표시한다 — 운동 중에도 루틴을
               편집할 수 있어야 한다. (운동 시작 FAB만 activeSession일 때 숨는다) */}
           <IconButton
             accessibilityLabel="루틴 관리 열기"
-            onPress={() => router.push("/modal/routine-manage" as any)}
+            onPress={() => router.push("/routine" as any)}
             style={{ width: 38, height: 38 }}>
             <Icon name="list" size={20} color={c.textSecondary} />
           </IconButton>

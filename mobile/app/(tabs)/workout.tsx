@@ -928,7 +928,7 @@ function WorkoutScreen() {
                         SHADOW,
                       ]}
                       onPress={() =>
-                        router.push("/modal/routine-manage" as any)
+                        router.push("/routine" as any)
                       }
                       activeOpacity={0.7}>
                       <Text
@@ -1033,8 +1033,8 @@ function WorkoutScreen() {
                                 accessibilityLabel={`${routine.name} 편집`}
                                 onPress={() =>
                                   router.push({
-                                    pathname: "/modal/routine-manage",
-                                    params: { editId: routine.id },
+                                    pathname: "/routine/edit",
+                                    params: { id: routine.id },
                                   } as any)
                                 }>
                                 <Icon
@@ -1195,7 +1195,7 @@ function WorkoutScreen() {
                         marginTop: 4,
                       }}
                       onPress={() =>
-                        router.push("/modal/routine-manage" as any)
+                        router.push("/routine" as any)
                       }
                       activeOpacity={0.7}>
                       <Icon name="plus" size={16} color={c.primary} />
