@@ -108,7 +108,6 @@ function CombineEditScreen() {
         edges={["bottom"]}>
         <Header
           title="루틴 결합 편집"
-          showClose
           showBack
         />
         <ScrollView

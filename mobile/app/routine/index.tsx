@@ -55,9 +55,8 @@ function RoutineListScreen() {
       <SafeAreaView
         style={{ flex: 1, backgroundColor: c.background }}
         edges={["bottom"]}>
-        {/* 스택으로 바뀌어 "닫기"가 아니라 "뒤로"다. 모드 복귀 3곳
-            (:755·:855·:1039)과 ExerciseAdder 는 라우트를 벗어나지 않으므로
-            showClose 를 그대로 둔다. */}
+        {/* 모든 단계가 라우트라 전부 showBack 이다. Header 가 플래그와
+            accessibilityLabel 을 묶어 두어 스크린리더도 "뒤로 가기"로 읽는다. */}
         <Header title="루틴 관리" showBack />
         <ScrollView
           ref={listScrollRef}

@@ -97,7 +97,6 @@ function CombineSelectScreen() {
       edges={["bottom"]}>
       <Header
         title="루틴 결합"
-        showClose
         showBack
       />
       <Text
