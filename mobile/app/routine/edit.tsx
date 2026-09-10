@@ -34,7 +34,8 @@ import { Icon } from "../../components/AppIcons";
 import { showCuteAlert } from "../../components/CuteAlert";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { RoutineColorPicker } from "../../components/RoutineColorPicker";
-import { fmtMeta, onFill, EXERCISE_ITEM_H, LIGHT_SHADOW_SM, SCRIM } from "./_helpers";
+import { fmtMeta, onFill, EXERCISE_ITEM_H, LIGHT_SHADOW_SM } from "./_helpers";
+import { HistorySheet } from "./_HistorySheet";
 
 function RoutineEditScreen() {
   const c = useColors();
@@ -441,50 +442,12 @@ function RoutineEditScreen() {
       </ScrollView>
     </SafeAreaView>
 
-    {/* 히스토리에서 불러오기 시트 */}
-    {/* 읽기 전용 목록이라 닫아도 잃을 것이 없다. 뒤로가기는 그냥 닫는다. */}
-    <Modal
+    <HistorySheet
       visible={showHistorySheet}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowHistorySheet(false)}>
-      <View style={{ flex: 1, backgroundColor: SCRIM, justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%', paddingBottom: 32 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>
-            <Text style={{ fontSize: 17, fontWeight: '800', color: c.textPrimary }}>운동 기록에서 불러오기</Text>
-            <IconButton
-              accessibilityLabel="닫기"
-              onPress={() => setShowHistorySheet(false)}>
-              <Icon name="close" size={20} color={c.textMuted} />
-            </IconButton>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 16 }}>
-            {sessions.slice(0, 30).map(session => (
-              <TouchableOpacity
-                key={session.id}
-                style={{ backgroundColor: c.surfaceAlt, borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-                onPress={() => loadFromSession(session)}
-                activeOpacity={0.7}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: c.textPrimary, marginBottom: 4 }}>{session.date}</Text>
-                  <Text style={{ fontSize: 12, color: c.textSecondary }} numberOfLines={1}>
-                    {session.exercises.map(e => e.name).join(' · ')}
-                  </Text>
-                </View>
-                <View style={{ backgroundColor: c.primary + '20', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, marginLeft: 12 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: c.primary }}>{session.exercises.length}종목</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            {sessions.length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                <Text style={{ fontSize: 14, color: c.textMuted }}>아직 운동 기록이 없어요</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+      sessions={sessions}
+      onPick={loadFromSession}
+      onClose={() => setShowHistorySheet(false)}
+    />
   </View>
   );
 }
