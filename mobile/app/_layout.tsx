@@ -311,6 +311,13 @@ export default function RootLayout() {
               name="modal/routine-manage"
               options={{ headerShown: false, animation: "slide_from_right" }}
             />
+            {/* 루틴 관리 중첩 스택. 그룹 자체는 위 routine-manage 와 같은
+                옵션을 받는다 — "이어지는 단계"라 card + 오른쪽에서 슬라이드다.
+                내부 단계별 옵션은 app/routine/_layout.tsx 가 정한다. */}
+            <Stack.Screen
+              name="routine"
+              options={{ headerShown: false, animation: "slide_from_right" }}
+            />
             <Stack.Screen
               name="modal/full-calendar"
               options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }}
