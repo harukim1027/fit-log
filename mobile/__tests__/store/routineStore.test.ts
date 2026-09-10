@@ -68,3 +68,56 @@ describe('routineStore.updateRoutineFromSession', () => {
     ]);
   });
 });
+
+/**
+ * 서버의 `routines.exercises` 는 jsonb 라 구조가 강제되지 않는다. 필드가 빠지거나
+ * 타입이 어긋난 행이 실제로 존재했고(운영 복원본에서 확인), 그게 화면까지 내려와
+ * "예상 NaN분" · "벤치프레스 s" 로 렌더됐다. 진입점에서 막는다.
+ */
+describe('loadRoutines — 서버 데이터 정규화', () => {
+  const apiClient = require('../../lib/apiClient').default;
+
+  const load = async (exercises: any[]) => {
+    apiClient.get.mockResolvedValueOnce({
+      data: [{ id: 'r1', name: 'R', exercises, createdAt: '2026-01-01' }],
+    });
+    await useRoutineStore.getState().loadRoutines();
+    return useRoutineStore.getState().routines[0].exercises[0];
+  };
+
+  it('defaultSets 가 없으면 3으로 채운다', async () => {
+    const ex = await load([{ name: '벤치프레스', category: '가슴' }]);
+    expect(ex.defaultSets).toBe(3);
+  });
+
+  it('sets 가 배열이면 그 길이를 defaultSets 로 쓴다', async () => {
+    const ex = await load([
+      { name: '스쿼트', category: '하체', sets: [{ setNumber: 1 }, { setNumber: 2 }] },
+    ]);
+    expect(ex.defaultSets).toBe(2);
+  });
+
+  it('sets 가 숫자면 버린다 — sets.length 가 undefined 라 소비하는 쪽이 빗나간다', async () => {
+    const ex = await load([{ name: '벤치프레스', category: '가슴', sets: 3 }]);
+    expect(ex.sets).toBeUndefined();
+    expect(ex.defaultSets).toBe(3);
+  });
+
+  it('정상 값은 건드리지 않는다', async () => {
+    const ex = await load([{ name: '데드리프트', category: '등', defaultSets: 5 }]);
+    expect(ex.defaultSets).toBe(5);
+  });
+
+  it('defaultSets 가 0 이나 null 이어도 폴백한다', async () => {
+    expect((await load([{ name: 'A', category: '가슴', defaultSets: 0 }])).defaultSets).toBe(3);
+    expect((await load([{ name: 'B', category: '가슴', defaultSets: null }])).defaultSets).toBe(3);
+  });
+
+  it('exercises 가 배열이 아니어도 터지지 않는다', async () => {
+    apiClient.get.mockResolvedValueOnce({
+      data: [{ id: 'r1', name: 'R', exercises: null, createdAt: '2026-01-01' }],
+    });
+    await useRoutineStore.getState().loadRoutines();
+    expect(useRoutineStore.getState().routines[0].exercises).toEqual([]);
+  });
+});

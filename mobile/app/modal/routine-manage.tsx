@@ -51,6 +51,27 @@ type CombineExercise = ExerciseDraft & {
   fromRoutineName: string;
   isDuplicate: boolean;
 };
+/**
+ * 종목의 세트 수. `routineStore` 가 진입점에서 정규화하지만 화면에서도
+ * 확정한다 — 계산 결과가 그대로 문자열이 되는 자리라 undefined 하나가
+ * `NaN` 이나 빈 값으로 새어 나가면 사용자가 먼저 본다.
+ */
+const setCount = (ex: RoutineExercise): number => {
+  const n = Number(ex.defaultSets);
+  if (Number.isFinite(n) && n > 0) return n;
+  return Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets.length : 3;
+};
+
+/**
+ * 예상 소요 시간(분). 총 세트 수 × 3분.
+ *
+ * 3분은 세트 수행 + 휴식을 합친 어림값이다. 루틴에 `restSeconds` 가 있으면
+ * 더 정확히 낼 수 있지만(실데이터는 150초대), 세트당 40초 수행 + 150초 휴식이
+ * 3.2분이라 지금 값과 크게 다르지 않아 그대로 둔다.
+ */
+const estimateMinutes = (r: Routine): number =>
+  r.exercises.reduce((sum, ex) => sum + setCount(ex), 0) * 3;
+
 type Mode = "list" | "create" | "edit" | "combine-select" | "combine-edit";
 type SubMode = "main" | "addExercise" | "editExercise";
 
@@ -618,12 +639,7 @@ export default function RoutineManageModal() {
                               marginTop: 3,
                               fontWeight: "600",
                             }}>
-                            {r.exercises.length}종목 · 예상{" "}
-                            {r.exercises.reduce(
-                              (s, e) => s + e.defaultSets,
-                              0
-                            ) * 3}
-                            분
+                            {r.exercises.length}종목 · 예상 {estimateMinutes(r)}분
                           </Text>
                         </View>
                         <View
@@ -668,7 +684,7 @@ export default function RoutineManageModal() {
                                 fontWeight: "700",
                                 color: c.success,
                               }}>
-                              {ex.name} {ex.defaultSets}s
+                              {ex.name} {setCount(ex)}세트
                             </Text>
                           </View>
                         ))}
