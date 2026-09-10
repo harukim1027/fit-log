@@ -121,3 +121,88 @@ describe('loadRoutines — 서버 데이터 정규화', () => {
     expect(useRoutineStore.getState().routines[0].exercises).toEqual([]);
   });
 });
+
+/**
+ * 루틴 작성 초안. 라우트가 갈려도 살아 있어야 하고, dirty 판정이 미저장
+ * 가드의 유일한 근거가 된다.
+ */
+describe('draft — 작성 중 루틴', () => {
+  const store = () => useRoutineStore.getState();
+  const seed = (over: any = {}) => ({
+    kind: 'create' as const,
+    id: null,
+    name: '',
+    color: '#000',
+    exercises: [],
+    sourceIds: [],
+    ...over,
+  });
+
+  beforeEach(() => store().clearDraft());
+
+  it('열자마자는 dirty 가 아니다 — 기존 값이 채워진 edit 도 마찬가지', () => {
+    store().beginDraft(seed({ kind: 'edit', id: 'r1', name: '가슴날', exercises: [
+      { name: '벤치프레스', category: '가슴', defaultSets: 3, key: 'k1' },
+    ] }));
+    expect(store().isDraftDirty()).toBe(false);
+  });
+
+  it('이름을 바꾸면 dirty', () => {
+    store().beginDraft(seed({ name: 'A' }));
+    store().patchDraft({ name: 'B' });
+    expect(store().isDraftDirty()).toBe(true);
+  });
+
+  it('되돌리면 다시 dirty 가 아니다', () => {
+    store().beginDraft(seed({ name: 'A' }));
+    store().patchDraft({ name: 'B' });
+    store().patchDraft({ name: 'A' });
+    expect(store().isDraftDirty()).toBe(false);
+  });
+
+  it('종목을 추가하면 dirty — 종목 화면의 복귀 경로', () => {
+    store().beginDraft(seed());
+    store().addDraftExercise({ name: '스쿼트', category: '하체', defaultSets: 3 } as any);
+    expect(store().draft!.exercises).toHaveLength(1);
+    expect(store().draft!.exercises[0].key).toBeTruthy();
+    expect(store().isDraftDirty()).toBe(true);
+  });
+
+  it('종목 편집은 key 를 유지한다 — 바뀌면 드래그 중 항목이 튄다', () => {
+    store().beginDraft(seed({ exercises: [
+      { name: '벤치프레스', category: '가슴', defaultSets: 3, key: 'keep-me' },
+    ] }));
+    store().updateDraftExercise(0, { name: '인클라인', category: '가슴', defaultSets: 4 } as any);
+    expect(store().draft!.exercises[0].key).toBe('keep-me');
+    expect(store().draft!.exercises[0].name).toBe('인클라인');
+  });
+
+  it('key 는 dirty 비교에서 빠진다', () => {
+    store().beginDraft(seed({ exercises: [
+      { name: 'A', category: '가슴', defaultSets: 3, key: 'k1' },
+    ] }));
+    store().setDraftExercises([{ name: 'A', category: '가슴', defaultSets: 3, key: 'k2' } as any]);
+    expect(store().isDraftDirty()).toBe(false);
+  });
+
+  it('beginDraft 는 기존 초안을 덮어쓴다 — 진입 시 초기화가 곧 이것이다', () => {
+    store().beginDraft(seed({ name: '이전' }));
+    store().patchDraft({ name: '수정됨' });
+    store().beginDraft(seed({ name: '새로' }));
+    expect(store().draft!.name).toBe('새로');
+    expect(store().isDraftDirty()).toBe(false);
+  });
+
+  it('초안이 없으면 dirty 가 아니고 액션이 터지지 않는다', () => {
+    expect(store().isDraftDirty()).toBe(false);
+    store().patchDraft({ name: 'x' });
+    store().addDraftExercise({ name: 'A', category: '가슴', defaultSets: 3 } as any);
+    expect(store().draft).toBeNull();
+  });
+
+  it('reset(로그아웃·탈퇴)은 초안도 버린다', () => {
+    store().beginDraft(seed({ name: 'A' }));
+    store().reset();
+    expect(store().draft).toBeNull();
+  });
+});

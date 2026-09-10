@@ -76,6 +76,51 @@ export const getNextRoutineColor = (existing: Routine[]): string => {
   return unused ?? ROUTINE_COLOR_POOL[existing.length % ROUTINE_COLOR_POOL.length];
 };
 
+/**
+ * 목록의 종목에 붙는 임시 키. React 리스트 key 와 드래그 정렬에 쓰인다.
+ * 저장할 때는 떼어 낸다. 진입할 때마다 새로 붙으므로 **dirty 비교에서 제외**한다.
+ */
+export type ExerciseDraft = RoutineExercise & { key: string };
+
+/** 합치기 화면에서만 필요한 출처 표시. */
+export type CombineExercise = ExerciseDraft & {
+  fromRoutineName: string;
+  isDuplicate: boolean;
+};
+
+/**
+ * 작성 중인 루틴. **라우트 밖에 산다.**
+ *
+ * ── 왜 스토어인가 ─────────────────────────────────────────────────────────
+ * 루틴 작성은 여러 화면을 오간다(편집 → 종목 추가 → 편집). 라우트가 갈리면
+ * 화면끼리 상태를 직접 넘길 수 없다. params 로 넘기기엔 `exercises` 가 크고
+ * (종목 10개면 수 KB), Context 로 두면 라우트를 벗어날 때 Provider 가
+ * 언마운트되어 **초안이 사라진다** — 미저장 가드가 지키려는 것과 충돌한다.
+ *
+ * ── 종목 추가의 복귀 경로 ─────────────────────────────────────────────────
+ * 전에는 부모가 `onAdd` 콜백으로 자기 `setExercises` 를 불렀다. 라우트가
+ * 갈리면 콜백을 넘길 수 없으므로 **단방향**으로 바꾼다:
+ *   종목 화면이 `addDraftExercise` 를 부르고 `router.back()`,
+ *   편집 화면은 `draft.exercises` 를 구독하고 있어 자동으로 반영된다.
+ */
+export type RoutineDraft = {
+  kind: 'create' | 'edit' | 'combine';
+  /** edit 대상 루틴 id. create·combine 이면 null. */
+  id: string | null;
+  name: string;
+  color: string;
+  exercises: ExerciseDraft[];
+  /** combine 의 원본 루틴 ids. 저장할 때 서버로 보낸다. */
+  sourceIds: string[];
+  /**
+   * 진입 시점의 서명. dirty 판정 기준이다.
+   *
+   * edit·combine 은 기존 값이 채워진 채 열리므로 "값이 있는가"로 판정하면
+   * 열자마자 dirty 가 된다. 진입 시점을 찍어 두고 그것과 비교한다.
+   */
+  snapshot: string;
+};
+
 interface RoutineStore {
   routines: Routine[];
   /** 로그아웃·탈퇴 시 호출. lib/accountCache.ts 참조. */
@@ -96,6 +141,24 @@ interface RoutineStore {
   combineRoutines: (routineIds: string[], name: string, exercises: RoutineExercise[]) => Promise<void>;
   reorderRoutines: (ids: string[]) => Promise<void>;
   reorderExercises: (routineId: string, exercises: RoutineExercise[]) => Promise<void>;
+
+  /** 작성 중인 루틴. 없으면 null. */
+  draft: RoutineDraft | null;
+  /** 초안을 새로 연다. **기존 초안이 있으면 덮어쓴다.** */
+  beginDraft: (init: Omit<RoutineDraft, 'snapshot'>) => void;
+  /** 이름·색 등 부분 갱신. */
+  patchDraft: (partial: Partial<Omit<RoutineDraft, 'snapshot'>>) => void;
+  /** 종목 추가 화면이 부른다. */
+  addDraftExercise: (ex: RoutineExercise) => void;
+  /** 종목 편집 화면이 부른다. */
+  updateDraftExercise: (index: number, ex: RoutineExercise) => void;
+  removeDraftExercise: (index: number) => void;
+  /** 드래그 정렬 결과 반영. */
+  setDraftExercises: (exercises: ExerciseDraft[]) => void;
+  /** 저장 성공 또는 가드 통과 후 이탈에서 부른다. */
+  clearDraft: () => void;
+  /** 진입 시점 서명과 지금이 다른가. 초안이 없으면 false. */
+  isDraftDirty: () => boolean;
 }
 
 // v2: 이전 버전과 스키마 충돌 방지를 위해 키 버전 관리
@@ -139,6 +202,23 @@ const normalizeRoutines = (list: Routine[]): Routine[] =>
 const STORAGE_KEY = 'routines:v2';
 
 /** 변경된 루틴 목록을 AsyncStorage에 저장 (서버 실패 시 폴백 데이터 역할) */
+/**
+ * 초안의 dirty 판정용 서명.
+ *
+ * `key` 는 진입할 때마다 `Date.now()` 로 새로 붙는 값이라 비교에서 뺀다 —
+ * 넣으면 아무것도 안 바꿔도 항상 dirty 가 된다.
+ * `combine` 의 `fromRoutineName`·`isDuplicate` 도 표시 전용이라 뺀다.
+ */
+const draftSignature = (d: Omit<RoutineDraft, 'snapshot'>): string =>
+  JSON.stringify({
+    name: d.name.trim(),
+    color: d.color,
+    exs: d.exercises.map(({ key, ...rest }) => {
+      const { fromRoutineName, isDuplicate, ...plain } = rest as Record<string, unknown>;
+      return plain;
+    }),
+  });
+
 const persist = async (routines: Routine[]) => {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(routines));
 };
@@ -344,5 +424,81 @@ export const useRoutineStore = create<RoutineStore>((set, get) => ({
   },
 
   /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
-  reset: () => set({ routines: [], publicRoutines: [], loaded: false }),
+  /**
+   * ── 초안 ──────────────────────────────────────────────────────────────
+   *
+   * ★ **`persist()` 에 draft 를 넣지 말 것.**
+   *
+   * `persist` 는 `routines` 만 AsyncStorage 에 저장한다. 초안은 **의도적으로
+   * 휘발**시킨다 — 앱을 재시작하면 사라진다.
+   *
+   * 운동 세션 초안(`workout_draft`, workoutStore)은 반대로 영속화한다.
+   * 운동 중 앱이 죽으면 세트 기록이 날아가는 게 치명적이기 때문이다.
+   * 루틴 작성은 몇 분짜리 작업이고, 되살아난 초안이 **어느 루틴을 편집하던
+   * 것인지** 사용자가 기억하지 못하면 오히려 위험하다 — edit 초안이 되살아나
+   * 엉뚱한 루틴에 저장될 수 있다.
+   *
+   * 나중에 "초안도 저장하자"는 판단이 서면 그때 이 주석을 지우고 옮길 것.
+   * 지금 persist 목록에 무심코 추가하면 위 위험이 생긴다.
+   */
+  draft: null,
+
+  beginDraft: (init) =>
+    set({ draft: { ...init, snapshot: draftSignature(init) } }),
+
+  patchDraft: (partial) =>
+    set((s) => (s.draft ? { draft: { ...s.draft, ...partial } } : {})),
+
+  addDraftExercise: (ex) =>
+    set((s) =>
+      s.draft
+        ? {
+            draft: {
+              ...s.draft,
+              exercises: [
+                ...s.draft.exercises,
+                { ...ex, key: `${ex.name}-${Date.now()}` },
+              ],
+            },
+          }
+        : {},
+    ),
+
+  updateDraftExercise: (index, ex) =>
+    set((s) =>
+      s.draft
+        ? {
+            draft: {
+              ...s.draft,
+              exercises: s.draft.exercises.map((prev, i) =>
+                // key 는 유지한다 — 바꾸면 리스트가 통째로 다시 그려지고
+                // 드래그 중이던 항목이 튄다.
+                i === index ? { ...ex, key: prev.key } : prev,
+              ),
+            },
+          }
+        : {},
+    ),
+
+  removeDraftExercise: (index) =>
+    set((s) =>
+      s.draft
+        ? { draft: { ...s.draft, exercises: s.draft.exercises.filter((_, i) => i !== index) } }
+        : {},
+    ),
+
+  setDraftExercises: (exercises) =>
+    set((s) => (s.draft ? { draft: { ...s.draft, exercises } } : {})),
+
+  clearDraft: () => set({ draft: null }),
+
+  isDraftDirty: () => {
+    const d = get().draft;
+    if (!d) return false;
+    const { snapshot, ...rest } = d;
+    return draftSignature(rest) !== snapshot;
+  },
+
+  // 로그아웃·탈퇴는 초안도 버린다 — 다음 계정에 남으면 안 된다.
+  reset: () => set({ routines: [], publicRoutines: [], loaded: false, draft: null }),
 }));
