@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* ============================================================
+   브랜드 토큰 — 앱과 같은 코발트 블루
+   ============================================================
+
+   값의 출처는 `mobile/DESIGN.md` §2 Foundations > Semantic tokens 다.
+   `mobile/constants/colors.ts` 를 import 하지 않고 **값만 복사**한다:
+   그 파일은 순수 토큰 모듈이 아니라 끝에서 `store/themeStore` (zustand) 를
+   import 하므로, 웹에서 끌어오면 react-native 의존 그래프가 따라 들어온다.
+   또 mobile/ 은 자체 락파일로 독립 설치되는 디렉터리라 (루트 workspaces 없음)
+   크로스 import 자체가 모노레포 결합을 새로 만든다.
+
+   ── 복사한 범위 ───────────────────────────────────────────────
+   랜딩이 **실제로 쓸 9개만** 담는다. success/warning/danger, 매크로색
+   (carb/protein/fat), 탭 카테고리색(diet/workout/stats), 태그색은 앱 화면의
+   의미 체계라 랜딩에 사용처가 없다 — 실사용 없는 값을 토큰으로 올리면 죽은
+   API 가 된다(mobile/constants/typography.ts 의 같은 판단).
+
+   타이포·간격 스케일은 복사하지 않는다. DESIGN.md 의 11–17px 밴드는 rem 14
+   기준 고밀도 데이터 화면용 계약이고, 웹은 기본 16 에 한 화면을 스크롤로 읽는
+   매체라 같은 밴드를 쓸 이유가 없다. 색만 공유하고 위계는 웹에서 새로 잡는다.
+
+   ── 동기화 ────────────────────────────────────────────────────
+   자동 동기화는 없다. DESIGN.md 의 색이 바뀌면 이 블록을 손으로 고친다
+   (9 × 2 값, 1 파일). DESIGN.md 는 직접 편집하지 않는다(채택된 계약).
+
+   ── 다크가 기본인 이유 ────────────────────────────────────────
+   DESIGN.md: "다크가 기본이고 라이트가 대응이다." 히어로에 들어갈 스크린샷도
+   다크로 찍히므로 랜딩을 라이트로 두면 이미지와 페이지가 어긋난다.
+   뒤집으려면 아래 두 블록의 값을 서로 바꾸면 된다.
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  --brand-primary:        #2e82f0;
+  --brand-on-accent:      #021526;
+  --brand-background:     #171b21;
+  --brand-surface:        #21272f;
+  --brand-surface-alt:    #22303f;
+  --brand-border:         #384049;
+  --brand-text-primary:   #e0e6ec;
+  --brand-text-secondary: #909aa6;
+  --brand-text-muted:     #646e7a;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --brand-primary:        #1e7aea;
+    --brand-on-accent:      #ffffff;
+    --brand-background:     #f2f6fb;
+    --brand-surface:        #ffffff;
+    --brand-surface-alt:    #eaf1f8;
+    --brand-border:         #dce6f0;
+    --brand-text-primary:   #16202b;
+    --brand-text-secondary: #5a6675;
+    --brand-text-muted:     #9aa6b4;
+  }
+}
+
+/* `inline` 이라 유틸리티가 var() 를 그대로 참조한다 — 테마가 바뀌면
+   클래스를 다시 쓰지 않고 변수만 갈린다. */
+@theme inline {
+  --color-primary:        var(--brand-primary);
+  --color-on-accent:      var(--brand-on-accent);
+  --color-background:     var(--brand-background);
+  --color-surface:        var(--brand-surface);
+  --color-surface-alt:    var(--brand-surface-alt);
+  --color-border:         var(--brand-border);
+  --color-text-primary:   var(--brand-text-primary);
+  --color-text-secondary: var(--brand-text-secondary);
+  --color-text-muted:     var(--brand-text-muted);
+}
+
+body {
+  background: var(--brand-background);
+  color: var(--brand-text-primary);
+}
+
+/* ============================================================
+   키보드 포커스 — 전역으로 한 번만 정의한다
+   ============================================================
+   `outline-offset` 가 핵심이다. primary 버튼 위에 primary 링을 그리면 대비가
+   1:1 이 되므로, 링을 요소 **밖**으로 밀어 배경(background) 과 맞닿게 한다.
+   그 조합의 실측 대비는 다크 4.58:1 / 라이트 3.85:1 로 WCAG 2.2 비텍스트
+   기준(1.4.11, 3:1)을 양쪽 다 통과한다.
+
+   `:focus-visible` 만 쓴다 — 마우스 클릭에는 링이 안 뜨고 키보드/보조기기에만
+   뜬다. `outline: none` 을 어디에도 쓰지 않는다.
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
