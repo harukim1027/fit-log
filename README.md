@@ -203,7 +203,7 @@ Git Push → GitHub Actions
 | 경로 | 진입 경로 | 닫기 |
 |---|---|---|
 | `modal/edit-profile` | 홈 우상단 아바타, 통계 헤더 person | 자체 헤더 X |
-| `modal/routine-manage` | 홈, 운동 탭 | Header showClose |
+| ~~`modal/routine-manage`~~ → `routine/*` | 홈, 운동 탭 | Header showBack (중첩 스택) |
 | `modal/add-workout` | 운동 탭 | ExerciseAdder Header showClose |
 | `modal/full-calendar` | 운동 탭 | 자체 헤더 X |
 | `modal/add-food` | `diet.tsx` (도달 불가) | Header showClose |
@@ -234,7 +234,7 @@ Git Push → GitHub Actions
 2. `ExerciseAdder` — 종목·세트·설정
 3. `edit-profile`, `add-food`
 
-### routine-manage 1199줄 내부 상태머신
+### routine-manage 내부 상태머신 — ✅ 해소
 
 다단계 흐름이 라우트 체인이 아니라 **단일 라우트 안의 상태머신**이다.
 
@@ -250,6 +250,26 @@ routine-manage (라우트 1개)
 "루틴 관리 → 새 루틴 → 종목 추가" 3단계가 라우트 1개다. X 버튼 4개 중 3개는 내부
 모드를 되돌릴 뿐이다. 스택으로 전환하면서 이 화면을 쪼개지 않으면, 스와이프가
 "새 루틴 작성 중"에도 루틴 관리 전체를 닫아버린다.
+
+> **해소 (2026-09-10).** 중첩 스택으로 쪼갰다. 모드가 스택 깊이와 1:1 이 되어
+> 뒤로가기·스와이프·헤더가 전부 "한 단계 취소"로 동작한다.
+>
+> ```
+> app/routine/_layout.tsx        Stack
+>   index.tsx                    목록
+>   edit.tsx                     작성·편집       ?id=
+>   exercise.tsx                 종목 추가·편집   ?index=
+>   combine/index.tsx            합칠 루틴 선택
+>   combine/edit.tsx             합쳐진 종목 정리
+> ```
+>
+> 화면 사이 상태는 `routineStore.draft` 가 나른다. 종목 추가는 콜백이 아니라
+> `addDraftExercise` → `router.back()` 단방향이고, 편집 화면은 `draft.exercises`
+> 를 구독해 자동 반영된다. 초안은 **영속화하지 않는다** — 사유는
+> `routineStore` 의 `draft` 주석 참조.
+>
+> 미저장 가드가 넷(버튼 3 + `usePreventRemove` 1)에서 라우트당 하나로 줄었고,
+> `subMode` 동안 스와이프를 끄던 절충도 사라졌다.
 
 ### 작업 순서
 

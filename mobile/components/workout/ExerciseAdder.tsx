@@ -157,10 +157,10 @@ type ExerciseAdderProps = {
   /**
    * 작성 중인 내용이 있는지 부모에 알린다.
    *
-   * 이 컴포넌트는 화면을 통째로 대체하는 자리에도 쓰이는데
-   * (`routine-manage`의 `subMode === "addExercise"`), 그때 부모가 안드로이드
-   * 뒤로가기를 막으려면 자식의 dirty를 알아야 한다. 자체 닫기 버튼은
-   * 아래 `useUnsavedGuard`가 직접 처리하므로 이 콜백과 무관하다.
+   * 부모는 이 값으로 `usePreventRemove` 를 건다 — 안드로이드 뒤로가기와
+   * 스와이프는 헤더 버튼 핸들러를 거치지 않으므로 자식의 dirty 를 알아야
+   * 한다. 헤더의 뒤로 버튼은 아래 `useUnsavedGuard` 가 직접 되묻기 때문에
+   * 이 콜백과 무관하다.
    */
   onDirtyChange?: (dirty: boolean) => void;
 };
@@ -353,8 +353,8 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
 
   const isDirty = currentSignature !== initialSignature;
 
-  // 부모가 안드로이드 뒤로가기를 막아야 하는 자리(routine-manage의 addExercise)를
-  // 위해 올린다. 콜백을 ref로 두고 isDirty만 의존해 매 렌더 통지를 막는다.
+  // 부모의 usePreventRemove 를 위해 올린다.
+  // 콜백을 ref 로 두고 isDirty 만 의존해 매 렌더 통지를 막는다.
   const onDirtyChangeRef = useRef(onDirtyChange);
   onDirtyChangeRef.current = onDirtyChange;
   useEffect(() => {
@@ -897,12 +897,16 @@ export default function ExerciseAdder({ mode, onAdd, onClose, editMode = false, 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       {/* 회귀 방지: onClose 를 그대로 넘기지 말 것. 작성 중이면 한 번 되묻는다.
-          부모가 라우트를 벗어나든(add-workout) 모드만 되돌리든(routine-manage)
-          이 가드는 동일하게 앞단에서 걸린다. */}
+
+          showBack 이다. 이 컴포넌트를 쓰는 두 곳이 모두 라우트라
+          (`modal/add-workout`, `routine/exercise`) 닫기가 아니라 한 단계
+          뒤로가기다. Header 가 플래그와 라벨을 묶어 두어 스크린리더도
+          "뒤로 가기"로 읽는다 — 아이콘만 바꾸고 라벨이 "닫기"로 남는 일이
+          없다. */}
       <Header
         title={editMode ? "운동 수정" : "운동 추가"}
-        showClose
-        onClose={() => guardUnsaved(onClose)}
+        showBack
+        onBack={() => guardUnsaved(onClose)}
       />
 
       <View style={{ flex: 1 }}>

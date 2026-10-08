@@ -271,7 +271,7 @@ export default function RootLayout() {
               animation: "slide_from_right",
             }}>
             {/* ── presentation 을 주지 않는 라우트는 기본값 "card" 다 ────────────────
-                add-workout / edit-profile / routine-manage 는 "이어지는 단계"라
+                add-workout / edit-profile / routine 은 "이어지는 단계"라
                 오른쪽에서 들어오고 스와이프로 되돌아간다. iOS 는 card 에서
                 스와이프가 기본 활성이고(gestureDirection: horizontal),
                 안드로이드는 native-stack 이 gestureEnabled 를 강제로 false 로
@@ -307,8 +307,12 @@ export default function RootLayout() {
               name="modal/edit-profile"
               options={{ headerShown: false, animation: "slide_from_right" }}
             />
+            {/* 루틴 관리 중첩 스택. "이어지는 단계"라 card + 오른쪽에서
+                슬라이드다. 내부 단계별 옵션은 app/routine/_layout.tsx 가 정한다.
+                (전에는 modal/routine-manage 한 라우트가 mode 상태머신으로
+                 다섯 화면을 그렸다.) */}
             <Stack.Screen
-              name="modal/routine-manage"
+              name="routine"
               options={{ headerShown: false, animation: "slide_from_right" }}
             />
             <Stack.Screen

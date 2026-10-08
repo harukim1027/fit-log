@@ -398,7 +398,7 @@ xcrun simctl openurl <UDID> \
 
 # 3) 화면 이동도 딥링크로
 xcrun simctl openurl <UDID> "exp+fitlog://stats"
-xcrun simctl openurl <UDID> "exp+fitlog://modal/routine-manage?editId=<id>"
+xcrun simctl openurl <UDID> "exp+fitlog://routine/edit?id=<id>"
 
 # 4) 스크린샷
 xcrun simctl io <UDID> screenshot out.png
