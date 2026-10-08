@@ -42,6 +42,7 @@ const ACCOUNT_DATA = {
   'routines:v2': '[{"name":"가슴 루틴"}]',
   'restDays:v1': '["2026-09-01"]',
   workout_draft: '{"exercises":[]}',
+  'workout_pending_save:v1': '{"status":"pending_save","session":{}}',
   'workoutSettingKeys:v1': '["그립"]',
   'restTimer2:벤치프레스': '90',
   'restTimer2:내가만든종목': '120',
@@ -90,5 +91,22 @@ describe('clearAccountCache', () => {
 
   it('접두어 목록에 restTimer2: 가 등록돼 있다', () => {
     expect(ACCOUNT_CACHE_KEY_PREFIXES).toContain('restTimer2:');
+  });
+
+  /**
+   * ★ 저장 실패한 운동도 계정 데이터다.
+   *
+   * 등록하지 않으면 계정 A 가 저장에 실패한 운동이 기기에 남고, 계정 B 로
+   * 로그인했을 때 그 사람의 운동 탭에 "저장하지 못한 운동이 있어요" 배너로
+   * 뜬다 — 남의 운동 날짜·종목·세트가 그대로 보인다.
+   */
+  it('고정 키 목록에 workout_pending_save:v1 이 등록돼 있다', () => {
+    expect(ACCOUNT_CACHE_KEYS).toContain('workout_pending_save:v1');
+  });
+
+  it('저장 대기 중인 운동도 로그아웃 때 지워진다', async () => {
+    expect(AS.__all()['workout_pending_save:v1']).toBeDefined(); // 사전 조건
+    await clearAccountCache();
+    expect(AS.__all()['workout_pending_save:v1']).toBeUndefined();
   });
 });
