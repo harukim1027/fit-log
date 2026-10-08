@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
+    "postinstall": "node scripts/sync-widget-sources.js",
+    "sync:widgets": "node scripts/sync-widget-sources.js",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
