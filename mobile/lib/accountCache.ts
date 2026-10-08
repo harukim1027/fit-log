@@ -29,6 +29,7 @@ export const ACCOUNT_CACHE_KEYS = [
   'routines:v2', // store/routineStore.ts
   'restDays:v1', // store/restDayStore.ts
   'workout_draft', // store/workoutStore.ts — 작성 중이던 운동 세션
+  'workout_pending_save:v1', // store/workoutStore.ts — 저장에 실패해 대기 중인 운동
   'workoutSettingKeys:v1', // components/workout/ExerciseAdder.tsx — 기구 설정 키
 ] as const;
 

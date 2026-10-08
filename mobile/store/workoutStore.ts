@@ -30,6 +30,56 @@ const WORKOUT_DRAFT_KEY = "workout_draft";
 let _draftSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
+ * 임시저장의 두 가지 뜻. **키를 나눠 둔다.**
+ *
+ *   'active'       (`workout_draft`) 아직 하는 중인 운동. 앱이 죽어도 이어서
+ *                  하라고 되살린다. 24시간이 지나면 버린다 — 사용자가 이미
+ *                  잊은 것으로 본다.
+ *   'pending_save' (`workout_pending_save:v1`) 사용자가 완료를 눌렀는데
+ *                  **서버 저장이 실패한** 운동. 이미 끝난 운동이라 이어할 것이
+ *                  없고, 되살릴 것은 "저장"뿐이다.
+ *                  ★ **만료가 없다.** 여기에 24시간을 적용하면 손실을 하루
+ *                    미루는 것일 뿐이라 안전판이 되지 못한다.
+ *
+ * ★ **한 키에 status 필드만 두는 방식은 쓸 수 없다.** 저장에 실패한 운동을
+ *   남겨 둔 채 사용자가 다음 운동을 시작하면, 진행 중 세션의 임시저장이 같은
+ *   키를 덮어써서 구조되지 못한 기록이 그 자리에서 사라진다. 하루 이틀 뒤
+ *   다시 운동하는 것은 드문 일이 아니므로 현실적인 경로다.
+ *
+ * 상태를 구분하는 이유: 구분이 없으면 저장 실패한 운동이 "이어할까요?"로
+ * 떠서 타이머가 다시 돌고, 사용자가 '새로 시작'을 고르면 영구 손실이 된다.
+ */
+type DraftStatus = "active" | "pending_save";
+
+/**
+ * 저장 대기 운동의 임시저장 키.
+ * ★ 새 키이므로 `lib/accountCache.ts` 의 ACCOUNT_CACHE_KEYS 에 등록했다 —
+ *   등록하지 않으면 로그아웃 후 다른 계정에서 이전 사용자의 운동이 되살아난다.
+ */
+const PENDING_SAVE_KEY = "workout_pending_save:v1";
+
+/** 저장 실패 시 **얼려 두는** 값. 재시도는 이 값을 그대로 다시 보낸다. */
+export interface PendingSave {
+  session: WorkoutSession;
+  /** 완료를 누른 시점에 계산된 소요 시간. 재시도가 늦어져도 늘어나지 않는다. */
+  durationMinutes: number;
+  /** 같은 시점에 계산된 소모 칼로리. */
+  caloriesBurned: number;
+  failedAt: number;
+}
+
+interface WorkoutDraft {
+  session: WorkoutSession;
+  sessionStartTime: number | null;
+  workoutElapsed: number;
+  savedAt: number;
+  /** 구버전 draft에는 없다 — 없으면 'active'로 읽는다. */
+  status?: DraftStatus;
+  /** status가 'pending_save'일 때만 있다. */
+  pending?: { durationMinutes: number; caloriesBurned: number; failedAt: number };
+}
+
+/**
  * 진행 중인 세션을 AsyncStorage에 임시저장한다.
  * 앱이 강제 종료돼도 다음 실행 시 restoreDraft()로 복원 가능.
  * session이 null이면 기존 임시저장 데이터를 삭제한다.
@@ -46,12 +96,85 @@ const saveWorkoutDraft = (
   }
   if (_draftSaveTimer) clearTimeout(_draftSaveTimer);
   _draftSaveTimer = setTimeout(() => {
-    AsyncStorage.setItem(
-      WORKOUT_DRAFT_KEY,
-      JSON.stringify({ session, sessionStartTime, workoutElapsed, savedAt: Date.now() }),
-    ).catch(() => {});
+    const draft: WorkoutDraft = {
+      session, sessionStartTime, workoutElapsed, savedAt: Date.now(), status: "active",
+    };
+    AsyncStorage.setItem(WORKOUT_DRAFT_KEY, JSON.stringify(draft)).catch(() => {});
   }, 300);
 };
+
+/**
+ * 저장 실패한 운동을 **즉시** 디스크에 쓴다.
+ *
+ * ★ 디바운스를 쓰지 않는다. 이 쓰기가 손실을 막는 마지막 장치인데, 300ms를
+ *   기다리는 사이에 앱이 죽으면 그 운동은 어디에도 남지 않는다. 진행 중
+ *   세션의 디바운스는 세트마다 쓰는 것을 줄이려는 최적화이고, 이쪽은 운동당
+ *   한 번뿐이라 줄일 이유도 없다.
+ */
+const savePendingDraft = async (p: PendingSave): Promise<void> => {
+  const draft: WorkoutDraft = {
+    session: p.session,
+    sessionStartTime: null,
+    workoutElapsed: 0,
+    savedAt: p.failedAt,
+    status: "pending_save",
+    pending: {
+      durationMinutes: p.durationMinutes,
+      caloriesBurned: p.caloriesBurned,
+      failedAt: p.failedAt,
+    },
+  };
+  try {
+    await AsyncStorage.setItem(PENDING_SAVE_KEY, JSON.stringify(draft));
+  } catch (e) {
+    // 여기까지 실패하면 메모리의 pendingSave 가 유일한 사본이다. 앱을 끄면 잃는다.
+    logger.error("저장 대기 운동의 임시저장 실패", e instanceof Error ? e : new Error(String(e)));
+  }
+};
+
+/** 저장 대기 임시저장을 지운다. 저장에 성공했거나 사용자가 버렸을 때만 부른다. */
+const clearPendingDraft = () => {
+  AsyncStorage.removeItem(PENDING_SAVE_KEY).catch(() => {});
+};
+
+/**
+ * 서버로 보낼 운동 세션 본문. **최초 저장과 재시도가 같은 함수를 쓴다** —
+ * 두 곳에서 각자 만들면 재시도가 조금씩 다른 것을 보내게 된다.
+ */
+const buildWorkoutPayload = (
+  session: WorkoutSession,
+  durationMinutes: number,
+  caloriesBurned: number,
+) => ({
+  date: session.date,
+  durationMinutes,
+  caloriesBurned,
+  note: session.note,
+  fromRoutineId: session.fromRoutineId ?? null,
+  exercises: session.exercises
+    // 완료 세트 없는 종목은 히스토리에 남지 않게 저장 단계에서 제외 (요청 이력)
+    .filter((ex) => ex.sets.some((s) => s.completed))
+    .map((ex, idx) => ({
+      name: ex.name,
+      category: ex.category,
+      settings: ex.settings ?? [],
+      tip: ex.tip ?? "",
+      isSingleArm: ex.isSingleArm ?? false,
+      targetMuscles: ex.targetMuscles ?? [],
+      restSeconds: ex.restSeconds ?? null,
+      targetReps: ex.targetReps ?? "",
+      order: idx,
+      // 완료된 세트만 저장
+      sets: ex.sets
+        .filter((st) => st.completed)
+        .map((st) => ({
+          weight: st.weight,
+          reps: st.reps,
+          completed: true,
+          unit: st.unit ?? "kg",
+        })),
+    })),
+});
 
 export type CompareMode = "recent" | "pr" | "week" | "month";
 
@@ -163,11 +286,31 @@ interface WorkoutStore {
   exerciseHistoryCache: Map<string, ExerciseHistory>;
   workoutElapsed: number;
   workoutPaused: boolean;
+  /**
+   * 완료를 눌렀지만 서버 저장이 실패해 **아직 어디에도 기록되지 않은** 운동.
+   *
+   * `activeSession` 과 별개의 필드인 이유: 이 운동은 이미 끝났다. 같은 필드에
+   * 두면 전역 미니 바(`ActiveWorkoutBar`)가 "운동 진행 중"으로 시계를 돌리고,
+   * 복원 시에는 "이어할까요?" 가 떠서 '새로 시작'이 곧 영구 손실이 된다.
+   * 끝난 것과 하는 중인 것을 상태로 구분해 두 화면이 각자 맞게 말하게 한다.
+   */
+  pendingSave: PendingSave | null;
 
   startSession: () => void;
   startSessionWithRoutine: (routine: Routine) => void;
-  /** 완료 세트가 있는 종목만 저장. 저장할 게 없으면 'empty' 반환(저장/정리 안 함). */
-  endSession: (caloriesBurned: number) => Promise<'empty' | 'saved'>;
+  /**
+   * 완료 세트가 있는 종목만 저장.
+   *   'empty'  저장할 게 없음 — 저장/정리 안 함
+   *   'saved'  서버 저장 성공 — 세션과 임시저장 정리됨
+   *   'failed' 서버 저장 실패 — ★ **세션을 `pendingSave` 로 옮겨 보관한다.**
+   *            임시저장도 지우지 않는다. 호출부는 완료 화면을 띄우지 말고
+   *            실패를 알린 뒤 `retryPendingSave()` 를 안내해야 한다.
+   */
+  endSession: (caloriesBurned: number) => Promise<'empty' | 'saved' | 'failed'>;
+  /** 저장 대기 중인 운동을 다시 보낸다. 얼려 둔 시간·칼로리를 그대로 쓴다. */
+  retryPendingSave: () => Promise<'saved' | 'failed' | 'empty'>;
+  /** 저장 대기 중인 운동을 **버린다.** 파괴적이라 호출부가 반드시 확인을 받는다. */
+  discardPendingSave: () => void;
   deleteSession: (id: string) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, "sets">) => void;
   addSet: (exerciseId: string, set: WorkoutSet) => void;
@@ -213,8 +356,14 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   exerciseHistoryCache: new Map(),
   workoutElapsed: 0,
   workoutPaused: false,
+  pendingSave: null,
 
-  /** 세션을 저장하지 않고 종료. 운동 도중 "그냥 나가기" 시 사용 */
+  /**
+   * 세션을 저장하지 않고 종료. 운동 도중 "그냥 나가기" 시 사용
+   *
+   * `pendingSave` 는 건드리지 않는다. 저장 대기 중인 **다른** 운동이 있다면
+   * 그것은 이 운동과 무관하게 아직 구조되지 못한 기록이다.
+   */
   cancelSession: () => {
     get().stopWorkoutTimer();
     set({ activeSession: null, sessionStartTime: null, workoutElapsed: 0, workoutPaused: false });
@@ -222,11 +371,44 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   },
 
   /**
-   * 앱 시작 시 AsyncStorage에서 미완성 세션을 복원한다.
-   * 24시간 이내 데이터만 복원하는 이유:
-   * 너무 오래된 임시저장은 사용자가 이미 잊었거나 의도적으로 종료한 것으로 판단.
+   * 앱 시작 시 임시저장을 복원한다. **두 종류를 모두 본다.**
+   *
+   * 1) 저장 대기(`workout_pending_save:v1`) — 끝났지만 서버에 못 보낸 운동.
+   *    ★ **만료를 적용하지 않는다.** 사용자가 구조할 때까지 남는다.
+   * 2) 진행 중(`workout_draft`) — 하던 운동. 24시간이 지나면 버린다.
+   *    너무 오래된 것은 사용자가 이미 잊었거나 의도적으로 종료한 것으로 본다.
+   *
+   * 반환값은 **"이어서 할지 물어볼 진행 중 세션이 복원되었는가"** 다.
+   * 저장 대기 건은 이어할 운동이 아니라 보낼 기록이므로 `false` 다 —
+   * 호출부의 "이어하기 / 새로 시작" 질문에 걸리면 '새로 시작'이 그 자리에서
+   * 영구 손실이 된다. 저장 대기는 운동 탭의 배너가 따로 안내한다.
    */
   restoreDraft: async () => {
+    // ── 1. 저장 대기 ──
+    try {
+      const rawPending = await AsyncStorage.getItem(PENDING_SAVE_KEY);
+      if (rawPending) {
+        const d: WorkoutDraft = JSON.parse(rawPending);
+        if (d?.session && d.pending) {
+          set({
+            pendingSave: {
+              session: d.session,
+              durationMinutes: d.pending.durationMinutes,
+              caloriesBurned: d.pending.caloriesBurned,
+              failedAt: d.pending.failedAt ?? d.savedAt,
+            },
+          });
+          logger.warn('저장 대기 중인 운동을 복원했다', { failedAt: d.pending.failedAt });
+        } else {
+          // 형태가 깨진 값은 되살릴 수 없다. 남겨 두면 매번 같은 실패를 반복한다.
+          await AsyncStorage.removeItem(PENDING_SAVE_KEY);
+        }
+      }
+    } catch {
+      // 저장 대기 복원 실패가 진행 중 세션 복원을 막지 않게 한다.
+    }
+
+    // ── 2. 진행 중 ──
     try {
       const raw = await AsyncStorage.getItem(WORKOUT_DRAFT_KEY);
       if (!raw) return false;
@@ -405,40 +587,89 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
     set({ workoutElapsed: 0, workoutPaused: false });
 
     try {
-      await apiClient.post("/workout", {
-        date: active.date,
-        durationMinutes,
-        caloriesBurned,
-        note: active.note,
-        fromRoutineId: active.fromRoutineId ?? null,
-        exercises: exercisesToSave.map((ex, idx) => ({
-          name: ex.name,
-          category: ex.category,
-          settings: ex.settings ?? [],
-          tip: ex.tip ?? "",
-          isSingleArm: ex.isSingleArm ?? false,
-          targetMuscles: ex.targetMuscles ?? [],
-          restSeconds: ex.restSeconds ?? null,
-          targetReps: ex.targetReps ?? "",
-          order: idx,
-          // 완료된 세트만 저장
-          sets: ex.sets
-            .filter((st) => st.completed)
-            .map((st) => ({
-              weight: st.weight,
-              reps: st.reps,
-              completed: true,
-              unit: st.unit ?? 'kg',
-            })),
-        })),
-      });
-      await get().fetchSessions();
+      await apiClient.post("/workout", buildWorkoutPayload(active, durationMinutes, caloriesBurned));
     } catch (e) {
       logger.error('운동 저장 실패', e instanceof Error ? e : new Error(String(e)));
+
+      // ── 손실 방지 ────────────────────────────────────────────────────────
+      // 전에는 아래 정리 세 줄이 try/catch 바깥에 있어 실패해도 그대로 돌았다.
+      // 세션을 비우고(1) 임시저장을 지우고(2) 'saved'를 반환해(3) 호출부가
+      // 완료 화면까지 띄웠다 — 사라진 기록을 축하하는 상태였다.
+      //
+      // 이제 실패하면 **아무것도 지우지 않고** 세션을 pendingSave 로 옮긴다.
+      // 소요 시간과 칼로리를 여기서 얼려 두는 이유: 재시도가 한참 뒤에 일어나도
+      // 기록된 운동 시간이 그만큼 늘어나면 안 된다. 타이머를 되돌리는 대신
+      // 값을 고정하는 쪽이 확실하다 — 되돌리면 재시도까지의 시간이 섞인다.
+      // ★ 알려진 한계 — 저장 대기 자리는 **하나**다.
+      //   이미 대기 중인 운동이 있는데 또 실패하면 앞의 것이 덮인다. 큐로
+      //   바꾸는 것은 2단계 과제라, 지금은 덮이는 순간을 Sentry 로 남겨
+      //   실제로 일어나는지 알 수 있게만 해 둔다. (배너가 운동 탭 첫 화면에
+      //   떠 있으므로 다음 운동을 시작하기 전에 보일 가능성이 높다.)
+      const prev = get().pendingSave;
+      if (prev) {
+        logger.error(
+          '저장 대기 운동이 덮였다 — 앞선 기록이 사라진다',
+          new Error(`previous failedAt=${prev.failedAt}, date=${prev.session.date}`),
+        );
+      }
+
+      const pending: PendingSave = {
+        session: active,
+        durationMinutes,
+        caloriesBurned,
+        failedAt: Date.now(),
+      };
+      // 디스크에 먼저 쓴다. 쓰기가 끝난 뒤에야 메모리의 activeSession 을 비운다.
+      await savePendingDraft(pending);
+      set({ activeSession: null, sessionStartTime: null, pendingSave: pending });
+      // 진행 중 임시저장은 이제 pendingSave 가 들고 있으므로 비운다.
+      saveWorkoutDraft(null, null, 0);
+      return 'failed';
     }
+
+    // fetchSessions 는 성공 경로에서만 부른다. 내부에서 예외를 삼키므로
+    // 여기 실패가 저장 실패로 오인되지 않는다(이미 서버에는 저장됐다).
+    await get().fetchSessions();
     set({ activeSession: null, sessionStartTime: null });
     saveWorkoutDraft(null, null, 0);
     return 'saved';
+  },
+
+  /**
+   * 저장 대기 중인 운동을 다시 보낸다.
+   *
+   * 얼려 둔 `durationMinutes`·`caloriesBurned` 를 그대로 쓴다. 성공하면 그때야
+   * 임시저장을 지운다 — 응답을 받기 전에 지우면 그 사이 앱이 죽었을 때
+   * 처음과 같은 손실이 난다.
+   *
+   * ★ 1단계에는 자동 재시도가 없다. **사용자가 눌러야만** 요청이 나간다.
+   *   서버에 멱등키가 없어서(2단계 과제) 자동 재시도는 "서버에는 저장됐는데
+   *   응답을 못 받은" 경우에 중복 기록을 만든다. 사람이 결과를 보고 누르는
+   *   동안에는 그 중복이 눈에 보이고 되돌릴 수 있다.
+   */
+  retryPendingSave: async () => {
+    const p = get().pendingSave;
+    if (!p) return 'empty';
+    try {
+      await apiClient.post(
+        "/workout",
+        buildWorkoutPayload(p.session, p.durationMinutes, p.caloriesBurned),
+      );
+    } catch (e) {
+      logger.error('운동 저장 재시도 실패', e instanceof Error ? e : new Error(String(e)));
+      return 'failed';
+    }
+    logger.info('운동 저장 재시도 성공', { failedAt: p.failedAt });
+    clearPendingDraft();
+    set({ pendingSave: null });
+    await get().fetchSessions();
+    return 'saved';
+  },
+
+  /** 저장 대기 중인 운동을 버린다. 되돌릴 수 없어 호출부가 확인을 받는다. */
+  discardPendingSave: () => {
+    clearPendingDraft();
+    set({ pendingSave: null });
   },
 
   /**
@@ -718,9 +949,12 @@ export const useWorkoutStore = create<WorkoutStore>((set, get) => ({
   },
 
   /** 로그아웃·탈퇴 시 메모리 상태를 비운다. lib/accountCache.ts 참조. */
+  // pendingSave 도 비운다. 저장소 쪽은 clearAccountCache 가 PENDING_SAVE_KEY 를
+  // 함께 지운다 — 메모리만 비우면 다음 로그인에서 남의 운동이 되살아난다.
   reset: () => set({
     sessions: [], activeSession: null, sessionStartTime: null,
     isLoading: false, loadError: null, historyJumpDate: null,
     exerciseHistoryCache: new Map(), workoutElapsed: 0, workoutPaused: false,
+    pendingSave: null,
   }),
 }));

@@ -202,8 +202,14 @@ function WorkoutScreen() {
     cancelSession,
     historyJumpDate,
     setHistoryJumpDate,
+    pendingSave,
+    retryPendingSave,
+    discardPendingSave,
   } = useWorkoutStore(
     useShallow((s) => ({
+      pendingSave: s.pendingSave,
+      retryPendingSave: s.retryPendingSave,
+      discardPendingSave: s.discardPendingSave,
       activeSession: s.activeSession,
       sessionStartTime: s.sessionStartTime,
       startSession: s.startSession,
@@ -562,6 +568,70 @@ function WorkoutScreen() {
     }
   };
 
+  /**
+   * 저장 대기 중인 운동을 다시 보낸다. 완료 직후와 배너에서 같은 함수를 쓴다 —
+   * 두 경로가 서로 다른 말을 하면 사용자가 상태를 추적할 수 없다.
+   */
+  const handleRetrySave = async () => {
+    const result = await retryPendingSave();
+    if (result === "saved") {
+      showCuteAlert({
+        icon: "check",
+        tone: "ok",
+        title: "저장했어요",
+        message: "기다리던 운동 기록이 저장됐어요.",
+        buttons: [{ label: "확인", style: "primary" }],
+      });
+      return;
+    }
+    if (result === "failed") showSaveFailedAlert();
+  };
+
+  /**
+   * 저장 실패 안내.
+   *
+   * 문구가 지켜야 할 것은 홈의 주간 목표 실패 처리와 같은 원칙이다
+   * (`app/(tabs)/index.tsx` — "조용히 되돌리면 사용자는 자기가 누른 게 안 먹은
+   * 건지 원래대로 돌아온 건지 구분할 수 없다").
+   *
+   * ★ "저장하지 못했어요"만 말하면 사용자는 **기록이 날아갔다고 생각한다.**
+   *   이 경우 기록은 기기에 남아 있으므로, 사라지지 않았다는 사실을 실패
+   *   자체보다 먼저 전해야 한다. 그래서 제목이 "저장 실패"가 아니다.
+   */
+  const showSaveFailedAlert = () => {
+    showCuteAlert({
+      icon: "alert",
+      tone: "danger",
+      title: "아직 저장하지 못했어요",
+      message:
+        "기록은 휴대폰에 그대로 있어요. 사라지지 않았어요.\n연결을 확인하고 다시 시도해 주세요.",
+      buttons: [
+        { label: "나중에", style: "soft" },
+        { label: "다시 시도", style: "primary", onPress: () => { handleRetrySave(); } },
+      ],
+    });
+  };
+
+  /**
+   * 저장 대기 운동 버리기. **되돌릴 수 없는 유일한 손실 경로**라 확인을 받는다.
+   * 형태는 앱의 기존 삭제 확인과 같다 (trash + danger + [취소 soft, 삭제 primary]).
+   *
+   * 버튼을 두는 이유: 어떤 이유로든 영영 저장되지 않는 기록이 생기면 배너를
+   * 끌 방법이 없어진다. 지우는 것은 사용자가 고를 수 있어야 한다.
+   */
+  const handleDiscardPending = () => {
+    showCuteAlert({
+      icon: "trash",
+      tone: "danger",
+      title: "버릴까요?",
+      message: "저장하지 못한 운동 기록이 완전히 사라져요.",
+      buttons: [
+        { label: "취소", style: "soft" },
+        { label: "버리기", style: "primary", onPress: () => discardPendingSave() },
+      ],
+    });
+  };
+
   const handleEnd = () => {
     const weightKg = user?.weight ?? 70;
     const durationMinutes = sessionStartTime
@@ -599,6 +669,14 @@ function WorkoutScreen() {
                   { label: "확인", style: "primary", onPress: () => cancelSession() },
                 ],
               });
+              return;
+            }
+            // ★ 저장 실패. 완료 오버레이도 루틴 저장 모달도 띄우지 않는다.
+            //   전에는 endSession 이 실패해도 'saved' 를 반환해서 아래가 그대로
+            //   돌았다 — 서버에 없는 기록을 축하하고, 그것을 루틴으로 저장할지
+            //   물었다. 알림만 더하고 이 억제를 빼면 고친 것이 없다.
+            if (result === "failed") {
+              showSaveFailedAlert();
               return;
             }
             setCompleteCalories(calories);
@@ -710,6 +788,93 @@ function WorkoutScreen() {
     );
   }
 
+  /**
+   * 저장 대기 배너 — 완료를 눌렀지만 서버에 못 보낸 운동이 있을 때만 뜬다.
+   *
+   * 기록이 기기에 남아 있다는 사실을 먼저 말하고, 그다음에 실패를 말한다 —
+   * 순서가 바뀌면 사용자는 날아갔다고 읽는다.
+   * 자동 재시도는 없다(2단계). 이 버튼이 1단계의 유일한 복구 경로다.
+   *
+   * ★ 변수로 뽑아 **두 곳에서** 그린다 — 정상 목록과 `loadError` 폴백.
+   *   저장이 실패하는 이유는 대개 서버에 못 닿는 것이고, 그러면 같은 이유로
+   *   `fetchSessions` 도 실패해 바로 아래 `if (loadError)` 조기 반환이 걸린다.
+   *   즉 **구조가 가장 필요한 순간에 배너가 가려지는** 상태였다.
+   *   JSX 를 복붙하지 않으려고 변수 하나로 두고 양쪽에서 참조한다.
+   */
+  const pendingSaveBanner = pendingSave ? (
+    <View
+      style={{
+        // loadError 폴백 컨테이너가 items-center 라 명시하지 않으면 폭이 줄어든다.
+        // 정상 목록(기본 alignItems: stretch)에서는 영향이 없다.
+        alignSelf: "stretch",
+        backgroundColor: c.surfaceAlt,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: c.border,
+        padding: 16,
+        marginBottom: 16,
+      }}>
+      <View
+        style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <Icon name="info" size={16} color={c.warning} />
+        <Text style={{ fontSize: 14, fontWeight: "800", color: c.textPrimary }}>
+          저장하지 못한 운동이 있어요
+        </Text>
+      </View>
+      <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary, lineHeight: 18 }}>
+        {`${pendingSave.session.date} · 종목 ${
+          pendingSave.session.exercises.filter((ex) =>
+            ex.sets.some((st) => st.completed),
+          ).length
+        }개 · ${pendingSave.durationMinutes}분`}
+      </Text>
+      <Text style={{ fontSize: 12, fontWeight: "600", color: c.textSecondary, lineHeight: 18 }}>
+        기록은 휴대폰에 그대로 있어요. 다시 보내면 돼요.
+      </Text>
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="저장하지 못한 운동 다시 저장"
+          activeOpacity={0.8}
+          onPress={handleRetrySave}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            backgroundColor: c.primary,
+            borderRadius: 12,
+          }}>
+          <Icon name="refresh" size={15} color={c.onAccent} />
+          <Text style={{ fontSize: 14, fontWeight: "800", color: c.onAccent }}>
+            다시 저장
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="저장하지 못한 운동 버리기"
+          activeOpacity={0.8}
+          onPress={handleDiscardPending}
+          style={{
+            minHeight: 44,
+            paddingHorizontal: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 12,
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.border,
+          }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: c.textSecondary }}>
+            버리기
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  ) : null;
+
   // 로드 실패 폴백 — workoutStore.fetchSessions가 throw 대신 loadError를 세팅하므로
   // 여기서 재시도 UI를 그린다. 이게 없으면 실패 시 빈 화면만 남는다.
   // DESIGN.md: 의미색(danger)은 아이콘에만 싣고 본문은 text-secondary로 둔다
@@ -719,6 +884,9 @@ function WorkoutScreen() {
       <View
         className="flex-1 bg-background items-center justify-center"
         style={{ paddingHorizontal: 16 }}>
+        {/* 목록을 못 불러온 것과 운동을 못 저장한 것은 **다른 문제**다.
+            배너를 먼저 둔다 — 이쪽이 사용자의 기록이 걸린 쪽이다. */}
+        {pendingSaveBanner}
         {/* 카드(L1) 위에 올린다 — 라이트 테마에서 danger 아이콘이 background(#F2F6FB)
             위로는 2.94:1이라 비텍스트 3:1 기준에 미달하고, surface 위에서는 3.19:1로 통과한다. */}
         <View
@@ -850,6 +1018,8 @@ function WorkoutScreen() {
             }}>
             {!activeSession ? (
               <>
+                {pendingSaveBanner}
+
                 {/* 제목 + 운동 시작 버튼 */}
                 <View
                   style={{
